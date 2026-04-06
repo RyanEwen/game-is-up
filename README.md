@@ -1,0 +1,154 @@
+# Game Is Up
+
+Game Is Up is a monorepo for a game-discovery PWA and Android wrapper. The initial scaffold includes:
+
+- a Vite + React + Joy UI web app
+- an Express + TypeScript API
+- a Capacitor-based Android wrapper scaffold
+- a shared package for contracts and schemas
+- a Prisma schema targeting PostgreSQL
+- a devcontainer with PostgreSQL and VS Code linting support
+- workspace prompts, instructions, and hooks for repeatable agent-assisted work
+
+## Workspace layout
+
+```text
+apps/
+  android/    Capacitor wrapper package for the shared web app
+  api/        Express API, Prisma schema, route modules
+  web/        Vite React app, Joy UI shell, PWA config
+packages/
+  shared/     Shared Zod schemas, contracts, and domain types
+.devcontainer/
+  devcontainer.json
+  docker-compose.yml
+.github/
+  copilot-instructions.md
+  instructions/
+  prompts/
+  hooks/
+```
+
+## Quick start
+
+1. Open the repository in the devcontainer.
+2. Copy `.env.example` to `.env` if you need to override defaults outside the devcontainer.
+3. Install dependencies:
+
+   ```bash
+   npm install
+   ```
+
+4. Generate the Prisma client:
+
+   ```bash
+   npm run db:generate
+   ```
+
+5. Wait for the configured database to become reachable:
+
+  ```bash
+  npm run db:wait
+  ```
+
+6. Push the current schema and seed demo data:
+
+  ```bash
+  npm run db:push
+  npm run db:seed
+  ```
+
+7. Start the workspace:
+
+   ```bash
+   npm run dev
+   ```
+
+For a clean local reset plus startup in one command, run:
+
+```bash
+npm run dev:fresh
+```
+
+## Validation
+
+Run the full validation suite with:
+
+```bash
+npm run validate
+```
+
+That runs ESLint, TypeScript checks, and `prisma validate`.
+
+## Database helpers
+
+- `npm run db:wait` waits for the configured PostgreSQL host and port before starting app processes.
+- `npm run db:push` force-resets the dev database and applies the current Prisma schema.
+- `npm run db:seed` reloads the demo discovery dataset.
+- `npm run db:generate` refreshes the Prisma client after schema changes.
+- `npm run dev:fresh` waits for PostgreSQL, resets the schema, reseeds demo data, and starts the full stack.
+
+Inside the devcontainer, the workspace uses the Compose `db` service. Outside the devcontainer, the fallback local URL is `postgresql://postgres:postgres@localhost:5432/game_is_up?schema=public` unless you override `DATABASE_URL`.
+
+This repo is still pre-launch, so the current workflow is schema-first rather than migration-history-first.
+
+## Discord OAuth setup
+
+1. In the Discord developer portal, add your OAuth redirect URI.
+2. For local development, use the callback in `.env.example` unless you intentionally change the API port.
+3. Set `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`, and `DISCORD_CALLBACK_URL` in your environment or `.env` file.
+4. Start the app in the devcontainer and use the "Sign in with Discord" button in the web UI.
+5. Discord sign-in now also requests the `guilds` scope so the app can sync which servers you share with other users.
+6. After signing in, use the in-app Discord server controls to opt specific shared servers into discovery. Synced servers are excluded by default.
+7. Optional: set `DISCORD_BOT_TOKEN`, install the bot in shared Discord servers, and enable the Presence Intent in the Discord developer portal if you want lossy recording of currently played Discord games.
+8. Bot-based activity tracking only records activity while the bot is online and present in a shared server, so it should be treated as opportunistic rather than authoritative history.
+9. Discord is the only sign-in path in this scaffold.
+10. On Android, Discord sign-in opens in the system browser and returns to the app through the `gameisup://auth` deep link. For local development, keep `adb reverse` active so the installed app can still reach the local API while completing sign-in.
+
+## Game catalog provider
+
+The library search can query RAWG for broad multi-platform game data instead of being limited to any single storefront.
+
+1. Create a RAWG API key at `https://rawg.io/apidocs`.
+2. Set `RAWG_API_KEY` in your `.env` file or devcontainer environment.
+3. If the key is missing, the app falls back to locally known games only.
+4. Keep the RAWG attribution link visible anywhere RAWG-backed catalog results are shown.
+
+Library entries now store one canonical game with one or more selected platform flags, instead of requiring one separate library row per platform.
+
+Users can also set one profile-level "when do you usually play" note and let individual games inherit it, while still attaching a game-specific schedule override when a title tends to happen at a different time.
+
+## Repository automation
+
+- `.husky/pre-commit` runs the validation suite before commits.
+- `.github/copilot-instructions.md` defines workspace-wide coding guidance.
+- `.github/instructions/` scopes additional guidance by area.
+- `.github/prompts/` adds reusable prompts for vertical-slice work, provider adapters, commit workflow, and documentation audits.
+- `.github/hooks/` adds Copilot hooks for session guidance, destructive-command protection, post-edit reminders, and targeted validation routing.
+
+## Android devcontainer flow
+
+The devcontainer now provisions Java 21 plus the Android SDK needed by the Capacitor wrapper.
+
+- `npm run ensure --workspace @game-is-up/android` builds the web app, generates or syncs the local Android project, and writes `local.properties`.
+- `npm run assemble:debug --workspace @game-is-up/android` builds a debug APK.
+- `npm run adb:reverse --workspace @game-is-up/android` maps Android `localhost:4000` back to the adb host for local API testing.
+- `npm run install:debug --workspace @game-is-up/android` installs the debug build with `adb`.
+
+For local USB testing against the devcontainer API, use `npm run install:debug:usb --workspace @game-is-up/android`.
+
+Android Discord sign-in uses the system browser plus the app deep link instead of trying to finish OAuth inside the WebView. The browser returns to `gameisup://auth`, and the app then exchanges a short-lived mobile auth handoff with the API to establish the in-app session.
+
+The generated `apps/android/android` project remains local and is not checked into git.
+
+On ARM hosts, the devcontainer image also installs the `amd64` runtime libraries required for the Android toolchain's x86_64 binaries.
+
+## Play intent model
+
+Users are not limited to one active game when expressing play intent. A play intent can target:
+
+- any game in the user library
+- a selected subset of games
+
+The initial API scaffold includes typed examples for both cases so later persistence work can build on the same contract.
+

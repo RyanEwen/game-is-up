@@ -1,0 +1,11 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "type": "command",
+        "command": "node ./scripts/copilot/post-tool-validate.mjs",
+        "timeout": 120
+      }
+    ]
+  }
+}

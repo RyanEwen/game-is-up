@@ -1,0 +1,11 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "type": "command",
+        "command": "node ./scripts/copilot/post-tool-reminders.mjs",
+        "timeout": 10
+      }
+    ]
+  }
+}

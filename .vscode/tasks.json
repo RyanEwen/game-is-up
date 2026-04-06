@@ -1,0 +1,142 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Dev: full stack",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "dev"],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Dev: fresh start",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "dev:fresh"],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Validate workspace",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "validate"],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "group": {
+        "kind": "test",
+        "isDefault": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Database: push schema (reset)",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "db:push"],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Database: seed",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "db:seed"],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Database: reset and seed",
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "Database: push schema (reset)",
+        "Database: seed"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "API: dev",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "dev", "--workspace", "@game-is-up/api"],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Web: dev",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "dev", "--workspace", "@game-is-up/web"],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Android: sync",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "sync", "--workspace", "@game-is-up/android"],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Android: ensure",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "ensure", "--workspace", "@game-is-up/android"],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Android: adb reverse",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "adb:reverse", "--workspace", "@game-is-up/android"],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Android: assemble debug",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "assemble:debug", "--workspace", "@game-is-up/android"],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Android: install debug (USB)",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "install:debug:usb", "--workspace", "@game-is-up/android"],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    }
+  ]
+}

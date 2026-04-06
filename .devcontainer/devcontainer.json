@@ -1,0 +1,38 @@
+{
+  "name": "game-is-up",
+  "dockerComposeFile": [
+    "docker-compose.yml"
+  ],
+  "service": "workspace",
+  "runServices": ["workspace", "db"],
+  "shutdownAction": "stopCompose",
+  "workspaceFolder": "/workspace/game-is-up",
+  "forwardPorts": [5173, 4000, 5432],
+  "remoteEnv": {
+    "DATABASE_URL": "postgresql://postgres:postgres@db:5432/game_is_up?schema=public",
+    "API_PORT": "4000",
+    "CLIENT_ORIGIN": "http://localhost:5173",
+    "SESSION_SECRET": "devcontainer-session-secret",
+    "DISCORD_CALLBACK_URL": "http://localhost:4000/api/auth/discord/callback",
+    "JAVA_HOME": "/opt/java/openjdk",
+    "ANDROID_HOME": "/opt/android-sdk",
+    "ANDROID_SDK_ROOT": "/opt/android-sdk"
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "Prisma.prisma",
+        "ms-azuretools.vscode-docker"
+      ],
+      "settings": {
+        "editor.codeActionsOnSave": {
+          "source.fixAll.eslint": "explicit"
+        },
+        "eslint.useFlatConfig": true
+      }
+    }
+  },
+  "postCreateCommand": "git config --global --add safe.directory /workspace/game-is-up && npm install && npm run db:generate && npm run ensure --workspace @game-is-up/android",
+  "postStartCommand": "npm run db:wait"
+}

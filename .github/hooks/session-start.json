@@ -1,0 +1,11 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "type": "command",
+        "command": "node ./scripts/copilot/session-start.mjs",
+        "timeout": 10
+      }
+    ]
+  }
+}
