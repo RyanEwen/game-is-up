@@ -8,6 +8,9 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      workbox: {
+        navigateFallbackDenylist: [/^\/api(?:\/|$)/]
+      },
       manifest: {
         name: 'Game Is Up',
         short_name: 'Game Is Up',
