@@ -11,7 +11,7 @@ COPY apps/android/package.json apps/android/package.json
 COPY packages/shared/package.json packages/shared/package.json
 RUN npm ci
 COPY . .
-RUN npm run build --workspace @game-is-up/web
+RUN npm run build --workspace @game-is-up/shared && npm run build --workspace @game-is-up/web
 
 FROM nginxinc/nginx-unprivileged:1.27-alpine AS runtime
 COPY apps/web/nginx.conf /etc/nginx/conf.d/default.conf
