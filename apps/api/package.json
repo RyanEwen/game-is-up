@@ -8,11 +8,11 @@
     "predev": "npm run build --workspace @game-is-up/shared",
     "dev": "tsx watch src/index.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "prisma:db:push": "DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@localhost:5432/game_is_up?schema=public} prisma db push --force-reset",
-    "prisma:migrate:dev": "DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@localhost:5432/game_is_up?schema=public} prisma migrate dev",
-    "prisma:generate": "DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@localhost:5432/game_is_up?schema=public} prisma generate",
-    "prisma:validate": "DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@localhost:5432/game_is_up?schema=public} prisma validate",
-    "prisma:seed": "DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@localhost:5432/game_is_up?schema=public} tsx prisma/seed.ts"
+    "prisma:db:push": "DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@db:5432/game_is_up?schema=public} prisma db push --force-reset",
+    "prisma:migrate:dev": "DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@db:5432/game_is_up?schema=public} prisma migrate dev",
+    "prisma:generate": "DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@db:5432/game_is_up?schema=public} prisma generate",
+    "prisma:validate": "DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@db:5432/game_is_up?schema=public} prisma validate",
+    "prisma:seed": "DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@db:5432/game_is_up?schema=public} tsx prisma/seed.ts"
   },
   "dependencies": {
     "@game-is-up/shared": "0.1.0",

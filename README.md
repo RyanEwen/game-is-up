@@ -93,7 +93,9 @@ That runs ESLint, TypeScript checks, and `prisma validate`.
 - `npm run db:generate` refreshes the Prisma client after schema changes.
 - `npm run dev:fresh` waits for PostgreSQL, resets the schema, reseeds demo data, and starts the full stack.
 
-Inside the devcontainer, the workspace uses the Compose `db` service. Outside the devcontainer, the fallback local URL is `postgresql://postgres:postgres@localhost:5432/game_is_up?schema=public` unless you override `DATABASE_URL`.
+Postgres is expected to run in Docker for both development and deployment, and the app uses the Compose service hostname: `postgresql://postgres:postgres@db:5432/game_is_up?schema=public`.
+
+The development scripts default to that Docker network address unless you explicitly override `DATABASE_URL`.
 
 ## Production Docker
 

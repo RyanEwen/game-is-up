@@ -1,53 +1,8 @@
-import { existsSync, readFileSync } from 'node:fs'
 import net from 'node:net'
-import { dirname, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
 
-const currentDir = dirname(fileURLToPath(import.meta.url))
-const repoRoot = resolve(currentDir, '../..')
-const defaultDatabaseUrl = 'postgresql://postgres:postgres@localhost:5432/game_is_up?schema=public'
+const defaultDatabaseUrl = 'postgresql://postgres:postgres@db:5432/game_is_up?schema=public'
 const timeoutMs = Number.parseInt(process.env.DB_WAIT_TIMEOUT_MS ?? '60000', 10)
 const retryDelayMs = Number.parseInt(process.env.DB_WAIT_RETRY_MS ?? '1000', 10)
-
-function getDotEnvDatabaseUrl() {
-  const envPath = resolve(repoRoot, '.env')
-
-  if (!existsSync(envPath)) {
-    return null
-  }
-
-  const envFile = readFileSync(envPath, 'utf8')
-  const lines = envFile.split(/\r?\n/u)
-
-  for (const line of lines) {
-    const trimmed = line.trim()
-
-    if (!trimmed || trimmed.startsWith('#')) {
-      continue
-    }
-
-    const separatorIndex = trimmed.indexOf('=')
-
-    if (separatorIndex === -1) {
-      continue
-    }
-
-    const key = trimmed.slice(0, separatorIndex).trim()
-
-    if (key !== 'DATABASE_URL') {
-      continue
-    }
-
-    const rawValue = trimmed.slice(separatorIndex + 1).trim()
-    return rawValue.replace(/^"|"$/gu, '').replace(/^'|'$/gu, '')
-  }
-
-  return null
-}
-
-function getDatabaseUrl() {
-  return process.env.DATABASE_URL ?? getDotEnvDatabaseUrl() ?? defaultDatabaseUrl
-}
 
 function redactDatabaseUrl(databaseUrl) {
   try {
@@ -89,7 +44,7 @@ function tryConnect(host, port) {
 }
 
 async function main() {
-  const databaseUrl = getDatabaseUrl()
+  const databaseUrl = process.env.DATABASE_URL ?? defaultDatabaseUrl
   const parsed = new URL(databaseUrl)
   const port = parsed.port ? Number(parsed.port) : 5432
   const deadline = Date.now() + timeoutMs
