@@ -114,7 +114,7 @@ The repository now includes a root `compose.yml` for production-style local or s
 
 The public container runs unprivileged Nginx on internal port `8080`, and Docker maps host port `8080` to it by default. Nginx proxies `/api/*` to the API container so browser clients can stay same-origin in production.
 
-The API container runs `prisma migrate deploy` before starting, and the Compose stack includes a PostgreSQL service with persistent storage.
+The API container runs `prisma db push` before starting, which matches the current schema-first prelaunch workflow. The Compose stack includes a PostgreSQL service with persistent storage.
 
 If you already run Nginx on the host, the default Docker publish target is already `8080`, so host Nginx can reverse proxy to that upstream directly.
 
