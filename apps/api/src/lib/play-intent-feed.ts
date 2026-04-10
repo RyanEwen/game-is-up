@@ -1,5 +1,6 @@
 import type { PlayIntentFeed, PlayIntentPreview } from '@game-is-up/shared'
 import { GameIntentType, PlayIntentSelectionMode, PlayIntentScope } from '@prisma/client'
+import { getMutualDiscoveryAudienceUserIds } from './discord-servers.js'
 import { prisma } from './prisma.js'
 import { getViewer } from './demo-viewer.js'
 
@@ -7,12 +8,10 @@ function toSelectionMode(selectionMode: PlayIntentSelectionMode): 'library' | 's
   return selectionMode === PlayIntentSelectionMode.ENTIRE_LIBRARY ? 'library' : 'subset'
 }
 
-function toNotifyScope(scope: PlayIntentScope): 'friends-only' | 'mutual-friends' | 'closed' {
+function toNotifyScope(scope: PlayIntentScope): 'friends-only' | 'discovery-and-friends' {
   switch (scope) {
     case PlayIntentScope.MUTUAL_FRIENDS:
-      return 'mutual-friends'
-    case PlayIntentScope.CLOSED:
-      return 'closed'
+      return 'discovery-and-friends'
     default:
       return 'friends-only'
   }
@@ -28,7 +27,7 @@ export async function buildPlayIntentFeed(viewerId?: string | null): Promise<Pla
     }
   }
 
-  const [viewerFriends, viewerInterests] = await Promise.all([
+  const [viewerFriends, viewerInterests, discoveryAudienceUserIds] = await Promise.all([
     prisma.friend.findMany({
       where: {
         userId: viewer.id
@@ -47,13 +46,15 @@ export async function buildPlayIntentFeed(viewerId?: string | null): Promise<Pla
       select: {
         gameId: true
       }
-    })
+    }),
+    getMutualDiscoveryAudienceUserIds(viewer.id)
   ])
 
   const friendUserIds = viewerFriends.map((friend) => friend.friendedUserId)
+  const broadAudienceUserIds = [...new Set([...friendUserIds, ...discoveryAudienceUserIds])]
   const viewerGameIds = viewerInterests.map((interest) => interest.gameId)
 
-  if (friendUserIds.length === 0) {
+  if (broadAudienceUserIds.length === 0) {
     return {
       generatedAt: new Date().toISOString(),
       intents: []
@@ -63,7 +64,7 @@ export async function buildPlayIntentFeed(viewerId?: string | null): Promise<Pla
   const intents = await prisma.playIntent.findMany({
     where: {
       userId: {
-        in: friendUserIds
+        in: broadAudienceUserIds
       },
       expiresAt: {
         gt: new Date()
@@ -72,14 +73,6 @@ export async function buildPlayIntentFeed(viewerId?: string | null): Promise<Pla
     include: {
       user: {
         include: {
-          friendsGiven: {
-            where: {
-              friendedUserId: viewer.id
-            },
-            select: {
-              id: true
-            }
-          },
           gameInterests: {
             where: {
               intentType: {
@@ -106,11 +99,18 @@ export async function buildPlayIntentFeed(viewerId?: string | null): Promise<Pla
 
   const previews: PlayIntentPreview[] = intents
     .map((intent) => {
-      if (intent.scope === PlayIntentScope.CLOSED) {
+      const isExplicitFriend = friendUserIds.includes(intent.userId)
+      const isInDiscoveryAudience = discoveryAudienceUserIds.includes(intent.userId)
+
+      if ((intent.scope as string) === 'CLOSED') {
         return null
       }
 
-      if (intent.scope === PlayIntentScope.MUTUAL_FRIENDS && intent.user.friendsGiven.length === 0) {
+      if (intent.scope === PlayIntentScope.FRIENDS_ONLY && !isExplicitFriend) {
+        return null
+      }
+
+      if (intent.scope === PlayIntentScope.MUTUAL_FRIENDS && !isExplicitFriend && !isInDiscoveryAudience) {
         return null
       }
 

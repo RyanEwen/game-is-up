@@ -3,10 +3,7 @@
 :root {
   color-scheme: dark;
   font-family: 'IBM Plex Sans', sans-serif;
-  background:
-    radial-gradient(circle at top, rgba(78, 240, 183, 0.18), transparent 34%),
-    radial-gradient(circle at 80% 10%, rgba(244, 178, 63, 0.18), transparent 26%),
-    #070b14;
+  background-color: #070b14;
 }
 
 * {
@@ -17,7 +14,12 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  background: inherit;
+  background:
+    radial-gradient(circle at top, rgba(78, 240, 183, 0.18), transparent 34%),
+    radial-gradient(circle at 80% 10%, rgba(244, 178, 63, 0.18), transparent 26%),
+    #070b14;
+  background-attachment: fixed;
+  background-repeat: no-repeat;
 }
 
 #root {

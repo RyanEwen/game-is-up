@@ -19,10 +19,10 @@
 The product loop is intentionally narrow:
 
 1. Users build a library and mark games they want to play.
-2. Discovery surfaces other users with meaningful overlap.
+2. Discovery surfaces other users through explicit friendships plus opted-in shared Discord servers.
 3. Users add people they want to keep track of as friends.
 4. A play intent can target either the full library or a chosen subset.
-5. Notifications trigger only when a friend expresses intent that overlaps with the recipient.
+5. Notifications trigger when a friend or opted-in shared-server user expresses intent that overlaps with the recipient.
 
 Game catalog search is provider-backed rather than store-specific. The current implementation targets a broad catalog source and normalizes platform labels so the product can treat a title as one canonical game with multiple supported platforms.
 
@@ -36,6 +36,8 @@ Play intent is represented as a session-like aggregate rather than a single game
 - `SELECTED_GAMES`: the user explicitly picks a subset of games.
 
 This keeps the schema aligned with the product requirement that users can say “I’m up for anything tonight” without creating one event per game.
+
+Play intents can notify either explicit friends only or the broader discovery audience formed by opted-in shared Discord servers.
 
 ## Repository guidance
 

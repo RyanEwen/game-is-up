@@ -1,13 +1,23 @@
-import type { ActivePlayIntent, PlayIntentNotifyScope, PlayIntentSelectionMode, UpsertPlayIntentResponse } from '@game-is-up/shared'
+import type {
+  ActivePlayIntent,
+  PlayIntentNotifyScope,
+  PlayIntentSelectionMode,
+  UpsertPlayIntentRequest,
+  UpsertPlayIntentResponse
+} from '@game-is-up/shared'
 import {
   GameIntentType,
   NotificationType,
   PlayIntentScope,
   PlayIntentSelectionMode as PrismaPlayIntentSelectionMode
 } from '@prisma/client'
+import { getMutualDiscoveryAudienceUserIds } from './discord-servers.js'
 import { prisma } from './prisma.js'
 
 export class PlayIntentValidationError extends Error {}
+
+const minimumPlayIntentDurationMinutes = 15
+const maximumPlayIntentDurationMinutes = 24 * 60
 
 const activePlayIntentInclude = {
   games: {
@@ -31,9 +41,7 @@ function toPrismaSelectionMode(selectionMode: PlayIntentSelectionMode): PrismaPl
 function toClientNotifyScope(scope: PlayIntentScope): PlayIntentNotifyScope {
   switch (scope) {
     case PlayIntentScope.MUTUAL_FRIENDS:
-      return 'mutual-friends'
-    case PlayIntentScope.CLOSED:
-      return 'closed'
+      return 'discovery-and-friends'
     default:
       return 'friends-only'
   }
@@ -41,10 +49,8 @@ function toClientNotifyScope(scope: PlayIntentScope): PlayIntentNotifyScope {
 
 function toPrismaNotifyScope(scope: PlayIntentNotifyScope): PlayIntentScope {
   switch (scope) {
-    case 'mutual-friends':
+    case 'discovery-and-friends':
       return PlayIntentScope.MUTUAL_FRIENDS
-    case 'closed':
-      return PlayIntentScope.CLOSED
     default:
       return PlayIntentScope.FRIENDS_ONLY
   }
@@ -107,6 +113,46 @@ function dedupePlatformLabels(platformLabels: string[]) {
   return [...new Set(platformLabels.map((platformLabel) => platformLabel.trim()).filter(Boolean))]
 }
 
+function resolvePlayIntentWindow(payload: UpsertPlayIntentRequest, now: Date) {
+  if (payload.endAt) {
+    const endsAt = new Date(payload.endAt)
+
+    if (Number.isNaN(endsAt.getTime())) {
+      throw new PlayIntentValidationError('Choose a valid end time for your call to play.')
+    }
+
+    const durationMinutes = Math.ceil((endsAt.getTime() - now.getTime()) / (60 * 1000))
+
+    if (durationMinutes < minimumPlayIntentDurationMinutes) {
+      throw new PlayIntentValidationError(`Choose an end time at least ${minimumPlayIntentDurationMinutes} minutes from now.`)
+    }
+
+    if (durationMinutes > maximumPlayIntentDurationMinutes) {
+      throw new PlayIntentValidationError('Calls to play can stay live for up to 24 hours.')
+    }
+
+    return {
+      durationMinutes,
+      endsAt
+    }
+  }
+
+  const durationMinutes = payload.durationMinutes ?? minimumPlayIntentDurationMinutes
+
+  if (durationMinutes < minimumPlayIntentDurationMinutes) {
+    throw new PlayIntentValidationError(`Calls to play must stay live for at least ${minimumPlayIntentDurationMinutes} minutes.`)
+  }
+
+  if (durationMinutes > maximumPlayIntentDurationMinutes) {
+    throw new PlayIntentValidationError('Calls to play can stay live for up to 24 hours.')
+  }
+
+  return {
+    durationMinutes,
+    endsAt: new Date(now.getTime() + durationMinutes * 60 * 1000)
+  }
+}
+
 function serializeActivePlayIntent(intent: {
   id: string;
   headline: string;
@@ -140,7 +186,7 @@ function serializeActivePlayIntent(intent: {
 }
 
 async function getRecipientUserIds(userId: string, scope: PlayIntentNotifyScope, overlappingGameIds: string[]) {
-  if (scope === 'closed' || overlappingGameIds.length === 0) {
+  if (overlappingGameIds.length === 0) {
     return []
   }
 
@@ -152,26 +198,11 @@ async function getRecipientUserIds(userId: string, scope: PlayIntentNotifyScope,
       friendedUserId: true
     }
   })
-  let recipientUserIds = outgoingFriends.map((friend) => friend.friendedUserId)
 
-  if (recipientUserIds.length === 0) {
-    return []
-  }
-
-  if (scope === 'mutual-friends') {
-    const mutualLinks = await prisma.friend.findMany({
-      where: {
-        userId: {
-          in: recipientUserIds
-        },
-        friendedUserId: userId
-      },
-      select: {
-        userId: true
-      }
-    })
-    recipientUserIds = mutualLinks.map((friend) => friend.userId)
-  }
+  const explicitFriendUserIds = outgoingFriends.map((friend) => friend.friendedUserId)
+  const recipientUserIds = scope === 'discovery-and-friends'
+    ? [...new Set([...explicitFriendUserIds, ...(await getMutualDiscoveryAudienceUserIds(userId))])]
+    : explicitFriendUserIds
 
   if (recipientUserIds.length === 0) {
     return []
@@ -261,13 +292,7 @@ export async function clearCurrentPlayIntent(userId: string) {
 
 export async function upsertCurrentPlayIntent(
   userId: string,
-  payload: {
-    selectionMode: PlayIntentSelectionMode;
-    notifyScope: PlayIntentNotifyScope;
-    note?: string;
-    durationMinutes: number;
-    gameIds: string[];
-  }
+  payload: UpsertPlayIntentRequest
 ): Promise<UpsertPlayIntentResponse> {
   const [sender, libraryEntries] = await Promise.all([
     prisma.user.findUnique({
@@ -313,9 +338,9 @@ export async function upsertCurrentPlayIntent(
 
   const recipientUserIds = await getRecipientUserIds(userId, payload.notifyScope, selectedGameIds)
   const now = new Date()
-  const endsAt = new Date(now.getTime() + payload.durationMinutes * 60 * 1000)
+  const { durationMinutes, endsAt } = resolvePlayIntentWindow(payload, now)
   const headline = buildHeadline(payload.selectionMode, selectedTitles)
-  const { title, body } = buildNotificationCopy(sender.displayName, payload.selectionMode, selectedTitles, payload.durationMinutes)
+  const { title, body } = buildNotificationCopy(sender.displayName, payload.selectionMode, selectedTitles, durationMinutes)
   const note = payload.note?.trim() ?? ''
 
   let activeIntent: ActivePlayIntent | null = null

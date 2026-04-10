@@ -64,6 +64,8 @@ packages/
    npm run dev
    ```
 
+Optional: set `VITE_PUBLIC_APP_URL` when you want in-app invites to point at a public web URL, especially from the Android wrapper or any staging environment that is not directly shareable.
+
 For a clean local reset plus startup in one command, run:
 
 ```bash
@@ -99,11 +101,13 @@ This repo is still pre-launch, so the current workflow is schema-first rather th
 3. Set `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`, and `DISCORD_CALLBACK_URL` in your environment or `.env` file.
 4. Start the app in the devcontainer and use the "Sign in with Discord" button in the web UI.
 5. Discord sign-in now also requests the `guilds` scope so the app can sync which servers you share with other users.
-6. After signing in, use the in-app Discord server controls to opt specific shared servers into discovery. Synced servers are excluded by default.
+6. After signing in, use the in-app Discord server controls to opt specific shared servers into discovery. Synced servers are excluded by default, and a server can only be selected once the bot is installed in that server.
 7. Optional: set `DISCORD_BOT_TOKEN`, install the bot in shared Discord servers, and enable the Presence Intent in the Discord developer portal if you want lossy recording of currently played Discord games.
 8. Bot-based activity tracking only records activity while the bot is online and present in a shared server, so it should be treated as opportunistic rather than authoritative history.
-9. Discord is the only sign-in path in this scaffold.
-10. On Android, Discord sign-in opens in the system browser and returns to the app through the `gameisup://auth` deep link. For local development, keep `adb reverse` active so the installed app can still reach the local API while completing sign-in.
+9. If you want the app to browse every member in a selected Discord server for invite targeting, the bot also needs the Server Members intent enabled in the Discord developer portal.
+10. Discovery-based play-intent visibility can now include both explicit friends and users from the Discord servers you opted into discovery.
+11. Discord is the only sign-in path in this scaffold.
+12. On Android, Discord sign-in opens in the system browser and returns to the app through the `gameisup://auth` deep link. For local development, keep `adb reverse` active so the installed app can still reach the local API while completing sign-in.
 
 ## Game catalog provider
 

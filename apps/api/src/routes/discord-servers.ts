@@ -1,12 +1,17 @@
 import { Router } from 'express'
 import { z } from 'zod'
 import {
+  discordServerMembersResponseSchema,
   discordServerPreferencesResponseSchema,
+  sendDiscordServerInvitesRequestSchema,
+  sendDiscordServerInvitesResponseSchema,
   updateDiscordServerPreferenceRequestSchema
 } from '@game-is-up/shared'
 import { getAuthSession } from '../lib/session.js'
 import {
+  buildDiscordServerMembers,
   buildDiscordServerPreferences,
+  sendDiscordServerInvites,
   updateDiscordServerPreference
 } from '../lib/discord-servers.js'
 
@@ -43,6 +48,88 @@ discordServersRouter.get('/me', async (request, response, next) => {
   }
 })
 
+discordServersRouter.get('/me/:serverId/members', async (request, response, next) => {
+  const userId = requireSignedInUserId(request, response)
+
+  if (!userId) {
+    return
+  }
+
+  try {
+    const { serverId } = serverParamsSchema.parse(request.params)
+    const result = await buildDiscordServerMembers(userId, serverId)
+
+    if (result.status === 'not-found') {
+      response.status(404).json({
+        error: 'Discord server not found for this user.'
+      })
+      return
+    }
+
+    if (result.status === 'not-selected') {
+      response.status(403).json({
+        error: 'Turn this server on for player finding before browsing members.'
+      })
+      return
+    }
+
+    if (result.status === 'unavailable') {
+      response.status(503).json({
+        error: result.reason
+      })
+      return
+    }
+
+    response.json(discordServerMembersResponseSchema.parse(result.response))
+  } catch (error) {
+    next(error)
+  }
+})
+
+discordServersRouter.post('/me/:serverId/invites', async (request, response, next) => {
+  const userId = requireSignedInUserId(request, response)
+
+  if (!userId) {
+    return
+  }
+
+  try {
+    const { serverId } = serverParamsSchema.parse(request.params)
+    const payload = sendDiscordServerInvitesRequestSchema.parse(request.body)
+    const result = await sendDiscordServerInvites({
+      userId,
+      serverId,
+      memberIds: payload.memberIds,
+      inviteUrl: payload.inviteUrl
+    })
+
+    if (result.status === 'not-found') {
+      response.status(404).json({
+        error: 'Discord server not found for this user.'
+      })
+      return
+    }
+
+    if (result.status === 'not-selected') {
+      response.status(403).json({
+        error: 'Only selected bot-enabled servers can send bot invites.'
+      })
+      return
+    }
+
+    if (result.status === 'unavailable') {
+      response.status(503).json({
+        error: result.reason
+      })
+      return
+    }
+
+    response.json(sendDiscordServerInvitesResponseSchema.parse(result.response))
+  } catch (error) {
+    next(error)
+  }
+})
+
 discordServersRouter.put('/me/:serverId', async (request, response, next) => {
   const userId = requireSignedInUserId(request, response)
 
@@ -55,9 +142,16 @@ discordServersRouter.put('/me/:serverId', async (request, response, next) => {
     const payload = updateDiscordServerPreferenceRequestSchema.parse(request.body)
     const updated = await updateDiscordServerPreference(userId, serverId, payload.selected)
 
-    if (!updated) {
+    if (updated === 'not-found') {
       response.status(404).json({
         error: 'Discord server not found for this user.'
+      })
+      return
+    }
+
+    if (updated === 'bot-required') {
+      response.status(403).json({
+        error: 'Only servers with the bot installed can be used for discovery and invites.'
       })
       return
     }

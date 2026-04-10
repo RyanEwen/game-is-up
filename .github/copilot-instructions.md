@@ -15,6 +15,7 @@
 ## Build And Validation
 
 - Use the devcontainer for local development when possible.
+- If a broadly useful CLI dependency is missing from the devcontainer during normal repo work, add it to `.devcontainer/Dockerfile` instead of repeatedly working around it.
 - Before finishing a task, run `npm run validate` from the repository root.
 - If Prisma schema changes, keep the shared contracts and placeholder/mock data aligned.
 

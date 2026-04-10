@@ -54,12 +54,51 @@ export const discordServerPreferenceSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
   iconUrl: z.string().url().nullable(),
+  botPresent: z.boolean(),
   selected: z.boolean(),
   knownUserCount: z.number().int().nonnegative()
 })
 
 export const discordServerPreferencesResponseSchema = z.object({
   servers: z.array(discordServerPreferenceSchema)
+})
+
+export const discordServerMemberSchema = z.object({
+  id: z.string().min(1),
+  username: z.string().min(1),
+  displayName: z.string().min(1),
+  avatarUrl: z.string().url().nullable(),
+  isAppUser: z.boolean(),
+  appUserId: z.string().uuid().nullable(),
+  appDisplayName: z.string().min(1).nullable(),
+  appHandle: z.string().min(1).nullable()
+})
+
+export const discordServerMembersResponseSchema = z.object({
+  serverId: z.string().min(1),
+  serverName: z.string().min(1),
+  members: z.array(discordServerMemberSchema)
+})
+
+export const sendDiscordServerInvitesRequestSchema = z.object({
+  inviteUrl: z.string().url(),
+  memberIds: z.array(z.string().min(1)).min(1).max(25)
+})
+
+export const sendDiscordServerInvitesResultSchema = z.object({
+  memberId: z.string().min(1),
+  displayName: z.string().min(1),
+  username: z.string().min(1),
+  status: z.enum(['sent', 'failed']),
+  error: z.string().min(1).nullable()
+})
+
+export const sendDiscordServerInvitesResponseSchema = z.object({
+  serverId: z.string().min(1),
+  serverName: z.string().min(1),
+  sentCount: z.number().int().nonnegative(),
+  failedCount: z.number().int().nonnegative(),
+  results: z.array(sendDiscordServerInvitesResultSchema)
 })
 
 export const updateDiscordServerPreferenceRequestSchema = z.object({
@@ -75,7 +114,7 @@ export const upsertLibraryEntryRequestSchema = z.object({
 })
 
 export const playIntentSelectionModeSchema = z.enum(['library', 'subset'])
-export const playIntentNotifyScopeSchema = z.enum(['friends-only', 'mutual-friends', 'closed'])
+export const playIntentNotifyScopeSchema = z.enum(['discovery-and-friends', 'friends-only'])
 
 export const playIntentGameSchema = z.object({
   id: z.string().uuid(),
@@ -120,8 +159,17 @@ export const upsertPlayIntentRequestSchema = z.object({
   selectionMode: playIntentSelectionModeSchema,
   notifyScope: playIntentNotifyScopeSchema,
   note: z.string().trim().max(140).optional(),
-  durationMinutes: z.number().int().min(30).max(480),
+  durationMinutes: z.number().int().min(15).max(1440).optional(),
+  endAt: z.string().datetime().optional(),
   gameIds: z.array(z.string().uuid()).default([])
+}).superRefine((value, context) => {
+  if ((value.durationMinutes == null) === (value.endAt == null)) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Provide either a duration or an end time for the play intent.',
+      path: ['durationMinutes']
+    })
+  }
 })
 
 export const upsertPlayIntentResponseSchema = z.object({
@@ -316,6 +364,11 @@ export type GameSearchResult = z.infer<typeof gameSearchResultSchema>;
 export type GameSearchResponse = z.infer<typeof gameSearchResponseSchema>;
 export type DiscordServerPreference = z.infer<typeof discordServerPreferenceSchema>;
 export type DiscordServerPreferencesResponse = z.infer<typeof discordServerPreferencesResponseSchema>;
+export type DiscordServerMember = z.infer<typeof discordServerMemberSchema>;
+export type DiscordServerMembersResponse = z.infer<typeof discordServerMembersResponseSchema>;
+export type SendDiscordServerInvitesRequest = z.infer<typeof sendDiscordServerInvitesRequestSchema>;
+export type SendDiscordServerInvitesResult = z.infer<typeof sendDiscordServerInvitesResultSchema>;
+export type SendDiscordServerInvitesResponse = z.infer<typeof sendDiscordServerInvitesResponseSchema>;
 export type UpdateDiscordServerPreferenceRequest = z.infer<typeof updateDiscordServerPreferenceRequestSchema>;
 export type UpsertLibraryEntryRequest = z.infer<typeof upsertLibraryEntryRequestSchema>;
 export type DiscoveryPersonGame = z.infer<typeof discoveryPersonGameSchema>;

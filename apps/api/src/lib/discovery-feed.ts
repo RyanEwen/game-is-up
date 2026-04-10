@@ -116,13 +116,6 @@ export async function buildDiscoveryFeed(viewerId?: string | null): Promise<Disc
           userId: viewer.id
         }
       },
-      gameInterests: {
-        some: {
-          intentType: {
-            not: GameIntentType.COMPLETED
-          }
-        }
-      },
       OR: candidateFilters
     },
     include: {

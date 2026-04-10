@@ -13,6 +13,10 @@ import {
   Link,
   Sheet,
   Stack,
+  Tab,
+  TabList,
+  TabPanel,
+  Tabs,
   Typography
 } from '@mui/joy'
 import { CssVarsProvider } from '@mui/joy/styles'
@@ -20,7 +24,9 @@ import type {
   ActivePlayIntent,
   AvailabilitySource,
   AuthSessionResponse,
+  DiscordServerMembersResponse,
   DiscordServerPreferencesResponse,
+  SendDiscordServerInvitesResponse,
   AuthProvidersResponse,
   DiscoveryGame,
   GameSearchResult,
@@ -42,7 +48,9 @@ import type {
 import {
   playIntentCurrentResponseSchema,
   authSessionResponseSchema,
+  discordServerMembersResponseSchema,
   discordServerPreferencesResponseSchema,
+  sendDiscordServerInvitesResponseSchema,
   authProvidersResponseSchema,
   discoveryFeedSchema,
   gameSearchResponseSchema,
@@ -57,6 +65,7 @@ import { theme } from './theme/theme'
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4000'
 const apiReconnectPollMs = 5000
 const mobileAuthRedirectUrl = 'gameisup://auth'
+const configuredPublicAppUrl = import.meta.env.VITE_PUBLIC_APP_URL
 const defaultPlatformOptions = ['PC', 'Xbox', 'PlayStation', 'Switch', 'Mobile', 'macOS', 'Linux'] as const
 
 type LoadState = {
@@ -75,6 +84,31 @@ type Notice = {
   tone: 'neutral' | 'success' | 'danger';
   message: string;
 };
+
+type DashboardTab = 'overview' | 'discovery' | 'library' | 'play';
+type PlayIntentTimingMode = 'preset' | 'custom' | 'end-time';
+
+const minimumPlayIntentDurationMinutes = 15
+const maximumPlayIntentDurationMinutes = 24 * 60
+const playIntentPresetDurations = [60, 120, 240] as const
+
+const dashboardTabSx = {
+  flexGrow: 1,
+  minHeight: 52,
+  borderRadius: 'lg',
+  color: 'neutral.300',
+  fontWeight: 'md',
+  transition: 'background-color 180ms ease, color 180ms ease, box-shadow 180ms ease',
+  '&:hover': {
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    color: 'neutral.100'
+  },
+  '&.Mui-selected': {
+    color: 'primary.200',
+    background: 'linear-gradient(180deg, rgba(20, 136, 106, 0.26), rgba(15, 84, 68, 0.18))',
+    boxShadow: 'inset 0 0 0 1px rgba(141, 255, 216, 0.16), 0 10px 20px -16px rgba(15, 84, 68, 0.9)'
+  }
+} as const
 
 const initialState: LoadState = {
   activePlayIntent: null,
@@ -107,12 +141,19 @@ function formatLibraryIntentLabel(intent: LibraryEntryIntent): string {
 
 function formatNotifyScopeLabel(scope: PlayIntentPreview['notifyScope']): string {
   switch (scope) {
-    case 'mutual-friends':
-      return 'Mutual friends'
-    case 'closed':
-      return 'Closed'
+    case 'discovery-and-friends':
+      return 'Discovery + friends'
     default:
       return 'Friends only'
+  }
+}
+
+function formatNotifyScopeDescription(scope: PlayIntentPreview['notifyScope']): string {
+  switch (scope) {
+    case 'discovery-and-friends':
+      return 'Anyone on a shared discovery server that both of you opted into can see it, plus people you added as friends. Matching game overlap still applies.'
+    default:
+      return 'Only people you added as friends can see it, and they still need a matching game overlap.'
   }
 }
 
@@ -127,6 +168,108 @@ function formatPlayIntentDurationLabel(durationMinutes: number): string {
   }
 
   return `${durationMinutes} min`
+}
+
+function parsePlayIntentDurationMinutes(value: string): number | null {
+  const trimmedValue = value.trim()
+
+  if (!/^\d+$/.test(trimmedValue)) {
+    return null
+  }
+
+  const durationMinutes = Number(trimmedValue)
+
+  return Number.isInteger(durationMinutes) ? durationMinutes : null
+}
+
+function toLocalDateTimeInputValue(dateInput: Date | string): string {
+  const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput
+  const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60 * 1000)
+
+  return localDate.toISOString().slice(0, 16)
+}
+
+function buildPlayIntentEndTimeInputValue(durationMinutes: number, baseDate = new Date()): string {
+  return toLocalDateTimeInputValue(new Date(baseDate.getTime() + durationMinutes * 60 * 1000))
+}
+
+function parsePlayIntentEndAt(value: string): Date | null {
+  if (!value) {
+    return null
+  }
+
+  const parsedDate = new Date(value)
+
+  return Number.isNaN(parsedDate.getTime()) ? null : parsedDate
+}
+
+function normalizeInviteUrl(value: string | undefined | null): string | null {
+  if (!value) {
+    return null
+  }
+
+  try {
+    const inviteUrl = new URL(value)
+
+    if (inviteUrl.protocol !== 'http:' && inviteUrl.protocol !== 'https:') {
+      return null
+    }
+
+    inviteUrl.search = ''
+    inviteUrl.hash = ''
+
+    return inviteUrl.toString()
+  } catch {
+    return null
+  }
+}
+
+function resolveInviteUrl(currentHref: string | null): string | null {
+  const configuredUrl = normalizeInviteUrl(configuredPublicAppUrl)
+
+  if (configuredUrl) {
+    return configuredUrl
+  }
+
+  return normalizeInviteUrl(currentHref)
+}
+
+function formatNameList(names: string[]): string {
+  if (names.length === 0) {
+    return ''
+  }
+
+  if (names.length === 1) {
+    return names[0] ?? ''
+  }
+
+  if (names.length === 2) {
+    return `${names[0] ?? ''} and ${names[1] ?? ''}`
+  }
+
+  return `${names.slice(0, -1).join(', ')}, and ${names.at(-1)}`
+}
+
+function buildInviteText(
+  displayName: string | null | undefined,
+  inviteUrl: string,
+  options?: {
+    serverName?: string;
+    targetedNames?: string[];
+  }
+): string {
+  const targetedNames = options?.targetedNames ?? []
+  const intro = targetedNames.length > 0
+    ? `Hey ${formatNameList(targetedNames)}${options?.serverName ? `, I found you through ${options.serverName} on Game Is Up.` : '.'}`
+    : displayName
+      ? `${displayName} invited you to Game Is Up.`
+      : 'Join me on Game Is Up.'
+
+  const body = targetedNames.length > 0
+    ? 'Open the app to compare libraries, add each other as friends, and post when you want to play.'
+    : 'Use it to find players, compare libraries, and post when you want to play.'
+
+  return `${intro}\n\n${body}\n\n${inviteUrl}`
 }
 
 function formatScopeLabel(scope: string): string {
@@ -249,51 +392,66 @@ function PersonCard({
       ) : null}
 
       <Stack spacing={1} sx={{ mb: 2 }}>
-        {person.games.map((game) => (
+        {person.games.length > 0 ? (
+          person.games.map((game) => (
+            <Sheet
+              key={game.id}
+              variant="soft"
+              sx={{
+                p: 1.5,
+                borderRadius: 'md',
+                display: 'flex',
+                justifyContent: 'space-between',
+                gap: 2,
+                alignItems: 'center'
+              }}
+            >
+              <Stack direction="row" spacing={1.5} alignItems="center">
+                <Box
+                  sx={{
+                    width: 40,
+                    height: 54,
+                    borderRadius: 'sm',
+                    overflow: 'hidden',
+                    backgroundColor: 'rgba(255,255,255,0.06)',
+                    flexShrink: 0
+                  }}
+                >
+                  {game.coverUrl ? (
+                    <Box component="img" src={game.coverUrl} alt={game.title} sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : null}
+                </Box>
+                <Box>
+                  <Typography level="title-sm">{game.title}</Typography>
+                  <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
+                    {game.platformLabels.join(', ')}
+                  </Typography>
+                  {game.availability && game.availabilitySource === 'game-specific' ? (
+                    <Stack direction="row" spacing={1} sx={{ mt: 0.75, flexWrap: 'wrap' }}>
+                      {renderAvailabilityChip(game.availability, game.availabilitySource, { showInherited: false })}
+                    </Stack>
+                  ) : null}
+                </Box>
+              </Stack>
+              <Chip color={game.intent === 'playing-now' ? 'success' : 'primary'} size="sm">
+                {game.intent}
+              </Chip>
+            </Sheet>
+          ))
+        ) : (
           <Sheet
-            key={game.id}
             variant="soft"
             sx={{
               p: 1.5,
-              borderRadius: 'md',
-              display: 'flex',
-              justifyContent: 'space-between',
-              gap: 2,
-              alignItems: 'center'
+              borderRadius: 'md'
             }}
           >
-            <Stack direction="row" spacing={1.5} alignItems="center">
-              <Box
-                sx={{
-                  width: 40,
-                  height: 54,
-                  borderRadius: 'sm',
-                  overflow: 'hidden',
-                  backgroundColor: 'rgba(255,255,255,0.06)',
-                  flexShrink: 0
-                }}
-              >
-                {game.coverUrl ? (
-                  <Box component="img" src={game.coverUrl} alt={game.title} sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                ) : null}
-              </Box>
-              <Box>
-                <Typography level="title-sm">{game.title}</Typography>
-                <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
-                  {game.platformLabels.join(', ')}
-                </Typography>
-                {game.availability && game.availabilitySource === 'game-specific' ? (
-                  <Stack direction="row" spacing={1} sx={{ mt: 0.75, flexWrap: 'wrap' }}>
-                    {renderAvailabilityChip(game.availability, game.availabilitySource, { showInherited: false })}
-                  </Stack>
-                ) : null}
-              </Box>
-            </Stack>
-            <Chip color={game.intent === 'playing-now' ? 'success' : 'primary'} size="sm">
-              {game.intent}
-            </Chip>
+            <Typography level="title-sm">No games shared yet</Typography>
+            <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
+              This person is visible through your discovery servers or friends list, but they have not added any games yet. You can still add them as an in-app friend now.
+            </Typography>
           </Sheet>
-        ))}
+        )}
       </Stack>
 
       <Divider sx={{ my: 2 }} />
@@ -597,6 +755,7 @@ function LibraryEntryRow({
 
 export default function App() {
   const [state, setState] = useState<LoadState>(initialState)
+  const [activeTab, setActiveTab] = useState<DashboardTab>('overview')
   const [authNotice, setAuthNotice] = useState<Notice | null>(null)
   const [actionNotice, setActionNotice] = useState<Notice | null>(null)
   const [profileNotice, setProfileNotice] = useState<Notice | null>(null)
@@ -606,8 +765,11 @@ export default function App() {
   const [libraryAvailability, setLibraryAvailability] = useState('')
   const [usualAvailability, setUsualAvailability] = useState('')
   const [playIntentSelectionMode, setPlayIntentSelectionMode] = useState<PlayIntentSelectionMode>('library')
-  const [playIntentNotifyScope, setPlayIntentNotifyScope] = useState<PlayIntentNotifyScope>('friends-only')
+  const [playIntentNotifyScope, setPlayIntentNotifyScope] = useState<PlayIntentNotifyScope>('discovery-and-friends')
+  const [playIntentTimingMode, setPlayIntentTimingMode] = useState<PlayIntentTimingMode>('preset')
   const [playIntentDurationMinutes, setPlayIntentDurationMinutes] = useState(120)
+  const [playIntentCustomDurationInput, setPlayIntentCustomDurationInput] = useState('120')
+  const [playIntentEndAtInput, setPlayIntentEndAtInput] = useState(() => buildPlayIntentEndTimeInputValue(120))
   const [playIntentNote, setPlayIntentNote] = useState('')
   const [selectedPlayIntentGameIds, setSelectedPlayIntentGameIds] = useState<string[]>([])
   const [libraryIntent, setLibraryIntent] = useState<LibraryEntryIntent>('interested')
@@ -621,6 +783,15 @@ export default function App() {
   const [removingLibraryEntryId, setRemovingLibraryEntryId] = useState<string | null>(null)
   const [friendPendingId, setFriendPendingId] = useState<string | null>(null)
   const [serverPreferencePendingId, setServerPreferencePendingId] = useState<string | null>(null)
+  const [inviteServerId, setInviteServerId] = useState<string | null>(null)
+  const [selectedInviteUserIds, setSelectedInviteUserIds] = useState<string[]>([])
+  const [inviteMembersState, setInviteMembersState] = useState<DiscordServerMembersResponse | null>(null)
+  const [inviteMembersLoading, setInviteMembersLoading] = useState(false)
+  const [inviteMembersNotice, setInviteMembersNotice] = useState<Notice | null>(null)
+  const [inviteMemberQuery, setInviteMemberQuery] = useState('')
+  const [inviteMembersReloadVersion, setInviteMembersReloadVersion] = useState(0)
+  const [inviteSending, setInviteSending] = useState(false)
+  const [inviteSendSummary, setInviteSendSummary] = useState<SendDiscordServerInvitesResponse | null>(null)
   const libraryEditorRef = useRef<HTMLDivElement | null>(null)
   const lastHandledAuthUrlRef = useRef<string | null>(null)
   const isNativeApp = Capacitor.isNativePlatform()
@@ -636,15 +807,37 @@ export default function App() {
   const hasDiscoveryContent = hasDiscoveryGames || hasDiscoveryPeople
   const hasPlayIntentPreviews = Boolean(state.playIntents && state.playIntents.intents.length > 0)
   const showSignedInOnboarding = isSignedIn && !hasLibraryEntries && !hasDiscoveryContent && !hasPlayIntentPreviews
+  const availableDiscoveryServers = (state.discordServers?.servers ?? []).filter((server) => server.botPresent)
   const platformOptions = [...new Set([
     ...(selectedCatalogResult?.platformLabels ?? []),
     ...selectedPlatformLabels,
     ...defaultPlatformOptions
   ])]
-  const selectedDiscoveryServerCount = state.discordServers?.servers?.filter((server) => server.selected).length ?? 0
-  const noDiscoveryServersSelected = isSignedIn && (state.discordServers?.servers?.length ?? 0) > 0 && selectedDiscoveryServerCount === 0
+  const selectedDiscoveryServerCount = availableDiscoveryServers.filter((server) => server.selected).length
+  const noDiscoveryServersSelected = isSignedIn && availableDiscoveryServers.length > 0 && selectedDiscoveryServerCount === 0
   const discordProvider = state.auth?.providers.find((provider) => provider.id === 'discord') ?? null
   const discordGraph = state.session?.discordGraph ?? null
+  const inviteUrl = resolveInviteUrl(typeof window === 'undefined' ? null : window.location.href)
+  const selectedDiscoveryServers = availableDiscoveryServers.filter((server) => server.selected)
+  const activeInviteServer = selectedDiscoveryServers.find((server) => server.id === inviteServerId) ?? selectedDiscoveryServers[0] ?? null
+  const activeInviteServerId = activeInviteServer?.id ?? null
+  const inviteMembers = inviteMembersState?.members ?? []
+  const filteredInviteMembers = inviteMemberQuery.trim().length === 0
+    ? inviteMembers
+    : inviteMembers.filter((member) => {
+        const normalizedQuery = inviteMemberQuery.trim().toLowerCase()
+        return [member.displayName, member.username, member.appDisplayName, member.appHandle]
+          .filter(Boolean)
+          .some((value) => value?.toLowerCase().includes(normalizedQuery))
+      })
+  const selectedInviteUsers = inviteMembers.filter((member) => selectedInviteUserIds.includes(member.id))
+  const inviteText = inviteUrl
+    ? buildInviteText(state.session?.user?.displayName ?? null, inviteUrl, {
+        serverName: inviteMembersState?.serverName ?? activeInviteServer?.name,
+        targetedNames: selectedInviteUsers.map((member) => member.displayName)
+      })
+    : null
+  const canShareInvite = typeof navigator !== 'undefined' && typeof navigator.share === 'function'
   const activePlayIntent = state.activePlayIntent
   const currentUsualAvailability = state.library?.usualAvailability ?? state.session?.user?.usualAvailability ?? null
   const usualAvailabilityChanged = usualAvailability.trim() !== (currentUsualAvailability ?? '')
@@ -660,6 +853,39 @@ export default function App() {
       : 'No default schedule yet. Leave a game override blank to keep it unscheduled.'
   const editingLibraryEntry = libraryEntries.find((entry) => entry.id === editingLibraryEntryId) ?? null
   const canPostPlayIntent = libraryEntries.length > 0
+  const parsedPlayIntentCustomDurationMinutes = parsePlayIntentDurationMinutes(playIntentCustomDurationInput)
+  const parsedPlayIntentEndAt = parsePlayIntentEndAt(playIntentEndAtInput)
+  const resolvedPlayIntentDurationMinutes = playIntentTimingMode === 'custom'
+    ? parsedPlayIntentCustomDurationMinutes
+    : playIntentTimingMode === 'end-time'
+      ? parsedPlayIntentEndAt
+        ? Math.ceil((parsedPlayIntentEndAt.getTime() - Date.now()) / (60 * 1000))
+        : null
+      : playIntentDurationMinutes
+  const playIntentTimingValidationMessage = playIntentTimingMode === 'custom'
+    ? parsedPlayIntentCustomDurationMinutes == null
+      ? `Enter a whole-number length between ${minimumPlayIntentDurationMinutes} minutes and 24 hours.`
+      : parsedPlayIntentCustomDurationMinutes < minimumPlayIntentDurationMinutes
+        ? `Calls to play must stay live for at least ${minimumPlayIntentDurationMinutes} minutes.`
+        : parsedPlayIntentCustomDurationMinutes > maximumPlayIntentDurationMinutes
+          ? 'Calls to play can stay live for up to 24 hours.'
+          : null
+    : playIntentTimingMode === 'end-time'
+      ? parsedPlayIntentEndAt == null
+        ? 'Choose a valid end time.'
+        : resolvedPlayIntentDurationMinutes == null || resolvedPlayIntentDurationMinutes < minimumPlayIntentDurationMinutes
+          ? `Choose an end time at least ${minimumPlayIntentDurationMinutes} minutes from now.`
+          : resolvedPlayIntentDurationMinutes > maximumPlayIntentDurationMinutes
+            ? 'Calls to play can stay live for up to 24 hours.'
+            : null
+      : null
+  const playIntentPreviewEndsAt = playIntentTimingMode === 'end-time'
+    ? parsedPlayIntentEndAt
+    : resolvedPlayIntentDurationMinutes == null
+      ? null
+      : new Date(Date.now() + resolvedPlayIntentDurationMinutes * 60 * 1000)
+  const minPlayIntentEndAtInput = buildPlayIntentEndTimeInputValue(minimumPlayIntentDurationMinutes)
+  const maxPlayIntentEndAtInput = buildPlayIntentEndTimeInputValue(maximumPlayIntentDurationMinutes)
 
   const applyAuthNotice = useCallback((status: string, reason: string | null) => {
     if (status === 'success') {
@@ -741,8 +967,11 @@ export default function App() {
   useEffect(() => {
     if (!activePlayIntent) {
       setPlayIntentSelectionMode('library')
-      setPlayIntentNotifyScope('friends-only')
+      setPlayIntentNotifyScope('discovery-and-friends')
+      setPlayIntentTimingMode('preset')
       setPlayIntentDurationMinutes(120)
+      setPlayIntentCustomDurationInput('120')
+      setPlayIntentEndAtInput(buildPlayIntentEndTimeInputValue(120))
       setPlayIntentNote('')
       setSelectedPlayIntentGameIds([])
       return
@@ -758,7 +987,10 @@ export default function App() {
 
     setPlayIntentSelectionMode(activePlayIntent.selectionMode)
     setPlayIntentNotifyScope(activePlayIntent.notifyScope)
+    setPlayIntentTimingMode(playIntentPresetDurations.includes(durationMinutes as (typeof playIntentPresetDurations)[number]) ? 'preset' : 'end-time')
     setPlayIntentDurationMinutes(durationMinutes)
+    setPlayIntentCustomDurationInput(String(durationMinutes))
+    setPlayIntentEndAtInput(toLocalDateTimeInputValue(activePlayIntent.windowEndsAt))
     setPlayIntentNote(activePlayIntent.note)
     setSelectedPlayIntentGameIds(activePlayIntent.games.map((game) => game.id))
   }, [activePlayIntent])
@@ -871,7 +1103,7 @@ export default function App() {
       const discordServersResponse = parsedSession.authenticated ? await fetch(`${apiBaseUrl}/api/discord-servers/me`, requestInit) : null
 
       let library: LibraryResponse | null = null
-      let activePlayIntent: ActivePlayIntent | null = null
+      let activePlayIntentState: ActivePlayIntent | null = null
       let discordServers: DiscordServerPreferencesResponse | null = null
 
       if (libraryResponse) {
@@ -881,7 +1113,7 @@ export default function App() {
 
       if (currentPlayIntentResponse) {
         const currentPlayIntentJson = (await currentPlayIntentResponse.json()) as PlayIntentCurrentResponse
-        activePlayIntent = playIntentCurrentResponseSchema.parse(currentPlayIntentJson).activeIntent
+        activePlayIntentState = playIntentCurrentResponseSchema.parse(currentPlayIntentJson).activeIntent
       }
 
       if (discordServersResponse) {
@@ -890,7 +1122,7 @@ export default function App() {
       }
 
       setState({
-        activePlayIntent,
+        activePlayIntent: activePlayIntentState,
         session: parsedSession,
         health: healthResponseSchema.parse(healthJson),
         auth: authProvidersResponseSchema.parse(authJson),
@@ -1239,6 +1471,18 @@ export default function App() {
       return
     }
 
+    if (playIntentTimingValidationMessage) {
+      setPlayIntentNotice({
+        tone: 'danger',
+        message: playIntentTimingValidationMessage
+      })
+      return
+    }
+
+    const timingPayload = playIntentTimingMode === 'end-time'
+      ? { endAt: parsedPlayIntentEndAt?.toISOString() }
+      : { durationMinutes: resolvedPlayIntentDurationMinutes ?? playIntentDurationMinutes }
+
     setPlayIntentSaving(true)
     setPlayIntentNotice(null)
 
@@ -1252,7 +1496,7 @@ export default function App() {
         body: JSON.stringify({
           selectionMode: playIntentSelectionMode,
           notifyScope: playIntentNotifyScope,
-          durationMinutes: playIntentDurationMinutes,
+          ...timingPayload,
           note: playIntentNote.trim() || undefined,
           gameIds: playIntentSelectionMode === 'subset' ? selectedPlayIntentGameIds : []
         })
@@ -1430,7 +1674,7 @@ export default function App() {
           message:
             typeof responseBody === 'object' && responseBody && 'error' in responseBody && typeof responseBody.error === 'string'
               ? responseBody.error
-              : 'Unable to update Discord server visibility right now.'
+              : 'Unable to update this server setting right now.'
         })
         return
       }
@@ -1438,22 +1682,234 @@ export default function App() {
       discordServerPreferencesResponseSchema.parse(responseBody)
       setActionNotice({
         tone: 'success',
-        message: nextSelected ? 'That server is now opted into discovery.' : 'That server is now excluded from discovery.'
+        message: nextSelected ? 'That server will now help you find players.' : 'That server will no longer be used to find players.'
       })
       await loadDashboard()
     } catch (error) {
       setActionNotice({
         tone: 'danger',
-        message: error instanceof Error ? error.message : 'Unable to update Discord server visibility right now.'
+        message: error instanceof Error ? error.message : 'Unable to update this server setting right now.'
       })
     } finally {
       setServerPreferencePendingId(null)
     }
   }
 
+  async function handleCopyInvite() {
+    setActionNotice(null)
+
+    if (!inviteText) {
+      setActionNotice({
+        tone: 'danger',
+        message: 'This build does not have a public invite link available right now.'
+      })
+      return
+    }
+
+    if (!navigator.clipboard?.writeText) {
+      setActionNotice({
+        tone: 'danger',
+        message: 'Clipboard access is not available here. Use the invite link field to copy it manually.'
+      })
+      return
+    }
+
+    try {
+      await navigator.clipboard.writeText(inviteText)
+      setActionNotice({
+        tone: 'success',
+        message: 'Invite text copied. Send it wherever you want.'
+      })
+    } catch (error) {
+      setActionNotice({
+        tone: 'danger',
+        message: error instanceof Error ? error.message : 'Unable to copy the invite right now.'
+      })
+    }
+  }
+
+  async function handleShareInvite() {
+    setActionNotice(null)
+
+    if (!inviteUrl || !inviteText) {
+      setActionNotice({
+        tone: 'danger',
+        message: 'This build does not have a public invite link available right now.'
+      })
+      return
+    }
+
+    if (typeof navigator.share !== 'function') {
+      await handleCopyInvite()
+      return
+    }
+
+    try {
+      await navigator.share({
+        title: 'Join me on Game Is Up',
+        text: inviteText,
+        url: inviteUrl
+      })
+      setActionNotice({
+        tone: 'success',
+        message: 'Invite ready to send.'
+      })
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        return
+      }
+
+      setActionNotice({
+        tone: 'danger',
+        message: error instanceof Error ? error.message : 'Unable to share the invite right now.'
+      })
+    }
+  }
+
+  async function handleSendBotInvites() {
+    setActionNotice(null)
+    setInviteSendSummary(null)
+
+    if (!activeInviteServerId || selectedInviteUserIds.length === 0 || !inviteUrl) {
+      setActionNotice({
+        tone: 'danger',
+        message: 'Choose a bot-enabled server, select at least one Discord member, and make sure the invite link is available first.'
+      })
+      return
+    }
+
+    setInviteSending(true)
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/discord-servers/me/${activeInviteServerId}/invites`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          inviteUrl,
+          memberIds: selectedInviteUserIds
+        })
+      })
+
+      const responseJson = await response.json() as SendDiscordServerInvitesResponse | { error?: string }
+
+      if (!response.ok) {
+        throw new Error(typeof responseJson === 'object' && responseJson && 'error' in responseJson && typeof responseJson.error === 'string'
+          ? responseJson.error
+          : 'Unable to send bot invites right now.')
+      }
+
+      const parsed = sendDiscordServerInvitesResponseSchema.parse(responseJson)
+      const failedRecipients = parsed.results.filter((result) => result.status === 'failed')
+
+      setInviteSendSummary(parsed)
+
+      setActionNotice({
+        tone: failedRecipients.length === 0 ? 'success' : 'neutral',
+        message: failedRecipients.length === 0
+          ? `Bot sent ${parsed.sentCount} invite${parsed.sentCount === 1 ? '' : 's'} from ${parsed.serverName}.`
+          : `Bot sent ${parsed.sentCount} invite${parsed.sentCount === 1 ? '' : 's'} from ${parsed.serverName}. ${parsed.failedCount} failed${failedRecipients[0]?.error ? `: ${failedRecipients[0].displayName} (${failedRecipients[0].error})` : '.'}`
+      })
+    } catch (error) {
+      setActionNotice({
+        tone: 'danger',
+        message: error instanceof Error ? error.message : 'Unable to send bot invites right now.'
+      })
+      setInviteSendSummary(null)
+    } finally {
+      setInviteSending(false)
+    }
+  }
+
+  function handleToggleInviteUser(userId: string) {
+    setInviteSendSummary(null)
+    setSelectedInviteUserIds((current) => (current.includes(userId) ? current.filter((id) => id !== userId) : [...current, userId]))
+  }
+
+  function handleRetryInviteMembers() {
+    setInviteMembersReloadVersion((current) => current + 1)
+  }
+
   useEffect(() => {
     void loadDashboard()
   }, [loadDashboard])
+
+  useEffect(() => {
+    if (selectedDiscoveryServers.length === 0) {
+      if (inviteServerId !== null) {
+        setInviteServerId(null)
+      }
+      return
+    }
+
+    if (!selectedDiscoveryServers.some((server) => server.id === inviteServerId)) {
+      const firstSelectedServer = selectedDiscoveryServers[0]
+
+      if (firstSelectedServer) {
+        setInviteServerId(firstSelectedServer.id)
+      }
+    }
+  }, [inviteServerId, selectedDiscoveryServers])
+
+  useEffect(() => {
+    if (!isSignedIn || !activeInviteServerId) {
+      setInviteMembersState(null)
+      setInviteMembersNotice(null)
+      setInviteMembersLoading(false)
+      setSelectedInviteUserIds([])
+      setInviteMemberQuery('')
+      setInviteSendSummary(null)
+      return
+    }
+
+    let cancelled = false
+    setInviteMembersLoading(true)
+    setInviteMembersNotice(null)
+    setInviteMembersState(null)
+    setSelectedInviteUserIds([])
+    setInviteMemberQuery('')
+    setInviteSendSummary(null)
+
+    void (async () => {
+      try {
+        const response = await fetch(`${apiBaseUrl}/api/discord-servers/me/${activeInviteServerId}/members`, {
+          credentials: 'include'
+        })
+        const responseJson = await response.json() as DiscordServerMembersResponse | { error?: string }
+
+        if (cancelled) {
+          return
+        }
+
+        if (!response.ok) {
+          throw new Error(typeof responseJson === 'object' && responseJson && 'error' in responseJson && typeof responseJson.error === 'string'
+            ? responseJson.error
+            : 'Unable to load Discord members right now.')
+        }
+
+        setInviteMembersState(discordServerMembersResponseSchema.parse(responseJson))
+      } catch (error) {
+        if (cancelled) {
+          return
+        }
+
+        setInviteMembersNotice({
+          tone: 'danger',
+          message: error instanceof Error ? error.message : 'Unable to load Discord members right now.'
+        })
+      } finally {
+        if (!cancelled) {
+          setInviteMembersLoading(false)
+        }
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [activeInviteServerId, inviteMembersReloadVersion, isSignedIn])
 
   return (
     <CssVarsProvider theme={theme} defaultMode="dark">
@@ -1482,7 +1938,7 @@ export default function App() {
                 Discovery-first PWA scaffold
               </Chip>
               <Typography level="h1" sx={{ fontSize: { xs: '2.4rem', md: '4rem' } }}>
-                Find the people already waiting to play the same games.
+                Find people waiting to play the same games as you.
               </Typography>
               <Typography level="body-lg" sx={{ color: 'neutral.200' }}>
                 This first implementation focuses on overlap, friends, and timely play intent. The Android app will wrap this web experience through Capacitor so the same interface and product logic stay shared.
@@ -1498,743 +1954,1103 @@ export default function App() {
             />
           ) : null}
 
-          <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-            <Card variant="soft" sx={{ flex: 1, p: 3 }}>
-              <Typography level="title-lg" sx={{ mb: 1 }}>
-                API status
-              </Typography>
-              <Typography level="body-md">
-                {state.health ? `${state.health.service} is ${state.health.status}` : 'Waiting for API...'}
-              </Typography>
-            </Card>
-            <Card variant="soft" sx={{ flex: 1, p: 3 }}>
-              <Typography level="title-lg" sx={{ mb: 1 }}>
-                Auth status
-              </Typography>
-              {state.session?.authenticated && state.session.user ? (
-                <Stack spacing={1.5}>
-                  <Typography level="body-md">
-                    Signed in as {state.session.user.displayName} ({state.session.user.handle})
-                  </Typography>
-                  <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-                    <Chip color="success">{state.session.user.authProvider}</Chip>
-                    {state.session.user.email ? <Chip variant="outlined">{state.session.user.email}</Chip> : null}
-                  </Stack>
-                  <Button variant="outlined" color="neutral" onClick={() => void handleLogout()}>
-                    Sign out
-                  </Button>
-                </Stack>
-              ) : (
-                <Stack spacing={1.5}>
-                  <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-                    {state.auth?.providers.map((provider) => (
-                      <Chip key={provider.id} color={provider.enabled ? 'success' : 'neutral'}>
-                        {provider.label}
-                      </Chip>
-                    )) ?? <Typography level="body-md">Waiting for auth config...</Typography>}
-                  </Stack>
-                  <Button
-                    color="primary"
-                    disabled={!state.auth?.providers.find((provider) => provider.id === 'discord')?.enabled}
-                    onClick={handleDiscordLogin}
-                  >
-                    Sign in with Discord
-                  </Button>
-                  {discordProvider ? (
-                    <Stack spacing={0.75}>
-                      <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
-                        Sign-in currently requests {discordProvider.requestedScopes.map(formatScopeLabel).join(', ')}.
-                      </Typography>
-                      {discordProvider.gatedScopes.length > 0 ? (
-                        <Typography level="body-sm" sx={{ color: 'warning.300' }}>
-                          Direct Discord friend import needs {discordProvider.gatedScopes.map(formatScopeLabel).join(', ')} and is blocked behind Discord approval for now.
-                        </Typography>
-                      ) : null}
-                    </Stack>
-                  ) : null}
-                  {authNotice ? (
-                    <Card color={authNotice.tone} variant="soft">
-                      <Typography level="body-sm">{authNotice.message}</Typography>
-                    </Card>
-                  ) : null}
-                </Stack>
-              )}
-            </Card>
-            <Card variant="soft" sx={{ flex: 1, p: 3 }}>
-              <Typography level="title-lg" sx={{ mb: 1 }}>
-                Validation
-              </Typography>
-              <Typography level="body-md">
-                ESLint, TypeScript, and Prisma validation are wired at the root workspace level.
-              </Typography>
-            </Card>
-          </Stack>
-
           {actionNotice ? (
             <Card color={actionNotice.tone} variant="soft">
               <Typography level="body-md">{actionNotice.message}</Typography>
             </Card>
           ) : null}
 
-          <Card variant="soft" sx={{ p: 3 }}>
-            <Stack spacing={1.25}>
-              <Typography level="title-lg">Discovery graph</Typography>
-              <Typography level="body-md" sx={{ color: 'neutral.300' }}>
-                Discovery currently runs on selected mutual Discord servers plus in-app friends. Direct Discord friend import is designed in, but it cannot be activated until Discord approves `relationships.read`.
-              </Typography>
-              <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-                <Chip color="primary" variant="soft">
-                  Mutual servers active
-                </Chip>
-                <Chip color="success" variant="soft">
-                  In-app friends active
-                </Chip>
-                <Chip color="warning" variant="outlined">
-                  Discord friends pending approval
-                </Chip>
-              </Stack>
-              {discordGraph ? (
-                <Stack spacing={0.5}>
-                  <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
-                    Granted Discord scopes: {discordGraph.grantedScopes.length > 0 ? discordGraph.grantedScopes.map(formatScopeLabel).join(', ') : 'none yet'}.
-                  </Typography>
-                  <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
-                    Guild sync: {discordGraph.guildSync.active ? 'active' : 'not active'}{discordGraph.guildSync.lastSyncedAt ? `, last synced ${new Date(discordGraph.guildSync.lastSyncedAt).toLocaleString()}` : ''}.
-                  </Typography>
-                  <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
-                    Relationship sync: {discordGraph.relationshipSync.status.replace(/-/g, ' ')}.
-                  </Typography>
-                  <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
-                    Activity tracking: {discordGraph.activityTracking.botConfigured
-                      ? discordGraph.activityTracking.botConnected
-                        ? `connected across ${discordGraph.activityTracking.botGuildCount} bot server${discordGraph.activityTracking.botGuildCount === 1 ? '' : 's'}`
-                        : 'configured but not connected'
-                      : 'not configured'}.
-                  </Typography>
-                  <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
-                    Shared bot visibility: {discordGraph.activityTracking.sharesServerWithBot ? 'yes' : 'not yet'}.
-                  </Typography>
-                  {discordGraph.activityTracking.currentActivity ? (
-                    <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
-                      Current observed Discord activity: {discordGraph.activityTracking.currentActivity.title}.
-                    </Typography>
-                  ) : null}
-                  <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
-                    {discordGraph.activityTracking.note}
-                  </Typography>
-                </Stack>
-              ) : (
-                <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
-                  Sign in with Discord to sync mutual servers and start discovery.
-                </Typography>
-              )}
-            </Stack>
-          </Card>
+          <Tabs
+            value={activeTab}
+            onChange={(_, value) => {
+              if (value) {
+                setActiveTab(value as DashboardTab)
+              }
+            }}
+            sx={{
+              '--Tabs-gap': '1rem',
+              '--Tab-indicatorThickness': '0px',
+              backgroundColor: 'transparent'
+            }}
+          >
+            <TabList
+              disableUnderline
+              sx={{
+                p: 1,
+                gap: 1,
+                borderRadius: 'xl',
+                flexWrap: 'wrap',
+                backgroundColor: 'rgba(11, 16, 32, 0.82)',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                backdropFilter: 'blur(18px)',
+                boxShadow: 'lg'
+              }}
+            >
+              <Tab value="overview" sx={dashboardTabSx}>
+                Overview
+              </Tab>
+              <Tab value="library" sx={dashboardTabSx}>
+                Library
+              </Tab>
+              <Tab value="play" sx={dashboardTabSx}>
+                Play
+              </Tab>
+              <Tab value="discovery" sx={dashboardTabSx}>
+                Discovery
+              </Tab>
+            </TabList>
 
-          {isSignedIn ? (
-            <Stack spacing={2}>
-              <Typography level="h2">Discovery servers</Typography>
-              <Typography level="body-md" sx={{ color: 'neutral.300' }}>
-                Choose which Discord servers should count for mutual-user discovery. Nothing is included by default, so discovery only uses the servers you explicitly opt into.
-              </Typography>
-              {state.discordServers?.servers.length ? (
-                <Stack spacing={1.5}>
-                  {state.discordServers.servers.map((server) => (
-                    <Card key={server.id} variant="soft" sx={{ p: 2.5 }}>
-                      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }}>
-                        <Stack spacing={0.5}>
-                          <Typography level="title-md">{server.name}</Typography>
-                          <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
-                            {server.knownUserCount > 0
-                              ? `${server.knownUserCount} other app user${server.knownUserCount === 1 ? '' : 's'} currently share this server.`
-                              : 'No other app users from this server are known yet.'}
-                          </Typography>
+            <TabPanel value="overview" sx={{ px: 0, pt: 3, backgroundColor: 'transparent' }}>
+              <Stack spacing={3}>
+                <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+                  <Card variant="soft" sx={{ flex: 1, p: 3 }}>
+                    <Typography level="title-lg" sx={{ mb: 1 }}>
+                      API status
+                    </Typography>
+                    <Typography level="body-md">
+                      {state.health ? `${state.health.service} is ${state.health.status}` : 'Waiting for API...'}
+                    </Typography>
+                  </Card>
+                  <Card variant="soft" sx={{ flex: 1, p: 3 }}>
+                    <Typography level="title-lg" sx={{ mb: 1 }}>
+                      Auth status
+                    </Typography>
+                    {state.session?.authenticated && state.session.user ? (
+                      <Stack spacing={1.5}>
+                        <Typography level="body-md">
+                          Signed in as {state.session.user.displayName} ({state.session.user.handle})
+                        </Typography>
+                        <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+                          <Chip color="success">{state.session.user.authProvider}</Chip>
+                          {state.session.user.email ? <Chip variant="outlined">{state.session.user.email}</Chip> : null}
+                        </Stack>
+                        <Button variant="outlined" color="neutral" onClick={() => void handleLogout()}>
+                          Sign out
+                        </Button>
+                      </Stack>
+                    ) : (
+                      <Stack spacing={1.5}>
+                        <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+                          {state.auth?.providers.map((provider) => (
+                            <Chip key={provider.id} color={provider.enabled ? 'success' : 'neutral'}>
+                              {provider.label}
+                            </Chip>
+                          )) ?? <Typography level="body-md">Waiting for auth config...</Typography>}
                         </Stack>
                         <Button
-                          size="sm"
-                          variant={server.selected ? 'solid' : 'outlined'}
-                          color={server.selected ? 'primary' : 'neutral'}
-                          disabled={serverPreferencePendingId === server.id}
-                          onClick={() => void handleToggleDiscordServer(server.id, !server.selected)}
+                          color="primary"
+                          disabled={!state.auth?.providers.find((provider) => provider.id === 'discord')?.enabled}
+                          onClick={handleDiscordLogin}
                         >
-                          {serverPreferencePendingId === server.id ? 'Saving...' : server.selected ? 'Opted into discovery' : 'Not in discovery'}
+                          Sign in with Discord
                         </Button>
-                      </Stack>
-                    </Card>
-                  ))}
-                </Stack>
-              ) : (
-                <EmptyStateCard
-                  title="No Discord servers synced yet"
-                  body="Your current session does not have any synced Discord server memberships yet. Sign out and sign back in with Discord to grant server access and refresh the list."
-                  chips={['Discord OAuth', 'Guild sync on sign-in', 'Discovery filters by selected servers']}
-                />
-              )}
-            </Stack>
-          ) : null}
-
-          {isSignedIn ? (
-            <Stack spacing={2}>
-              <Typography level="h2">Your library</Typography>
-              <Typography level="body-md" sx={{ color: 'neutral.300' }}>
-                Add a few games to your library so discovery, friends, and play-intent matching have something real to work from.
-              </Typography>
-              <Card variant="soft" sx={{ p: 3 }}>
-                <Stack spacing={2}>
-                  <Box>
-                    <Typography level="title-md">When do you usually play?</Typography>
-                    <Typography level="body-sm" sx={{ color: 'neutral.400', mt: 0.5 }}>
-                      Set one default schedule at the user level. Individual games can still carry their own override when they differ.
-                    </Typography>
-                  </Box>
-                  <Input
-                    placeholder="Example: Weeknights after 8pm"
-                    value={usualAvailability}
-                    onChange={(event) => {
-                      setUsualAvailability(event.target.value)
-                      setProfileNotice(null)
-                    }}
-                  />
-                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'center' }}>
-                    <Button color="primary" disabled={profileSaving || !usualAvailabilityChanged} onClick={() => void handleSaveUsualAvailability()}>
-                      {usualAvailabilityButtonLabel}
-                    </Button>
-                    <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
-                      {usualAvailabilityHelperText}
-                    </Typography>
-                  </Stack>
-                  {profileNotice ? (
-                    <Card
-                      color={profileNotice.tone}
-                      variant="soft"
-                      sx={{
-                        p: 1.5,
-                        gap: 0.5
-                      }}
-                    >
-                      <Typography level="body-sm">{profileNotice.message}</Typography>
-                    </Card>
-                  ) : null}
-                </Stack>
-              </Card>
-              <Card
-                ref={libraryEditorRef}
-                variant="soft"
-                sx={{
-                  p: 3,
-                  border: editingLibraryEntry ? '1px solid rgba(78, 240, 183, 0.45)' : '1px solid transparent',
-                  boxShadow: editingLibraryEntry ? '0 0 0 1px rgba(78, 240, 183, 0.16)' : 'none',
-                  transition: 'border-color 180ms ease, box-shadow 180ms ease'
-                }}
-              >
-                <Stack spacing={2}>
-                  {editingLibraryEntry ? (
-                    <Card variant="outlined" sx={{ p: 2, borderColor: 'rgba(255, 255, 255, 0.1)' }}>
-                      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }}>
-                        <Box>
-                          <Typography level="title-sm">Library editor: {editingLibraryEntry.title}</Typography>
-                          <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
-                            You are editing this entry in the form below. Update platforms, intent, or the schedule override here.
-                          </Typography>
-                        </Box>
-                        <Button size="sm" variant="outlined" color="neutral" onClick={handleCancelLibraryEdit}>
-                          Cancel
-                        </Button>
-                      </Stack>
-                    </Card>
-                  ) : null}
-                  <Stack spacing={1}>
-                    <Typography level="title-sm">Game title</Typography>
-                    <Input
-                      placeholder={editingLibraryEntry ? 'Game title is fixed while editing this entry' : 'Start typing a game title'}
-                      value={libraryTitle}
-                      disabled={Boolean(editingLibraryEntry)}
-                      onChange={(event) => handleLibraryTitleChange(event.target.value)}
-                    />
-                    <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
-                      {editingLibraryEntry
-                        ? 'Edit the other options here without losing the existing entry.'
-                        : 'Suggestions come from the synced catalog and RAWG. You can keep typing for a manual save if the right match does not appear.'}
-                    </Typography>
-                    <Typography level="body-xs" sx={{ color: 'neutral.500' }}>
-                      External catalog data via{' '}
-                      <Link href="https://rawg.io" target="_blank" rel="noreferrer">
-                        RAWG
-                      </Link>
-                      .
-                    </Typography>
-                      {libraryTitle.trim().length >= 2 && !selectedCatalogResult && !editingLibraryEntry ? (
-                        <Sheet
-                          variant="soft"
-                          sx={{
-                            mt: 1,
-                            borderRadius: 'md',
-                            border: '1px solid rgba(255,255,255,0.08)',
-                            overflow: 'hidden'
-                          }}
-                        >
-                          {gameSuggestionsLoading ? (
-                            <Typography level="body-sm" sx={{ px: 1.5, py: 1.25, color: 'neutral.300' }}>
-                              Searching the external game catalog...
+                        {discordProvider ? (
+                          <Stack spacing={0.75}>
+                            <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
+                              Sign-in currently requests {discordProvider.requestedScopes.map(formatScopeLabel).join(', ')}.
+                              Discord server access lets Game Is Up look for other app users from the servers you choose later.
                             </Typography>
-                          ) : gameSuggestions.length > 0 ? (
-                            <Stack spacing={0}>
-                              {gameSuggestions.map((result) => (
+                            {discordProvider.gatedScopes.length > 0 ? (
+                              <Typography level="body-sm" sx={{ color: 'warning.300' }}>
+                                Direct Discord friend import needs {discordProvider.gatedScopes.map(formatScopeLabel).join(', ')} and is blocked behind Discord approval for now.
+                              </Typography>
+                            ) : null}
+                          </Stack>
+                        ) : null}
+                        {authNotice ? (
+                          <Card color={authNotice.tone} variant="soft">
+                            <Typography level="body-sm">{authNotice.message}</Typography>
+                          </Card>
+                        ) : null}
+                      </Stack>
+                    )}
+                  </Card>
+                  <Card variant="soft" sx={{ flex: 1, p: 3 }}>
+                    <Typography level="title-lg" sx={{ mb: 1 }}>
+                      Validation
+                    </Typography>
+                    <Typography level="body-md">
+                      ESLint, TypeScript, and Prisma validation are wired at the root workspace level.
+                    </Typography>
+                  </Card>
+                </Stack>
+
+                <Card variant="soft" sx={{ p: 3 }}>
+                  <Stack spacing={1.25}>
+                    <Typography level="title-lg">Discovery graph</Typography>
+                    <Typography level="body-md" sx={{ color: 'neutral.300' }}>
+                      Discovery currently runs on selected mutual Discord servers plus in-app friends. Direct Discord friend import is designed in, but it cannot be activated until Discord approves relationships.read.
+                    </Typography>
+                    <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
+                      Shared Discord servers do not reveal everyone in those servers. You only see people who also signed into Game Is Up.
+                    </Typography>
+                    <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+                      <Chip color="primary" variant="soft">
+                        Mutual servers active
+                      </Chip>
+                      <Chip color="success" variant="soft">
+                        In-app friends active
+                      </Chip>
+                      <Chip color="warning" variant="outlined">
+                        Discord friends pending approval
+                      </Chip>
+                    </Stack>
+                    {discordGraph ? (
+                      <Stack spacing={0.5}>
+                        <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
+                          Granted Discord scopes: {discordGraph.grantedScopes.length > 0 ? discordGraph.grantedScopes.map(formatScopeLabel).join(', ') : 'none yet'}.
+                        </Typography>
+                        <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
+                          Guild sync: {discordGraph.guildSync.active ? 'active' : 'not active'}{discordGraph.guildSync.lastSyncedAt ? `, last synced ${new Date(discordGraph.guildSync.lastSyncedAt).toLocaleString()}` : ''}.
+                        </Typography>
+                        <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
+                          Relationship sync: {discordGraph.relationshipSync.status.replace(/-/g, ' ')}.
+                        </Typography>
+                        <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
+                          Activity tracking: {discordGraph.activityTracking.botConfigured
+                            ? discordGraph.activityTracking.botConnected
+                              ? `connected across ${discordGraph.activityTracking.botGuildCount} bot server${discordGraph.activityTracking.botGuildCount === 1 ? '' : 's'}`
+                              : 'configured but not connected'
+                            : 'not configured'}.
+                        </Typography>
+                        <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
+                          Shared bot visibility: {discordGraph.activityTracking.sharesServerWithBot ? 'yes' : 'not yet'}.
+                        </Typography>
+                        {discordGraph.activityTracking.currentActivity ? (
+                          <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
+                            Current observed Discord activity: {discordGraph.activityTracking.currentActivity.title}.
+                          </Typography>
+                        ) : null}
+                        <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
+                          {discordGraph.activityTracking.note}
+                        </Typography>
+                      </Stack>
+                    ) : (
+                      <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
+                        Sign in with Discord to sync mutual servers and start discovery.
+                      </Typography>
+                    )}
+                  </Stack>
+                </Card>
+
+                {isSignedIn ? (
+                  <Stack spacing={2}>
+                    <Typography level="h2">Discovery servers</Typography>
+                    <Typography level="body-md" sx={{ color: 'neutral.300' }}>
+                      Choose which Discord servers should count for mutual-user discovery. Only servers where the bot is present can be used for discovery and invite browsing.
+                    </Typography>
+                    <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
+                      Server counts only include other Game Is Up users. People in Discord who have never opened the app will not appear here yet.
+                    </Typography>
+                    {availableDiscoveryServers.length > 0 ? (
+                      <Stack spacing={1.5}>
+                        {availableDiscoveryServers.map((server) => (
+                          <Card key={server.id} variant="soft" sx={{ p: 2.5 }}>
+                            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }}>
+                              <Stack spacing={0.5}>
+                                <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }} alignItems="center">
+                                  <Typography level="title-md">{server.name}</Typography>
+                                  <Chip size="sm" color="success" variant="soft">
+                                    Bot present
+                                  </Chip>
+                                </Stack>
+                                <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
+                                  {server.knownUserCount > 0
+                                    ? `${server.knownUserCount} other app user${server.knownUserCount === 1 ? '' : 's'} currently share this server.`
+                                    : 'No other app users from this server are known yet.'}
+                                </Typography>
+                              </Stack>
+                              <Button
+                                size="sm"
+                                variant={server.selected ? 'solid' : 'outlined'}
+                                color={server.selected ? 'primary' : 'neutral'}
+                                disabled={serverPreferencePendingId === server.id}
+                                onClick={() => void handleToggleDiscordServer(server.id, !server.selected)}
+                              >
+                                {serverPreferencePendingId === server.id
+                                  ? 'Saving...'
+                                  : server.selected
+                                    ? 'Used to find players'
+                                    : 'Use to find players'}
+                              </Button>
+                            </Stack>
+                          </Card>
+                        ))}
+                      </Stack>
+                    ) : state.discordServers?.servers.length ? (
+                      <EmptyStateCard
+                        title="No bot-enabled servers available"
+                        body="Your Discord servers are synced, but none currently have the Game Is Up bot installed. Install the bot in one shared server to use server-based player finding and member invites."
+                        chips={['Bot required for discovery', 'Synced memberships found', 'Install bot in a shared server']}
+                      />
+                    ) : (
+                      <EmptyStateCard
+                        title="No Discord servers synced yet"
+                        body="Your current session does not have any synced Discord server memberships yet. Sign out and sign back in with Discord to grant server access and refresh the list."
+                        chips={['Discord OAuth', 'Guild sync on sign-in', 'Discovery filters by selected servers']}
+                      />
+                    )}
+                  </Stack>
+                ) : null}
+
+                {isSignedIn ? (
+                  <Card variant="soft" sx={{ p: 3 }}>
+                    <Stack spacing={2}>
+                      <Box>
+                        <Typography level="title-lg">Invite users from your servers</Typography>
+                        <Typography level="body-md" sx={{ color: 'neutral.300', mt: 0.75 }}>
+                          Choose one of your selected bot-enabled player-finding servers, browse its Discord members, and have the bot DM the people you want.
+                        </Typography>
+                      </Box>
+                      {inviteUrl ? (
+                        <Input
+                          value={inviteUrl}
+                          readOnly
+                          endDecorator={(
+                            <Link href={inviteUrl} target="_blank" rel="noreferrer">
+                              Open
+                            </Link>
+                          )}
+                        />
+                      ) : (
+                        <Card color="warning" variant="soft">
+                          <Typography level="body-sm">
+                            This build does not have a public invite link configured yet.
+                          </Typography>
+                        </Card>
+                      )}
+                      {selectedDiscoveryServers.length > 0 ? (
+                        <Stack spacing={1.5}>
+                          <Box>
+                            <Typography level="body-sm" sx={{ color: 'neutral.300', mb: 0.75 }}>
+                              Pick a server
+                            </Typography>
+                            <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+                              {selectedDiscoveryServers.map((server) => (
                                 <Button
-                                  key={result.id}
-                                  variant="plain"
-                                  color="neutral"
-                                  onClick={() => handleSelectSuggestion(result)}
-                                  sx={{
-                                    justifyContent: 'flex-start',
-                                    px: 1.25,
-                                    py: 1,
-                                    borderRadius: 0
+                                  key={server.id}
+                                  size="sm"
+                                  variant={activeInviteServer?.id === server.id ? 'solid' : 'outlined'}
+                                  color={activeInviteServer?.id === server.id ? 'primary' : 'neutral'}
+                                  onClick={() => {
+                                    setInviteServerId(server.id)
                                   }}
                                 >
-                                  <Stack direction="row" spacing={1.25} alignItems="center" sx={{ width: '100%' }}>
-                                    <Box
-                                      sx={{
-                                        width: 36,
-                                        height: 48,
-                                        borderRadius: 'sm',
-                                        overflow: 'hidden',
-                                        backgroundColor: 'rgba(255,255,255,0.08)',
-                                        flexShrink: 0
-                                      }}
-                                    >
-                                      {result.coverUrl ? (
-                                        <Box component="img" src={result.coverUrl} alt={result.title} sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                      ) : null}
-                                    </Box>
-                                    <Box sx={{ textAlign: 'left', minWidth: 0 }}>
-                                      <Typography level="title-sm">{result.title}</Typography>
-                                      <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
-                                        {result.platformLabels.join(', ') || 'Platforms unknown'}
-                                      </Typography>
-                                    </Box>
-                                  </Stack>
+                                  {server.name}
                                 </Button>
                               ))}
                             </Stack>
-                          ) : (
-                            <Typography level="body-sm" sx={{ px: 1.5, py: 1.25, color: 'neutral.300' }}>
-                              No catalog matches yet. Keep typing to save the title manually.
-                            </Typography>
-                          )}
-                        </Sheet>
-                    ) : null}
-                      {selectedCatalogResult && !editingLibraryEntry ? (
-                        <Sheet variant="soft" sx={{ mt: 1, p: 1.25, borderRadius: 'md' }}>
-                          <Stack direction="row" spacing={1.25} alignItems="center">
-                            <Box
-                              sx={{
-                                width: 36,
-                                height: 48,
-                                borderRadius: 'sm',
-                                overflow: 'hidden',
-                                backgroundColor: 'rgba(255,255,255,0.08)',
-                                flexShrink: 0
-                              }}
-                            >
-                              {selectedCatalogResult.coverUrl ? (
-                                <Box component="img" src={selectedCatalogResult.coverUrl} alt={selectedCatalogResult.title} sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                              ) : null}
-                            </Box>
-                            <Box>
-                              <Typography level="body-sm" sx={{ color: 'primary.300' }}>
-                                Catalog match selected: {selectedCatalogResult.title}
+                          </Box>
+                          {activeInviteServer ? (
+                            <Stack spacing={1.25}>
+                              <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
+                                Browse members in {activeInviteServer.name}
                               </Typography>
-                              {selectedCatalogResult.platformLabels.length ? (
-                                <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
-                                  Known platforms: {selectedCatalogResult.platformLabels.join(', ')}.
+                              <Input
+                                placeholder="Search Discord members"
+                                value={inviteMemberQuery}
+                                onChange={(event) => setInviteMemberQuery(event.target.value)}
+                              />
+                              {inviteMembersLoading ? (
+                                <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
+                                  Loading Discord members...
                                 </Typography>
-                              ) : null}
-                            </Box>
+                              ) : inviteMembersNotice ? (
+                                <Card color={inviteMembersNotice.tone} variant="soft">
+                                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.25} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }}>
+                                    <Typography level="body-sm">{inviteMembersNotice.message}</Typography>
+                                    <Button size="sm" variant="outlined" color="neutral" onClick={handleRetryInviteMembers}>
+                                      Retry
+                                    </Button>
+                                  </Stack>
+                                </Card>
+                              ) : filteredInviteMembers.length > 0 ? (
+                                <Stack spacing={1} sx={{ maxHeight: 320, overflowY: 'auto', pr: 0.5 }}>
+                                  {filteredInviteMembers.map((member) => (
+                                    <Sheet
+                                      key={member.id}
+                                      variant="outlined"
+                                      sx={{
+                                        p: 1.25,
+                                        borderRadius: 'md',
+                                        backgroundColor: selectedInviteUserIds.includes(member.id) ? 'rgba(20, 136, 106, 0.14)' : 'transparent'
+                                      }}
+                                    >
+                                      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.25} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }}>
+                                        <Box>
+                                          <Typography level="title-sm">{member.displayName}</Typography>
+                                          <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
+                                            @{member.username}
+                                            {member.isAppUser && member.appHandle ? ` • Game Is Up: @${member.appHandle}` : ''}
+                                          </Typography>
+                                        </Box>
+                                        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'center' }}>
+                                          <Chip size="sm" color={member.isAppUser ? 'success' : 'neutral'} variant={member.isAppUser ? 'soft' : 'outlined'}>
+                                            {member.isAppUser ? 'On Game Is Up' : 'Discord only'}
+                                          </Chip>
+                                          <Button
+                                            size="sm"
+                                            variant={selectedInviteUserIds.includes(member.id) ? 'solid' : 'outlined'}
+                                            color={selectedInviteUserIds.includes(member.id) ? 'primary' : 'neutral'}
+                                            onClick={() => handleToggleInviteUser(member.id)}
+                                          >
+                                            {selectedInviteUserIds.includes(member.id) ? 'Selected' : 'Select'}
+                                          </Button>
+                                        </Stack>
+                                      </Stack>
+                                    </Sheet>
+                                  ))}
+                                </Stack>
+                              ) : inviteMemberQuery.trim().length > 0 ? (
+                                <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
+                                  No server members match that search.
+                                </Typography>
+                              ) : (
+                                <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
+                                  No Discord members are available to browse for this server yet.
+                                </Typography>
+                              )}
+                            </Stack>
+                          ) : null}
+                        </Stack>
+                      ) : (
+                        <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
+                          Turn on at least one server where the bot is present to browse and target specific members.
+                        </Typography>
+                      )}
+                      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.25}>
+                        <Button
+                          color="primary"
+                          disabled={!inviteUrl || selectedInviteUserIds.length === 0 || inviteSending}
+                          onClick={() => void handleSendBotInvites()}
+                        >
+                          {inviteSending ? 'Sending bot invites...' : 'Send bot invites'}
+                        </Button>
+                        <Button variant="outlined" color="neutral" disabled={!inviteUrl} onClick={() => void handleCopyInvite()}>
+                          Copy fallback message
+                        </Button>
+                        {canShareInvite ? (
+                          <Button variant="outlined" color="neutral" disabled={!inviteUrl} onClick={() => void handleShareInvite()}>
+                            Share fallback message
+                          </Button>
+                        ) : null}
+                      </Stack>
+                      <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
+                        The bot will DM the selected Discord members directly. If a DM fails because the user blocks bot DMs, you can still use the fallback copy/share actions.
+                      </Typography>
+                      {inviteSendSummary ? (
+                        <Card color={inviteSendSummary.failedCount > 0 ? 'warning' : 'success'} variant="soft">
+                          <Stack spacing={1.25}>
+                            <Typography level="title-sm">
+                              Delivery summary: {inviteSendSummary.sentCount} sent, {inviteSendSummary.failedCount} failed
+                            </Typography>
+                            <Stack spacing={1}>
+                              {inviteSendSummary.results.map((result) => (
+                                <Sheet
+                                  key={result.memberId}
+                                  variant="outlined"
+                                  sx={{
+                                    p: 1.25,
+                                    borderRadius: 'md',
+                                    backgroundColor: 'rgba(255, 255, 255, 0.02)'
+                                  }}
+                                >
+                                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.25} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }}>
+                                    <Box>
+                                      <Typography level="title-sm">{result.displayName}</Typography>
+                                      <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
+                                        @{result.username}
+                                      </Typography>
+                                      {result.error ? (
+                                        <Typography level="body-sm" sx={{ color: 'warning.300', mt: 0.5 }}>
+                                          {result.error}
+                                        </Typography>
+                                      ) : null}
+                                    </Box>
+                                    <Chip size="sm" color={result.status === 'sent' ? 'success' : 'warning'} variant={result.status === 'sent' ? 'soft' : 'outlined'}>
+                                      {result.status === 'sent' ? 'Sent' : 'Failed'}
+                                    </Chip>
+                                  </Stack>
+                                </Sheet>
+                              ))}
+                            </Stack>
                           </Stack>
-                        </Sheet>
-                    ) : null}
-                  </Stack>
-                  <Stack spacing={1}>
-                    <Typography level="title-sm">Platform</Typography>
-                    <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
-                      Choose every platform where you actually play this game. One library entry can hold multiple platform flags.
-                    </Typography>
-                    <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-                      {platformOptions.map((platform) => (
-                        <Button
-                          key={platform}
-                          size="sm"
-                          variant={selectedPlatformLabels.includes(platform) ? 'solid' : 'outlined'}
-                          color={selectedPlatformLabels.includes(platform) ? 'primary' : 'neutral'}
-                          onClick={() => togglePlatformLabel(platform)}
-                        >
-                          {platform}
-                        </Button>
-                      ))}
+                        </Card>
+                      ) : null}
                     </Stack>
-                  </Stack>
-                  <Stack spacing={1}>
-                    <Typography level="title-sm">Interest level</Typography>
-                    <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-                      {(['interested', 'wishlist', 'playing-now'] as const).map((intent) => (
-                        <Button
-                          key={intent}
-                          size="sm"
-                          variant={libraryIntent === intent ? 'solid' : 'outlined'}
-                          color={libraryIntent === intent ? 'primary' : 'neutral'}
-                          onClick={() => setLibraryIntent(intent)}
-                        >
-                          {formatLibraryIntentLabel(intent)}
-                        </Button>
-                      ))}
-                    </Stack>
-                  </Stack>
-                  <Stack spacing={1}>
-                    <Typography level="title-sm">Game-specific schedule override</Typography>
-                    <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
-                      Leave this blank to use your profile schedule. Only fill it in when this game usually happens at a different time.
-                    </Typography>
-                    <Input
-                      placeholder={currentUsualAvailability ? `Usually ${currentUsualAvailability}` : 'Example: Friday nights'}
-                      value={libraryAvailability}
-                      onChange={(event) => setLibraryAvailability(event.target.value)}
-                    />
-                  </Stack>
-                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
-                    <Button color="primary" disabled={librarySaving} onClick={() => void handleAddLibraryEntry()}>
-                      {librarySaving ? 'Saving game...' : editingLibraryEntry ? 'Save library changes' : 'Add game to library'}
-                    </Button>
-                    {editingLibraryEntry ? (
-                      <Button variant="outlined" color="neutral" disabled={librarySaving} onClick={handleCancelLibraryEdit}>
-                        Cancel
-                      </Button>
-                    ) : null}
-                  </Stack>
-                </Stack>
-              </Card>
+                  </Card>
+                ) : null}
+              </Stack>
+            </TabPanel>
 
-              {hasLibraryEntries ? (
-                <Stack spacing={1.5}>
-                  {libraryEntries.map((entry) => (
-                    <LibraryEntryRow
-                      key={entry.id}
-                      entry={entry}
-                      isEditing={editingLibraryEntryId === entry.id}
-                      editDisabled={librarySaving}
-                      isRemoving={removingLibraryEntryId === entry.id}
-                      onEdit={handleEditLibraryEntry}
-                      onRemove={handleRemoveLibraryEntry}
+            <TabPanel value="library" sx={{ px: 0, pt: 3, backgroundColor: 'transparent' }}>
+              {isSignedIn ? (
+                <Stack spacing={2}>
+                  <Typography level="h2">Your library</Typography>
+                  <Typography level="body-md" sx={{ color: 'neutral.300' }}>
+                    Add a few games to your library so discovery, friends, and play-intent matching have something real to work from.
+                  </Typography>
+                  <Card variant="soft" sx={{ p: 3 }}>
+                    <Stack spacing={2}>
+                      <Box>
+                        <Typography level="title-md">When do you usually play?</Typography>
+                        <Typography level="body-sm" sx={{ color: 'neutral.400', mt: 0.5 }}>
+                          Set one default schedule at the user level. Individual games can still carry their own override when they differ.
+                        </Typography>
+                      </Box>
+                      <Input
+                        placeholder="Example: Weeknights after 8pm"
+                        value={usualAvailability}
+                        onChange={(event) => {
+                          setUsualAvailability(event.target.value)
+                          setProfileNotice(null)
+                        }}
+                      />
+                      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'center' }}>
+                        <Button color="primary" disabled={profileSaving || !usualAvailabilityChanged} onClick={() => void handleSaveUsualAvailability()}>
+                          {usualAvailabilityButtonLabel}
+                        </Button>
+                        <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
+                          {usualAvailabilityHelperText}
+                        </Typography>
+                      </Stack>
+                      {profileNotice ? (
+                        <Card
+                          color={profileNotice.tone}
+                          variant="soft"
+                          sx={{
+                            p: 1.5,
+                            gap: 0.5
+                          }}
+                        >
+                          <Typography level="body-sm">{profileNotice.message}</Typography>
+                        </Card>
+                      ) : null}
+                    </Stack>
+                  </Card>
+                  <Card
+                    ref={libraryEditorRef}
+                    variant="soft"
+                    sx={{
+                      p: 3,
+                      border: editingLibraryEntry ? '1px solid rgba(78, 240, 183, 0.45)' : '1px solid transparent',
+                      boxShadow: editingLibraryEntry ? '0 0 0 1px rgba(78, 240, 183, 0.16)' : 'none',
+                      transition: 'border-color 180ms ease, box-shadow 180ms ease'
+                    }}
+                  >
+                    <Stack spacing={2}>
+                      {editingLibraryEntry ? (
+                        <Card variant="outlined" sx={{ p: 2, borderColor: 'rgba(255, 255, 255, 0.1)' }}>
+                          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }}>
+                            <Box>
+                              <Typography level="title-sm">Library editor: {editingLibraryEntry.title}</Typography>
+                              <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
+                                You are editing this entry in the form below. Update platforms, intent, or the schedule override here.
+                              </Typography>
+                            </Box>
+                            <Button size="sm" variant="outlined" color="neutral" onClick={handleCancelLibraryEdit}>
+                              Cancel
+                            </Button>
+                          </Stack>
+                        </Card>
+                      ) : null}
+                      <Stack spacing={1}>
+                        <Typography level="title-sm">Game title</Typography>
+                        <Input
+                          placeholder={editingLibraryEntry ? 'Game title is fixed while editing this entry' : 'Start typing a game title'}
+                          value={libraryTitle}
+                          disabled={Boolean(editingLibraryEntry)}
+                          onChange={(event) => handleLibraryTitleChange(event.target.value)}
+                        />
+                        <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
+                          {editingLibraryEntry
+                            ? 'Edit the other options here without losing the existing entry.'
+                            : 'Suggestions come from the synced catalog and RAWG. You can keep typing for a manual save if the right match does not appear.'}
+                        </Typography>
+                        <Typography level="body-xs" sx={{ color: 'neutral.500' }}>
+                          External catalog data via{' '}
+                          <Link href="https://rawg.io" target="_blank" rel="noreferrer">
+                            RAWG
+                          </Link>
+                          .
+                        </Typography>
+                        {libraryTitle.trim().length >= 2 && !selectedCatalogResult && !editingLibraryEntry ? (
+                          <Sheet
+                            variant="soft"
+                            sx={{
+                              mt: 1,
+                              borderRadius: 'md',
+                              border: '1px solid rgba(255,255,255,0.08)',
+                              overflow: 'hidden'
+                            }}
+                          >
+                            {gameSuggestionsLoading ? (
+                              <Typography level="body-sm" sx={{ px: 1.5, py: 1.25, color: 'neutral.300' }}>
+                                Searching the external game catalog...
+                              </Typography>
+                            ) : gameSuggestions.length > 0 ? (
+                              <Stack spacing={0}>
+                                {gameSuggestions.map((result) => (
+                                  <Button
+                                    key={result.id}
+                                    variant="plain"
+                                    color="neutral"
+                                    onClick={() => handleSelectSuggestion(result)}
+                                    sx={{
+                                      justifyContent: 'flex-start',
+                                      px: 1.25,
+                                      py: 1,
+                                      borderRadius: 0
+                                    }}
+                                  >
+                                    <Stack direction="row" spacing={1.25} alignItems="center" sx={{ width: '100%' }}>
+                                      <Box
+                                        sx={{
+                                          width: 36,
+                                          height: 48,
+                                          borderRadius: 'sm',
+                                          overflow: 'hidden',
+                                          backgroundColor: 'rgba(255,255,255,0.08)',
+                                          flexShrink: 0
+                                        }}
+                                      >
+                                        {result.coverUrl ? (
+                                          <Box component="img" src={result.coverUrl} alt={result.title} sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                        ) : null}
+                                      </Box>
+                                      <Box sx={{ textAlign: 'left', minWidth: 0 }}>
+                                        <Typography level="title-sm">{result.title}</Typography>
+                                        <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
+                                          {result.platformLabels.join(', ') || 'Platforms unknown'}
+                                        </Typography>
+                                      </Box>
+                                    </Stack>
+                                  </Button>
+                                ))}
+                              </Stack>
+                            ) : (
+                              <Typography level="body-sm" sx={{ px: 1.5, py: 1.25, color: 'neutral.300' }}>
+                                No catalog matches yet. Keep typing to save the title manually.
+                              </Typography>
+                            )}
+                          </Sheet>
+                        ) : null}
+                        {selectedCatalogResult && !editingLibraryEntry ? (
+                          <Sheet variant="soft" sx={{ mt: 1, p: 1.25, borderRadius: 'md' }}>
+                            <Stack direction="row" spacing={1.25} alignItems="center">
+                              <Box
+                                sx={{
+                                  width: 36,
+                                  height: 48,
+                                  borderRadius: 'sm',
+                                  overflow: 'hidden',
+                                  backgroundColor: 'rgba(255,255,255,0.08)',
+                                  flexShrink: 0
+                                }}
+                              >
+                                {selectedCatalogResult.coverUrl ? (
+                                  <Box component="img" src={selectedCatalogResult.coverUrl} alt={selectedCatalogResult.title} sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                ) : null}
+                              </Box>
+                              <Box>
+                                <Typography level="body-sm" sx={{ color: 'primary.300' }}>
+                                  Catalog match selected: {selectedCatalogResult.title}
+                                </Typography>
+                                {selectedCatalogResult.platformLabels.length ? (
+                                  <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
+                                    Known platforms: {selectedCatalogResult.platformLabels.join(', ')}.
+                                  </Typography>
+                                ) : null}
+                              </Box>
+                            </Stack>
+                          </Sheet>
+                        ) : null}
+                      </Stack>
+                      <Stack spacing={1}>
+                        <Typography level="title-sm">Platform</Typography>
+                        <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
+                          Choose every platform where you actually play this game. One library entry can hold multiple platform flags.
+                        </Typography>
+                        <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+                          {platformOptions.map((platform) => (
+                            <Button
+                              key={platform}
+                              size="sm"
+                              variant={selectedPlatformLabels.includes(platform) ? 'solid' : 'outlined'}
+                              color={selectedPlatformLabels.includes(platform) ? 'primary' : 'neutral'}
+                              onClick={() => togglePlatformLabel(platform)}
+                            >
+                              {platform}
+                            </Button>
+                          ))}
+                        </Stack>
+                      </Stack>
+                      <Stack spacing={1}>
+                        <Typography level="title-sm">Interest level</Typography>
+                        <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+                          {(['interested', 'wishlist', 'playing-now'] as const).map((intent) => (
+                            <Button
+                              key={intent}
+                              size="sm"
+                              variant={libraryIntent === intent ? 'solid' : 'outlined'}
+                              color={libraryIntent === intent ? 'primary' : 'neutral'}
+                              onClick={() => setLibraryIntent(intent)}
+                            >
+                              {formatLibraryIntentLabel(intent)}
+                            </Button>
+                          ))}
+                        </Stack>
+                      </Stack>
+                      <Stack spacing={1}>
+                        <Typography level="title-sm">Game-specific schedule override</Typography>
+                        <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
+                          Leave this blank to use your profile schedule. Only fill it in when this game usually happens at a different time.
+                        </Typography>
+                        <Input
+                          placeholder={currentUsualAvailability ? `Usually ${currentUsualAvailability}` : 'Example: Friday nights'}
+                          value={libraryAvailability}
+                          onChange={(event) => setLibraryAvailability(event.target.value)}
+                        />
+                      </Stack>
+                      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+                        <Button color="primary" disabled={librarySaving} onClick={() => void handleAddLibraryEntry()}>
+                          {librarySaving ? 'Saving game...' : editingLibraryEntry ? 'Save library changes' : 'Add game to library'}
+                        </Button>
+                        {editingLibraryEntry ? (
+                          <Button variant="outlined" color="neutral" disabled={librarySaving} onClick={handleCancelLibraryEdit}>
+                            Cancel
+                          </Button>
+                        ) : null}
+                      </Stack>
+                    </Stack>
+                  </Card>
+
+                  {hasLibraryEntries ? (
+                    <Stack spacing={1.5}>
+                      {libraryEntries.map((entry) => (
+                        <LibraryEntryRow
+                          key={entry.id}
+                          entry={entry}
+                          isEditing={editingLibraryEntryId === entry.id}
+                          editDisabled={librarySaving}
+                          isRemoving={removingLibraryEntryId === entry.id}
+                          onEdit={handleEditLibraryEntry}
+                          onRemove={handleRemoveLibraryEntry}
+                        />
+                      ))}
+                    </Stack>
+                  ) : (
+                    <EmptyStateCard
+                      title="Your library is still empty"
+                      body="Add two or three games you care about. That is enough to start populating overlap and make friends useful."
+                      chips={['External catalog suggestions', 'Multi-platform flags', 'Discovery updates after save']}
                     />
-                  ))}
+                  )}
                 </Stack>
               ) : (
                 <EmptyStateCard
-                  title="Your library is still empty"
-                  body="Add two or three games you care about. That is enough to start populating overlap and make friends useful."
-                  chips={['External catalog suggestions', 'Multi-platform flags', 'Discovery updates after save']}
+                  title="Sign in to build your library"
+                  body="Library management becomes available after Discord sign-in. Once you are signed in, this tab is where you add games, platforms, and schedule defaults."
+                  chips={['Discord sign-in', 'Library drives overlap', 'Per-game schedule overrides']}
                 />
               )}
-            </Stack>
-          ) : null}
+            </TabPanel>
 
-          <Stack spacing={2}>
-            <Typography level="h2">Happening now</Typography>
-            <Typography level="body-md" sx={{ color: 'neutral.300' }}>
-              See who in your network is actively looking to play right now, whether they opened up their whole library or just a smaller set of games.
-            </Typography>
-            {isSignedIn ? (
-              <Card variant="soft" sx={{ p: 3 }}>
-                <Stack spacing={2}>
-                  <Box>
-                    <Typography level="title-lg">{activePlayIntent ? 'Your call to play is live' : 'Post a call to play'}</Typography>
-                    <Typography level="body-sm" sx={{ color: 'neutral.400', mt: 0.5 }}>
-                      Let your friends know you are ready now. The app only notifies overlapping friends based on the games in your library or the games you pick here.
-                    </Typography>
-                  </Box>
+            <TabPanel value="play" sx={{ px: 0, pt: 3, backgroundColor: 'transparent' }}>
+              <Stack spacing={2}>
+                <Typography level="h2">Happening now</Typography>
+                <Typography level="body-md" sx={{ color: 'neutral.300' }}>
+                  See who in your network is actively looking to play right now, whether they opened up their whole library or just a smaller set of games.
+                </Typography>
+                {isSignedIn ? (
+                  <Card variant="soft" sx={{ p: 3 }}>
+                    <Stack spacing={2}>
+                      <Box>
+                        <Typography level="title-lg">{activePlayIntent ? 'Your call to play is live' : 'Post a call to play'}</Typography>
+                        <Typography level="body-sm" sx={{ color: 'neutral.400', mt: 0.5 }}>
+                          Let your friends know you are ready now. The app only notifies overlapping friends based on the games in your library or the games you pick here.
+                        </Typography>
+                      </Box>
 
-                  {activePlayIntent ? (
-                    <Card color="success" variant="soft" sx={{ p: 2 }}>
+                      {activePlayIntent ? (
+                        <Card color="success" variant="soft" sx={{ p: 2 }}>
+                          <Stack spacing={1}>
+                            <Typography level="title-md">{activePlayIntent.title}</Typography>
+                            <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+                              <Chip color="success" variant="soft">
+                                Live until {new Date(activePlayIntent.windowEndsAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                              </Chip>
+                              <Chip color="primary" variant="outlined">
+                                {formatNotifyScopeLabel(activePlayIntent.notifyScope)}
+                              </Chip>
+                              <Chip color="neutral" variant="outlined">
+                                {formatPlayIntentSelectionModeLabel(activePlayIntent.selectionMode)}
+                              </Chip>
+                            </Stack>
+                            <Typography level="body-xs" sx={{ color: 'neutral.300' }}>
+                              {formatNotifyScopeDescription(activePlayIntent.notifyScope)}
+                            </Typography>
+                            {activePlayIntent.note ? (
+                              <Typography level="body-sm" sx={{ color: 'neutral.100' }}>
+                                {activePlayIntent.note}
+                              </Typography>
+                            ) : null}
+                          </Stack>
+                        </Card>
+                      ) : null}
+
+                      {!canPostPlayIntent ? (
+                        <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
+                          Add at least one game to your library before posting a call to play.
+                        </Typography>
+                      ) : null}
+
                       <Stack spacing={1}>
-                        <Typography level="title-md">{activePlayIntent.title}</Typography>
+                        <Typography level="title-sm">Audience</Typography>
                         <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-                          <Chip color="success" variant="soft">
-                            Live until {new Date(activePlayIntent.windowEndsAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
-                          </Chip>
-                          <Chip color="primary" variant="outlined">
-                            {formatNotifyScopeLabel(activePlayIntent.notifyScope)}
-                          </Chip>
-                          <Chip color="neutral" variant="outlined">
-                            {formatPlayIntentSelectionModeLabel(activePlayIntent.selectionMode)}
-                          </Chip>
+                          {(['discovery-and-friends', 'friends-only'] as const).map((scope) => (
+                            <Button
+                              key={scope}
+                              size="sm"
+                              variant={playIntentNotifyScope === scope ? 'solid' : 'outlined'}
+                              color={playIntentNotifyScope === scope ? 'primary' : 'neutral'}
+                              onClick={() => {
+                                setPlayIntentNotifyScope(scope)
+                                setPlayIntentNotice(null)
+                              }}
+                            >
+                              {formatNotifyScopeLabel(scope)}
+                            </Button>
+                          ))}
                         </Stack>
-                        {activePlayIntent.note ? (
-                          <Typography level="body-sm" sx={{ color: 'neutral.100' }}>
-                            {activePlayIntent.note}
-                          </Typography>
+                        <Typography level="body-xs" sx={{ color: 'neutral.300' }}>
+                          {formatNotifyScopeDescription(playIntentNotifyScope)}
+                        </Typography>
+                      </Stack>
+
+                      <Stack spacing={1}>
+                        <Typography level="title-sm">What are you up for?</Typography>
+                        <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+                          {(['library', 'subset'] as const).map((selectionMode) => (
+                            <Button
+                              key={selectionMode}
+                              size="sm"
+                              variant={playIntentSelectionMode === selectionMode ? 'solid' : 'outlined'}
+                              color={playIntentSelectionMode === selectionMode ? 'primary' : 'neutral'}
+                              disabled={!canPostPlayIntent}
+                              onClick={() => {
+                                setPlayIntentSelectionMode(selectionMode)
+                                setPlayIntentNotice(null)
+                              }}
+                            >
+                              {formatPlayIntentSelectionModeLabel(selectionMode)}
+                            </Button>
+                          ))}
+                        </Stack>
+                      </Stack>
+
+                      {playIntentSelectionMode === 'subset' ? (
+                        <Stack spacing={1}>
+                          <Typography level="title-sm">Pick games</Typography>
+                          <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+                            {libraryEntries.map((entry) => (
+                              <Button
+                                key={entry.id}
+                                size="sm"
+                                variant={selectedPlayIntentGameIds.includes(entry.gameId) ? 'solid' : 'outlined'}
+                                color={selectedPlayIntentGameIds.includes(entry.gameId) ? 'primary' : 'neutral'}
+                                disabled={!canPostPlayIntent}
+                                onClick={() => togglePlayIntentGame(entry.gameId)}
+                              >
+                                {entry.title}
+                              </Button>
+                            ))}
+                          </Stack>
+                        </Stack>
+                      ) : null}
+
+                      <Stack spacing={1}>
+                        <Typography level="title-sm">How long should this stay live?</Typography>
+                        <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+                          {([
+                            ['preset', 'Quick picks'],
+                            ['custom', 'Custom length'],
+                            ['end-time', 'Specific end time']
+                          ] as const).map(([timingMode, label]) => (
+                            <Button
+                              key={timingMode}
+                              size="sm"
+                              variant={playIntentTimingMode === timingMode ? 'solid' : 'outlined'}
+                              color={playIntentTimingMode === timingMode ? 'primary' : 'neutral'}
+                              onClick={() => {
+                                setPlayIntentTimingMode(timingMode)
+                                setPlayIntentNotice(null)
+                              }}
+                            >
+                              {label}
+                            </Button>
+                          ))}
+                        </Stack>
+
+                        {playIntentTimingMode === 'preset' ? (
+                          <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+                            {playIntentPresetDurations.map((durationMinutes) => (
+                              <Button
+                                key={durationMinutes}
+                                size="sm"
+                                variant={playIntentDurationMinutes === durationMinutes ? 'solid' : 'outlined'}
+                                color={playIntentDurationMinutes === durationMinutes ? 'primary' : 'neutral'}
+                                onClick={() => {
+                                  setPlayIntentDurationMinutes(durationMinutes)
+                                  setPlayIntentCustomDurationInput(String(durationMinutes))
+                                  setPlayIntentEndAtInput(buildPlayIntentEndTimeInputValue(durationMinutes))
+                                  setPlayIntentNotice(null)
+                                }}
+                              >
+                                {formatPlayIntentDurationLabel(durationMinutes)}
+                              </Button>
+                            ))}
+                          </Stack>
+                        ) : null}
+
+                        {playIntentTimingMode === 'custom' ? (
+                          <Input
+                            type="number"
+                            placeholder="90"
+                            value={playIntentCustomDurationInput}
+                            onChange={(event) => {
+                              setPlayIntentCustomDurationInput(event.target.value)
+
+                              const nextDurationMinutes = parsePlayIntentDurationMinutes(event.target.value)
+
+                              if (nextDurationMinutes != null) {
+                                setPlayIntentDurationMinutes(nextDurationMinutes)
+                                setPlayIntentEndAtInput(buildPlayIntentEndTimeInputValue(nextDurationMinutes))
+                              }
+
+                              setPlayIntentNotice(null)
+                            }}
+                            endDecorator="minutes"
+                            slotProps={{
+                              input: {
+                                min: minimumPlayIntentDurationMinutes,
+                                max: maximumPlayIntentDurationMinutes,
+                                step: 15
+                              }
+                            }}
+                          />
+                        ) : null}
+
+                        {playIntentTimingMode === 'end-time' ? (
+                          <Input
+                            type="datetime-local"
+                            value={playIntentEndAtInput}
+                            onChange={(event) => {
+                              setPlayIntentEndAtInput(event.target.value)
+                              setPlayIntentNotice(null)
+                            }}
+                            slotProps={{
+                              input: {
+                                min: minPlayIntentEndAtInput,
+                                max: maxPlayIntentEndAtInput,
+                                step: 60
+                              }
+                            }}
+                          />
+                        ) : null}
+
+                        <Typography level="body-xs" sx={{ color: playIntentTimingValidationMessage ? 'danger.300' : 'neutral.300' }}>
+                          {playIntentTimingValidationMessage
+                            ? playIntentTimingValidationMessage
+                            : playIntentPreviewEndsAt && resolvedPlayIntentDurationMinutes != null
+                              ? `Ends ${playIntentPreviewEndsAt.toLocaleString([], {
+                                  month: 'short',
+                                  day: 'numeric',
+                                  hour: 'numeric',
+                                  minute: '2-digit'
+                                })} (${formatPlayIntentDurationLabel(resolvedPlayIntentDurationMinutes)}).`
+                              : 'Choose how long this call to play should stay visible.'}
+                        </Typography>
+                      </Stack>
+
+                      <Stack spacing={1}>
+                        <Typography level="title-sm">Note</Typography>
+                        <Input
+                          placeholder="Example: voice chat on, happy to fill support"
+                          value={playIntentNote}
+                          onChange={(event) => {
+                            setPlayIntentNote(event.target.value)
+                            setPlayIntentNotice(null)
+                          }}
+                        />
+                      </Stack>
+
+                      {playIntentNotice ? (
+                        <Card color={playIntentNotice.tone} variant="soft" sx={{ p: 1.5 }}>
+                          <Typography level="body-sm">{playIntentNotice.message}</Typography>
+                        </Card>
+                      ) : null}
+
+                      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+                        <Button color="primary" disabled={playIntentSaving || !canPostPlayIntent} onClick={() => void handleSavePlayIntent()}>
+                          {playIntentSaving ? 'Saving call to play...' : activePlayIntent ? 'Update call to play' : 'Post call to play'}
+                        </Button>
+                        {activePlayIntent ? (
+                          <Button variant="outlined" color="neutral" disabled={playIntentSaving} onClick={() => void handleClearPlayIntent()}>
+                            Clear call to play
+                          </Button>
                         ) : null}
                       </Stack>
-                    </Card>
-                  ) : null}
-
-                  {!canPostPlayIntent ? (
-                    <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
-                      Add at least one game to your library before posting a call to play.
-                    </Typography>
-                  ) : null}
-
-                  <Stack spacing={1}>
-                    <Typography level="title-sm">Audience</Typography>
-                    <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-                      {(['friends-only', 'mutual-friends', 'closed'] as const).map((scope) => (
-                        <Button
-                          key={scope}
-                          size="sm"
-                          variant={playIntentNotifyScope === scope ? 'solid' : 'outlined'}
-                          color={playIntentNotifyScope === scope ? 'primary' : 'neutral'}
-                          onClick={() => {
-                            setPlayIntentNotifyScope(scope)
-                            setPlayIntentNotice(null)
-                          }}
-                        >
-                          {formatNotifyScopeLabel(scope)}
-                        </Button>
-                      ))}
                     </Stack>
+                  </Card>
+                ) : null}
+                {hasPlayIntentPreviews ? (
+                  <Stack spacing={2}>
+                    {state.playIntents?.intents.map((intent) => (
+                      <PlayIntentCard key={intent.id} intent={intent} />
+                    ))}
                   </Stack>
-
-                  <Stack spacing={1}>
-                    <Typography level="title-sm">What are you up for?</Typography>
-                    <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-                      {(['library', 'subset'] as const).map((selectionMode) => (
-                        <Button
-                          key={selectionMode}
-                          size="sm"
-                          variant={playIntentSelectionMode === selectionMode ? 'solid' : 'outlined'}
-                          color={playIntentSelectionMode === selectionMode ? 'primary' : 'neutral'}
-                          disabled={!canPostPlayIntent}
-                          onClick={() => {
-                            setPlayIntentSelectionMode(selectionMode)
-                            setPlayIntentNotice(null)
-                          }}
-                        >
-                          {formatPlayIntentSelectionModeLabel(selectionMode)}
-                        </Button>
-                      ))}
-                    </Stack>
-                  </Stack>
-
-                  {playIntentSelectionMode === 'subset' ? (
-                    <Stack spacing={1}>
-                      <Typography level="title-sm">Pick games</Typography>
-                      <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-                        {libraryEntries.map((entry) => (
-                          <Button
-                            key={entry.id}
-                            size="sm"
-                            variant={selectedPlayIntentGameIds.includes(entry.gameId) ? 'solid' : 'outlined'}
-                            color={selectedPlayIntentGameIds.includes(entry.gameId) ? 'primary' : 'neutral'}
-                            disabled={!canPostPlayIntent}
-                            onClick={() => togglePlayIntentGame(entry.gameId)}
-                          >
-                            {entry.title}
-                          </Button>
-                        ))}
-                      </Stack>
-                    </Stack>
-                  ) : null}
-
-                  <Stack spacing={1}>
-                    <Typography level="title-sm">How long should this stay live?</Typography>
-                    <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-                      {[60, 120, 240].map((durationMinutes) => (
-                        <Button
-                          key={durationMinutes}
-                          size="sm"
-                          variant={playIntentDurationMinutes === durationMinutes ? 'solid' : 'outlined'}
-                          color={playIntentDurationMinutes === durationMinutes ? 'primary' : 'neutral'}
-                          onClick={() => {
-                            setPlayIntentDurationMinutes(durationMinutes)
-                            setPlayIntentNotice(null)
-                          }}
-                        >
-                          {formatPlayIntentDurationLabel(durationMinutes)}
-                        </Button>
-                      ))}
-                    </Stack>
-                  </Stack>
-
-                  <Stack spacing={1}>
-                    <Typography level="title-sm">Note</Typography>
-                    <Input
-                      placeholder="Example: voice chat on, happy to fill support"
-                      value={playIntentNote}
-                      onChange={(event) => {
-                        setPlayIntentNote(event.target.value)
-                        setPlayIntentNotice(null)
-                      }}
-                    />
-                  </Stack>
-
-                  {playIntentNotice ? (
-                    <Card color={playIntentNotice.tone} variant="soft" sx={{ p: 1.5 }}>
-                      <Typography level="body-sm">{playIntentNotice.message}</Typography>
-                    </Card>
-                  ) : null}
-
-                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
-                    <Button color="primary" disabled={playIntentSaving || !canPostPlayIntent} onClick={() => void handleSavePlayIntent()}>
-                      {playIntentSaving ? 'Saving call to play...' : activePlayIntent ? 'Update call to play' : 'Post call to play'}
-                    </Button>
-                    {activePlayIntent ? (
-                      <Button variant="outlined" color="neutral" disabled={playIntentSaving} onClick={() => void handleClearPlayIntent()}>
-                        Clear call to play
-                      </Button>
-                    ) : null}
-                  </Stack>
-                </Stack>
-              </Card>
-            ) : null}
-            {hasPlayIntentPreviews ? (
-              <Stack spacing={2}>
-                {state.playIntents?.intents.map((intent) => (
-                  <PlayIntentCard key={intent.id} intent={intent} />
-                ))}
+                ) : (
+                  <EmptyStateCard
+                    title={isSignedIn ? 'No one looking to play right now' : 'Happening now will appear here'}
+                    body={
+                      isSignedIn
+                        ? 'When friends in your network post an active call to play that overlaps with your library, it will show up here.'
+                        : 'Once the API responds, this section shows active availability from people in your network.'
+                    }
+                    chips={
+                      isSignedIn
+                        ? ['Library overlap required', 'Friends drive visibility', 'Active availability only']
+                        : ['Whole library', 'Selected games']
+                    }
+                  />
+                )}
               </Stack>
-            ) : (
-              <EmptyStateCard
-                title={isSignedIn ? 'No one looking to play right now' : 'Happening now will appear here'}
-                body={
-                  isSignedIn
-                    ? 'When friends in your network post an active call to play that overlaps with your library, it will show up here.'
-                    : 'Once the API responds, this section shows active availability from people in your network.'
-                }
-                chips={
-                  isSignedIn
-                    ? ['Library overlap required', 'Friends drive visibility', 'Active availability only']
-                    : ['Whole library', 'Selected games']
-                }
-              />
-            )}
-          </Stack>
+            </TabPanel>
 
-          <Stack spacing={2}>
-            <Typography level="h2">Games your network also plays</Typography>
-            <Typography level="body-md" sx={{ color: 'neutral.300' }}>
-              This is the overlap view now: games first, then the people in your network who have each game in their playlists.
-            </Typography>
-            {state.error ? (
-              <Card color="danger" variant="soft">
-                <Typography level="body-md">{state.error}</Typography>
-                <Typography level="body-sm" sx={{ mt: 1 }}>
-                  Retrying in the background every 5 seconds. The dashboard will refresh automatically when the API responds again.
+            <TabPanel value="discovery" sx={{ px: 0, pt: 3, backgroundColor: 'transparent' }}>
+              <Stack spacing={2}>
+                <Typography level="h2">Games your network also plays</Typography>
+                <Typography level="body-md" sx={{ color: 'neutral.300' }}>
+                  This is the overlap view now: games first, then the people in your network who have each game in their playlists.
                 </Typography>
-              </Card>
-            ) : null}
-            {overlapGames.length > 0 ? (
-              <Stack spacing={2}>
-                {overlapGames.map((game) => (
-                  <GameCard
-                    key={game.id}
-                    game={game}
-                    canManage={isSignedIn}
-                    pendingFriendId={friendPendingId}
-                    onToggleFriend={handleToggleFriend}
+                {state.error ? (
+                  <Card color="danger" variant="soft">
+                    <Typography level="body-md">{state.error}</Typography>
+                    <Typography level="body-sm" sx={{ mt: 1 }}>
+                      Retrying in the background every 5 seconds. The dashboard will refresh automatically when the API responds again.
+                    </Typography>
+                  </Card>
+                ) : null}
+                {overlapGames.length > 0 ? (
+                  <Stack spacing={2}>
+                    {overlapGames.map((game) => (
+                      <GameCard
+                        key={game.id}
+                        game={game}
+                        canManage={isSignedIn}
+                        pendingFriendId={friendPendingId}
+                        onToggleFriend={handleToggleFriend}
+                      />
+                    ))}
+                  </Stack>
+                ) : (
+                  <EmptyStateCard
+                    title={isSignedIn ? 'No shared games yet' : 'Shared games will appear here'}
+                    body={
+                      noDiscoveryServersSelected
+                        ? 'Every synced Discord server is currently hidden from discovery, so the app has no mutual-server users to compare against.'
+                        : isSignedIn
+                          ? 'Add games to your library and keep at least one Discord server enabled for discovery so the app can find overlap with your network.'
+                          : 'This section shows games that the seeded demo viewer and other visible users both have in their playlists.'
+                    }
+                    chips={
+                      noDiscoveryServersSelected
+                        ? ['Enable a Discord server', 'Mutual users are hidden', 'Discovery is filtered']
+                        : isSignedIn
+                          ? ['Library drives overlap', 'Discovery servers filter visibility', 'Friends stay visible too']
+                          : ['Game-first overlap', 'People per game', 'Demo data seeded']
+                    }
                   />
-                ))}
+                )}
               </Stack>
-            ) : (
-              <EmptyStateCard
-                title={isSignedIn ? 'No shared games yet' : 'Shared games will appear here'}
-                body={
-                  noDiscoveryServersSelected
-                    ? 'Every synced Discord server is currently hidden from discovery, so the app has no mutual-server users to compare against.'
-                    : isSignedIn
-                      ? 'Add games to your library and keep at least one Discord server enabled for discovery so the app can find overlap with your network.'
-                      : 'This section shows games that the seeded demo viewer and other visible users both have in their playlists.'
-                }
-                chips={
-                  noDiscoveryServersSelected
-                    ? ['Enable a Discord server', 'Mutual users are hidden', 'Discovery is filtered']
-                    : isSignedIn
-                      ? ['Library drives overlap', 'Discovery servers filter visibility', 'Friends stay visible too']
-                      : ['Game-first overlap', 'People per game', 'Demo data seeded']
-                }
-              />
-            )}
-          </Stack>
 
-          <Stack spacing={2}>
-            <Typography level="h2">Browse by game</Typography>
-            <Typography level="body-md" sx={{ color: 'neutral.300' }}>
-              Browse every game that your visible network has added, even when it is not in your own library yet.
-            </Typography>
-            {hasDiscoveryGames ? (
-              <Stack spacing={2}>
-                {discoveryGames.map((game) => (
-                  <GameCard
-                    key={game.id}
-                    game={game}
-                    canManage={isSignedIn}
-                    pendingFriendId={friendPendingId}
-                    onToggleFriend={handleToggleFriend}
+              <Stack spacing={2} sx={{ mt: 3 }}>
+                <Typography level="h2">Browse by game</Typography>
+                <Typography level="body-md" sx={{ color: 'neutral.300' }}>
+                  Browse every game that your visible network has added, even when it is not in your own library yet.
+                </Typography>
+                {hasDiscoveryGames ? (
+                  <Stack spacing={2}>
+                    {discoveryGames.map((game) => (
+                      <GameCard
+                        key={game.id}
+                        game={game}
+                        canManage={isSignedIn}
+                        pendingFriendId={friendPendingId}
+                        onToggleFriend={handleToggleFriend}
+                      />
+                    ))}
+                  </Stack>
+                ) : (
+                  <EmptyStateCard
+                    title={isSignedIn ? 'No network games visible yet' : 'Network games will appear here'}
+                    body={
+                      noDiscoveryServersSelected
+                        ? 'Enable at least one synced Discord server to browse games from mutual-server users again.'
+                        : isSignedIn
+                          ? 'No visible friends or mutual-server users have games in their playlists yet.'
+                          : 'Once the API responds, this section shows every seeded game that visible users have added.'
+                    }
+                    chips={
+                      noDiscoveryServersSelected
+                        ? ['Discord server filters', 'Mutual users hidden', 'Turn one back on']
+                        : ['Manual discovery', 'Find new friends by game', 'People per title']
+                    }
                   />
-                ))}
+                )}
               </Stack>
-            ) : (
-              <EmptyStateCard
-                title={isSignedIn ? 'No network games visible yet' : 'Network games will appear here'}
-                body={
-                  noDiscoveryServersSelected
-                    ? 'Enable at least one synced Discord server to browse games from mutual-server users again.'
-                    : isSignedIn
-                      ? 'No visible friends or mutual-server users have games in their playlists yet.'
-                      : 'Once the API responds, this section shows every seeded game that visible users have added.'
-                }
-                chips={
-                  noDiscoveryServersSelected
-                    ? ['Discord server filters', 'Mutual users hidden', 'Turn one back on']
-                    : ['Manual discovery', 'Find new friends by game', 'People per title']
-                }
-              />
-            )}
-          </Stack>
 
-          <Stack spacing={2}>
-            <Typography level="h2">Browse people</Typography>
-            <Typography level="body-md" sx={{ color: 'neutral.300' }}>
-              See each visible person and the full playlist they have shared with your current discovery network.
-            </Typography>
-            {hasDiscoveryPeople ? (
-              <Stack spacing={2}>
-                {discoveryPeople.map((person) => (
-                  <PersonCard
-                    key={person.id}
-                    person={person}
-                    canManage={isSignedIn}
-                    isPending={friendPendingId === person.id}
-                    onToggleFriend={handleToggleFriend}
+              <Stack spacing={2} sx={{ mt: 3 }}>
+                <Typography level="h2">Browse people</Typography>
+                <Typography level="body-md" sx={{ color: 'neutral.300' }}>
+                  See each visible person and the full playlist they have shared with your current discovery network.
+                </Typography>
+                <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
+                  Visibility here is limited to people who also use Game Is Up, either through one of your selected discovery servers or your in-app friends list.
+                </Typography>
+                {hasDiscoveryPeople ? (
+                  <Stack spacing={2}>
+                    {discoveryPeople.map((person) => (
+                      <PersonCard
+                        key={person.id}
+                        person={person}
+                        canManage={isSignedIn}
+                        isPending={friendPendingId === person.id}
+                        onToggleFriend={handleToggleFriend}
+                      />
+                    ))}
+                  </Stack>
+                ) : (
+                  <EmptyStateCard
+                    title={isSignedIn ? 'No people visible yet' : 'People will appear here'}
+                    body={
+                      noDiscoveryServersSelected
+                        ? 'All synced Discord servers are hidden, so mutual-server people are excluded from browsing right now.'
+                        : isSignedIn
+                          ? 'No visible discovery-server users or in-app friends are available yet.'
+                          : 'This section shows the seeded people-first view, including visible users from discovery servers and friends.'
+                    }
+                    chips={
+                      noDiscoveryServersSelected
+                        ? ['Server filters applied', 'No mutual users visible', 'Friends remain separate']
+                        : ['Discovery-server people', 'Friends stay visible', 'Add friends before game overlap']
+                    }
                   />
-                ))}
+                )}
               </Stack>
-            ) : (
-              <EmptyStateCard
-                title={isSignedIn ? 'No people visible yet' : 'People will appear here'}
-                body={
-                  noDiscoveryServersSelected
-                    ? 'All synced Discord servers are hidden, so mutual-server people are excluded from browsing right now.'
-                    : isSignedIn
-                      ? 'No visible friends or mutual-server users have shared any games yet.'
-                      : 'This section shows the seeded people-first view, with each visible person and the games in their playlists.'
-                }
-                chips={
-                  noDiscoveryServersSelected
-                    ? ['Server filters applied', 'No mutual users visible', 'Friends remain separate']
-                    : ['People-first browsing', 'Full playlist per person', 'Friend actions inline']
-                }
-              />
-            )}
-          </Stack>
+            </TabPanel>
+          </Tabs>
         </Stack>
       </Box>
     </CssVarsProvider>

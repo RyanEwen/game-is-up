@@ -12,6 +12,7 @@ RUN set -eux; \
       ca-certificates \
       curl \
       git \
+      ripgrep \
       unzip; \
     if [ "$architecture" = "arm64" ]; then \
       apt-get install -y --no-install-recommends \

@@ -221,6 +221,41 @@ async function main() {
 
   await prisma.userGameInterest.create({
     data: {
+      userId: mira.id,
+      gameId: bySlug['helldivers-2'].id,
+      intentType: GameIntentType.INTERESTED,
+      availability: 'Friday after 9pm',
+      platforms: {
+        create: [{ platformLabel: 'PC' }, { platformLabel: 'PlayStation' }]
+      }
+    }
+  })
+
+  await prisma.userGameInterest.create({
+    data: {
+      userId: jordan.id,
+      gameId: bySlug['sea-of-thieves'].id,
+      intentType: GameIntentType.INTERESTED,
+      availability: 'Saturday nights',
+      platforms: {
+        create: [{ platformLabel: 'PC' }, { platformLabel: 'Xbox' }]
+      }
+    }
+  })
+
+  await prisma.userGameInterest.create({
+    data: {
+      userId: jordan.id,
+      gameId: bySlug['monster-hunter-wilds'].id,
+      intentType: GameIntentType.WISHLIST,
+      platforms: {
+        create: [{ platformLabel: 'PC' }]
+      }
+    }
+  })
+
+  await prisma.userGameInterest.create({
+    data: {
       userId: jordan.id,
       gameId: bySlug['helldivers-2'].id,
       intentType: GameIntentType.INTERESTED,

@@ -40,7 +40,6 @@ enum ProfileVisibility {
 enum PlayIntentScope {
   FRIENDS_ONLY
   MUTUAL_FRIENDS
-  CLOSED
 }
 
 enum PlayIntentSelectionMode {
@@ -252,7 +251,7 @@ model PlayIntent {
   note           String                  @default("")
   windowStartsAt DateTime
   windowEndsAt   DateTime
-  scope          PlayIntentScope         @default(FRIENDS_ONLY)
+  scope          PlayIntentScope         @default(MUTUAL_FRIENDS)
   createdAt      DateTime                @default(now())
   expiresAt      DateTime
   user           User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
