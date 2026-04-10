@@ -21,7 +21,7 @@ packages/
   shared/     Shared Zod schemas, contracts, and domain types
 .devcontainer/
   devcontainer.json
-  docker-compose.yml
+  compose.yml
 .github/
   copilot-instructions.md
   instructions/

@@ -1,7 +1,7 @@
 {
   "name": "game-is-up",
   "dockerComposeFile": [
-    "docker-compose.yml"
+    "compose.yml"
   ],
   "service": "workspace",
   "runServices": ["workspace", "db"],
