@@ -1070,6 +1070,7 @@ export default function App() {
   }
 
   function handleCancelLibraryEdit() {
+    setActionNotice(null)
     resetLibraryForm()
   }
 
