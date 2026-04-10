@@ -62,7 +62,8 @@ import {
 } from '@game-is-up/shared'
 import { theme } from './theme/theme'
 
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4000'
+const configuredApiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim()
+const apiBaseUrl = configuredApiBaseUrl != null ? configuredApiBaseUrl.replace(/\/$/, '') : 'http://localhost:4000'
 const apiReconnectPollMs = 5000
 const mobileAuthRedirectUrl = 'gameisup://auth'
 const configuredPublicAppUrl = import.meta.env.VITE_PUBLIC_APP_URL
@@ -222,6 +223,10 @@ function normalizeInviteUrl(value: string | undefined | null): string | null {
   } catch {
     return null
   }
+}
+
+function buildApiUrl(path: string): string {
+  return `${apiBaseUrl}${path}`
 }
 
 function resolveInviteUrl(currentHref: string | null): string | null {
@@ -931,7 +936,7 @@ export default function App() {
     const timeoutId = window.setTimeout(() => {
       void (async () => {
         try {
-          const response = await fetch(`${apiBaseUrl}/api/library/catalog?query=${encodeURIComponent(query)}`, {
+          const response = await fetch(buildApiUrl(`/api/library/catalog?query=${encodeURIComponent(query)}`), {
             credentials: 'include'
           })
           const responseJson = await response.json()
@@ -1075,9 +1080,9 @@ export default function App() {
 
     try {
       const [healthResponse, authResponse, sessionResponse] = await Promise.all([
-        fetch(`${apiBaseUrl}/api/health`, requestInit),
-        fetch(`${apiBaseUrl}/api/auth/providers`, requestInit),
-        fetch(`${apiBaseUrl}/api/auth/me`, requestInit)
+        fetch(buildApiUrl('/api/health'), requestInit),
+        fetch(buildApiUrl('/api/auth/providers'), requestInit),
+        fetch(buildApiUrl('/api/auth/me'), requestInit)
       ])
 
       const [healthJson, authJson, sessionJson] = await Promise.all([
@@ -1089,10 +1094,10 @@ export default function App() {
       const parsedSession = authSessionResponseSchema.parse(sessionJson)
 
       const [discoveryResponse, playIntentsResponse, libraryResponse, currentPlayIntentResponse] = await Promise.all([
-        fetch(`${apiBaseUrl}/api/discovery/feed`, requestInit),
-        fetch(`${apiBaseUrl}/api/play-intents/feed`, requestInit),
-        parsedSession.authenticated ? fetch(`${apiBaseUrl}/api/library/me`, requestInit) : Promise.resolve(null),
-        parsedSession.authenticated ? fetch(`${apiBaseUrl}/api/play-intents/me`, requestInit) : Promise.resolve(null)
+        fetch(buildApiUrl('/api/discovery/feed'), requestInit),
+        fetch(buildApiUrl('/api/play-intents/feed'), requestInit),
+        parsedSession.authenticated ? fetch(buildApiUrl('/api/library/me'), requestInit) : Promise.resolve(null),
+        parsedSession.authenticated ? fetch(buildApiUrl('/api/play-intents/me'), requestInit) : Promise.resolve(null)
       ])
 
       const [discoveryJson, playIntentsJson] = await Promise.all([
@@ -1100,7 +1105,7 @@ export default function App() {
         playIntentsResponse.json()
       ])
 
-      const discordServersResponse = parsedSession.authenticated ? await fetch(`${apiBaseUrl}/api/discord-servers/me`, requestInit) : null
+      const discordServersResponse = parsedSession.authenticated ? await fetch(buildApiUrl('/api/discord-servers/me'), requestInit) : null
 
       let library: LibraryResponse | null = null
       let activePlayIntentState: ActivePlayIntent | null = null
@@ -1141,7 +1146,7 @@ export default function App() {
   }, [])
 
   const completeMobileAuth = useCallback(async (handoff: string) => {
-    const response = await fetch(`${apiBaseUrl}/api/auth/mobile-complete`, {
+    const response = await fetch(buildApiUrl('/api/auth/mobile-complete'), {
       method: 'POST',
       credentials: 'include',
       headers: {
@@ -1267,7 +1272,7 @@ export default function App() {
       pollInFlight = true
 
       try {
-        const response = await fetch(`${apiBaseUrl}/api/health`, requestInit)
+        const response = await fetch(buildApiUrl('/api/health'), requestInit)
 
         if (!response.ok) {
           return
@@ -1299,7 +1304,7 @@ export default function App() {
   }, [loadDashboard, state.error])
 
   async function handleLogout() {
-    await fetch(`${apiBaseUrl}/api/auth/logout`, {
+    await fetch(buildApiUrl('/api/auth/logout'), {
       method: 'POST',
       credentials: 'include'
     })
@@ -1310,12 +1315,12 @@ export default function App() {
   async function handleDiscordLogin() {
     if (isNativeApp) {
       await Browser.open({
-        url: `${apiBaseUrl}/api/auth/discord/login?returnTo=${encodeURIComponent(mobileAuthRedirectUrl)}`
+        url: buildApiUrl(`/api/auth/discord/login?returnTo=${encodeURIComponent(mobileAuthRedirectUrl)}`)
       })
       return
     }
 
-    window.location.assign(`${apiBaseUrl}/api/auth/discord/login`)
+    window.location.assign(buildApiUrl('/api/auth/discord/login'))
   }
 
   async function handleAddLibraryEntry() {
@@ -1335,7 +1340,7 @@ export default function App() {
     setActionNotice(null)
 
     try {
-      const response = await fetch(`${apiBaseUrl}/api/library/me`, {
+      const response = await fetch(buildApiUrl('/api/library/me'), {
         method: 'POST',
         credentials: 'include',
         headers: {
@@ -1394,7 +1399,7 @@ export default function App() {
     setProfileNotice(null)
 
     try {
-      const response = await fetch(`${apiBaseUrl}/api/profile/me`, {
+      const response = await fetch(buildApiUrl('/api/profile/me'), {
         method: 'PUT',
         credentials: 'include',
         headers: {
@@ -1487,7 +1492,7 @@ export default function App() {
     setPlayIntentNotice(null)
 
     try {
-      const response = await fetch(`${apiBaseUrl}/api/play-intents/me`, {
+      const response = await fetch(buildApiUrl('/api/play-intents/me'), {
         method: 'PUT',
         credentials: 'include',
         headers: {
@@ -1542,7 +1547,7 @@ export default function App() {
     setPlayIntentNotice(null)
 
     try {
-      const response = await fetch(`${apiBaseUrl}/api/play-intents/me`, {
+      const response = await fetch(buildApiUrl('/api/play-intents/me'), {
         method: 'DELETE',
         credentials: 'include'
       })
@@ -1580,7 +1585,7 @@ export default function App() {
     setActionNotice(null)
 
     try {
-      const response = await fetch(`${apiBaseUrl}/api/library/me/${entryId}`, {
+      const response = await fetch(buildApiUrl(`/api/library/me/${entryId}`), {
         method: 'DELETE',
         credentials: 'include'
       })
@@ -1619,7 +1624,7 @@ export default function App() {
     setActionNotice(null)
 
     try {
-      const response = await fetch(`${apiBaseUrl}/api/friends/${target.id}`, {
+      const response = await fetch(buildApiUrl(`/api/friends/${target.id}`), {
         method: target.friendEligible ? 'POST' : 'DELETE',
         credentials: 'include'
       })
@@ -1655,7 +1660,7 @@ export default function App() {
     setActionNotice(null)
 
     try {
-      const response = await fetch(`${apiBaseUrl}/api/discord-servers/me/${serverId}`, {
+      const response = await fetch(buildApiUrl(`/api/discord-servers/me/${serverId}`), {
         method: 'PUT',
         credentials: 'include',
         headers: {
@@ -1781,7 +1786,7 @@ export default function App() {
     setInviteSending(true)
 
     try {
-      const response = await fetch(`${apiBaseUrl}/api/discord-servers/me/${activeInviteServerId}/invites`, {
+      const response = await fetch(buildApiUrl(`/api/discord-servers/me/${activeInviteServerId}/invites`), {
         method: 'POST',
         credentials: 'include',
         headers: {
@@ -1874,7 +1879,7 @@ export default function App() {
 
     void (async () => {
       try {
-        const response = await fetch(`${apiBaseUrl}/api/discord-servers/me/${activeInviteServerId}/members`, {
+        const response = await fetch(buildApiUrl(`/api/discord-servers/me/${activeInviteServerId}/members`), {
           credentials: 'include'
         })
         const responseJson = await response.json() as DiscordServerMembersResponse | { error?: string }

@@ -7,6 +7,8 @@
   "runServices": ["workspace", "db"],
   "shutdownAction": "stopCompose",
   "workspaceFolder": "/workspace/game-is-up",
+  "remoteUser": "node",
+  "updateRemoteUserUID": true,
   "forwardPorts": [5173, 4000, 5432],
   "remoteEnv": {
     "DATABASE_URL": "postgresql://postgres:postgres@db:5432/game_is_up?schema=public",

@@ -13,6 +13,7 @@
 - Discord sign-in now requests `guilds` and syncs shared server memberships into local tables used for discovery filtering.
 - Signed-in users can now choose which synced Discord servers should count for mutual-user discovery.
 - The devcontainer now also needs to support Android wrapper builds, including Java 21, the Android SDK, and local generation of the Capacitor Android project.
+- The devcontainer workspace service should run as the `node` user, with VS Code updating that user's UID to match the host, so bind-mounted files do not end up root-owned during development.
 
 ## Recent fixes
 

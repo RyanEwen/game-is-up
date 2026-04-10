@@ -3,6 +3,7 @@ services:
     build:
       context: ..
       dockerfile: .devcontainer/Dockerfile
+    user: node
     command: sleep infinity
     working_dir: /workspace/game-is-up
     volumes:

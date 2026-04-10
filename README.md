@@ -27,6 +27,7 @@ packages/
   instructions/
   prompts/
   hooks/
+compose.yml
 ```
 
 ## Quick start
@@ -66,6 +67,8 @@ packages/
 
 Optional: set `VITE_PUBLIC_APP_URL` when you want in-app invites to point at a public web URL, especially from the Android wrapper or any staging environment that is not directly shareable.
 
+Optional: set `VITE_API_BASE_URL` to an explicit origin if the web app should call an API on a different host. Leave it empty when the app is served behind a reverse proxy on the same origin.
+
 For a clean local reset plus startup in one command, run:
 
 ```bash
@@ -91,6 +94,34 @@ That runs ESLint, TypeScript checks, and `prisma validate`.
 - `npm run dev:fresh` waits for PostgreSQL, resets the schema, reseeds demo data, and starts the full stack.
 
 Inside the devcontainer, the workspace uses the Compose `db` service. Outside the devcontainer, the fallback local URL is `postgresql://postgres:postgres@localhost:5432/game_is_up?schema=public` unless you override `DATABASE_URL`.
+
+## Production Docker
+
+The repository now includes a root `compose.yml` for production-style local or server deployment.
+
+1. Copy `.env.example` to `.env` and set at least `SESSION_SECRET` to a long random value.
+2. For a real deployment, set `CLIENT_ORIGIN` to your public app URL and set `DISCORD_CALLBACK_URL` to `${CLIENT_ORIGIN}/api/auth/discord/callback`.
+3. If you want the web container to proxy API traffic on the same origin, leave `VITE_API_BASE_URL` empty.
+4. Build and start the stack:
+
+  ```bash
+  docker compose up --build -d
+  ```
+
+5. Open the app on `http://localhost` by default. If you need a different host port, set `PORT`, for example `PORT=8080 docker compose up --build -d`.
+
+The public container runs unprivileged Nginx on internal port `8080`, and Docker maps host port `80` to it by default. Nginx proxies `/api/*` to the API container so browser clients can stay same-origin in production.
+
+The API container runs `prisma migrate deploy` before starting, and the Compose stack includes a PostgreSQL service with persistent storage.
+
+If you already run Nginx on the host, keep the default Docker publish target simple by remapping the host port to something like `8080` and have host Nginx proxy to that upstream instead.
+
+For a host-Nginx setup, the important production values are:
+
+- `CLIENT_ORIGIN=https://your-public-domain`
+- `DISCORD_CALLBACK_URL=https://your-public-domain/api/auth/discord/callback`
+- `VITE_API_BASE_URL=` so the frontend uses same-origin `/api`
+- `PORT=8080` if host Nginx already owns `:80`
 
 This repo is still pre-launch, so the current workflow is schema-first rather than migration-history-first.
 
