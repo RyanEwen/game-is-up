@@ -6,6 +6,8 @@ dist
 .env
 .env.*
 !.env.example
+!.env.development.example
+!.env.production.example
 coverage
 apps/api/prisma/dev.db
 apps/api/prisma/dev.db-journal

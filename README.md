@@ -33,7 +33,7 @@ compose.yml
 ## Quick start
 
 1. Open the repository in the devcontainer.
-2. Copy `.env.example` to `.env` if you need to override defaults outside the devcontainer.
+2. Copy `.env.development.example` to `.env` if you need local overrides outside the devcontainer.
 3. Install dependencies:
 
    ```bash
@@ -101,7 +101,7 @@ The development scripts default to that Docker network address unless you explic
 
 The repository now includes a root `compose.yml` for production-style local or server deployment.
 
-1. Copy `.env.example` to `.env` and set at least `SESSION_SECRET` to a long random value.
+1. Copy `.env.production.example` to `.env` and set at least `SESSION_SECRET` to a long random value.
 2. For a real deployment, set `CLIENT_ORIGIN` to your public app URL and set `DISCORD_CALLBACK_URL` to `${CLIENT_ORIGIN}/api/auth/discord/callback`.
 3. If you want the web container to proxy API traffic on the same origin, leave `VITE_API_BASE_URL` empty.
 4. Build and start the stack:
@@ -110,27 +110,27 @@ The repository now includes a root `compose.yml` for production-style local or s
   docker compose up --build -d
   ```
 
-5. Open the app on `http://localhost` by default. If you need a different host port, set `PORT`, for example `PORT=8080 docker compose up --build -d`.
+5. Open the app on `http://localhost:8080` by default. If you need a different host port, set `PORT`, for example `PORT=9090 docker compose up --build -d`.
 
-The public container runs unprivileged Nginx on internal port `8080`, and Docker maps host port `80` to it by default. Nginx proxies `/api/*` to the API container so browser clients can stay same-origin in production.
+The public container runs unprivileged Nginx on internal port `8080`, and Docker maps host port `8080` to it by default. Nginx proxies `/api/*` to the API container so browser clients can stay same-origin in production.
 
 The API container runs `prisma migrate deploy` before starting, and the Compose stack includes a PostgreSQL service with persistent storage.
 
-If you already run Nginx on the host, keep the default Docker publish target simple by remapping the host port to something like `8080` and have host Nginx proxy to that upstream instead.
+If you already run Nginx on the host, the default Docker publish target is already `8080`, so host Nginx can reverse proxy to that upstream directly.
 
 For a host-Nginx setup, the important production values are:
 
 - `CLIENT_ORIGIN=https://your-public-domain`
 - `DISCORD_CALLBACK_URL=https://your-public-domain/api/auth/discord/callback`
 - `VITE_API_BASE_URL=` so the frontend uses same-origin `/api`
-- `PORT=8080` if host Nginx already owns `:80`
+- `PORT=8080` as the default host port behind Nginx
 
 This repo is still pre-launch, so the current workflow is schema-first rather than migration-history-first.
 
 ## Discord OAuth setup
 
 1. In the Discord developer portal, add your OAuth redirect URI.
-2. For local development, use the callback in `.env.example` unless you intentionally change the API port.
+2. For local development, use the callback in `.env.development.example` unless you intentionally change the API port.
 3. Set `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`, and `DISCORD_CALLBACK_URL` in your environment or `.env` file.
 4. Start the app in the devcontainer and use the "Sign in with Discord" button in the web UI.
 5. Discord sign-in now also requests the `guilds` scope so the app can sync which servers you share with other users.
