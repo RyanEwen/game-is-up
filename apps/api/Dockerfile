@@ -9,6 +9,7 @@ COPY apps/android/package.json apps/android/package.json
 COPY packages/shared/package.json packages/shared/package.json
 RUN npm ci
 COPY . .
+RUN npm run db:generate
 RUN npm run build
 
 FROM base AS runtime
