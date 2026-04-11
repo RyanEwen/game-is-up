@@ -16,6 +16,25 @@ function getBotPresentServerIds(): Set<string> {
   return new Set(getDiscordPresenceBotState().guildIds)
 }
 
+function formatDiscordInviteSender(displayName: string | null | undefined, handle: string | null | undefined): string {
+  const normalizedDisplayName = displayName?.trim()
+  const normalizedHandle = handle?.trim()
+
+  if (normalizedDisplayName && normalizedHandle) {
+    return `${normalizedDisplayName} (@${normalizedHandle})`
+  }
+
+  if (normalizedDisplayName) {
+    return normalizedDisplayName
+  }
+
+  if (normalizedHandle) {
+    return `@${normalizedHandle}`
+  }
+
+  return 'A Game Is Up player'
+}
+
 export async function syncDiscordServersForUser(userId: string, guilds: DiscordGuildSummary[]) {
   const serverIds = guilds.map((guild) => guild.id)
 
@@ -313,7 +332,8 @@ export async function sendDiscordServerInvites(options: {
         id: options.userId
       },
       select: {
-        displayName: true
+        displayName: true,
+        handle: true
       }
     })
   ])
@@ -330,7 +350,7 @@ export async function sendDiscordServerInvites(options: {
     const inviteResults = await sendDiscordGuildInvites({
       serverId: options.serverId,
       memberIds: options.memberIds,
-      inviterDisplayName: user?.displayName ?? 'A Game Is Up player',
+      inviterLabel: formatDiscordInviteSender(user?.displayName, user?.handle),
       inviteUrl: options.inviteUrl
     })
 

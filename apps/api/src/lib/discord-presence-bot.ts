@@ -239,7 +239,7 @@ export async function listDiscordGuildMembers(serverId: string): Promise<{
 export async function sendDiscordGuildInvites(options: {
   serverId: string;
   memberIds: string[];
-  inviterDisplayName: string;
+  inviterLabel: string;
   inviteUrl: string;
 }): Promise<{
   serverId: string;
@@ -254,7 +254,7 @@ export async function sendDiscordGuildInvites(options: {
     throw new Error('Discord invite sending is unavailable because the bot is not connected.')
   }
 
-  const { serverId, memberIds, inviterDisplayName, inviteUrl } = options
+  const { serverId, memberIds, inviterLabel, inviteUrl } = options
   const guild = client.guilds.cache.get(serverId) ?? await client.guilds.fetch(serverId)
 
   if (!guild) {
@@ -264,7 +264,7 @@ export async function sendDiscordGuildInvites(options: {
   const memberList = await listDiscordGuildMembers(serverId)
   const memberById = new Map(memberList.members.map((member) => [member.id, member]))
   const results: DiscordGuildInviteSendResult[] = []
-  const inviteMessage = `${inviterDisplayName} invited you to Game Is Up from ${memberList.serverName}.\n\nJoin here: ${inviteUrl}`
+  const inviteMessage = `${inviterLabel} invited you to Game Is Up from ${memberList.serverName}.\n\nJoin here: ${inviteUrl}`
 
   for (const memberId of [...new Set(memberIds)]) {
     const knownMember = memberById.get(memberId)

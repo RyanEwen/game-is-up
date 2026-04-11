@@ -285,8 +285,28 @@ function formatNameList(names: string[]): string {
   return `${names.slice(0, -1).join(', ')}, and ${names.at(-1)}`
 }
 
+function formatInviterLabel(displayName: string | null | undefined, handle: string | null | undefined): string | null {
+  const normalizedDisplayName = displayName?.trim()
+  const normalizedHandle = handle?.trim()
+
+  if (normalizedDisplayName && normalizedHandle) {
+    return `${normalizedDisplayName} (@${normalizedHandle})`
+  }
+
+  if (normalizedDisplayName) {
+    return normalizedDisplayName
+  }
+
+  if (normalizedHandle) {
+    return `@${normalizedHandle}`
+  }
+
+  return null
+}
+
 function buildInviteText(
   displayName: string | null | undefined,
+  handle: string | null | undefined,
   inviteUrl: string,
   options?: {
     serverName?: string;
@@ -294,10 +314,13 @@ function buildInviteText(
   }
 ): string {
   const targetedNames = options?.targetedNames ?? []
+  const inviterLabel = formatInviterLabel(displayName, handle)
   const intro = targetedNames.length > 0
-    ? `Hey ${formatNameList(targetedNames)}${options?.serverName ? `, I found you through ${options.serverName} on Game Is Up.` : '.'}`
-    : displayName
-      ? `${displayName} invited you to Game Is Up.`
+    ? inviterLabel
+      ? `Hey ${formatNameList(targetedNames)}, ${inviterLabel} invited you to Game Is Up${options?.serverName ? ` through ${options.serverName}` : ''}.`
+      : `Hey ${formatNameList(targetedNames)}, someone invited you to Game Is Up${options?.serverName ? ` through ${options.serverName}` : ''}.`
+    : inviterLabel
+      ? `${inviterLabel} invited you to Game Is Up.`
       : 'Join me on Game Is Up.'
 
   const body = targetedNames.length > 0
@@ -977,7 +1000,7 @@ export default function App() {
       })
   const selectedInviteUsers = inviteMembers.filter((member) => selectedInviteUserIds.includes(member.id))
   const inviteText = inviteUrl
-    ? buildInviteText(state.session?.user?.displayName ?? null, inviteUrl, {
+    ? buildInviteText(state.session?.user?.displayName ?? null, state.session?.user?.handle ?? null, inviteUrl, {
         serverName: inviteMembersState?.serverName ?? activeInviteServer?.name,
         targetedNames: selectedInviteUsers.map((member) => member.displayName)
       })
