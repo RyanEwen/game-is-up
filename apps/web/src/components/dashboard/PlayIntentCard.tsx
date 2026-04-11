@@ -1,8 +1,22 @@
 import { Box, Card, Chip, Stack, Typography } from '@mui/joy'
 import type { PlayIntentPreview } from '@game-is-up/shared'
 import { formatNotifyScopeLabel } from './dashboardUtils'
+import { GameActionPopover } from './GameActionPopover'
+import type { DashboardLibraryQuickAddGame } from './types'
 
-export function PlayIntentCard({ intent }: { intent: PlayIntentPreview }) {
+export function PlayIntentCard({
+  intent,
+  canAddToLibrary,
+  libraryGameIds,
+  addingLibraryGameId,
+  onAddToLibrary
+}: {
+  intent: PlayIntentPreview;
+  canAddToLibrary: boolean;
+  libraryGameIds: ReadonlySet<string>;
+  addingLibraryGameId: string | null;
+  onAddToLibrary: (game: DashboardLibraryQuickAddGame) => Promise<void>;
+}) {
   const isLibraryWide = intent.selectionMode === 'library'
 
   return (
@@ -48,11 +62,26 @@ export function PlayIntentCard({ intent }: { intent: PlayIntentPreview }) {
           Recipient matching will compare this play intent against the sender&apos;s active library and the recipient&apos;s overlap instead of a single chosen title.
         </Typography>
       ) : (
-        <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+        <Stack spacing={1}>
           {intent.games.map((game) => (
-            <Chip key={game.id} color="success" variant="soft">
-              {game.title}
-            </Chip>
+            <GameActionPopover
+              key={game.id}
+              game={{
+                gameId: game.id,
+                title: game.title,
+                coverUrl: null,
+                platformLabels: [game.platform]
+              }}
+              canAddToLibrary={canAddToLibrary}
+              isInLibrary={libraryGameIds.has(game.id)}
+              isAddingToLibrary={addingLibraryGameId === game.id}
+              supportingText={`Included in this active play call on ${game.platform}.`}
+              detailLines={[
+                'Open this title to add it to your library without leaving the play feed.'
+              ]}
+              trigger="chip"
+              onAddToLibrary={onAddToLibrary}
+            />
           ))}
         </Stack>
       )}

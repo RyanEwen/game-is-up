@@ -12,6 +12,13 @@ export type FriendTarget = {
   friendEligible: boolean;
 };
 
+export type DashboardLibraryQuickAddGame = {
+  gameId: string;
+  title: string;
+  coverUrl: string | null;
+  platformLabels: string[];
+};
+
 export type DashboardToast = {
   id: string;
   notice: Notice;

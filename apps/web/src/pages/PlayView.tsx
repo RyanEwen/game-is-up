@@ -18,7 +18,7 @@ import {
   minimumPlayIntentDurationMinutes,
   playIntentPresetDurations
 } from '../components/dashboard/dashboardUtils'
-import type { PlayIntentTimingMode } from '../components/dashboard/types'
+import type { DashboardLibraryQuickAddGame, PlayIntentTimingMode } from '../components/dashboard/types'
 
 function PlayIntentComposerCard({
   activePlayIntent,
@@ -301,7 +301,10 @@ function PlayViewContent({
   playIntentSaving,
   onSavePlayIntent,
   onClearPlayIntent,
-  playIntentPreviews
+  playIntentPreviews,
+  libraryGameIds,
+  addingLibraryGameId,
+  onAddGameToLibrary
 }: {
   isSignedIn: boolean;
   activePlayIntent: ActivePlayIntent | null;
@@ -331,6 +334,9 @@ function PlayViewContent({
   onSavePlayIntent: () => Promise<void>;
   onClearPlayIntent: () => Promise<void>;
   playIntentPreviews: PlayIntentPreview[];
+  libraryGameIds: ReadonlySet<string>;
+  addingLibraryGameId: string | null;
+  onAddGameToLibrary: (game: DashboardLibraryQuickAddGame) => Promise<void>;
 }) {
   return (
     <Stack spacing={2}>
@@ -371,7 +377,14 @@ function PlayViewContent({
       {playIntentPreviews.length > 0 ? (
         <Stack spacing={2}>
           {playIntentPreviews.map((intent) => (
-            <PlayIntentCard key={intent.id} intent={intent} />
+            <PlayIntentCard
+              key={intent.id}
+              intent={intent}
+              canAddToLibrary={isSignedIn}
+              libraryGameIds={libraryGameIds}
+              addingLibraryGameId={addingLibraryGameId}
+              onAddToLibrary={onAddGameToLibrary}
+            />
           ))}
         </Stack>
       ) : (

@@ -16,6 +16,7 @@ import {
   upsertDiscordUser
 } from '../lib/discord-auth.js'
 import { getDiscordPresenceBotState } from '../lib/discord-presence-bot.js'
+import { ensureDevelopmentSampleFriends } from '../lib/dev-sample-network.js'
 import { syncDiscordServersForUser } from '../lib/discord-servers.js'
 import { env } from '../lib/env.js'
 import { isMobileAuthRedirectTarget, resolveAuthRedirectTarget } from '../lib/origin.js'
@@ -216,6 +217,8 @@ authRouter.get('/me', async (request, response) => {
     )
     return
   }
+
+  await ensureDevelopmentSampleFriends(user)
 
   const discordGraph = await buildDiscordGraphCapabilities(user.id)
 

@@ -5,7 +5,7 @@ import { GameCard } from '../components/dashboard/GameCard'
 import { PersonCard } from '../components/dashboard/PersonCard'
 import { discoveryGameGridSx } from '../components/dashboard/dashboardUtils'
 import { useDashboardContext } from '../contexts/useDashboardContext'
-import type { FriendTarget } from '../components/dashboard/types'
+import type { DashboardLibraryQuickAddGame, FriendTarget } from '../components/dashboard/types'
 
 function DiscoverySection({
   title,
@@ -41,8 +41,11 @@ function DiscoveryViewContent({
   discoveryPeople,
   noDiscoveryServersSelected,
   isSignedIn,
+  libraryGameIds,
+  addingLibraryGameId,
   friendPendingId,
-  onToggleFriend
+  onToggleFriend,
+  onAddGameToLibrary
 }: {
   error: string | null;
   overlapGames: DiscoveryGame[];
@@ -50,8 +53,11 @@ function DiscoveryViewContent({
   discoveryPeople: DiscoveryPerson[];
   noDiscoveryServersSelected: boolean;
   isSignedIn: boolean;
+  libraryGameIds: ReadonlySet<string>;
+  addingLibraryGameId: string | null;
   friendPendingId: string | null;
   onToggleFriend: (target: FriendTarget) => Promise<void>;
+  onAddGameToLibrary: (game: DashboardLibraryQuickAddGame) => Promise<void>;
 }) {
   return (
     <Stack spacing={0}>
@@ -74,8 +80,12 @@ function DiscoveryViewContent({
                 key={game.id}
                 game={game}
                 canManage={isSignedIn}
+                canAddToLibrary={isSignedIn}
+                isInLibrary={libraryGameIds.has(game.id)}
+                isAddingToLibrary={addingLibraryGameId === game.id}
                 pendingFriendId={friendPendingId}
                 onToggleFriend={onToggleFriend}
+                onAddToLibrary={onAddGameToLibrary}
                 compact
               />
             ))}
@@ -112,8 +122,12 @@ function DiscoveryViewContent({
                 key={game.id}
                 game={game}
                 canManage={isSignedIn}
+                canAddToLibrary={isSignedIn}
+                isInLibrary={libraryGameIds.has(game.id)}
+                isAddingToLibrary={addingLibraryGameId === game.id}
                 pendingFriendId={friendPendingId}
                 onToggleFriend={onToggleFriend}
+                onAddToLibrary={onAddGameToLibrary}
                 compact
               />
             ))}
@@ -155,8 +169,12 @@ function DiscoveryViewContent({
                 key={person.id}
                 person={person}
                 canManage={isSignedIn}
+                canAddToLibrary={isSignedIn}
+                libraryGameIds={libraryGameIds}
+                addingLibraryGameId={addingLibraryGameId}
                 isPending={friendPendingId === person.id}
                 onToggleFriend={onToggleFriend}
+                onAddToLibrary={onAddGameToLibrary}
               />
             ))}
           </Stack>

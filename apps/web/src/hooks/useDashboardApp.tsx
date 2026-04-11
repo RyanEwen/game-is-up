@@ -27,7 +27,7 @@ import {
   userProfileResponseSchema
 } from '@game-is-up/shared'
 import { EmptyStateCard } from '../components/dashboard/EmptyStateCard'
-import type { FriendTarget, Notice } from '../components/dashboard/types'
+import type { DashboardLibraryQuickAddGame, FriendTarget, Notice } from '../components/dashboard/types'
 import { useDashboardInvites } from './useDashboardInvites'
 import { useDashboardLibrary } from './useDashboardLibrary'
 import { useDashboardPlay } from './useDashboardPlay'
@@ -36,6 +36,7 @@ const configuredApiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim()
 const apiBaseUrl = configuredApiBaseUrl != null ? configuredApiBaseUrl.replace(/\/$/, '') : 'http://localhost:4000'
 const apiReconnectPollMs = 5000
 const mobileAuthRedirectUrl = 'gameisup://auth'
+const emptyLibraryEntries: LibraryResponse['entries'] = []
 
 type LoadState = {
   activePlayIntent: ActivePlayIntent | null;
@@ -98,6 +99,7 @@ export function useDashboardApp() {
   const [profileNotice, setProfileNotice] = useState<Notice | null>(null)
   const [playIntentNotice, setPlayIntentNotice] = useState<Notice | null>(null)
   const [friendPendingId, setFriendPendingId] = useState<string | null>(null)
+  const [addingLibraryGameId, setAddingLibraryGameId] = useState<string | null>(null)
   const [serverPreferencePendingId, setServerPreferencePendingId] = useState<string | null>(null)
   const lastHandledAuthUrlRef = useRef<string | null>(null)
   const timezoneSyncPendingIdRef = useRef<string | null>(null)
@@ -105,7 +107,7 @@ export function useDashboardApp() {
   const browserTimeZoneId = getBrowserTimeZoneId()
 
   const isSignedIn = Boolean(state.session?.authenticated && state.session.user)
-  const libraryEntries = state.library?.entries ?? []
+  const libraryEntries = state.library?.entries ?? emptyLibraryEntries
   const discoveryGames = state.discovery?.games ?? []
   const discoveryPeople = state.discovery?.people ?? []
   const overlapGames = discoveryGames.filter((game) => game.sharedWithViewer)
@@ -121,6 +123,7 @@ export function useDashboardApp() {
   const noDiscoveryServersSelected = isSignedIn && availableDiscoveryServers.length > 0 && selectedDiscoveryServerCount === 0
   const discordProvider = state.auth?.providers.find((provider) => provider.id === 'discord') ?? null
   const currentUsualAvailability = state.library?.usualAvailability ?? state.session?.user?.usualAvailability ?? null
+  const libraryGameIds = new Set<string>(libraryEntries.map((entry) => entry.gameId))
 
   const toastNotices = [
     actionNotice
@@ -289,6 +292,88 @@ export function useDashboardApp() {
       activePlayIntent
     }))
   }, [])
+
+  const handleAddGameToLibrary = useCallback(async ({ gameId, title, coverUrl, platformLabels }: DashboardLibraryQuickAddGame) => {
+    const alreadyInLibrary = libraryEntries.some((entry) => entry.gameId === gameId)
+
+    if (!isSignedIn) {
+      setActionNotice({
+        tone: 'danger',
+        message: 'Sign in before adding games to your library.'
+      })
+      return
+    }
+
+    if (alreadyInLibrary) {
+      setActionNotice({
+        tone: 'neutral',
+        message: `${title} is already in your library.`
+      })
+      return
+    }
+
+    const normalizedPlatformLabels = [...new Set(platformLabels.map((platformLabel) => platformLabel.trim()).filter(Boolean))]
+
+    if (normalizedPlatformLabels.length === 0) {
+      setActionNotice({
+        tone: 'danger',
+        message: `Unable to add ${title} because it does not have any platform data yet.`
+      })
+      return
+    }
+
+    setAddingLibraryGameId(gameId)
+    setActionNotice(null)
+
+    try {
+      const response = await fetch(buildApiUrl('/api/library/me'), {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          title,
+          platformLabels: normalizedPlatformLabels,
+          intent: 'interested',
+          catalogMatch: {
+            source: 'local',
+            sourceId: gameId,
+            title,
+            coverUrl,
+            platformLabels: normalizedPlatformLabels
+          }
+        })
+      })
+
+      const responseBody = (await response.json()) as LibraryResponse | { error?: string }
+
+      if (!response.ok) {
+        setActionNotice({
+          tone: 'danger',
+          message:
+            typeof responseBody === 'object' && responseBody && 'error' in responseBody && typeof responseBody.error === 'string'
+              ? responseBody.error
+              : `Unable to add ${title} right now.`
+        })
+        return
+      }
+
+      libraryResponseSchema.parse(responseBody)
+      setActionNotice({
+        tone: 'success',
+        message: `${title} was added to your library.`
+      })
+      await loadDashboard()
+    } catch (error) {
+      setActionNotice({
+        tone: 'danger',
+        message: error instanceof Error ? error.message : `Unable to add ${title} right now.`
+      })
+    } finally {
+      setAddingLibraryGameId(null)
+    }
+  }, [isSignedIn, libraryEntries, loadDashboard])
 
   const { profileSaving, libraryViewProps } = useDashboardLibrary({
     isSignedIn,
@@ -638,7 +723,13 @@ export function useDashboardApp() {
       ...inviteOverviewProps
     },
     libraryViewProps,
-    playViewProps,
+    playViewProps: {
+      ...playViewProps,
+      isSignedIn,
+      libraryGameIds,
+      addingLibraryGameId,
+      onAddGameToLibrary: handleAddGameToLibrary
+    },
     discoveryViewProps: {
       error: state.error,
       overlapGames,
@@ -646,8 +737,11 @@ export function useDashboardApp() {
       discoveryPeople,
       noDiscoveryServersSelected,
       isSignedIn,
+      libraryGameIds,
+      addingLibraryGameId,
       friendPendingId,
-      onToggleFriend: handleToggleFriend
+      onToggleFriend: handleToggleFriend,
+      onAddGameToLibrary: handleAddGameToLibrary
     }
   }
 }

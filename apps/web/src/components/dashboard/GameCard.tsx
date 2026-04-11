@@ -1,20 +1,30 @@
-import { Box, Button, Card, Chip, Sheet, Stack, Typography } from '@mui/joy'
+import { Box, Card, Chip, Sheet, Stack, Typography } from '@mui/joy'
 import type { DiscoveryGame } from '@game-is-up/shared'
 import { AvailabilityChip } from './AvailabilityChip'
+import { FriendActionPopover } from './FriendActionPopover'
+import { GameActionPopover } from './GameActionPopover'
 import { formatLibraryIntentLabel } from './dashboardUtils'
-import type { FriendTarget } from './types'
+import type { DashboardLibraryQuickAddGame, FriendTarget } from './types'
 
 export function GameCard({
   game,
   canManage,
+  canAddToLibrary,
+  isInLibrary,
+  isAddingToLibrary,
   pendingFriendId,
   onToggleFriend,
+  onAddToLibrary,
   compact = false
 }: {
   game: DiscoveryGame;
   canManage: boolean;
+  canAddToLibrary: boolean;
+  isInLibrary: boolean;
+  isAddingToLibrary: boolean;
   pendingFriendId: string | null;
   onToggleFriend: (target: FriendTarget) => Promise<void>;
+  onAddToLibrary: (game: DashboardLibraryQuickAddGame) => Promise<void>;
   compact?: boolean;
 }) {
   const visiblePlatformLabels = compact ? game.platformLabels.slice(0, 3) : game.platformLabels
@@ -55,17 +65,28 @@ export function GameCard({
           )}
         </Box>
         <Stack spacing={1.25} sx={{ flex: 1 }}>
-          <Typography
-            level={compact ? 'title-md' : 'title-lg'}
-            sx={compact ? { display: '-webkit-box', overflow: 'hidden', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' } : undefined}
-          >
-            {game.title}
-          </Typography>
+          <GameActionPopover
+            game={{
+              gameId: game.id,
+              title: game.title,
+              coverUrl: game.coverUrl,
+              platformLabels: game.platformLabels
+            }}
+            canAddToLibrary={canAddToLibrary}
+            isInLibrary={isInLibrary}
+            isAddingToLibrary={isAddingToLibrary}
+            supportingText={`${game.playerCount} player${game.playerCount === 1 ? '' : 's'} in your network`}
+            detailLines={[
+              game.sharedWithViewer ? 'This already overlaps with your library.' : 'This title is visible through your network, even if it is not in your library yet.'
+            ]}
+            large={!compact}
+            onAddToLibrary={onAddToLibrary}
+          />
           <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }} alignItems="center">
             <Chip color="primary" variant="outlined" size={compact ? 'sm' : 'md'}>
               {game.playerCount} player{game.playerCount === 1 ? '' : 's'}
             </Chip>
-            {game.sharedWithViewer ? (
+            {isInLibrary ? (
               <Chip color="success" variant="soft" size={compact ? 'sm' : 'md'}>
                 Also in your library
               </Chip>
@@ -103,10 +124,19 @@ export function GameCard({
               >
                 <Stack spacing={0.75} sx={{ minWidth: 0 }}>
                   <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }} alignItems="center">
-                    <Typography level="title-sm">{player.displayName}</Typography>
-                    <Chip size="sm" variant="soft" color="primary">
-                      @{player.handle}
-                    </Chip>
+                    <FriendActionPopover
+                      target={player}
+                      handle={player.handle}
+                      canManage={canManage}
+                      isPending={pendingFriendId === player.id}
+                      supportingText={player.platformLabels.join(', ')}
+                      detailLines={[
+                        player.contactHint,
+                        player.mutualServers.length > 0 ? `Mutual servers: ${player.mutualServers.join(', ')}` : '',
+                        player.availability && player.availabilitySource === 'game-specific' ? `Availability: ${player.availability}` : ''
+                      ]}
+                      onToggleFriend={onToggleFriend}
+                    />
                     <Chip size="sm" color={player.intent === 'playing-now' ? 'success' : 'primary'}>
                       {formatLibraryIntentLabel(player.intent)}
                     </Chip>
@@ -129,26 +159,6 @@ export function GameCard({
                     </Stack>
                   ) : null}
                 </Stack>
-                {canManage ? (
-                  <Button
-                    size="sm"
-                    color="primary"
-                    variant={player.friendEligible ? 'solid' : 'soft'}
-                    disabled={pendingFriendId === player.id}
-                    fullWidth={compact}
-                    onClick={() => void onToggleFriend(player)}
-                  >
-                    {pendingFriendId === player.id
-                      ? 'Saving...'
-                      : compact
-                        ? player.friendEligible
-                          ? 'Add'
-                          : 'Remove'
-                        : player.friendEligible
-                          ? 'Add friend'
-                          : 'Remove friend'}
-                  </Button>
-                ) : null}
               </Stack>
             </Sheet>
           ))}
@@ -159,7 +169,7 @@ export function GameCard({
           ) : null}
           {showCompactSignInHint ? (
             <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
-              Sign in to manage friends from these cards.
+              Open a name to manage friends, and sign in to enable those actions.
             </Typography>
           ) : null}
         </Stack>

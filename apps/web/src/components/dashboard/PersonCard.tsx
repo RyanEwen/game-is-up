@@ -1,19 +1,29 @@
-import { Box, Button, Card, Chip, Divider, Sheet, Stack, Typography } from '@mui/joy'
+import { Box, Card, Chip, Divider, Sheet, Stack, Typography } from '@mui/joy'
 import type { DiscoveryPerson } from '@game-is-up/shared'
 import { AvailabilityChip } from './AvailabilityChip'
+import { FriendActionPopover } from './FriendActionPopover'
+import { GameActionPopover } from './GameActionPopover'
 import { formatDiscordActivityTypeLabel, formatLibraryIntentLabel, memberGameGridSx } from './dashboardUtils'
-import type { FriendTarget } from './types'
+import type { DashboardLibraryQuickAddGame, FriendTarget } from './types'
 
 export function PersonCard({
   person,
   canManage,
+  canAddToLibrary,
+  libraryGameIds,
+  addingLibraryGameId,
   isPending,
-  onToggleFriend
+  onToggleFriend,
+  onAddToLibrary
 }: {
   person: DiscoveryPerson;
   canManage: boolean;
+  canAddToLibrary: boolean;
+  libraryGameIds: ReadonlySet<string>;
+  addingLibraryGameId: string | null;
   isPending: boolean;
   onToggleFriend: (target: FriendTarget) => Promise<void>;
+  onAddToLibrary: (game: DashboardLibraryQuickAddGame) => Promise<void>;
 }) {
   return (
     <Card
@@ -27,10 +37,22 @@ export function PersonCard({
       }}
     >
       <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1.5, flexWrap: 'wrap' }}>
-        <Typography level="title-lg">{person.displayName}</Typography>
-        <Chip size="sm" color="primary" variant="soft">
-          {person.handle}
-        </Chip>
+        <FriendActionPopover
+          target={person}
+          handle={person.handle}
+          canManage={canManage}
+          isPending={isPending}
+          supportingText={person.lastActiveLabel}
+          detailLines={[
+            person.contactHint,
+            person.mutualServers.length > 0 ? `Mutual servers: ${person.mutualServers.join(', ')}` : 'Visible through your discovery network.',
+            `Shared games visible: ${person.games.length}`,
+            `Timezone: ${person.timezoneLabel}`,
+            person.usualAvailability ? `Usually plays: ${person.usualAvailability}` : ''
+          ]}
+          large
+          onToggleFriend={onToggleFriend}
+        />
         <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
           {person.lastActiveLabel}
         </Typography>
@@ -111,12 +133,23 @@ export function PersonCard({
                     </Box>
                     <Stack direction="row" spacing={1} sx={{ minWidth: 0, flex: 1, justifyContent: 'space-between' }}>
                       <Stack spacing={0.5} sx={{ minWidth: 0, flex: 1 }}>
-                        <Typography
-                          level="title-sm"
-                          sx={{ display: '-webkit-box', overflow: 'hidden', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}
-                        >
-                          {game.title}
-                        </Typography>
+                        <GameActionPopover
+                          game={{
+                            gameId: game.id,
+                            title: game.title,
+                            coverUrl: game.coverUrl,
+                            platformLabels: game.platformLabels
+                          }}
+                          canAddToLibrary={canAddToLibrary}
+                          isInLibrary={libraryGameIds.has(game.id)}
+                          isAddingToLibrary={addingLibraryGameId === game.id}
+                          supportingText={formatLibraryIntentLabel(game.intent)}
+                          detailLines={[
+                            game.availability && game.availabilitySource === 'game-specific' ? `Availability: ${game.availability}` : 'No game-specific availability shared.',
+                            `Platforms: ${game.platformLabels.join(', ')}`
+                          ]}
+                          onAddToLibrary={onAddToLibrary}
+                        />
                         <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
                           {game.platformLabels.join(', ')}
                         </Typography>
@@ -159,24 +192,12 @@ export function PersonCard({
 
       <Divider sx={{ my: 2 }} />
 
-      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} alignItems={{ xs: 'stretch', sm: 'center' }}>
-        <Button
-          color="primary"
-          size="lg"
-          variant={person.friendEligible ? 'solid' : 'soft'}
-          disabled={!canManage || isPending}
-          onClick={() => void onToggleFriend(person)}
-        >
-          {!canManage
-            ? 'Sign in to manage friends'
-            : isPending
-              ? 'Saving...'
-              : person.friendEligible
-                ? 'Add friend'
-                : 'Remove friend'}
-        </Button>
+      <Stack spacing={0.5}>
         <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
           {person.contactHint}
+        </Typography>
+        <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
+          Open the name above for friend actions and future person-level actions.
         </Typography>
       </Stack>
     </Card>
