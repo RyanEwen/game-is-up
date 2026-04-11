@@ -63,18 +63,12 @@ export const DashboardLayout = ({
         <Box
           aria-hidden="true"
           sx={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            height: 'calc(var(--app-top-inset, 0px) + 88px)',
+            position: 'absolute',
+            inset: 0,
             background: [
-              'linear-gradient(180deg, rgba(8, 13, 24, 0.96) 0%, rgba(8, 13, 24, 0.78) 48%, rgba(8, 13, 24, 0) 100%)',
-              'radial-gradient(circle at 18% 0%, rgba(78, 240, 183, 0.18), transparent 34%)',
-              'radial-gradient(circle at 82% 8%, rgba(244, 178, 63, 0.14), transparent 26%)'
+              'linear-gradient(180deg, rgba(7, 11, 20, 0) 0px, rgba(7, 11, 20, 0.22) 140px, rgba(7, 11, 20, 0.74) 320px, rgba(7, 11, 20, 0.9) 520px)',
+              'radial-gradient(circle at 50% 220px, rgba(28, 171, 132, 0.08), transparent 420px)'
             ].join(','),
-            borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
-            backdropFilter: 'blur(18px)',
             pointerEvents: 'none',
             zIndex: 0
           }}
@@ -83,7 +77,7 @@ export const DashboardLayout = ({
         <Box
           aria-hidden="true"
           sx={{
-            position: 'fixed',
+            position: 'absolute',
             top: 0,
             left: 'var(--app-titlebar-x, 0px)',
             width: 'var(--app-titlebar-width, 100%)',
