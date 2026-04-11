@@ -20,4 +20,4 @@ WORKDIR /app
 COPY --chown=node:node --from=build /app /app
 USER node
 EXPOSE 4000
-CMD ["sh", "-c", "./node_modules/.bin/prisma db push --schema apps/api/prisma/schema.prisma && node apps/api/dist/index.js"]
+CMD ["sh", "-c", "node scripts/dev/bootstrap-prisma-migrations.mjs && node apps/api/dist/index.js"]

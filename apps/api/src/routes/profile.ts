@@ -3,6 +3,7 @@ import type { Request, Response } from 'express'
 import { updateUserProfileRequestSchema, userProfileResponseSchema } from '@game-is-up/shared'
 import { prisma } from '../lib/prisma.js'
 import { getAuthSession } from '../lib/session.js'
+import { normalizeTimezoneId } from '../lib/timezone-label.js'
 
 export const profileRouter = Router()
 
@@ -29,15 +30,26 @@ profileRouter.put('/me', async (request, response, next) => {
   try {
     const payload = updateUserProfileRequestSchema.parse(request.body)
     const usualAvailability = payload.usualAvailability?.trim() ? payload.usualAvailability.trim() : null
+    const timezoneId = payload.timezoneId == null ? undefined : normalizeTimezoneId(payload.timezoneId)
+
+    if (payload.timezoneId != null && !timezoneId) {
+      response.status(400).json({
+        error: 'Use a valid IANA time zone like America/New_York.'
+      })
+      return
+    }
+
     const user = await prisma.user.update({
       where: {
         id: userId
       },
       select: {
+        timezoneId: true,
         usualAvailability: true
       },
       data: {
-        usualAvailability
+        usualAvailability,
+        ...(timezoneId ? { timezoneId } : {})
       }
     })
 

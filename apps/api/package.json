@@ -10,6 +10,8 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "prisma:db:push": "DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@db:5432/game_is_up?schema=public} prisma db push --force-reset",
     "prisma:migrate:dev": "DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@db:5432/game_is_up?schema=public} prisma migrate dev",
+    "prisma:migrate:deploy": "DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@db:5432/game_is_up?schema=public} prisma migrate deploy",
+    "prisma:migrate:bootstrap": "DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@db:5432/game_is_up?schema=public} node ../../scripts/dev/bootstrap-prisma-migrations.mjs",
     "prisma:generate": "DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@db:5432/game_is_up?schema=public} prisma generate",
     "prisma:validate": "DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@db:5432/game_is_up?schema=public} prisma validate",
     "prisma:seed": "DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@db:5432/game_is_up?schema=public} tsx prisma/seed.ts"

@@ -4,6 +4,7 @@ export const authProviderSchema = z.enum(['discord'])
 export const platformLabelSchema = z.string().trim().min(1).max(32)
 export const catalogProviderSchema = z.string().trim().min(1).max(32)
 export const availabilitySourceSchema = z.enum(['profile-default', 'game-specific'])
+export const timezoneIdSchema = z.string().trim().min(1).max(64)
 
 export const availabilityWindowSchema = z.object({
   label: z.string(),
@@ -26,6 +27,7 @@ export const libraryEntrySchema = z.object({
   id: z.string().uuid(),
   gameId: z.string().uuid(),
   title: z.string().min(1),
+  coverUrl: z.string().url().nullable(),
   platformLabels: z.array(platformLabelSchema).min(1),
   intent: libraryEntryIntentSchema,
   availability: z.string().nullable(),
@@ -193,6 +195,7 @@ export const discoveryPersonSchema = z.object({
   displayName: z.string().min(2).max(60),
   avatarUrl: z.string().url().nullable(),
   bio: z.string().max(280),
+  timezoneId: timezoneIdSchema,
   timezoneLabel: z.string().min(2).max(24),
   usualAvailability: z.string().nullable(),
   mutualServers: z.array(z.string().min(1)),
@@ -306,17 +309,20 @@ export const authenticatedUserSchema = z.object({
   displayName: z.string().min(2).max(60),
   avatarUrl: z.string().url().nullable(),
   email: z.string().email().nullable(),
+  timezoneId: timezoneIdSchema,
   usualAvailability: z.string().nullable(),
   authProvider: authProviderSchema
 })
 
 export const userProfileSchema = z.object({
+  timezoneId: timezoneIdSchema,
   usualAvailability: z.string().nullable()
 })
 
 export const userProfileResponseSchema = userProfileSchema
 
 export const updateUserProfileRequestSchema = z.object({
+  timezoneId: timezoneIdSchema.optional(),
   usualAvailability: z.string().trim().max(80).optional()
 })
 

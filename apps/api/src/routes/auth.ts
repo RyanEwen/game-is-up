@@ -198,6 +198,7 @@ authRouter.get('/me', async (request, response) => {
       displayName: true,
       avatarUrl: true,
       email: true,
+      timezoneId: true,
       usualAvailability: true
     }
   })

@@ -52,10 +52,10 @@ compose.yml
   npm run db:wait
   ```
 
-6. Push the current schema and seed demo data:
+6. Apply the checked-in migrations and seed demo data:
 
   ```bash
-  npm run db:push
+  npm run db:migrate:deploy
   npm run db:seed
   ```
 
@@ -88,7 +88,10 @@ That runs ESLint, TypeScript checks, and `prisma validate`.
 ## Database helpers
 
 - `npm run db:wait` waits for the configured PostgreSQL host and port before starting app processes.
-- `npm run db:push` force-resets the dev database and applies the current Prisma schema.
+- `npm run db:migrate` creates and applies a new development migration after Prisma schema changes.
+- `npm run db:migrate:deploy` applies the checked-in migrations to the target database.
+- `npm run db:migrate:bootstrap` baselines an existing non-managed database at the checked-in baseline and then applies pending migrations.
+- `npm run db:push` force-resets the dev database and applies the current Prisma schema. Keep this for disposable local resets only, not shared or production databases.
 - `npm run db:seed` reloads the demo discovery dataset.
 - `npm run db:generate` refreshes the Prisma client after schema changes.
 - `npm run dev:fresh` waits for PostgreSQL, resets the schema, reseeds demo data, and starts the full stack.
@@ -114,7 +117,7 @@ The repository now includes a root `compose.yml` for production-style local or s
 
 The public container runs unprivileged Nginx on internal port `8080`, and Docker maps host port `8080` to it by default. Nginx proxies `/api/*` to the API container so browser clients can stay same-origin in production.
 
-The API container runs `prisma db push` before starting, which matches the current schema-first prelaunch workflow. The Compose stack includes a PostgreSQL service with persistent storage.
+The API container now bootstraps Prisma Migrate on startup: fresh databases get `prisma migrate deploy`, and existing pre-migrate databases are first baselined at the checked-in baseline migration and then migrated forward. The Compose stack includes a PostgreSQL service with persistent storage.
 
 If you already run Nginx on the host, the default Docker publish target is already `8080`, so host Nginx can reverse proxy to that upstream directly.
 
@@ -125,7 +128,7 @@ For a host-Nginx setup, the important production values are:
 - `VITE_API_BASE_URL=` so the frontend uses same-origin `/api`
 - `PORT=8080` as the default host port behind Nginx
 
-This repo is still pre-launch, so the current workflow is schema-first rather than migration-history-first.
+This repo now treats Prisma migrations as the source of truth for schema changes. Use `db:migrate` to create new migrations during development and `db:migrate:deploy` for deployment targets.
 
 ## Discord OAuth setup
 

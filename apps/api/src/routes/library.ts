@@ -99,6 +99,7 @@ async function buildLibraryResponse(userId: string): Promise<LibraryResponse> {
       id: entry.id,
       gameId: entry.gameId,
       title: entry.game.title,
+      coverUrl: entry.game.coverUrl,
       platformLabels: entry.platforms.map((platform) => platform.platformLabel),
       intent: toLibraryEntryIntent(entry.intentType),
       ...resolveAvailability(entry.availability, user?.usualAvailability ?? null)

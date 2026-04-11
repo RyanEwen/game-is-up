@@ -19,6 +19,8 @@
     "db:push": "npm run prisma:db:push --workspace @game-is-up/api",
     "db:validate": "npm run prisma:validate --workspace @game-is-up/api",
     "db:migrate": "npm run prisma:migrate:dev --workspace @game-is-up/api --",
+    "db:migrate:deploy": "npm run prisma:migrate:deploy --workspace @game-is-up/api",
+    "db:migrate:bootstrap": "npm run prisma:migrate:bootstrap --workspace @game-is-up/api",
     "db:seed": "npm run prisma:seed --workspace @game-is-up/api",
     "prepare": "husky"
   },

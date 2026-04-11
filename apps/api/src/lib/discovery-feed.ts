@@ -6,11 +6,81 @@ import { getViewer } from './demo-viewer.js'
 import { getSelectedDiscordServerIds } from './discord-servers.js'
 import { formatRelativeTime } from './relative-time.js'
 import { resolveAvailability } from './availability.js'
+import { formatTimezoneLabel } from './timezone-label.js'
 
 const intentOrder: Record<'playing-now' | 'interested' | 'wishlist', number> = {
   'playing-now': 0,
   interested: 1,
   wishlist: 2
+}
+
+function normalizeGameTitle(title: string): string {
+  return title.replace(/\s+/g, ' ').trim().toLowerCase()
+}
+
+function mergePlatformLabels(...platformGroups: string[][]): string[] {
+  return [...new Set(platformGroups.flatMap((platforms) => platforms))].sort((left, right) => left.localeCompare(right))
+}
+
+function pickPreferredIntent(
+  currentIntent: 'playing-now' | 'interested' | 'wishlist',
+  nextIntent: 'playing-now' | 'interested' | 'wishlist'
+) {
+  return intentOrder[currentIntent] <= intentOrder[nextIntent] ? currentIntent : nextIntent
+}
+
+function pickPreferredAvailability(
+  currentGame: DiscoveryPerson['games'][number],
+  nextGame: DiscoveryPerson['games'][number]
+) {
+  if (!currentGame.availability) {
+    return {
+      availability: nextGame.availability,
+      availabilitySource: nextGame.availabilitySource
+    }
+  }
+
+  if (!nextGame.availability) {
+    return {
+      availability: currentGame.availability,
+      availabilitySource: currentGame.availabilitySource
+    }
+  }
+
+  if (currentGame.availabilitySource === 'game-specific') {
+    return {
+      availability: currentGame.availability,
+      availabilitySource: currentGame.availabilitySource
+    }
+  }
+
+  if (nextGame.availabilitySource === 'game-specific') {
+    return {
+      availability: nextGame.availability,
+      availabilitySource: nextGame.availabilitySource
+    }
+  }
+
+  return {
+    availability: currentGame.availability,
+    availabilitySource: currentGame.availabilitySource
+  }
+}
+
+function mergeDiscoveryPersonGame(
+  currentGame: DiscoveryPerson['games'][number],
+  nextGame: DiscoveryPerson['games'][number]
+): DiscoveryPerson['games'][number] {
+  const preferredAvailability = pickPreferredAvailability(currentGame, nextGame)
+
+  return {
+    ...currentGame,
+    coverUrl: currentGame.coverUrl ?? nextGame.coverUrl,
+    platformLabels: mergePlatformLabels(currentGame.platformLabels, nextGame.platformLabels),
+    intent: pickPreferredIntent(currentGame.intent, nextGame.intent),
+    availability: preferredAvailability.availability,
+    availabilitySource: preferredAvailability.availabilitySource
+  }
 }
 
 function toFeedIntent(intentType: GameIntentType): 'wishlist' | 'interested' | 'playing-now' {
@@ -44,7 +114,11 @@ export async function buildDiscoveryFeed(viewerId?: string | null): Promise<Disc
         }
       },
       select: {
-        gameId: true
+        game: {
+          select: {
+            title: true
+          }
+        }
       }
     }),
     getSelectedDiscordServerIds(viewer.id),
@@ -66,7 +140,7 @@ export async function buildDiscoveryFeed(viewerId?: string | null): Promise<Disc
     })
   ])
 
-  const viewerGameIds = new Set(viewerInterests.map((interest) => interest.gameId))
+  const viewerGameTitleKeys = new Set(viewerInterests.map((interest) => normalizeGameTitle(interest.game.title)))
   const friendIds = new Set(
     friendLinks.map((friendLink) => (friendLink.userId === viewer.id ? friendLink.friendedUserId : friendLink.userId))
   )
@@ -148,6 +222,27 @@ export async function buildDiscoveryFeed(viewerId?: string | null): Promise<Disc
     .map((candidate) => {
       const isFriend = friendIds.has(candidate.id)
       const mutualServers = candidate.discordServers.map((membership) => membership.server.name)
+      const gamesByTitleKey = new Map<string, DiscoveryPerson['games'][number]>()
+
+      for (const interest of candidate.gameInterests) {
+        const nextGame: DiscoveryPerson['games'][number] = {
+          id: interest.game.id,
+          title: interest.game.title,
+          coverUrl: interest.game.coverUrl,
+          platformLabels: interest.platforms.map((platform) => platform.platformLabel),
+          intent: toFeedIntent(interest.intentType),
+          ...resolveAvailability(interest.availability, candidate.usualAvailability)
+        }
+        const titleKey = normalizeGameTitle(nextGame.title)
+        const existingGame = gamesByTitleKey.get(titleKey)
+
+        if (existingGame) {
+          gamesByTitleKey.set(titleKey, mergeDiscoveryPersonGame(existingGame, nextGame))
+          continue
+        }
+
+        gamesByTitleKey.set(titleKey, nextGame)
+      }
 
       return {
         id: candidate.id,
@@ -155,18 +250,11 @@ export async function buildDiscoveryFeed(viewerId?: string | null): Promise<Disc
         displayName: candidate.displayName,
         avatarUrl: candidate.avatarUrl,
         bio: candidate.bio,
-        timezoneLabel: candidate.timezoneLabel,
+        timezoneId: candidate.timezoneId,
+        timezoneLabel: formatTimezoneLabel(candidate.timezoneId),
         usualAvailability: candidate.usualAvailability,
         mutualServers,
-        games: candidate.gameInterests
-          .map((interest) => ({
-            id: interest.game.id,
-            title: interest.game.title,
-            coverUrl: interest.game.coverUrl,
-            platformLabels: interest.platforms.map((platform) => platform.platformLabel),
-            intent: toFeedIntent(interest.intentType),
-            ...resolveAvailability(interest.availability, candidate.usualAvailability)
-          }))
+        games: [...gamesByTitleKey.values()]
           .sort((left, right) => left.title.localeCompare(right.title)),
         discordActivity: latestActivitiesByUserId.get(candidate.id) ?? null,
         lastActiveLabel: formatRelativeTime(candidate.lastSeenAt),
@@ -189,11 +277,12 @@ export async function buildDiscoveryFeed(viewerId?: string | null): Promise<Disc
       return left.displayName.localeCompare(right.displayName)
     })
 
-  const gamesById = new Map<string, DiscoveryGame>()
+  const gamesByTitleKey = new Map<string, DiscoveryGame>()
 
   for (const person of people) {
     for (const game of person.games) {
-      const existingGame = gamesById.get(game.id)
+      const titleKey = normalizeGameTitle(game.title)
+      const existingGame = gamesByTitleKey.get(titleKey)
       const player: DiscoveryGamePlayer = {
         id: person.id,
         handle: person.handle,
@@ -212,23 +301,25 @@ export async function buildDiscoveryFeed(viewerId?: string | null): Promise<Disc
       if (existingGame) {
         existingGame.players.push(player)
         existingGame.playerCount = existingGame.players.length
-        existingGame.platformLabels = [...new Set([...existingGame.platformLabels, ...game.platformLabels])]
+        existingGame.platformLabels = mergePlatformLabels(existingGame.platformLabels, game.platformLabels)
+        existingGame.sharedWithViewer = existingGame.sharedWithViewer || viewerGameTitleKeys.has(titleKey)
+        existingGame.coverUrl = existingGame.coverUrl ?? game.coverUrl
         continue
       }
 
-      gamesById.set(game.id, {
+      gamesByTitleKey.set(titleKey, {
         id: game.id,
         title: game.title,
         coverUrl: game.coverUrl,
-        platformLabels: [...new Set(game.platformLabels)],
-        sharedWithViewer: viewerGameIds.has(game.id),
+        platformLabels: mergePlatformLabels(game.platformLabels),
+        sharedWithViewer: viewerGameTitleKeys.has(titleKey),
         playerCount: 1,
         players: [player]
       })
     }
   }
 
-  const games = [...gamesById.values()]
+  const games = [...gamesByTitleKey.values()]
     .map((game) => ({
       ...game,
       players: [...game.players].sort((left, right) => {

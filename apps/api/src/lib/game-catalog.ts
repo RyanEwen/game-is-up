@@ -41,6 +41,33 @@ function normalizeSearchResultId(source: string, sourceId: string): string {
   return `${source}:${sourceId}`
 }
 
+async function findExistingGameByTitle(title: string) {
+  const normalizedTitle = title.replace(/\s+/g, ' ').trim()
+
+  return prisma.game.findFirst({
+    where: {
+      OR: [
+        {
+          title: {
+            equals: normalizedTitle,
+            mode: 'insensitive'
+          }
+        },
+        {
+          aliases: {
+            some: {
+              alias: {
+                equals: normalizedTitle,
+                mode: 'insensitive'
+              }
+            }
+          }
+        }
+      ]
+    }
+  })
+}
+
 function normalizeLocalSearchResult(game: {
   id: string;
   title: string;
@@ -71,12 +98,6 @@ function normalizeProviderSearchResult(result: ProviderCatalogResult): GameSearc
 async function syncGamePlatforms(gameId: string, platformLabels: string[]) {
   const dedupedPlatformLabels = dedupePlatformLabels(platformLabels)
 
-  await prisma.gamePlatform.deleteMany({
-    where: {
-      gameId
-    }
-  })
-
   if (dedupedPlatformLabels.length === 0) {
     return
   }
@@ -85,35 +106,15 @@ async function syncGamePlatforms(gameId: string, platformLabels: string[]) {
     data: dedupedPlatformLabels.map((platformLabel) => ({
       gameId,
       platformLabel
-    }))
+    })),
+    skipDuplicates: true
   })
 }
 
 export async function findOrCreateGameByTitle(title: string) {
   const normalizedTitle = title.replace(/\s+/g, ' ').trim()
 
-  const existing = await prisma.game.findFirst({
-    where: {
-      OR: [
-        {
-          title: {
-            equals: normalizedTitle,
-            mode: 'insensitive'
-          }
-        },
-        {
-          aliases: {
-            some: {
-              alias: {
-                equals: normalizedTitle,
-                mode: 'insensitive'
-              }
-            }
-          }
-        }
-      ]
-    }
-  })
+  const existing = await findExistingGameByTitle(normalizedTitle)
 
   if (existing) {
     return existing
@@ -164,6 +165,30 @@ export async function findOrCreateGameFromCatalogMatch(catalogMatch: CatalogGame
         title: catalogMatch.title,
         coverUrl: catalogMatch.coverUrl ?? existingSource.game.coverUrl,
         description: catalogMatch.description ?? existingSource.game.description
+      }
+    })
+
+    await syncGamePlatforms(updatedGame.id, catalogMatch.platformLabels)
+    return updatedGame
+  }
+
+  const existingGame = await findExistingGameByTitle(catalogMatch.title)
+
+  if (existingGame) {
+    const updatedGame = await prisma.game.update({
+      where: {
+        id: existingGame.id
+      },
+      data: {
+        coverUrl: catalogMatch.coverUrl ?? existingGame.coverUrl,
+        description: catalogMatch.description ?? existingGame.description,
+        sources: {
+          create: {
+            source: catalogMatch.source,
+            externalId: catalogMatch.sourceId,
+            canonical: false
+          }
+        }
       }
     })
 
