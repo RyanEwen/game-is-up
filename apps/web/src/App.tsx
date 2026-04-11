@@ -330,21 +330,6 @@ function buildInviteText(
   return `${intro}\n\n${body}\n\n${inviteUrl}`
 }
 
-function formatScopeLabel(scope: string): string {
-  switch (scope) {
-    case 'identify':
-      return 'Discord identity'
-    case 'email':
-      return 'Email'
-    case 'guilds':
-      return 'Discord servers'
-    case 'relationships.read':
-      return 'Discord friends'
-    default:
-      return scope
-  }
-}
-
 function formatDiscordActivityTypeLabel(activityType: 'playing' | 'competing'): string {
   return activityType === 'competing' ? 'Competing in' : 'Playing on Discord'
 }
@@ -984,7 +969,6 @@ export default function App() {
   const selectedDiscoveryServerCount = availableDiscoveryServers.filter((server) => server.selected).length
   const noDiscoveryServersSelected = isSignedIn && availableDiscoveryServers.length > 0 && selectedDiscoveryServerCount === 0
   const discordProvider = state.auth?.providers.find((provider) => provider.id === 'discord') ?? null
-  const discordGraph = state.session?.discordGraph ?? null
   const inviteUrl = resolveInviteUrl(typeof window === 'undefined' ? null : window.location.href)
   const selectedDiscoveryServers = availableDiscoveryServers.filter((server) => server.selected)
   const activeInviteServer = selectedDiscoveryServers.find((server) => server.id === inviteServerId) ?? selectedDiscoveryServers[0] ?? null
@@ -2334,77 +2318,50 @@ export default function App() {
 
             <TabPanel value="overview" sx={{ px: 0, pt: 3, backgroundColor: 'transparent' }}>
               <Stack spacing={3}>
-                <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-                  <Card variant="soft" sx={{ flex: 1, p: 3 }}>
-                    <Typography level="title-lg" sx={{ mb: 1 }}>
-                      API status
-                    </Typography>
-                    <Typography level="body-md">
-                      {state.health ? `${state.health.service} is ${state.health.status}` : 'Waiting for API...'}
-                    </Typography>
-                  </Card>
-                  <Card variant="soft" sx={{ flex: 1, p: 3 }}>
-                    <Typography level="title-lg" sx={{ mb: 1 }}>
-                      Auth status
-                    </Typography>
-                    {state.session?.authenticated && state.session.user ? (
-                      <Stack spacing={1.5}>
-                        <Typography level="body-md">
-                          Signed in as {state.session.user.displayName} ({state.session.user.handle})
+                <Card variant="soft" sx={{ p: 3 }}>
+                  <Typography level="title-lg" sx={{ mb: 1 }}>
+                    Account
+                  </Typography>
+                  {state.session?.authenticated && state.session.user ? (
+                    <Stack spacing={1.5}>
+                      <Typography level="body-md">
+                        Signed in as {state.session.user.displayName} ({state.session.user.handle})
+                      </Typography>
+                      <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+                        <Chip color="success">{state.session.user.authProvider}</Chip>
+                        {state.session.user.email ? <Chip variant="outlined">{state.session.user.email}</Chip> : null}
+                      </Stack>
+                      <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
+                        Your account is ready to sync discovery servers, build your library, and share play plans.
+                      </Typography>
+                      <Button variant="outlined" color="neutral" onClick={() => void handleLogout()}>
+                        Sign out
+                      </Button>
+                    </Stack>
+                  ) : (
+                    <Stack spacing={1.5}>
+                      <Typography level="body-md">
+                        Sign in with Discord to connect your account, choose shared servers, and start finding people to play with.
+                      </Typography>
+                      <Button
+                        color="primary"
+                        disabled={!state.auth?.providers.find((provider) => provider.id === 'discord')?.enabled}
+                        onClick={handleDiscordLogin}
+                      >
+                        Sign in with Discord
+                      </Button>
+                      {discordProvider?.gatedScopes.length ? (
+                        <Typography level="body-sm" sx={{ color: 'warning.300' }}>
+                          Direct Discord friend import is still waiting on Discord approval, so discovery currently starts from shared servers and in-app friends.
                         </Typography>
-                        <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-                          <Chip color="success">{state.session.user.authProvider}</Chip>
-                          {state.session.user.email ? <Chip variant="outlined">{state.session.user.email}</Chip> : null}
-                        </Stack>
-                        <Button variant="outlined" color="neutral" onClick={() => void handleLogout()}>
-                          Sign out
-                        </Button>
-                      </Stack>
-                    ) : (
-                      <Stack spacing={1.5}>
-                        <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-                          {state.auth?.providers.map((provider) => (
-                            <Chip key={provider.id} color={provider.enabled ? 'success' : 'neutral'}>
-                              {provider.label}
-                            </Chip>
-                          )) ?? <Typography level="body-md">Waiting for auth config...</Typography>}
-                        </Stack>
-                        <Button
-                          color="primary"
-                          disabled={!state.auth?.providers.find((provider) => provider.id === 'discord')?.enabled}
-                          onClick={handleDiscordLogin}
-                        >
-                          Sign in with Discord
-                        </Button>
-                        {discordProvider ? (
-                          <Stack spacing={0.75}>
-                            <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
-                              Sign-in currently requests {discordProvider.requestedScopes.map(formatScopeLabel).join(', ')}.
-                              Discord server access lets Game Is Up look for other app users from the servers you choose later.
-                            </Typography>
-                            {discordProvider.gatedScopes.length > 0 ? (
-                              <Typography level="body-sm" sx={{ color: 'warning.300' }}>
-                                Direct Discord friend import needs {discordProvider.gatedScopes.map(formatScopeLabel).join(', ')} and is blocked behind Discord approval for now.
-                              </Typography>
-                            ) : null}
-                          </Stack>
-                        ) : null}
-                      </Stack>
-                    )}
-                  </Card>
-                  <Card variant="soft" sx={{ flex: 1, p: 3 }}>
-                    <Typography level="title-lg" sx={{ mb: 1 }}>
-                      Validation
-                    </Typography>
-                    <Typography level="body-md">
-                      ESLint, TypeScript, and Prisma validation are wired at the root workspace level.
-                    </Typography>
-                  </Card>
-                </Stack>
+                      ) : null}
+                    </Stack>
+                  )}
+                </Card>
 
                 <Card variant="soft" sx={{ p: 3 }}>
                   <Stack spacing={1.25}>
-                    <Typography level="title-lg">Discovery graph</Typography>
+                    <Typography level="title-lg">How discovery works</Typography>
                     <Typography level="body-md" sx={{ color: 'neutral.300' }}>
                       Discovery currently runs on selected mutual Discord servers plus in-app friends. Direct Discord friend import is designed in, but it cannot be activated until Discord approves relationships.read.
                     </Typography>
@@ -2422,36 +2379,10 @@ export default function App() {
                         Discord friends pending approval
                       </Chip>
                     </Stack>
-                    {discordGraph ? (
-                      <Stack spacing={0.5}>
-                        <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
-                          Granted Discord scopes: {discordGraph.grantedScopes.length > 0 ? discordGraph.grantedScopes.map(formatScopeLabel).join(', ') : 'none yet'}.
-                        </Typography>
-                        <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
-                          Guild sync: {discordGraph.guildSync.active ? 'active' : 'not active'}{discordGraph.guildSync.lastSyncedAt ? `, last synced ${new Date(discordGraph.guildSync.lastSyncedAt).toLocaleString()}` : ''}.
-                        </Typography>
-                        <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
-                          Relationship sync: {discordGraph.relationshipSync.status.replace(/-/g, ' ')}.
-                        </Typography>
-                        <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
-                          Activity tracking: {discordGraph.activityTracking.botConfigured
-                            ? discordGraph.activityTracking.botConnected
-                              ? `connected across ${discordGraph.activityTracking.botGuildCount} bot server${discordGraph.activityTracking.botGuildCount === 1 ? '' : 's'}`
-                              : 'configured but not connected'
-                            : 'not configured'}.
-                        </Typography>
-                        <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
-                          Shared bot visibility: {discordGraph.activityTracking.sharesServerWithBot ? 'yes' : 'not yet'}.
-                        </Typography>
-                        {discordGraph.activityTracking.currentActivity ? (
-                          <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
-                            Current observed Discord activity: {discordGraph.activityTracking.currentActivity.title}.
-                          </Typography>
-                        ) : null}
-                        <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
-                          {discordGraph.activityTracking.note}
-                        </Typography>
-                      </Stack>
+                    {isSignedIn ? (
+                      <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
+                        Pick the communities you want to use for discovery below. Only people who also joined Game Is Up will appear.
+                      </Typography>
                     ) : (
                       <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
                         Sign in with Discord to sync mutual servers and start discovery.
