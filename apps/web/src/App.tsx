@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef, type RefObject } from 'react'
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { DashboardLayout } from './components/dashboard/DashboardLayout'
 import {
@@ -25,6 +25,7 @@ function DashboardAppShell() {
   const navigate = useNavigate()
   const { layoutProps } = useDashboardContext()
   const activeTab = getDashboardTabFromPathname(location.pathname) ?? 'overview'
+  const tabsAnchorRef = useRef<HTMLDivElement | null>(null)
 
   return (
     <DashboardLayout
@@ -32,8 +33,9 @@ function DashboardAppShell() {
       onTabChange={(tab) => navigate(dashboardTabPaths[tab])}
       toastNotices={layoutProps.toastNotices}
       onboarding={layoutProps.onboarding}
+      tabsAnchorRef={tabsAnchorRef}
     >
-      <ScrollReset />
+      <ScrollReset tabsAnchorRef={tabsAnchorRef} />
       <Routes>
         <Route
           path={dashboardTabPaths.overview}
@@ -58,12 +60,33 @@ function DashboardAppShell() {
   )
 }
 
-function ScrollReset() {
+function ScrollReset({
+  tabsAnchorRef
+}: {
+  tabsAnchorRef: RefObject<HTMLDivElement>;
+}) {
   const { pathname } = useLocation()
+  const previousPathnameRef = useRef(pathname)
 
   useEffect(() => {
-    window.scrollTo(0, 0)
-  }, [pathname])
+    if (previousPathnameRef.current === pathname) {
+      return
+    }
+
+    previousPathnameRef.current = pathname
+
+    const tabsAnchor = tabsAnchorRef.current
+
+    if (!tabsAnchor) {
+      return
+    }
+
+    const tabsTop = tabsAnchor.getBoundingClientRect().top + window.scrollY
+
+    if (window.scrollY > tabsTop) {
+      window.scrollTo({ top: tabsTop, left: 0, behavior: 'auto' })
+    }
+  }, [pathname, tabsAnchorRef])
 
   return null
 }

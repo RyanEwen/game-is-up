@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import type { ReactNode, RefObject } from 'react'
 import {
   Box,
   Button,
@@ -29,12 +29,14 @@ export const DashboardLayout = ({
   onTabChange,
   toastNotices,
   onboarding,
+  tabsAnchorRef,
   children
 }: {
   activeTab: DashboardTab;
   onTabChange: (tab: DashboardTab) => void;
   toastNotices: DashboardToast[];
   onboarding?: ReactNode;
+  tabsAnchorRef: RefObject<HTMLDivElement>;
   children: ReactNode;
 }) => {
   return (
@@ -128,6 +130,7 @@ export const DashboardLayout = ({
           {onboarding ?? null}
 
           <Tabs
+            ref={tabsAnchorRef}
             value={activeTab}
             onChange={(_, value) => {
               if (value) {
