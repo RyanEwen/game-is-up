@@ -25,6 +25,14 @@ const dashboardTabs: Array<{ value: DashboardTab; label: string }> = [
   { value: 'debug', label: 'Debug' }
 ]
 
+const ambientSpectrumGradient = 'linear-gradient(115deg, #49ff66 0%, #1dff8f 18%, #14ffd6 40%, #20d8ff 62%, #4d93ff 82%, #49ff66 100%)'
+const ambientOverlayBase = [
+  'linear-gradient(180deg, rgba(7, 11, 20, 0) 0px, rgba(7, 11, 20, 0.08) 220px, rgba(7, 11, 20, 0.32) 520px, rgba(7, 11, 20, 0.68) 860px, rgba(7, 11, 20, 0.88) 100%)',
+  'radial-gradient(circle at 50% 14%, rgba(255, 255, 255, 0.22), transparent 42%)',
+  'radial-gradient(circle at 14% 18%, rgba(255, 255, 255, 0.13), transparent 28%)',
+  'radial-gradient(circle at 84% 16%, rgba(255, 255, 255, 0.13), transparent 30%)'
+].join(',')
+
 export const DashboardLayout = ({
   activeTab,
   onTabChange,
@@ -68,13 +76,9 @@ export const DashboardLayout = ({
         <Box
           aria-hidden="true"
           sx={{
-            position: 'absolute',
+            position: 'fixed',
             inset: 0,
-            background: [
-              'linear-gradient(180deg, rgba(7, 11, 20, 0) 0px, rgba(7, 11, 20, 0.14) 180px, rgba(7, 11, 20, 0.56) 420px, rgba(7, 11, 20, 0.82) 760px)',
-              'radial-gradient(circle at 50% 220px, rgba(28, 171, 132, 0.14), transparent 640px)',
-              'radial-gradient(circle at 18% 180px, rgba(244, 178, 63, 0.08), transparent 520px)'
-            ].join(','),
+            background: ambientOverlayBase,
             pointerEvents: 'none',
             zIndex: 0
           }}
@@ -83,12 +87,60 @@ export const DashboardLayout = ({
         <Box
           aria-hidden="true"
           sx={{
-            position: 'absolute',
+            position: 'fixed',
+            inset: 0,
+            background: [
+              'linear-gradient(180deg, rgba(7, 11, 20, 0) 0%, rgba(7, 11, 20, 0.04) 18%, rgba(7, 11, 20, 0.16) 34%, rgba(7, 11, 20, 0.36) 50%, rgba(7, 11, 20, 0.62) 66%, rgba(7, 11, 20, 0.84) 82%, rgba(7, 11, 20, 0.96) 100%)',
+              'radial-gradient(circle at 50% 120%, rgba(4, 7, 16, 0.9), transparent 52%)'
+            ].join(','),
+            mixBlendMode: 'multiply',
+            pointerEvents: 'none',
+            zIndex: 0
+          }}
+        />
+
+        <Box
+          aria-hidden="true"
+          sx={{
+            position: 'fixed',
+            inset: 0,
+            backgroundImage: [
+              'radial-gradient(circle at 50% 12%, rgba(255, 255, 255, 0.95), transparent 42%)',
+              'radial-gradient(circle at 16% 20%, rgba(255, 255, 255, 0.68), transparent 28%)',
+              'radial-gradient(circle at 84% 16%, rgba(255, 255, 255, 0.7), transparent 30%)',
+              ambientSpectrumGradient
+            ].join(','),
+            backgroundBlendMode: 'screen, screen, screen, normal',
+            backgroundSize: 'auto, auto, auto, 220% 220%',
+            backgroundPosition: 'center top, left top, right top, 0% 50%',
+            opacity: 0.24,
+            WebkitMaskImage: 'linear-gradient(180deg, rgba(0, 0, 0, 1) 0%, rgba(0, 0, 0, 0.96) 22%, rgba(0, 0, 0, 0.82) 44%, rgba(0, 0, 0, 0.52) 66%, rgba(0, 0, 0, 0.18) 86%, rgba(0, 0, 0, 0.06) 100%)',
+            maskImage: 'linear-gradient(180deg, rgba(0, 0, 0, 1) 0%, rgba(0, 0, 0, 0.96) 22%, rgba(0, 0, 0, 0.82) 44%, rgba(0, 0, 0, 0.52) 66%, rgba(0, 0, 0, 0.18) 86%, rgba(0, 0, 0, 0.06) 100%)',
+            transformOrigin: '50% 18%',
+            willChange: 'transform, background-position, opacity',
+            animation: [
+              'ambientSpectrumPan var(--ambient-cycle-duration) ease-in-out infinite',
+              'ambientSpectrumPulse calc(var(--ambient-cycle-duration) * 0.75) ease-in-out infinite',
+              'ambientDrift var(--ambient-drift-duration) ease-in-out infinite'
+            ].join(', '),
+            pointerEvents: 'none',
+            zIndex: 0
+          }}
+        />
+
+        <Box
+          aria-hidden="true"
+          sx={{
+            position: 'fixed',
             top: 0,
             left: 'var(--app-titlebar-x, 0px)',
             width: 'var(--app-titlebar-width, 100%)',
             height: 'var(--app-titlebar-height, 0px)',
-            background: 'linear-gradient(90deg, rgba(78, 240, 183, 0.1), rgba(78, 240, 183, 0))',
+            backgroundImage: ambientSpectrumGradient,
+            backgroundSize: '220% 220%',
+            backgroundPosition: '0% 50%',
+            opacity: 0.16,
+            animation: 'ambientSpectrumPanSingle var(--ambient-cycle-duration) ease-in-out infinite',
             pointerEvents: 'none',
             zIndex: 1
           }}
@@ -157,24 +209,51 @@ export const DashboardLayout = ({
               <Stack
                 direction={{ xs: 'column', sm: 'row' }}
                 spacing={{ xs: 2, sm: 2.5 }}
-                sx={{ alignItems: { xs: 'flex-start', sm: 'center' } }}
+                sx={{ alignItems: { xs: 'flex-start', sm: 'center' }, width: '100%' }}
               >
                 <Box
-                  component="img"
-                  src="/icon-discord-transparent.svg"
-                  alt=""
+                  aria-hidden="true"
                   sx={{
                     width: { xs: 72, md: 92 },
                     height: { xs: 72, md: 92 },
                     flexShrink: 0,
                     borderRadius: '24px',
                     p: 1,
-                    background: 'linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03))',
-                    border: '1px solid rgba(255, 255, 255, 0.08)',
-                    boxShadow: '0 20px 44px rgba(0, 0, 0, 0.28)'
+                    display: 'grid',
+                    placeItems: 'center',
+                    background: 'linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.015))',
+                    border: '1px solid rgba(255, 255, 255, 0.12)',
+                    boxShadow: '0 20px 44px rgba(0, 0, 0, 0.28)',
+                    backdropFilter: 'blur(8px)'
                   }}
-                />
-                <Stack spacing={1.25} sx={{ minWidth: 0 }}>
+                >
+                  <Box
+                    sx={{
+                      width: '100%',
+                      height: '100%',
+                      backgroundImage: ambientSpectrumGradient,
+                      backgroundSize: '220% 220%',
+                      backgroundPosition: '0% 50%',
+                      WebkitMaskImage: 'url(/icon-discord-transparent.svg)',
+                      maskImage: 'url(/icon-discord-transparent.svg)',
+                      WebkitMaskRepeat: 'no-repeat',
+                      maskRepeat: 'no-repeat',
+                      WebkitMaskPosition: 'center',
+                      maskPosition: 'center',
+                      WebkitMaskSize: 'contain',
+                      maskSize: 'contain',
+                      opacity: 1,
+                      filter: 'saturate(1.12) brightness(1.1) contrast(1.02) drop-shadow(0 10px 22px rgba(0, 0, 0, 0.2))',
+                      willChange: 'background-position, opacity',
+                      animation: [
+                        'ambientSpectrumPanSingle var(--ambient-cycle-duration) ease-in-out infinite',
+                        'logoSpectrumPresence calc(var(--ambient-cycle-duration) * 0.82) ease-in-out infinite',
+                        'logoPulse calc(var(--ambient-cycle-duration) * 0.78) ease-in-out infinite'
+                      ].join(', ')
+                    }}
+                  />
+                </Box>
+                <Stack spacing={1.25} sx={{ minWidth: 0, flex: 1 }}>
                   <Stack
                     direction={{ xs: 'column', md: 'row' }}
                     spacing={1.5}
@@ -187,7 +266,7 @@ export const DashboardLayout = ({
                       Beta
                     </Chip>
                   </Stack>
-                  <Typography level="body-lg" sx={{ color: 'neutral.200', maxWidth: 720 }}>
+                  <Typography level="body-lg" sx={{ color: 'neutral.200', maxWidth: 'none' }}>
                     Build your library, find others who play, and turn "anyone up for a game?" into an actual plan.
                   </Typography>
                 </Stack>
