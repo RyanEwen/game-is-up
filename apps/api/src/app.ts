@@ -10,6 +10,7 @@ import { friendsRouter } from './routes/friends.js'
 import { healthRouter } from './routes/health.js'
 import { getAllowedClientOrigins, getApiOrigin } from './lib/origin.js'
 import { libraryRouter } from './routes/library.js'
+import { mediaRouter } from './routes/media.js'
 import { playIntentRouter } from './routes/play-intents.js'
 import { profileRouter } from './routes/profile.js'
 
@@ -53,6 +54,7 @@ app.use('/api/discord-servers', discordServersRouter)
 app.use('/api/discovery', discoveryRouter)
 app.use('/api/friends', friendsRouter)
 app.use('/api/library', libraryRouter)
+app.use('/api/media', mediaRouter)
 app.use('/api/play-intents', playIntentRouter)
 app.use('/api/profile', profileRouter)
 

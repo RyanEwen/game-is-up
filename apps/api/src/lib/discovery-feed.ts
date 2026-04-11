@@ -4,6 +4,7 @@ import { getLatestActiveDiscordActivitiesForUsers } from './discord-activity.js'
 import { prisma } from './prisma.js'
 import { getViewer } from './demo-viewer.js'
 import { getSelectedDiscordServerIds } from './discord-servers.js'
+import { toClientGameCoverUrl } from './game-media.js'
 import { formatRelativeTime } from './relative-time.js'
 import { resolveAvailability } from './availability.js'
 import { formatTimezoneLabel } from './timezone-label.js'
@@ -228,7 +229,7 @@ export async function buildDiscoveryFeed(viewerId?: string | null): Promise<Disc
         const nextGame: DiscoveryPerson['games'][number] = {
           id: interest.game.id,
           title: interest.game.title,
-          coverUrl: interest.game.coverUrl,
+          coverUrl: toClientGameCoverUrl(interest.game.coverUrl),
           platformLabels: interest.platforms.map((platform) => platform.platformLabel),
           intent: toFeedIntent(interest.intentType),
           ...resolveAvailability(interest.availability, candidate.usualAvailability)

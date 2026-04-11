@@ -11,6 +11,7 @@ import {
 } from '@game-is-up/shared'
 import { z } from 'zod'
 import { findOrCreateGameByTitle, findOrCreateGameFromCatalogMatch, searchGamesByTitle } from '../lib/game-catalog.js'
+import { toClientGameCoverUrl } from '../lib/game-media.js'
 import { prisma } from '../lib/prisma.js'
 import { getAuthSession } from '../lib/session.js'
 import { resolveAvailability } from '../lib/availability.js'
@@ -92,7 +93,7 @@ async function buildLibraryResponse(userId: string): Promise<LibraryResponse> {
         id: entry.id,
         gameId: entry.gameId,
         title: entry.game.title,
-        coverUrl: entry.game.coverUrl,
+        coverUrl: toClientGameCoverUrl(entry.game.coverUrl),
         platformLabels: entry.platforms.map((platform) => platform.platformLabel),
         intent: toLibraryEntryIntent(entry.intentType),
         ...resolveAvailability(entry.availability, user?.usualAvailability ?? null)

@@ -1,5 +1,6 @@
 import type { CatalogGameMatch, GameSearchResult } from '@game-is-up/shared'
 import { prisma } from './prisma.js'
+import { resolveStoredGameCoverUrl, toClientGameCoverUrl } from './game-media.js'
 import { isRawgCatalogConfigured, searchRawgGamesByTitle, type ProviderCatalogResult } from './rawg-game-catalog.js'
 
 function slugifyTitle(title: string): string {
@@ -79,7 +80,7 @@ function normalizeLocalSearchResult(game: {
     source: 'local',
     sourceId: game.id,
     title: game.title,
-    coverUrl: game.coverUrl,
+    coverUrl: toClientGameCoverUrl(game.coverUrl),
     platformLabels: dedupePlatformLabels(game.platforms.map((platform) => platform.platformLabel))
   }
 }
@@ -90,7 +91,7 @@ function normalizeProviderSearchResult(result: ProviderCatalogResult): GameSearc
     source: result.source,
     sourceId: result.sourceId,
     title: result.title,
-    coverUrl: result.coverUrl,
+    coverUrl: toClientGameCoverUrl(result.coverUrl),
     platformLabels: dedupePlatformLabels(result.platformLabels)
   }
 }
@@ -131,6 +132,8 @@ export async function findOrCreateGameByTitle(title: string) {
 }
 
 export async function findOrCreateGameFromCatalogMatch(catalogMatch: CatalogGameMatch) {
+  const normalizedCoverUrl = resolveStoredGameCoverUrl(catalogMatch.coverUrl)
+
   if (catalogMatch.source === 'local') {
     const localGame = await prisma.game.findUnique({
       where: {
@@ -163,7 +166,7 @@ export async function findOrCreateGameFromCatalogMatch(catalogMatch: CatalogGame
       },
       data: {
         title: catalogMatch.title,
-        coverUrl: catalogMatch.coverUrl ?? existingSource.game.coverUrl,
+        coverUrl: normalizedCoverUrl ?? existingSource.game.coverUrl,
         description: catalogMatch.description ?? existingSource.game.description
       }
     })
@@ -180,7 +183,7 @@ export async function findOrCreateGameFromCatalogMatch(catalogMatch: CatalogGame
         id: existingGame.id
       },
       data: {
-        coverUrl: catalogMatch.coverUrl ?? existingGame.coverUrl,
+        coverUrl: normalizedCoverUrl ?? existingGame.coverUrl,
         description: catalogMatch.description ?? existingGame.description,
         sources: {
           create: {
@@ -201,7 +204,7 @@ export async function findOrCreateGameFromCatalogMatch(catalogMatch: CatalogGame
     data: {
       slug,
       title: catalogMatch.title,
-      coverUrl: catalogMatch.coverUrl ?? null,
+      coverUrl: normalizedCoverUrl ?? null,
       description: catalogMatch.description ?? null,
       sources: {
         create: {
