@@ -26,7 +26,7 @@ The product loop is intentionally narrow:
 
 Game catalog search is provider-backed rather than store-specific. The current implementation targets a broad catalog source and normalizes platform labels so the product can treat a title as one canonical game with multiple supported platforms.
 
-The pre-launch database workflow is schema-first. Prisma migrations do not need to be treated as stable history until the product is closer to release.
+Prisma migrations are now the source of truth for schema changes. Development uses checked-in migration history, and deployment bootstraps existing pre-migrate databases to the baseline before applying pending migrations.
 
 ## Play intent model
 

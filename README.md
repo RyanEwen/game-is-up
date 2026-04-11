@@ -113,6 +113,12 @@ The repository now includes a root `compose.yml` for production-style local or s
   docker compose up --build -d
   ```
 
+   If you serve the app through Cloudflare, you can follow the deploy with a targeted edge-cache purge:
+
+  ```bash
+  docker compose up --build -d && npm run cache:purge:cloudflare
+  ```
+
 5. Open the app on `http://localhost:8080` by default. If you need a different host port, set `PORT`, for example `PORT=9090 docker compose up --build -d`.
 
 The public container runs unprivileged Nginx on internal port `8080`, and Docker maps host port `8080` to it by default. Nginx proxies `/api/*` to the API container so browser clients can stay same-origin in production.
@@ -127,6 +133,22 @@ For a host-Nginx setup, the important production values are:
 - `DISCORD_CALLBACK_URL=https://your-public-domain/api/auth/discord/callback`
 - `VITE_API_BASE_URL=` so the frontend uses same-origin `/api`
 - `PORT=8080` as the default host port behind Nginx
+
+For Cloudflare-backed deployments, the repo now includes a purge helper that reads the same root `.env` file used by Docker Compose. Set `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ZONE_ID`, then run `npm run cache:purge:cloudflare` after deployment. By default it purges the app shell URLs most likely to stay stale at the edge: `/`, `/index.html`, `/sw.js`, `/registerSW.js`, and `/manifest.webmanifest`.
+
+If you need to add more URLs, set `CLOUDFLARE_PURGE_PATHS` as a comma-separated list or pass repeated `--path` flags, for example:
+
+```bash
+npm run cache:purge:cloudflare -- --path /discover --path /library
+```
+
+For an emergency full-zone purge, run:
+
+```bash
+npm run cache:purge:cloudflare:everything
+```
+
+Prefer the targeted purge command for normal releases so long-lived hashed assets can stay cached.
 
 This repo now treats Prisma migrations as the source of truth for schema changes. Use `db:migrate` to create new migrations during development and `db:migrate:deploy` for deployment targets.
 
