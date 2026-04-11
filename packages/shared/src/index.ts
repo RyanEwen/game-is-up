@@ -34,9 +34,19 @@ export const libraryEntrySchema = z.object({
   availabilitySource: availabilitySourceSchema.nullable()
 })
 
+export const librarySuggestedGameSchema = z.object({
+  gameId: z.string().uuid(),
+  title: z.string().min(1),
+  coverUrl: z.string().url().nullable(),
+  platformLabels: z.array(platformLabelSchema).min(1),
+  lastObservedAt: z.string().datetime(),
+  sourceServerName: z.string().min(1).nullable()
+})
+
 export const libraryResponseSchema = z.object({
   usualAvailability: z.string().nullable(),
-  entries: z.array(libraryEntrySchema)
+  entries: z.array(libraryEntrySchema),
+  suggestedGames: z.array(librarySuggestedGameSchema).default([])
 })
 
 export const gameSearchResultSchema = z.object({
@@ -116,7 +126,7 @@ export const upsertLibraryEntryRequestSchema = z.object({
 })
 
 export const playIntentSelectionModeSchema = z.enum(['library', 'subset'])
-export const playIntentNotifyScopeSchema = z.enum(['discovery-and-friends', 'friends-only'])
+export const playIntentNotifyScopeSchema = z.enum(['discovery-and-friends', 'friends-only', 'specific-friends'])
 
 export const playIntentGameSchema = z.object({
   id: z.string().uuid(),
@@ -153,6 +163,7 @@ export const activePlayIntentSchema = z.object({
   title: z.string().min(1),
   selectionMode: playIntentSelectionModeSchema,
   notifyScope: playIntentNotifyScopeSchema,
+  targetedFriends: z.array(playIntentPreviewUserSchema),
   platforms: z.array(platformLabelSchema).min(1),
   games: z.array(playIntentGameSchema),
   note: z.string().max(140),
@@ -169,15 +180,33 @@ export const upsertPlayIntentRequestSchema = z.object({
   selectionMode: playIntentSelectionModeSchema,
   notifyScope: playIntentNotifyScopeSchema,
   note: z.string().trim().max(140).optional(),
+  startAt: z.string().datetime().optional(),
   durationMinutes: z.number().int().min(15).max(1440).optional(),
   endAt: z.string().datetime().optional(),
-  gameIds: z.array(z.string().uuid()).default([])
+  gameIds: z.array(z.string().uuid()).default([]),
+  targetUserIds: z.array(z.string().uuid()).max(25).default([])
 }).superRefine((value, context) => {
   if ((value.durationMinutes == null) === (value.endAt == null)) {
     context.addIssue({
       code: z.ZodIssueCode.custom,
       message: 'Provide either a duration or an end time for the play intent.',
       path: ['durationMinutes']
+    })
+  }
+
+  if (value.notifyScope === 'specific-friends' && value.targetUserIds.length === 0) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Choose at least one friend for a specific-friends call to play.',
+      path: ['targetUserIds']
+    })
+  }
+
+  if (value.notifyScope !== 'specific-friends' && value.targetUserIds.length > 0) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Specific target friends are only valid for the specific-friends audience.',
+      path: ['targetUserIds']
     })
   }
 })
@@ -374,6 +403,7 @@ export type AvailabilitySource = z.infer<typeof availabilitySourceSchema>;
 export type CatalogGameMatch = z.infer<typeof catalogGameMatchSchema>;
 export type LibraryEntryIntent = z.infer<typeof libraryEntryIntentSchema>;
 export type LibraryEntry = z.infer<typeof libraryEntrySchema>;
+export type LibrarySuggestedGame = z.infer<typeof librarySuggestedGameSchema>;
 export type LibraryResponse = z.infer<typeof libraryResponseSchema>;
 export type GameSearchResult = z.infer<typeof gameSearchResultSchema>;
 export type GameSearchResponse = z.infer<typeof gameSearchResponseSchema>;

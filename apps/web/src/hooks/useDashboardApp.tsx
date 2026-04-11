@@ -171,8 +171,19 @@ export function useDashboardApp() {
 
   const isSignedIn = Boolean(state.session?.authenticated && state.session.user)
   const libraryEntries = state.library?.entries ?? emptyLibraryEntries
+  const suggestedLibraryGames = state.library?.suggestedGames ?? []
   const discoveryGames = state.discovery?.games ?? []
   const discoveryPeople = state.discovery?.people ?? []
+  const playIntentFriendOptions = discoveryPeople
+    .filter((person) => person.isFriend)
+    .map((person) => ({
+      id: person.id,
+      handle: person.handle,
+      displayName: person.displayName,
+      avatarUrl: person.avatarUrl
+    }))
+    .sort((left, right) => left.displayName.localeCompare(right.displayName))
+  const addedFriendCount = playIntentFriendOptions.length
   const overlapGames = discoveryGames.filter((game) => game.sharedWithViewer)
   const browseGames = discoveryGames.filter((game) => !game.sharedWithViewer)
   const hasLibraryEntries = libraryEntries.length > 0
@@ -466,13 +477,17 @@ export function useDashboardApp() {
     isSignedIn,
     buildApiUrl,
     libraryEntries,
+    suggestedGames: suggestedLibraryGames,
+    libraryGameIds,
+    addingLibraryGameId,
     currentUsualAvailability,
     browserTimeZoneId,
     loadDashboard,
     updateProfile,
     applyProfileUpdate,
     setActionNotice,
-    setProfileNotice
+    setProfileNotice,
+    onAddGameToLibrary: handleAddGameToLibrary
   })
 
   const { playViewProps } = useDashboardPlay({
@@ -480,6 +495,7 @@ export function useDashboardApp() {
     buildApiUrl,
     activePlayIntent: state.activePlayIntent,
     libraryEntries,
+    playIntentFriendOptions,
     playIntentPreviews: state.playIntents?.intents ?? [],
     loadDashboard,
     setActivePlayIntent,
@@ -808,7 +824,7 @@ export function useDashboardApp() {
       discordServerPreferencesResponseSchema.parse(responseBody)
       setActionNotice({
         tone: 'success',
-        message: nextSelected ? 'That server will now help you find players.' : 'That server will no longer be used to find players.'
+        message: nextSelected ? 'Game Is Up will now use that server to find people.' : 'Game Is Up will no longer use that server to find people.'
       })
       await loadDashboard()
     } catch (error) {
@@ -850,6 +866,7 @@ export function useDashboardApp() {
       hasDiscordScopeWarning: Boolean(discordProvider?.gatedScopes.length),
       isSignedIn,
       availableDiscoveryServers,
+      addedFriendCount,
       hasSyncedDiscordServers: Boolean(state.discordServers?.servers.length),
       serverPreferencePendingId,
       onLogout: handleLogout,

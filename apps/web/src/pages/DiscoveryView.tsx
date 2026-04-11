@@ -8,18 +8,20 @@ import { useDashboardContext } from '../contexts/useDashboardContext'
 import type { DashboardLibraryQuickAddGame, FriendTarget } from '../components/dashboard/types'
 
 function DiscoverySection({
+  isFirst = false,
   title,
   description,
   children,
   helperText
 }: {
+  isFirst?: boolean;
   title: string;
   description: string;
   helperText?: string;
   children: React.ReactNode;
 }) {
   return (
-    <Stack spacing={2} sx={{ mt: title === 'Matches in your network' ? 0 : 3 }}>
+    <Stack spacing={2} sx={{ mt: isFirst ? 0 : 3 }}>
       <Typography level="h2">{title}</Typography>
       <Typography level="body-md" sx={{ color: 'neutral.300' }}>
         {description}
@@ -62,8 +64,9 @@ function DiscoveryViewContent({
   return (
     <Stack spacing={0}>
       <DiscoverySection
-        title="Matches in your network"
-        description="This is the overlap view now: games first, then the people in your network who have each game in their playlists."
+        isFirst
+        title="Shared games"
+        description="These are the games you share with people Game Is Up can find through your selected servers and friends list."
       >
         {error ? (
           <Card color="danger" variant="soft">
@@ -97,7 +100,7 @@ function DiscoveryViewContent({
               noDiscoveryServersSelected
                 ? 'Every synced Discord server is currently hidden from discovery, so the app has no mutual-server users to compare against.'
                 : isSignedIn
-                  ? 'Add games to your library and keep at least one Discord server enabled for discovery so the app can find overlap with your network.'
+                  ? 'Add games to your library and keep at least one Discord server enabled so Game Is Up can find people with overlapping libraries.'
                   : 'This section shows games that the seeded demo viewer and other visible users both have in their playlists.'
             }
             chips={
@@ -112,8 +115,8 @@ function DiscoveryViewContent({
       </DiscoverySection>
 
       <DiscoverySection
-        title="Others in your network"
-        description="Browse every game that your visible network has added, even when it is not in your own library yet."
+        title="Other visible games"
+        description="Browse games from people Game Is Up can currently find through your selected servers and friends list, even when those games are not in your own library yet."
       >
         {browseGames.length > 0 ? (
           <Box sx={discoveryGameGridSx}>
@@ -134,13 +137,13 @@ function DiscoveryViewContent({
           </Box>
         ) : (
           <EmptyStateCard
-            title={isSignedIn ? 'No extra network games yet' : 'No extra network games yet'}
+            title={isSignedIn ? 'No extra visible games yet' : 'No extra visible games yet'}
             body={
               noDiscoveryServersSelected
                 ? 'Enable at least one synced Discord server to browse games from mutual-server users again.'
                 : isSignedIn
                   ? overlapGames.length > 0
-                    ? 'Everything currently visible from your network is already shown above because it also matches your library.'
+                    ? 'Everything currently visible is already shown above because it also matches your library.'
                     : 'No visible friends or mutual-server users have games in their playlists yet.'
                   : overlapGames.length > 0
                     ? 'All currently visible titles are already covered in the shared games section above.'
@@ -159,8 +162,8 @@ function DiscoveryViewContent({
 
       <DiscoverySection
         title="Members"
-        description="See each visible person and the full playlist they have shared with your current discovery network."
-        helperText="Visibility here is limited to people who also use Game Is Up, either through one of your selected discovery servers or your in-app friends list."
+        description="See the people Game Is Up can currently find through your selected servers and your in-app friends list."
+        helperText="People appear here when they are on one of your selected servers and already use Game Is Up, or when you added them as a friend in the app."
       >
         {discoveryPeople.length > 0 ? (
           <Stack spacing={2}>

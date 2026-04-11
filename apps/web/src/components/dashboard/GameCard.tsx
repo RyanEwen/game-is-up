@@ -75,9 +75,9 @@ export function GameCard({
             canAddToLibrary={canAddToLibrary}
             isInLibrary={isInLibrary}
             isAddingToLibrary={isAddingToLibrary}
-            supportingText={`${game.playerCount} player${game.playerCount === 1 ? '' : 's'} in your network`}
+            supportingText={`${game.playerCount} visible player${game.playerCount === 1 ? '' : 's'}`}
             detailLines={[
-              game.sharedWithViewer ? 'This already overlaps with your library.' : 'This title is visible through your network, even if it is not in your library yet.'
+              game.sharedWithViewer ? 'This already overlaps with your library.' : 'This title is visible to you even if it is not in your library yet.'
             ]}
             large={!compact}
             onAddToLibrary={onAddToLibrary}
@@ -164,7 +164,7 @@ export function GameCard({
           ))}
           {hiddenPlayerCount > 0 ? (
             <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
-              +{hiddenPlayerCount} more in your network
+              +{hiddenPlayerCount} more visible players
             </Typography>
           ) : null}
           {showCompactSignInHint ? (

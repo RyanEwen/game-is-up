@@ -4,6 +4,7 @@ export type Notice = {
 };
 
 export type DashboardTab = 'overview' | 'discovery' | 'library' | 'play';
+export type PlayIntentStartMode = 'now' | 'scheduled';
 export type PlayIntentTimingMode = 'preset' | 'custom' | 'end-time';
 
 export type FriendTarget = {

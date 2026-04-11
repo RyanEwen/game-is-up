@@ -12,6 +12,7 @@ import {
 import { z } from 'zod'
 import { findOrCreateGameByTitle, findOrCreateGameFromCatalogMatch, searchGamesByTitle } from '../lib/game-catalog.js'
 import { toClientGameCoverUrl } from '../lib/game-media.js'
+import { getObservedLibrarySuggestions } from '../lib/library-suggestions.js'
 import { prisma } from '../lib/prisma.js'
 import { getAuthSession } from '../lib/session.js'
 import { resolveAvailability } from '../lib/availability.js'
@@ -86,19 +87,23 @@ async function buildLibraryResponse(userId: string): Promise<LibraryResponse> {
     }
   })
 
+  const entries = (user?.gameInterests ?? [])
+    .map((entry) => ({
+      id: entry.id,
+      gameId: entry.gameId,
+      title: entry.game.title,
+      coverUrl: toClientGameCoverUrl(entry.game.coverUrl),
+      platformLabels: entry.platforms.map((platform) => platform.platformLabel),
+      intent: toLibraryEntryIntent(entry.intentType),
+      ...resolveAvailability(entry.availability, user?.usualAvailability ?? null)
+    }))
+    .sort((left, right) => left.title.localeCompare(right.title))
+  const suggestedGames = await getObservedLibrarySuggestions(userId, entries.map((entry) => entry.gameId))
+
   return {
     usualAvailability: user?.usualAvailability ?? null,
-    entries: (user?.gameInterests ?? [])
-      .map((entry) => ({
-        id: entry.id,
-        gameId: entry.gameId,
-        title: entry.game.title,
-        coverUrl: toClientGameCoverUrl(entry.game.coverUrl),
-        platformLabels: entry.platforms.map((platform) => platform.platformLabel),
-        intent: toLibraryEntryIntent(entry.intentType),
-        ...resolveAvailability(entry.availability, user?.usualAvailability ?? null)
-      }))
-      .sort((left, right) => left.title.localeCompare(right.title))
+    entries,
+    suggestedGames
   }
 }
 

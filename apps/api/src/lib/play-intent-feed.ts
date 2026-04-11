@@ -8,8 +8,10 @@ function toSelectionMode(selectionMode: PlayIntentSelectionMode): 'library' | 's
   return selectionMode === PlayIntentSelectionMode.ENTIRE_LIBRARY ? 'library' : 'subset'
 }
 
-function toNotifyScope(scope: PlayIntentScope): 'friends-only' | 'discovery-and-friends' {
+function toNotifyScope(scope: PlayIntentScope): 'friends-only' | 'discovery-and-friends' | 'specific-friends' {
   switch (scope) {
+    case PlayIntentScope.SPECIFIC_FRIENDS:
+      return 'specific-friends'
     case PlayIntentScope.MUTUAL_FRIENDS:
       return 'discovery-and-friends'
     default:
@@ -17,12 +19,24 @@ function toNotifyScope(scope: PlayIntentScope): 'friends-only' | 'discovery-and-
   }
 }
 
+function formatAvailabilityLabel(displayName: string, startsAt: Date, now: Date) {
+  return startsAt.getTime() > now.getTime() + 60 * 1000
+    ? `${displayName} starts ${startsAt.toLocaleString([], {
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit'
+      })}`
+    : `${displayName} is available now`
+}
+
 export async function buildPlayIntentFeed(viewerId?: string | null): Promise<PlayIntentFeed> {
   const viewer = await getViewer(viewerId)
+  const now = new Date()
 
   if (!viewer) {
     return {
-      generatedAt: new Date().toISOString(),
+      generatedAt: now.toISOString(),
       intents: []
     }
   }
@@ -56,7 +70,7 @@ export async function buildPlayIntentFeed(viewerId?: string | null): Promise<Pla
 
   if (broadAudienceUserIds.length === 0) {
     return {
-      generatedAt: new Date().toISOString(),
+      generatedAt: now.toISOString(),
       intents: []
     }
   }
@@ -67,7 +81,7 @@ export async function buildPlayIntentFeed(viewerId?: string | null): Promise<Pla
         in: broadAudienceUserIds
       },
       expiresAt: {
-        gt: new Date()
+        gt: now
       }
     },
     include: {
@@ -83,6 +97,11 @@ export async function buildPlayIntentFeed(viewerId?: string | null): Promise<Pla
               game: true
             }
           }
+        }
+      },
+      targetFriends: {
+        select: {
+          friendUserId: true
         }
       },
       games: {
@@ -111,6 +130,10 @@ export async function buildPlayIntentFeed(viewerId?: string | null): Promise<Pla
       }
 
       if (intent.scope === PlayIntentScope.MUTUAL_FRIENDS && !isExplicitFriend && !isInDiscoveryAudience) {
+        return null
+      }
+
+      if (intent.scope === PlayIntentScope.SPECIFIC_FRIENDS && !intent.targetFriends.some((entry) => entry.friendUserId === viewer.id)) {
         return null
       }
 
@@ -147,7 +170,7 @@ export async function buildPlayIntentFeed(viewerId?: string | null): Promise<Pla
         games: intent.selectionMode === PlayIntentSelectionMode.ENTIRE_LIBRARY ? [] : selectedGames,
         note: intent.note,
         availabilityWindow: {
-          label: `${intent.user.displayName} is available`,
+          label: formatAvailabilityLabel(intent.user.displayName, intent.windowStartsAt, now),
           startsAt: intent.windowStartsAt.toISOString(),
           endsAt: intent.windowEndsAt.toISOString()
         }
@@ -156,7 +179,7 @@ export async function buildPlayIntentFeed(viewerId?: string | null): Promise<Pla
     .filter((preview): preview is PlayIntentPreview => preview !== null)
 
   return {
-    generatedAt: new Date().toISOString(),
+    generatedAt: now.toISOString(),
     intents: previews
   }
 }

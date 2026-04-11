@@ -347,21 +347,64 @@ export async function sendDiscordServerInvites(options: {
   }
 
   try {
-    const inviteResults = await sendDiscordGuildInvites({
-      serverId: options.serverId,
-      memberIds: options.memberIds,
-      inviterLabel: formatDiscordInviteSender(user?.displayName, user?.handle),
-      inviteUrl: options.inviteUrl
+    const serverMembers = await listDiscordGuildMembers(options.serverId)
+    const memberById = new Map(serverMembers.members.map((member) => [member.id, member]))
+    const identities = await prisma.userIdentity.findMany({
+      where: {
+        provider: PrismaAuthProvider.DISCORD,
+        providerUserId: {
+          in: options.memberIds
+        }
+      },
+      select: {
+        providerUserId: true
+      }
     })
+    const appUserDiscordIds = new Set(identities.map((identity) => identity.providerUserId))
+    const inviteableMemberIds = options.memberIds.filter((memberId) => !appUserDiscordIds.has(memberId))
+    const skippedResults = options.memberIds
+      .filter((memberId) => appUserDiscordIds.has(memberId))
+      .map((memberId) => {
+        const member = memberById.get(memberId)
+
+        return {
+          memberId,
+          username: member?.username ?? 'unknown-user',
+          displayName: member?.displayName ?? member?.username ?? 'Unknown member',
+          status: 'failed' as const,
+          error: 'Already on Game Is Up.'
+        }
+      })
+    const inviteResults = inviteableMemberIds.length > 0
+      ? await sendDiscordGuildInvites({
+          serverId: options.serverId,
+          memberIds: inviteableMemberIds,
+          inviterLabel: formatDiscordInviteSender(user?.displayName, user?.handle),
+          inviteUrl: options.inviteUrl
+        })
+      : {
+          serverId: options.serverId,
+          serverName: serverMembers.serverName,
+          results: []
+        }
+    const orderedResults = options.memberIds
+      .map((memberId) => skippedResults.find((result) => result.memberId === memberId) ?? inviteResults.results.find((result) => result.memberId === memberId))
+      .filter((result): result is {
+        memberId: string;
+        username: string;
+        displayName: string;
+        status: 'sent' | 'failed';
+        error: string | null;
+      } => result != null)
 
     return {
       status: 'ok',
       response: {
         serverId: inviteResults.serverId,
         serverName: inviteResults.serverName,
-        sentCount: inviteResults.results.filter((result) => result.status === 'sent').length,
-        failedCount: inviteResults.results.filter((result) => result.status === 'failed').length,
-        results: inviteResults.results
+        sentCount: orderedResults.filter((result) => result.status === 'sent').length,
+        failedCount: orderedResults.filter((result) => result.status === 'failed').length,
+        results: orderedResults
       }
     }
   } catch (error) {

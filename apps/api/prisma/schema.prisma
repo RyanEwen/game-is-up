@@ -40,6 +40,7 @@ enum ProfileVisibility {
 enum PlayIntentScope {
   FRIENDS_ONLY
   MUTUAL_FRIENDS
+  SPECIFIC_FRIENDS
 }
 
 enum PlayIntentSelectionMode {
@@ -82,6 +83,7 @@ model User {
   blocksGiven       Block[]            @relation("blocks_given")
   blocksReceived    Block[]            @relation("blocks_received")
   playIntents       PlayIntent[]
+  targetedPlayIntents PlayIntentTargetFriend[] @relation("play_intent_target_friend")
   notifications     Notification[]     @relation("notification_recipient")
   reportsFiled      Report[]           @relation("reporter")
   reportsReceived   Report[]           @relation("reported")
@@ -114,6 +116,7 @@ model DiscordServer {
   memberships   DiscordServerMembership[]
   preferences   DiscordServerPreference[]
   activityObservations DiscordActivityObservation[]
+  observedGames DiscordObservedGame[]
 }
 
 model DiscordServerMembership {
@@ -155,6 +158,7 @@ model Game {
   aliases         GameAlias[]
   platforms       GamePlatform[]
   discordActivityObservations DiscordActivityObservation[]
+  observedOnDiscord DiscordObservedGame[]
   interests       UserGameInterest[]
   playIntentGames PlayIntentGame[]
   notifications   Notification[]
@@ -257,9 +261,22 @@ model PlayIntent {
   user           User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
   games          PlayIntentGame[]
   platforms      PlayIntentPlatform[]
+  targetFriends  PlayIntentTargetFriend[]
 
   @@index([userId, expiresAt])
   @@index([selectionMode, expiresAt])
+}
+
+model PlayIntentTargetFriend {
+  id           String     @id @default(uuid())
+  playIntentId String
+  friendUserId String
+  createdAt    DateTime   @default(now())
+  playIntent   PlayIntent @relation(fields: [playIntentId], references: [id], onDelete: Cascade)
+  friendUser   User       @relation("play_intent_target_friend", fields: [friendUserId], references: [id], onDelete: Cascade)
+
+  @@unique([playIntentId, friendUserId])
+  @@index([friendUserId])
 }
 
 model PlayIntentGame {
@@ -340,4 +357,24 @@ model DiscordActivityObservation {
   @@index([userId, isActive, lastObservedAt])
   @@index([gameId, isActive, lastObservedAt])
   @@index([sourceServerId, isActive])
+}
+
+model DiscordObservedGame {
+  id             String              @id @default(uuid())
+  discordUserId  String
+  gameId         String
+  sourceServerId String?
+  activityName   String
+  applicationId  String?
+  activityType   DiscordActivityType
+  firstObservedAt DateTime           @default(now())
+  lastObservedAt DateTime            @default(now())
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  game           Game                @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  sourceServer   DiscordServer?      @relation(fields: [sourceServerId], references: [id], onDelete: SetNull)
+
+  @@unique([discordUserId, gameId])
+  @@index([discordUserId, lastObservedAt])
+  @@index([sourceServerId, lastObservedAt])
 }

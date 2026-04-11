@@ -81,36 +81,82 @@ async function getAppUserIdForDiscordUser(discordUserId: string) {
   return identity?.userId ?? null
 }
 
+async function upsertObservedDiscordGame(options: {
+  discordUserId: string;
+  sourceServerId: string | null;
+  activity: DiscordPresenceActivityInput;
+  gameId: string;
+  observedAt: Date;
+}) {
+  const { activity, discordUserId, gameId, observedAt, sourceServerId } = options
+
+  await prisma.discordObservedGame.upsert({
+    where: {
+      discordUserId_gameId: {
+        discordUserId,
+        gameId
+      }
+    },
+    update: {
+      sourceServerId,
+      activityName: activity.name,
+      applicationId: activity.applicationId,
+      activityType: activity.activityType,
+      lastObservedAt: observedAt
+    },
+    create: {
+      discordUserId,
+      gameId,
+      sourceServerId,
+      activityName: activity.name,
+      applicationId: activity.applicationId,
+      activityType: activity.activityType,
+      firstObservedAt: observedAt,
+      lastObservedAt: observedAt
+    }
+  })
+}
+
 export async function recordDiscordPresence(
   discordUserId: string,
   sourceServerId: string | null,
   activities: DiscordPresenceActivityInput[]
 ) {
-  const userId = await getAppUserIdForDiscordUser(discordUserId)
-
-  if (!userId) {
-    return false
-  }
-
   const now = new Date()
-  const activeObservations = await prisma.discordActivityObservation.findMany({
-    where: {
-      userId,
-      isActive: true
-    },
-    select: {
-      id: true,
-      activityName: true,
-      applicationId: true,
-      activityType: true,
-      startedAt: true
-    }
-  })
+  const userId = await getAppUserIdForDiscordUser(discordUserId)
+  const activeObservations = userId
+    ? await prisma.discordActivityObservation.findMany({
+        where: {
+          userId,
+          isActive: true
+        },
+        select: {
+          id: true,
+          activityName: true,
+          applicationId: true,
+          activityType: true,
+          startedAt: true
+        }
+      })
+    : []
   const matchedObservationIds = new Set<string>()
 
   for (const activity of activities) {
+    const game = await findOrCreateGameByTitle(activity.name, { searchCatalog: true })
+
+    await upsertObservedDiscordGame({
+      discordUserId,
+      sourceServerId,
+      activity,
+      gameId: game.id,
+      observedAt: now
+    })
+
+    if (!userId) {
+      continue
+    }
+
     const matchingObservation = activeObservations.find((existingObservation) => activityMatches(existingObservation, activity))
-    const game = await findOrCreateGameByTitle(activity.name)
 
     if (matchingObservation) {
       matchedObservationIds.add(matchingObservation.id)
@@ -155,6 +201,10 @@ export async function recordDiscordPresence(
     })
 
     matchedObservationIds.add(createdObservation.id)
+  }
+
+  if (!userId) {
+    return activities.length > 0
   }
 
   const staleObservationIds = activeObservations

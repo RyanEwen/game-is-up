@@ -62,7 +62,7 @@ export function PlayIntentCard({
 
       {isLibraryWide ? (
         <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
-          Recipient matching will compare this play intent against the sender&apos;s active library and the recipient&apos;s overlap instead of a single chosen title.
+          Recipient matching will compare this call to play against the sender&apos;s library and the recipient&apos;s overlap instead of a single chosen title.
         </Typography>
       ) : (
         <Stack spacing={1}>
@@ -78,7 +78,7 @@ export function PlayIntentCard({
               canAddToLibrary={canAddToLibrary}
               isInLibrary={libraryGameIds.has(game.id)}
               isAddingToLibrary={addingLibraryGameId === game.id}
-              supportingText={`Included in this active play call on ${game.platform}.`}
+              supportingText={`Included in this call to play on ${game.platform}.`}
               detailLines={[
                 'Open this title to add it to your library without leaving the play feed.'
               ]}

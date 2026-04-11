@@ -1,5 +1,5 @@
 import type { Dispatch, SetStateAction } from 'react'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import type {
   AuthSessionResponse,
   DiscordServerMembersResponse,
@@ -10,6 +10,7 @@ import { discordServerMembersResponseSchema, sendDiscordServerInvitesResponseSch
 import type { Notice } from '../components/dashboard/types'
 
 const configuredPublicAppUrl = import.meta.env.VITE_PUBLIC_APP_URL
+const emptyInviteMembers: DiscordServerMembersResponse['members'] = []
 
 function normalizeInviteUrl(value: string | undefined | null): string | null {
   if (!value) {
@@ -154,7 +155,11 @@ export function useDashboardInvites({
   const selectedDiscoveryServers = availableDiscoveryServers.filter((server) => server.selected)
   const activeInviteServer = selectedDiscoveryServers.find((server) => server.id === inviteServerId) ?? selectedDiscoveryServers[0] ?? null
   const activeInviteServerId = activeInviteServer?.id ?? null
-  const inviteMembers = inviteMembersState?.members ?? []
+  const inviteMembers = inviteMembersState?.members ?? emptyInviteMembers
+  const inviteableInviteUserIds = useMemo(
+    () => new Set(inviteMembers.filter((member) => !member.isAppUser).map((member) => member.id)),
+    [inviteMembers]
+  )
   const filteredInviteMembers = inviteMemberQuery.trim().length === 0
     ? inviteMembers
     : inviteMembers.filter((member) => {
@@ -163,7 +168,7 @@ export function useDashboardInvites({
           .filter(Boolean)
           .some((value) => value?.toLowerCase().includes(normalizedQuery))
       })
-  const selectedInviteUsers = inviteMembers.filter((member) => selectedInviteUserIds.includes(member.id))
+  const selectedInviteUsers = inviteMembers.filter((member) => selectedInviteUserIds.includes(member.id) && !member.isAppUser)
   const inviteText = inviteUrl
     ? buildInviteText(session?.user?.displayName ?? null, session?.user?.handle ?? null, inviteUrl, {
         serverName: inviteMembersState?.serverName ?? activeInviteServer?.name,
@@ -322,7 +327,9 @@ export function useDashboardInvites({
     setActionNotice(null)
     setInviteSendSummary(null)
 
-    if (!activeInviteServerId || selectedInviteUserIds.length === 0 || !inviteUrl) {
+    const inviteableSelectedInviteUserIds = selectedInviteUserIds.filter((memberId) => inviteableInviteUserIds.has(memberId))
+
+    if (!activeInviteServerId || inviteableSelectedInviteUserIds.length === 0 || !inviteUrl) {
       setActionNotice({
         tone: 'danger',
         message: 'Choose a bot-enabled server, select at least one Discord member, and make sure the invite link is available first.'
@@ -341,7 +348,7 @@ export function useDashboardInvites({
         },
         body: JSON.stringify({
           inviteUrl,
-          memberIds: selectedInviteUserIds
+          memberIds: inviteableSelectedInviteUserIds
         })
       })
 
@@ -372,12 +379,16 @@ export function useDashboardInvites({
     } finally {
       setInviteSending(false)
     }
-  }, [activeInviteServerId, buildApiUrl, inviteUrl, selectedInviteUserIds, setActionNotice])
+  }, [activeInviteServerId, buildApiUrl, inviteUrl, inviteableInviteUserIds, selectedInviteUserIds, setActionNotice])
 
   const handleToggleInviteUser = useCallback((userId: string) => {
+    if (!inviteableInviteUserIds.has(userId)) {
+      return
+    }
+
     setInviteSendSummary(null)
     setSelectedInviteUserIds((current) => (current.includes(userId) ? current.filter((id) => id !== userId) : [...current, userId]))
-  }, [])
+  }, [inviteableInviteUserIds])
 
   const handleRetryInviteMembers = useCallback(() => {
     setInviteMembersReloadVersion((current) => current + 1)

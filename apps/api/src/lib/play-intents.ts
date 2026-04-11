@@ -25,7 +25,19 @@ const activePlayIntentInclude = {
       game: true
     }
   },
-  platforms: true
+  platforms: true,
+  targetFriends: {
+    include: {
+      friendUser: {
+        select: {
+          id: true,
+          handle: true,
+          displayName: true,
+          avatarUrl: true
+        }
+      }
+    }
+  }
 } as const
 
 function toClientSelectionMode(selectionMode: PrismaPlayIntentSelectionMode): PlayIntentSelectionMode {
@@ -40,6 +52,8 @@ function toPrismaSelectionMode(selectionMode: PlayIntentSelectionMode): PrismaPl
 
 function toClientNotifyScope(scope: PlayIntentScope): PlayIntentNotifyScope {
   switch (scope) {
+    case PlayIntentScope.SPECIFIC_FRIENDS:
+      return 'specific-friends'
     case PlayIntentScope.MUTUAL_FRIENDS:
       return 'discovery-and-friends'
     default:
@@ -49,6 +63,8 @@ function toClientNotifyScope(scope: PlayIntentScope): PlayIntentNotifyScope {
 
 function toPrismaNotifyScope(scope: PlayIntentNotifyScope): PlayIntentScope {
   switch (scope) {
+    case 'specific-friends':
+      return PlayIntentScope.SPECIFIC_FRIENDS
     case 'discovery-and-friends':
       return PlayIntentScope.MUTUAL_FRIENDS
     default:
@@ -63,6 +79,15 @@ function formatDurationLabel(durationMinutes: number) {
   }
 
   return `${durationMinutes} minutes`
+}
+
+function formatScheduleDateTime(date: Date) {
+  return date.toLocaleString([], {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit'
+  })
 }
 
 function summarizeTitles(titles: string[]) {
@@ -91,21 +116,31 @@ function buildNotificationCopy(
   senderDisplayName: string,
   selectionMode: PlayIntentSelectionMode,
   selectedTitles: string[],
-  durationMinutes: number
+  durationMinutes: number,
+  startsAt: Date,
+  now: Date
 ) {
   const durationLabel = formatDurationLabel(durationMinutes)
+  const isScheduled = startsAt.getTime() > now.getTime() + 60 * 1000
+  const startsAtLabel = formatScheduleDateTime(startsAt)
 
   if (selectionMode === 'library') {
     return {
-      title: `${senderDisplayName} is looking to play`,
-      body: `${senderDisplayName} opened up their full library for the next ${durationLabel}.`
+      title: isScheduled ? `${senderDisplayName} scheduled a play session` : `${senderDisplayName} is looking to play`,
+      body: isScheduled
+        ? `${senderDisplayName} opened up their full library starting ${startsAtLabel} for ${durationLabel}.`
+        : `${senderDisplayName} opened up their full library for the next ${durationLabel}.`
     }
   }
 
   const summarizedTitles = summarizeTitles(selectedTitles)
   return {
-    title: `${senderDisplayName} wants to play ${summarizedTitles}`,
-    body: `${senderDisplayName} is looking for ${summarizedTitles} in the next ${durationLabel}.`
+    title: isScheduled
+      ? `${senderDisplayName} scheduled ${summarizedTitles}`
+      : `${senderDisplayName} wants to play ${summarizedTitles}`,
+    body: isScheduled
+      ? `${senderDisplayName} is planning ${summarizedTitles} starting ${startsAtLabel} for ${durationLabel}.`
+      : `${senderDisplayName} is looking for ${summarizedTitles} in the next ${durationLabel}.`
   }
 }
 
@@ -115,6 +150,16 @@ function dedupePlatformLabels(platformLabels: string[]) {
 }
 
 function resolvePlayIntentWindow(payload: UpsertPlayIntentRequest, now: Date) {
+  const startsAt = payload.startAt ? new Date(payload.startAt) : now
+
+  if (Number.isNaN(startsAt.getTime())) {
+    throw new PlayIntentValidationError('Choose a valid start time for your play session.')
+  }
+
+  if (payload.startAt && startsAt.getTime() <= now.getTime()) {
+    throw new PlayIntentValidationError('Choose a future start time or post your call to play now.')
+  }
+
   if (payload.endAt) {
     const endsAt = new Date(payload.endAt)
 
@@ -122,10 +167,10 @@ function resolvePlayIntentWindow(payload: UpsertPlayIntentRequest, now: Date) {
       throw new PlayIntentValidationError('Choose a valid end time for your call to play.')
     }
 
-    const durationMinutes = Math.ceil((endsAt.getTime() - now.getTime()) / (60 * 1000))
+    const durationMinutes = Math.ceil((endsAt.getTime() - startsAt.getTime()) / (60 * 1000))
 
     if (durationMinutes < minimumPlayIntentDurationMinutes) {
-      throw new PlayIntentValidationError(`Choose an end time at least ${minimumPlayIntentDurationMinutes} minutes from now.`)
+      throw new PlayIntentValidationError(`Choose an end time at least ${minimumPlayIntentDurationMinutes} minutes after the session starts.`)
     }
 
     if (durationMinutes > maximumPlayIntentDurationMinutes) {
@@ -133,6 +178,7 @@ function resolvePlayIntentWindow(payload: UpsertPlayIntentRequest, now: Date) {
     }
 
     return {
+      startsAt,
       durationMinutes,
       endsAt
     }
@@ -149,8 +195,9 @@ function resolvePlayIntentWindow(payload: UpsertPlayIntentRequest, now: Date) {
   }
 
   return {
+    startsAt,
     durationMinutes,
-    endsAt: new Date(now.getTime() + durationMinutes * 60 * 1000)
+    endsAt: new Date(startsAt.getTime() + durationMinutes * 60 * 1000)
   }
 }
 
@@ -165,6 +212,7 @@ function serializeActivePlayIntent(intent: {
   expiresAt: Date;
   platforms: { platformLabel: string }[];
   games: { game: { id: string; title: string } }[];
+  targetFriends: { friendUser: { id: string; handle: string; displayName: string; avatarUrl: string | null } }[];
 }): ActivePlayIntent {
   const primaryPlatform = intent.platforms[0]?.platformLabel ?? 'Unknown'
 
@@ -173,6 +221,9 @@ function serializeActivePlayIntent(intent: {
     title: intent.headline,
     selectionMode: toClientSelectionMode(intent.selectionMode),
     notifyScope: toClientNotifyScope(intent.scope),
+    targetedFriends: intent.targetFriends
+      .map((entry) => entry.friendUser)
+      .sort((left, right) => left.displayName.localeCompare(right.displayName)),
     platforms: intent.platforms.map((platform) => platform.platformLabel).sort((left, right) => left.localeCompare(right)),
     games: intent.games
       .map((entry) => ({
@@ -188,24 +239,22 @@ function serializeActivePlayIntent(intent: {
   }
 }
 
-async function getRecipientUserIds(userId: string, scope: PlayIntentNotifyScope, overlappingGameIds: string[]) {
+async function getRecipientUserIds(
+  userId: string,
+  scope: PlayIntentNotifyScope,
+  overlappingGameIds: string[],
+  explicitFriendUserIds: string[],
+  targetUserIds: string[]
+) {
   if (overlappingGameIds.length === 0) {
     return []
   }
 
-  const outgoingFriends = await prisma.friend.findMany({
-    where: {
-      userId
-    },
-    select: {
-      friendedUserId: true
-    }
-  })
-
-  const explicitFriendUserIds = outgoingFriends.map((friend) => friend.friendedUserId)
   const recipientUserIds = scope === 'discovery-and-friends'
     ? [...new Set([...explicitFriendUserIds, ...(await getMutualDiscoveryAudienceUserIds(userId))])]
-    : explicitFriendUserIds
+    : scope === 'specific-friends'
+      ? targetUserIds
+      : explicitFriendUserIds
 
   if (recipientUserIds.length === 0) {
     return []
@@ -297,13 +346,28 @@ export async function upsertCurrentPlayIntent(
   userId: string,
   payload: UpsertPlayIntentRequest
 ): Promise<UpsertPlayIntentResponse> {
-  const [sender, libraryEntries] = await Promise.all([
+  const [sender, outgoingFriends, libraryEntries] = await Promise.all([
     prisma.user.findUnique({
       where: {
         id: userId
       },
       select: {
         displayName: true
+      }
+    }),
+    prisma.friend.findMany({
+      where: {
+        userId
+      },
+      select: {
+        friendedUser: {
+          select: {
+            id: true,
+            handle: true,
+            displayName: true,
+            avatarUrl: true
+          }
+        }
       }
     }),
     getPlayableLibraryEntries(userId)
@@ -336,16 +400,40 @@ export async function upsertCurrentPlayIntent(
   const platformLabels = dedupePlatformLabels(
     selectedEntries.flatMap((entry) => entry.platforms.map((platform) => platform.platformLabel))
   )
+  const explicitFriendUsers = outgoingFriends.map((friend) => friend.friendedUser)
+  const explicitFriendUserIds = explicitFriendUsers.map((friend) => friend.id)
+  const normalizedTargetUserIds = [...new Set(payload.targetUserIds)]
+  const targetedFriends = payload.notifyScope === 'specific-friends'
+    ? normalizedTargetUserIds.map((targetUserId) => {
+        const matchedFriend = explicitFriendUsers.find((friend) => friend.id === targetUserId)
+
+        if (!matchedFriend) {
+          throw new PlayIntentValidationError('Only people you already added as friends can be chosen for a specific-friends call to play.')
+        }
+
+        return matchedFriend
+      })
+    : []
 
   if (platformLabels.length === 0) {
     throw new PlayIntentValidationError('Choose at least one platform in your library before posting a call to play.')
   }
 
-  const recipientUserIds = await getRecipientUserIds(userId, payload.notifyScope, selectedGameIds)
+  if (payload.notifyScope === 'specific-friends' && targetedFriends.length === 0) {
+    throw new PlayIntentValidationError('Choose at least one friend for a specific-friends call to play.')
+  }
+
+  const recipientUserIds = await getRecipientUserIds(
+    userId,
+    payload.notifyScope,
+    selectedGameIds,
+    explicitFriendUserIds,
+    targetedFriends.map((friend) => friend.id)
+  )
   const now = new Date()
-  const { durationMinutes, endsAt } = resolvePlayIntentWindow(payload, now)
+  const { startsAt, durationMinutes, endsAt } = resolvePlayIntentWindow(payload, now)
   const headline = buildHeadline(payload.selectionMode, selectedTitles)
-  const { title, body } = buildNotificationCopy(sender.displayName, payload.selectionMode, selectedTitles, durationMinutes)
+  const { title, body } = buildNotificationCopy(sender.displayName, payload.selectionMode, selectedTitles, durationMinutes, startsAt, now)
   const note = payload.note?.trim() ?? ''
 
   let activeIntent: ActivePlayIntent | null = null
@@ -371,7 +459,7 @@ export async function upsertCurrentPlayIntent(
         headline,
         note,
         scope: toPrismaNotifyScope(payload.notifyScope),
-        windowStartsAt: now,
+        windowStartsAt: startsAt,
         windowEndsAt: endsAt,
         expiresAt: endsAt,
         platforms: {
@@ -379,6 +467,13 @@ export async function upsertCurrentPlayIntent(
             platformLabel
           }))
         },
+        targetFriends: payload.notifyScope === 'specific-friends'
+          ? {
+              create: targetedFriends.map((friend) => ({
+                friendUserId: friend.id
+              }))
+            }
+          : undefined,
         games: payload.selectionMode === 'library'
           ? undefined
           : {

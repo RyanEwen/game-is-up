@@ -38,12 +38,16 @@ function dedupePlatformLabels(platformLabels: string[]): string[] {
   return [...new Set(platformLabels.map((platformLabel) => platformLabel.trim()).filter(Boolean))]
 }
 
+function normalizeTitle(title: string): string {
+  return title.replace(/\s+/g, ' ').trim()
+}
+
 function normalizeSearchResultId(source: string, sourceId: string): string {
   return `${source}:${sourceId}`
 }
 
 async function findExistingGameByTitle(title: string) {
-  const normalizedTitle = title.replace(/\s+/g, ' ').trim()
+  const normalizedTitle = normalizeTitle(title)
 
   return prisma.game.findFirst({
     where: {
@@ -112,8 +116,43 @@ async function syncGamePlatforms(gameId: string, platformLabels: string[]) {
   })
 }
 
-export async function findOrCreateGameByTitle(title: string) {
-  const normalizedTitle = title.replace(/\s+/g, ' ').trim()
+async function createBareGame(title: string) {
+  const slug = await ensureUniqueGameSlug(slugifyTitle(title))
+
+  return prisma.game.create({
+    data: {
+      slug,
+      title
+    }
+  })
+}
+
+async function findCatalogBackedMatchByTitle(title: string): Promise<CatalogGameMatch | null> {
+  if (!isRawgCatalogConfigured()) {
+    return null
+  }
+
+  const providerResults = await searchRawgGamesByTitle(title)
+
+  const preferredResult = providerResults.find((result) => normalizeTitle(result.title).toLowerCase() === title.toLowerCase())
+    ?? providerResults[0]
+
+  if (!preferredResult) {
+    return null
+  }
+
+  return {
+    source: preferredResult.source,
+    sourceId: preferredResult.sourceId,
+    title: preferredResult.title,
+    coverUrl: preferredResult.coverUrl,
+    description: preferredResult.description,
+    platformLabels: preferredResult.platformLabels
+  }
+}
+
+export async function findOrCreateGameByTitle(title: string, options?: { searchCatalog?: boolean }) {
+  const normalizedTitle = normalizeTitle(title)
 
   const existing = await findExistingGameByTitle(normalizedTitle)
 
@@ -121,14 +160,15 @@ export async function findOrCreateGameByTitle(title: string) {
     return existing
   }
 
-  const slug = await ensureUniqueGameSlug(slugifyTitle(normalizedTitle))
+  if (options?.searchCatalog) {
+    const catalogMatch = await findCatalogBackedMatchByTitle(normalizedTitle)
 
-  return prisma.game.create({
-    data: {
-      slug,
-      title: normalizedTitle
+    if (catalogMatch) {
+      return findOrCreateGameFromCatalogMatch(catalogMatch)
     }
-  })
+  }
+
+  return createBareGame(normalizedTitle)
 }
 
 export async function findOrCreateGameFromCatalogMatch(catalogMatch: CatalogGameMatch) {

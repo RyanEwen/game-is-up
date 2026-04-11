@@ -185,6 +185,8 @@ The library search can query RAWG for broad multi-platform game data instead of 
 
 Library entries now store one canonical game with one or more selected platform flags, instead of requiring one separate library row per platform.
 
+When the Discord presence bot sees a user playing a game in a shared server, the API now keeps a lossy observed-game history and uses it to suggest likely library additions above the library grid. In local development, signed-in accounts with no personal observed history yet fall back to the seeded sample observations so the suggestion row can still be reviewed.
+
 Users can also set one profile-level "when do you usually play" note and let individual games inherit it, while still attaching a game-specific schedule override when a title tends to happen at a different time.
 
 ## Repository automation
@@ -215,10 +217,16 @@ On ARM hosts, the devcontainer image also installs the `amd64` runtime libraries
 
 ## Play intent model
 
-Users are not limited to one active game when expressing play intent. A play intent can target:
+Users are not limited to one active game when expressing play intent. A call to play can target:
 
 - any game in the user library
 - a selected subset of games
 
-The initial API scaffold includes typed examples for both cases so later persistence work can build on the same contract.
+Calls to play can also control who sees them:
+
+- explicit friends only
+- the broader discovery audience formed by opted-in shared Discord servers, plus friends
+- a specific hand-picked set of friends
+
+Calls to play can start immediately or be scheduled for later, and they remain visible until the configured end time.
 

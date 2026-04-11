@@ -1,15 +1,16 @@
-import type { Dispatch, RefObject, SetStateAction } from 'react'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import type { Dispatch, SetStateAction } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import type {
   GameSearchResponse,
   GameSearchResult,
   LibraryEntry,
   LibraryEntryIntent,
+  LibrarySuggestedGame,
   LibraryResponse,
   UserProfileResponse
 } from '@game-is-up/shared'
 import { gameSearchResponseSchema, libraryResponseSchema } from '@game-is-up/shared'
-import type { Notice } from '../components/dashboard/types'
+import type { DashboardLibraryQuickAddGame, Notice } from '../components/dashboard/types'
 
 const defaultPlatformOptions = ['PC', 'Xbox', 'PlayStation', 'Switch', 'Mobile', 'macOS', 'Linux'] as const
 
@@ -22,7 +23,9 @@ export type DashboardLibraryViewProps = {
   usualAvailabilityHelperText: string;
   onUsualAvailabilityChange: (value: string) => void;
   onSaveUsualAvailability: () => Promise<void>;
-  libraryEditorRef: RefObject<HTMLDivElement>;
+  isLibraryEditorOpen: boolean;
+  openLibraryEditor: () => void;
+  closeLibraryEditor: () => void;
   editingLibraryEntry: LibraryEntry | null;
   libraryTitle: string;
   onLibraryTitleChange: (value: string) => void;
@@ -42,27 +45,38 @@ export type DashboardLibraryViewProps = {
   onAddLibraryEntry: () => Promise<void>;
   onCancelLibraryEdit: () => void;
   libraryEntries: LibraryEntry[];
+  suggestedGames: LibrarySuggestedGame[];
+  libraryGameIds: ReadonlySet<string>;
+  addingLibraryGameId: string | null;
   editingLibraryEntryId: string | null;
   removingLibraryEntryId: string | null;
   onEditLibraryEntry: (entry: LibraryEntry) => void;
   onRemoveLibraryEntry: (entryId: string) => Promise<void>;
+  onAddGameToLibrary: (game: DashboardLibraryQuickAddGame) => Promise<void>;
 }
 
 export function useDashboardLibrary({
   isSignedIn,
   buildApiUrl,
   libraryEntries,
+  suggestedGames,
+  libraryGameIds,
+  addingLibraryGameId,
   currentUsualAvailability,
   browserTimeZoneId,
   loadDashboard,
   updateProfile,
   applyProfileUpdate,
   setActionNotice,
-  setProfileNotice
+  setProfileNotice,
+  onAddGameToLibrary
 }: {
   isSignedIn: boolean;
   buildApiUrl: (path: string) => string;
   libraryEntries: LibraryEntry[];
+  suggestedGames: LibrarySuggestedGame[];
+  libraryGameIds: ReadonlySet<string>;
+  addingLibraryGameId: string | null;
   currentUsualAvailability: string | null;
   browserTimeZoneId: string | null;
   loadDashboard: () => Promise<void>;
@@ -70,6 +84,7 @@ export function useDashboardLibrary({
   applyProfileUpdate: (profile: UserProfileResponse) => void;
   setActionNotice: Dispatch<SetStateAction<Notice | null>>;
   setProfileNotice: Dispatch<SetStateAction<Notice | null>>;
+  onAddGameToLibrary: (game: DashboardLibraryQuickAddGame) => Promise<void>;
 }) {
   const [libraryTitle, setLibraryTitle] = useState('')
   const [selectedPlatformLabels, setSelectedPlatformLabels] = useState<string[]>(['PC'])
@@ -83,7 +98,7 @@ export function useDashboardLibrary({
   const [selectedCatalogResult, setSelectedCatalogResult] = useState<GameSearchResult | null>(null)
   const [editingLibraryEntryId, setEditingLibraryEntryId] = useState<string | null>(null)
   const [removingLibraryEntryId, setRemovingLibraryEntryId] = useState<string | null>(null)
-  const libraryEditorRef = useRef<HTMLDivElement>(null)
+  const [isLibraryEditorOpen, setIsLibraryEditorOpen] = useState(false)
 
   const editingLibraryEntry = libraryEntries.find((entry) => entry.id === editingLibraryEntryId) ?? null
   const platformOptions = [...new Set([
@@ -157,19 +172,6 @@ export function useDashboardLibrary({
     setUsualAvailability(currentUsualAvailability ?? '')
   }, [currentUsualAvailability])
 
-  useEffect(() => {
-    if (!editingLibraryEntryId || !libraryEditorRef.current) {
-      return
-    }
-
-    window.requestAnimationFrame(() => {
-      libraryEditorRef.current?.scrollIntoView({
-        behavior: 'smooth',
-        block: 'center'
-      })
-    })
-  }, [editingLibraryEntryId])
-
   const handleLibraryTitleChange = useCallback((nextTitle: string) => {
     setLibraryTitle(nextTitle)
 
@@ -195,6 +197,7 @@ export function useDashboardLibrary({
 
   const resetLibraryForm = useCallback(() => {
     setEditingLibraryEntryId(null)
+    setIsLibraryEditorOpen(false)
     setLibraryTitle('')
     setSelectedPlatformLabels(['PC'])
     setLibraryAvailability('')
@@ -203,7 +206,13 @@ export function useDashboardLibrary({
     setLibraryIntent('interested')
   }, [])
 
+  const openLibraryEditor = useCallback(() => {
+    setIsLibraryEditorOpen(true)
+    setActionNotice(null)
+  }, [setActionNotice])
+
   const handleEditLibraryEntry = useCallback((entry: LibraryEntry) => {
+    setIsLibraryEditorOpen(true)
     setEditingLibraryEntryId(entry.id)
     setLibraryTitle(entry.title)
     setSelectedPlatformLabels(entry.platformLabels)
@@ -382,7 +391,9 @@ export function useDashboardLibrary({
     usualAvailabilityHelperText,
     onUsualAvailabilityChange: handleUsualAvailabilityChange,
     onSaveUsualAvailability: handleSaveUsualAvailability,
-    libraryEditorRef,
+    isLibraryEditorOpen,
+    openLibraryEditor,
+    closeLibraryEditor: handleCancelLibraryEdit,
     editingLibraryEntry,
     libraryTitle,
     onLibraryTitleChange: handleLibraryTitleChange,
@@ -402,10 +413,14 @@ export function useDashboardLibrary({
     onAddLibraryEntry: handleAddLibraryEntry,
     onCancelLibraryEdit: handleCancelLibraryEdit,
     libraryEntries,
+    suggestedGames,
+    libraryGameIds,
+    addingLibraryGameId,
     editingLibraryEntryId,
     removingLibraryEntryId,
     onEditLibraryEntry: handleEditLibraryEntry,
-    onRemoveLibraryEntry: handleRemoveLibraryEntry
+    onRemoveLibraryEntry: handleRemoveLibraryEntry,
+    onAddGameToLibrary
   }
 
   return {

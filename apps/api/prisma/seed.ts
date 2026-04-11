@@ -1,5 +1,6 @@
 import {
   AuthProvider,
+  DiscordActivityType,
   GameIntentType,
   PlayIntentScope,
   PlayIntentSelectionMode,
@@ -16,6 +17,8 @@ async function main() {
     prisma.playIntentPlatform.deleteMany(),
     prisma.playIntentGame.deleteMany(),
     prisma.playIntent.deleteMany(),
+    prisma.discordObservedGame.deleteMany(),
+    prisma.discordActivityObservation.deleteMany(),
     prisma.block.deleteMany(),
     prisma.friend.deleteMany(),
     prisma.discordServerPreference.deleteMany(),
@@ -415,8 +418,54 @@ async function main() {
     ]
   })
 
+  await prisma.discordObservedGame.createMany({
+    data: [
+      {
+        discordUserId: 'discord-alex',
+        gameId: bySlug['apex-legends'].id,
+        sourceServerId: lateQueue.id,
+        activityName: 'Apex Legends',
+        applicationId: 'discord-app-apex',
+        activityType: DiscordActivityType.PLAYING,
+        firstObservedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
+        lastObservedAt: new Date(Date.now() - 90 * 60 * 1000)
+      },
+      {
+        discordUserId: 'discord-alex',
+        gameId: bySlug['deep-rock-galactic'].id,
+        sourceServerId: coopCorner.id,
+        activityName: 'Deep Rock Galactic',
+        applicationId: 'discord-app-drg',
+        activityType: DiscordActivityType.PLAYING,
+        firstObservedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
+        lastObservedAt: new Date(Date.now() - 26 * 60 * 60 * 1000)
+      },
+      {
+        discordUserId: 'discord-alex',
+        gameId: bySlug['monster-hunter-wilds'].id,
+        sourceServerId: coopCorner.id,
+        activityName: 'Monster Hunter Wilds',
+        applicationId: 'discord-app-mhw',
+        activityType: DiscordActivityType.COMPETING,
+        firstObservedAt: new Date(Date.now() - 6 * 60 * 60 * 1000),
+        lastObservedAt: new Date(Date.now() - 2 * 60 * 60 * 1000)
+      },
+      {
+        discordUserId: 'discord-mystery-friend',
+        gameId: bySlug['deep-rock-galactic'].id,
+        sourceServerId: coopCorner.id,
+        activityName: 'Deep Rock Galactic',
+        applicationId: 'discord-app-drg',
+        activityType: DiscordActivityType.PLAYING,
+        firstObservedAt: new Date(Date.now() - 12 * 60 * 60 * 1000),
+        lastObservedAt: new Date(Date.now() - 30 * 60 * 1000)
+      }
+    ]
+  })
+
   console.log(`Seeded viewer ${viewer.handle} with ${games.length} games and 2 candidate users.`)
   console.log(`Created play intents ${libraryWideIntent.headline} and ${subsetIntent.headline}.`)
+  console.log('Seeded observed Discord suggestions for the default viewer.')
 }
 
 main()

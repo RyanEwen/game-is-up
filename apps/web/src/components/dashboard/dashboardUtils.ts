@@ -87,6 +87,8 @@ export function formatNotifyScopeLabel(scope: PlayIntentPreview['notifyScope']):
   switch (scope) {
     case 'discovery-and-friends':
       return 'Discovery + friends'
+    case 'specific-friends':
+      return 'Specific friends'
     default:
       return 'Friends only'
   }
@@ -96,6 +98,8 @@ export function formatNotifyScopeDescription(scope: PlayIntentPreview['notifySco
   switch (scope) {
     case 'discovery-and-friends':
       return 'Anyone on a shared discovery server that both of you opted into can see it, plus people you added as friends. Matching game overlap still applies.'
+    case 'specific-friends':
+      return 'Only the specific friends you choose can see it, and they still need a matching game overlap.'
     default:
       return 'Only people you added as friends can see it, and they still need a matching game overlap.'
   }
@@ -137,7 +141,7 @@ export function buildPlayIntentEndTimeInputValue(durationMinutes: number, baseDa
   return toLocalDateTimeInputValue(new Date(baseDate.getTime() + durationMinutes * 60 * 1000))
 }
 
-export function parsePlayIntentEndAt(value: string): Date | null {
+export function parseLocalDateTimeInput(value: string): Date | null {
   if (!value) {
     return null
   }
@@ -145,6 +149,10 @@ export function parsePlayIntentEndAt(value: string): Date | null {
   const parsedDate = new Date(value)
 
   return Number.isNaN(parsedDate.getTime()) ? null : parsedDate
+}
+
+export function parsePlayIntentEndAt(value: string): Date | null {
+  return parseLocalDateTimeInput(value)
 }
 
 export function formatDiscordActivityTypeLabel(activityType: 'playing' | 'competing'): string {
