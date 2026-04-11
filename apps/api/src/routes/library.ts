@@ -80,30 +80,24 @@ async function buildLibraryResponse(userId: string): Promise<LibraryResponse> {
               platformLabel: 'asc'
             }
           }
-        },
-        orderBy: [
-          {
-            updatedAt: 'desc'
-          },
-          {
-            createdAt: 'desc'
-          }
-        ]
+        }
       }
     }
   })
 
   return {
     usualAvailability: user?.usualAvailability ?? null,
-    entries: (user?.gameInterests ?? []).map((entry) => ({
-      id: entry.id,
-      gameId: entry.gameId,
-      title: entry.game.title,
-      coverUrl: entry.game.coverUrl,
-      platformLabels: entry.platforms.map((platform) => platform.platformLabel),
-      intent: toLibraryEntryIntent(entry.intentType),
-      ...resolveAvailability(entry.availability, user?.usualAvailability ?? null)
-    }))
+    entries: (user?.gameInterests ?? [])
+      .map((entry) => ({
+        id: entry.id,
+        gameId: entry.gameId,
+        title: entry.game.title,
+        coverUrl: entry.game.coverUrl,
+        platformLabels: entry.platforms.map((platform) => platform.platformLabel),
+        intent: toLibraryEntryIntent(entry.intentType),
+        ...resolveAvailability(entry.availability, user?.usualAvailability ?? null)
+      }))
+      .sort((left, right) => left.title.localeCompare(right.title))
   }
 }
 

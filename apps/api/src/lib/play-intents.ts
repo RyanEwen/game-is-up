@@ -111,6 +111,7 @@ function buildNotificationCopy(
 
 function dedupePlatformLabels(platformLabels: string[]) {
   return [...new Set(platformLabels.map((platformLabel) => platformLabel.trim()).filter(Boolean))]
+    .sort((left, right) => left.localeCompare(right))
 }
 
 function resolvePlayIntentWindow(payload: UpsertPlayIntentRequest, now: Date) {
@@ -172,12 +173,14 @@ function serializeActivePlayIntent(intent: {
     title: intent.headline,
     selectionMode: toClientSelectionMode(intent.selectionMode),
     notifyScope: toClientNotifyScope(intent.scope),
-    platforms: intent.platforms.map((platform) => platform.platformLabel),
-    games: intent.games.map((entry) => ({
-      id: entry.game.id,
-      title: entry.game.title,
-      platform: primaryPlatform
-    })),
+    platforms: intent.platforms.map((platform) => platform.platformLabel).sort((left, right) => left.localeCompare(right)),
+    games: intent.games
+      .map((entry) => ({
+        id: entry.game.id,
+        title: entry.game.title,
+        platform: primaryPlatform
+      }))
+      .sort((left, right) => left.title.localeCompare(right.title)),
     note: intent.note,
     windowStartsAt: intent.windowStartsAt.toISOString(),
     windowEndsAt: intent.windowEndsAt.toISOString(),
@@ -317,6 +320,8 @@ export async function upsertCurrentPlayIntent(
   const selectedEntries = payload.selectionMode === 'library'
     ? libraryEntries
     : libraryEntries.filter((entry) => payload.gameIds.includes(entry.gameId))
+
+  selectedEntries.sort((left, right) => left.game.title.localeCompare(right.game.title))
 
   if (payload.selectionMode === 'subset' && payload.gameIds.length === 0) {
     throw new PlayIntentValidationError('Pick at least one game before posting a selected-games call to play.')

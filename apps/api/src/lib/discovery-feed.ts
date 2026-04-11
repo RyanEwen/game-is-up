@@ -253,7 +253,7 @@ export async function buildDiscoveryFeed(viewerId?: string | null): Promise<Disc
         timezoneId: candidate.timezoneId,
         timezoneLabel: formatTimezoneLabel(candidate.timezoneId),
         usualAvailability: candidate.usualAvailability,
-        mutualServers,
+        mutualServers: [...mutualServers].sort((left, right) => left.localeCompare(right)),
         games: [...gamesByTitleKey.values()]
           .sort((left, right) => left.title.localeCompare(right.title)),
         discordActivity: latestActivitiesByUserId.get(candidate.id) ?? null,

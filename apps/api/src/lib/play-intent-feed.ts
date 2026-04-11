@@ -122,6 +122,7 @@ export async function buildPlayIntentFeed(viewerId?: string | null): Promise<Pla
           title: entry.game.title,
           platform: intent.platforms[0]?.platformLabel ?? 'Unknown'
         }))
+        .sort((left, right) => left.title.localeCompare(right.title))
 
       if (intent.selectionMode === PlayIntentSelectionMode.ENTIRE_LIBRARY && overlappingLibraryGames.length === 0) {
         return null
@@ -136,7 +137,7 @@ export async function buildPlayIntentFeed(viewerId?: string | null): Promise<Pla
         title: intent.headline,
         selectionMode: toSelectionMode(intent.selectionMode),
         notifyScope: toNotifyScope(intent.scope),
-        platforms: intent.platforms.map((platform) => platform.platformLabel),
+        platforms: intent.platforms.map((platform) => platform.platformLabel).sort((left, right) => left.localeCompare(right)),
         games: intent.selectionMode === PlayIntentSelectionMode.ENTIRE_LIBRARY ? [] : selectedGames,
         note: intent.note,
         availabilityWindow: {
