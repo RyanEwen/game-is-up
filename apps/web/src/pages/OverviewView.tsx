@@ -1,4 +1,4 @@
-import { Box, Button, Card, Chip, Input, Link, Sheet, Stack, Typography } from '@mui/joy'
+import { Box, Button, Card, Chip, Input, Sheet, Stack, Typography } from '@mui/joy'
 import type {
   AuthSessionResponse,
   DiscordServerMembersResponse,
@@ -58,7 +58,7 @@ function AccountCard({
           </Button>
           {hasGatedScopeWarning ? (
             <Typography level="body-sm" sx={{ color: 'warning.300' }}>
-              Direct Discord friend import is still waiting on Discord approval, so discovery currently starts from shared servers and in-app friends.
+              Discord friend syncing is still limited, so discovery starts with the servers you choose here and the friends you add in the app.
             </Typography>
           ) : null}
         </Stack>
@@ -67,35 +67,48 @@ function AccountCard({
   )
 }
 
-function DiscoveryGuideCard({ isSignedIn }: { isSignedIn: boolean }) {
+function DiscoveryGuideCard({
+  isSignedIn,
+  discordBotInstallUrl
+}: {
+  isSignedIn: boolean;
+  discordBotInstallUrl: string | null;
+}) {
   return (
     <Card variant="soft" sx={{ p: 3 }}>
       <Stack spacing={1.25}>
         <Typography level="title-lg">How discovery works</Typography>
         <Typography level="body-md" sx={{ color: 'neutral.300' }}>
-          Discovery currently runs on selected mutual Discord servers plus in-app friends. Direct Discord friend import is designed in, but it cannot be activated until Discord approves relationships.read.
+          You can find people through the friends you add in Game Is Up and the Discord servers you choose to use for discovery.
         </Typography>
         <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
-          Shared Discord servers do not reveal everyone in those servers. You only see people who also signed into Game Is Up.
+          Only people who also joined Game Is Up will appear here.
         </Typography>
         <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
           <Chip color="primary" variant="soft">
-            Mutual servers active
+            Selected servers
           </Chip>
           <Chip color="success" variant="soft">
-            In-app friends active
+            Added friends
           </Chip>
           <Chip color="warning" variant="outlined">
-            Discord friends pending approval
+            Discord sync still limited
           </Chip>
         </Stack>
+        {discordBotInstallUrl ? (
+          <Box>
+            <Button component="a" href={discordBotInstallUrl} target="_blank" rel="noreferrer" variant="outlined" color="neutral">
+              Invite bot to a server
+            </Button>
+          </Box>
+        ) : null}
         {isSignedIn ? (
           <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
-            Pick the communities you want to use for discovery below. Only people who also joined Game Is Up will appear.
+            Choose which servers you want to include below.
           </Typography>
         ) : (
           <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
-            Sign in with Discord to sync mutual servers and start discovery.
+            Sign in with Discord to choose servers and start finding people.
           </Typography>
         )}
       </Stack>
@@ -103,12 +116,61 @@ function DiscoveryGuideCard({ isSignedIn }: { isSignedIn: boolean }) {
   )
 }
 
+function QuickStartCard() {
+  return (
+    <Card variant="soft" sx={{ p: 3 }}>
+      <Stack spacing={1.5}>
+        <Box>
+          <Typography level="title-lg">Quick start</Typography>
+          <Typography level="body-sm" sx={{ color: 'neutral.300', mt: 0.75 }}>
+            Set things up once, then use the overview to move from overlap to an actual game plan.
+          </Typography>
+        </Box>
+        <Stack spacing={1}>
+          <Sheet variant="outlined" sx={{ p: 1.5, borderRadius: 'md', backgroundColor: 'rgba(255, 255, 255, 0.02)' }}>
+            <Typography level="title-sm">1. Sign in</Typography>
+            <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
+              Connect your Discord account to sync shared servers and turn on discovery.
+            </Typography>
+          </Sheet>
+          <Sheet variant="outlined" sx={{ p: 1.5, borderRadius: 'md', backgroundColor: 'rgba(255, 255, 255, 0.02)' }}>
+            <Typography level="title-sm">2. Pick servers</Typography>
+            <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
+              Choose which Discord servers to use for discovery. If one is missing, invite the bot there first.
+            </Typography>
+          </Sheet>
+          <Sheet variant="outlined" sx={{ p: 1.5, borderRadius: 'md', backgroundColor: 'rgba(255, 255, 255, 0.02)' }}>
+            <Typography level="title-sm">3. Build your library</Typography>
+            <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
+              Add the games you actually want to play so overlap is based on your real library.
+            </Typography>
+          </Sheet>
+          <Sheet variant="outlined" sx={{ p: 1.5, borderRadius: 'md', backgroundColor: 'rgba(255, 255, 255, 0.02)' }}>
+            <Typography level="title-sm">4. Find overlap</Typography>
+            <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
+              See who shares the same games and looks available to play.
+            </Typography>
+          </Sheet>
+          <Sheet variant="outlined" sx={{ p: 1.5, borderRadius: 'md', backgroundColor: 'rgba(255, 255, 255, 0.02)' }}>
+            <Typography level="title-sm">5. Send a call to play</Typography>
+            <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
+              Start a play call, or ask the bot to message selected people from a shared server.
+            </Typography>
+          </Sheet>
+        </Stack>
+      </Stack>
+    </Card>
+  )
+}
+
 function DiscoveryServersSection({
+  discordBotInstallUrl,
   availableDiscoveryServers,
   hasSyncedServers,
   serverPreferencePendingId,
   onToggleDiscordServer
 }: {
+  discordBotInstallUrl: string | null;
   availableDiscoveryServers: DiscoveryServer[];
   hasSyncedServers: boolean;
   serverPreferencePendingId: string | null;
@@ -118,11 +180,18 @@ function DiscoveryServersSection({
     <Stack spacing={2}>
       <Typography level="h2">Discovery servers</Typography>
       <Typography level="body-md" sx={{ color: 'neutral.300' }}>
-        Choose which Discord servers should count for mutual-user discovery. Only servers where the bot is present can be used for discovery and invite browsing.
+        Pick which servers you want to use for discovery.
       </Typography>
       <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
-        Server counts only include other Game Is Up users. People in Discord who have never opened the app will not appear here yet.
+        If a server is missing, invite the Game Is Up bot to it first. You will only see people here who also joined Game Is Up.
       </Typography>
+      {discordBotInstallUrl ? (
+        <Box>
+          <Button component="a" href={discordBotInstallUrl} target="_blank" rel="noreferrer" variant="outlined" color="neutral">
+            Invite bot to a server
+          </Button>
+        </Box>
+      ) : null}
       {availableDiscoveryServers.length > 0 ? (
         <Stack spacing={1.5}>
           {availableDiscoveryServers.map((server) => (
@@ -218,28 +287,11 @@ function InviteUsersCard({
     <Card variant="soft" sx={{ p: 3 }}>
       <Stack spacing={2}>
         <Box>
-          <Typography level="title-lg">Invite users from your servers</Typography>
+          <Typography level="title-lg">Invite people from selected servers</Typography>
           <Typography level="body-md" sx={{ color: 'neutral.300', mt: 0.75 }}>
-            Choose one of your selected bot-enabled player-finding servers, browse its Discord members, and have the bot DM the people you want.
+            Choose a server you use for discovery, then pick members for the bot to message.
           </Typography>
         </Box>
-        {inviteUrl ? (
-          <Input
-            value={inviteUrl}
-            readOnly
-            endDecorator={(
-              <Link href={inviteUrl} target="_blank" rel="noreferrer">
-                Open
-              </Link>
-            )}
-          />
-        ) : (
-          <Card color="warning" variant="soft">
-            <Typography level="body-sm">
-              This build does not have a public invite link configured yet.
-            </Typography>
-          </Card>
-        )}
         {selectedDiscoveryServers.length > 0 ? (
           <Stack spacing={1.5}>
             <Box>
@@ -410,6 +462,7 @@ function OverviewViewContent({
   discordEnabled,
   hasDiscordScopeWarning,
   isSignedIn,
+  discordBotInstallUrl,
   availableDiscoveryServers,
   hasSyncedDiscordServers,
   serverPreferencePendingId,
@@ -439,6 +492,7 @@ function OverviewViewContent({
   discordEnabled: boolean;
   hasDiscordScopeWarning: boolean;
   isSignedIn: boolean;
+  discordBotInstallUrl: string | null;
   availableDiscoveryServers: DiscoveryServer[];
   hasSyncedDiscordServers: boolean;
   serverPreferencePendingId: string | null;
@@ -473,10 +527,12 @@ function OverviewViewContent({
         onLogout={onLogout}
         onDiscordLogin={onDiscordLogin}
       />
-      <DiscoveryGuideCard isSignedIn={isSignedIn} />
+      <QuickStartCard />
+      <DiscoveryGuideCard isSignedIn={isSignedIn} discordBotInstallUrl={discordBotInstallUrl} />
 
       {isSignedIn ? (
         <DiscoveryServersSection
+          discordBotInstallUrl={discordBotInstallUrl}
           availableDiscoveryServers={availableDiscoveryServers}
           hasSyncedServers={hasSyncedDiscordServers}
           serverPreferencePendingId={serverPreferencePendingId}

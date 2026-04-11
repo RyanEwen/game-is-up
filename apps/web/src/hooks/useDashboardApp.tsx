@@ -626,6 +626,7 @@ export function useDashboardApp() {
     overviewViewProps: {
       session: state.session,
       discordEnabled: Boolean(discordProvider?.enabled),
+      discordBotInstallUrl: discordProvider?.installUrl ?? null,
       hasDiscordScopeWarning: Boolean(discordProvider?.gatedScopes.length),
       isSignedIn,
       availableDiscoveryServers,

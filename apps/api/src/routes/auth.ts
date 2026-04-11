@@ -7,6 +7,7 @@ import {
   DISCORD_APPROVAL_GATED_SCOPES,
   DISCORD_REQUESTED_SCOPES,
   buildDiscordAuthorizationUrl,
+  buildDiscordBotInstallUrl,
   exchangeDiscordCode,
   fetchDiscordGuilds,
   fetchDiscordUser,
@@ -167,7 +168,8 @@ authRouter.get('/providers', (_request, response) => {
           enabled: isDiscordAuthConfigured(),
           primary: true,
           requestedScopes: [...DISCORD_REQUESTED_SCOPES],
-          gatedScopes: [...DISCORD_APPROVAL_GATED_SCOPES]
+          gatedScopes: [...DISCORD_APPROVAL_GATED_SCOPES],
+          installUrl: buildDiscordBotInstallUrl()
         }
       ]
     })

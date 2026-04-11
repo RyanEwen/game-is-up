@@ -7,6 +7,8 @@ const DISCORD_AUTHORIZE_URL = 'https://discord.com/oauth2/authorize'
 const DISCORD_TOKEN_URL = 'https://discord.com/api/oauth2/token'
 const DISCORD_ME_URL = 'https://discord.com/api/users/@me'
 const DISCORD_GUILDS_URL = 'https://discord.com/api/users/@me/guilds'
+const DISCORD_BOT_SCOPES = ['bot', 'applications.commands'] as const
+const DISCORD_BOT_PERMISSIONS = '0'
 
 export const DISCORD_REQUESTED_SCOPES = ['identify', 'email', 'guilds'] as const
 export const DISCORD_APPROVAL_GATED_SCOPES = ['relationships.read'] as const
@@ -65,6 +67,19 @@ export function buildDiscordAuthorizationUrl(state: string): string {
   url.searchParams.set('scope', DISCORD_REQUESTED_SCOPES.join(' '))
   url.searchParams.set('state', state)
   url.searchParams.set('prompt', 'consent')
+  return url.toString()
+}
+
+export function buildDiscordBotInstallUrl(): string | null {
+  if (!env.DISCORD_CLIENT_ID) {
+    return null
+  }
+
+  const url = new URL(DISCORD_AUTHORIZE_URL)
+  url.searchParams.set('client_id', env.DISCORD_CLIENT_ID)
+  url.searchParams.set('scope', DISCORD_BOT_SCOPES.join(' '))
+  url.searchParams.set('permissions', DISCORD_BOT_PERMISSIONS)
+
   return url.toString()
 }
 

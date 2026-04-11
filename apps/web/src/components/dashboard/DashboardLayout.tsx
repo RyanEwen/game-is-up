@@ -120,7 +120,7 @@ export const DashboardLayout = ({
                 Find people waiting to play the same games as you.
               </Typography>
               <Typography level="body-lg" sx={{ color: 'neutral.200' }}>
-                This first implementation focuses on overlap, friends, and timely play intent. The Android app will wrap this web experience through Capacitor so the same interface and product logic stay shared.
+                Build your library, see who is around, and turn "anyone up for a game?" into an actual plan.
               </Typography>
             </Stack>
           </Sheet>
