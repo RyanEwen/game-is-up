@@ -1,4 +1,4 @@
-import { Box, Button, Card, Input, Link, Sheet, Stack, Typography } from '@mui/joy'
+import { Box, Button, DialogContent, DialogTitle, Input, Link, Sheet, Stack, Typography } from '@mui/joy'
 import type { GameSearchResponse, GameSearchResult, LibraryEntry, LibraryEntryIntent } from '@game-is-up/shared'
 import { formatLibraryIntentLabel } from './dashboardUtils'
 import { DashboardModalActionBar } from './DashboardModalActionBar'
@@ -43,31 +43,20 @@ export function LibraryEditorCard({
   onCancelLibraryEdit: () => void;
 }) {
   return (
-    <Card
-      variant="soft"
-      sx={{
-        p: 3,
-        border: editingLibraryEntry ? '1px solid rgba(78, 240, 183, 0.45)' : '1px solid transparent',
-        boxShadow: editingLibraryEntry ? '0 0 0 1px rgba(78, 240, 183, 0.16)' : 'none',
-        transition: 'border-color 180ms ease, box-shadow 180ms ease'
-      }}
-    >
-      <Stack spacing={2}>
-        {editingLibraryEntry ? (
-          <Card variant="outlined" sx={{ p: 2, borderColor: 'rgba(255, 255, 255, 0.1)' }}>
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }}>
-              <Box>
-                <Typography level="title-sm">Library editor: {editingLibraryEntry.title}</Typography>
-                <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
-                  You are editing this entry in the form below. Update platforms, intent, or the schedule override here.
-                </Typography>
-              </Box>
-              <Button size="sm" variant="outlined" color="neutral" onClick={onCancelLibraryEdit}>
-                Cancel
-              </Button>
-            </Stack>
-          </Card>
-        ) : null}
+    <>
+      <DialogTitle sx={{ pr: 6 }}>
+        {editingLibraryEntry ? `Edit ${editingLibraryEntry.title}` : 'Add game to library'}
+      </DialogTitle>
+      <DialogContent
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 2,
+          pr: 0.5,
+          overscrollBehavior: 'contain',
+          WebkitOverflowScrolling: 'touch'
+        }}
+      >
         <Stack spacing={1}>
           <Typography level="title-sm">Game title</Typography>
           <Input
@@ -226,30 +215,30 @@ export function LibraryEditorCard({
             onChange={(event) => onLibraryAvailabilityChange(event.target.value)}
           />
         </Stack>
-        <DashboardModalActionBar
-          secondaryAction={editingLibraryEntry ? (
-            <Button variant="outlined" color="neutral" disabled={librarySaving} onClick={onCancelLibraryEdit} sx={{ minHeight: 46 }}>
-              Cancel
-            </Button>
-          ) : undefined}
-          primaryAction={(
-            <Button
-              size="lg"
-              color="success"
-              disabled={librarySaving}
-              onClick={() => void onAddLibraryEntry()}
-              sx={{
-                flex: 1,
-                minHeight: 52,
-                fontWeight: 700,
-                boxShadow: '0 12px 30px rgba(46, 125, 50, 0.28)'
-              }}
-            >
-              {librarySaving ? 'Saving game...' : editingLibraryEntry ? 'Save library changes' : 'Add game to library'}
-            </Button>
-          )}
-        />
-      </Stack>
-    </Card>
+      </DialogContent>
+      <DashboardModalActionBar
+        secondaryAction={editingLibraryEntry ? (
+          <Button variant="outlined" color="neutral" disabled={librarySaving} onClick={onCancelLibraryEdit} sx={{ minHeight: 46 }}>
+            Cancel
+          </Button>
+        ) : undefined}
+        primaryAction={(
+          <Button
+            size="lg"
+            color="success"
+            disabled={librarySaving}
+            onClick={() => void onAddLibraryEntry()}
+            sx={{
+              flex: 1,
+              minHeight: 52,
+              fontWeight: 700,
+              boxShadow: '0 12px 30px rgba(46, 125, 50, 0.28)'
+            }}
+          >
+            {librarySaving ? 'Saving game...' : editingLibraryEntry ? 'Save library changes' : 'Add game to library'}
+          </Button>
+        )}
+      />
+    </>
   )
 }

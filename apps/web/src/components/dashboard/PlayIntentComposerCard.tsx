@@ -1,4 +1,4 @@
-import { Avatar, Box, Button, Card, Chip, Input, Stack, Typography } from '@mui/joy'
+import { Avatar, Button, Card, Chip, DialogContent, DialogTitle, Input, Stack, Typography } from '@mui/joy'
 import type {
   ActivePlayIntent,
   DiscoveryPerson,
@@ -114,14 +114,21 @@ export function PlayIntentComposerCard({
         : 'Post call to play'
 
   return (
-    <Card variant="soft" sx={{ p: 3 }}>
-      <Stack spacing={2}>
-        <Box>
-          <Typography level="title-lg">{composerTitle}</Typography>
-          <Typography level="body-sm" sx={{ color: 'neutral.400', mt: 0.5 }}>
-            Let your friends know when you want to play, whether that is right now or later. The app only notifies overlapping friends based on the games in your library or the games you pick here.
-          </Typography>
-        </Box>
+    <>
+      <DialogTitle sx={{ pr: 6 }}>{composerTitle}</DialogTitle>
+      <DialogContent
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 2,
+          pr: 0.5,
+          overscrollBehavior: 'contain',
+          WebkitOverflowScrolling: 'touch'
+        }}
+      >
+        <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
+          Let your friends know when you want to play, whether that is right now or later. The app only notifies overlapping friends based on the games in your library or the games you pick here.
+        </Typography>
 
         {activePlayIntent ? (
           <Card color="success" variant="soft" sx={{ p: 2 }}>
@@ -382,37 +389,36 @@ export function PlayIntentComposerCard({
             onChange={(event) => onPlayIntentNoteChange(event.target.value)}
           />
         </Stack>
-
-        <DashboardModalActionBar
-          secondaryAction={activePlayIntent ? (
-            <Button
-              variant="outlined"
-              color="neutral"
-              disabled={playIntentSaving}
-              onClick={() => void onClearPlayIntent()}
-              sx={{ minHeight: 46 }}
-            >
-              Clear call to play
-            </Button>
-          ) : undefined}
-          primaryAction={(
-            <Button
-              size="lg"
-              color="success"
-              disabled={playIntentSaving || !canPostPlayIntent}
-              onClick={() => void onSavePlayIntent()}
-              sx={{
-                flex: 1,
-                minHeight: 52,
-                fontWeight: 700,
-                boxShadow: '0 12px 30px rgba(46, 125, 50, 0.28)'
-              }}
-            >
-              {saveButtonLabel}
-            </Button>
-          )}
-        />
-      </Stack>
-    </Card>
+      </DialogContent>
+      <DashboardModalActionBar
+        secondaryAction={activePlayIntent ? (
+          <Button
+            variant="outlined"
+            color="neutral"
+            disabled={playIntentSaving}
+            onClick={() => void onClearPlayIntent()}
+            sx={{ minHeight: 46 }}
+          >
+            Clear call to play
+          </Button>
+        ) : undefined}
+        primaryAction={(
+          <Button
+            size="lg"
+            color="success"
+            disabled={playIntentSaving || !canPostPlayIntent}
+            onClick={() => void onSavePlayIntent()}
+            sx={{
+              flex: 1,
+              minHeight: 52,
+              fontWeight: 700,
+              boxShadow: '0 12px 30px rgba(46, 125, 50, 0.28)'
+            }}
+          >
+            {saveButtonLabel}
+          </Button>
+        )}
+      />
+    </>
   )
 }

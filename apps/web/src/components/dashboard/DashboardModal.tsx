@@ -13,19 +13,21 @@ export function DashboardModal({
   children: ReactNode;
 }) {
   return (
-    <Modal open={open} onClose={onClose}>
+    <Modal open={open} onClose={onClose} sx={{ p: { xs: 1, sm: 2 } }}>
       <ModalDialog
         layout="center"
         sx={{
-          p: 0,
           width,
-          maxWidth: '96vw',
-          border: 'none',
-          backgroundColor: 'transparent',
-          boxShadow: 'none'
+          maxWidth: '100%',
+          maxHeight: 'calc(100dvh - 16px)',
+          overflow: 'hidden',
+          backgroundColor: 'rgba(11, 16, 32, 0.84)',
+          borderColor: 'rgba(255,255,255,0.08)',
+          boxShadow: '0 24px 60px rgba(0, 0, 0, 0.42)',
+          backdropFilter: 'blur(18px)'
         }}
       >
-        <ModalClose />
+        <ModalClose sx={{ zIndex: 1 }} />
         {children}
       </ModalDialog>
     </Modal>

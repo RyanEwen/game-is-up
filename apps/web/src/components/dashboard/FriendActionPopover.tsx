@@ -2,7 +2,8 @@ import { Avatar, Chip, Divider, Dropdown, Menu, MenuButton, MenuItem, Stack, Typ
 import type { FriendTarget } from './types'
 
 const interactiveTriggerSx = {
-  p: 0,
+  px: 0.5,
+  py: 0.375,
   minHeight: 'unset',
   justifyContent: 'flex-start',
   alignSelf: 'flex-start',

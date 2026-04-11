@@ -220,10 +220,7 @@ export function useDashboardLibrary({
     setGameSuggestions([])
     setSelectedCatalogResult(null)
     setLibraryIntent(entry.intent)
-    setActionNotice({
-      tone: 'neutral',
-      message: `Editing ${entry.title} in the library form.`
-    })
+    setActionNotice(null)
   }, [setActionNotice])
 
   const handleCancelLibraryEdit = useCallback(() => {
@@ -315,10 +312,14 @@ export function useDashboardLibrary({
 
       libraryResponseSchema.parse(responseBody)
       resetLibraryForm()
-      setActionNotice({
-        tone: 'success',
-        message: isEditingLibraryEntry ? `${title} was updated in your library.` : `${title} was added to your library.`
-      })
+      if (isEditingLibraryEntry) {
+        setActionNotice(null)
+      } else {
+        setActionNotice({
+          tone: 'success',
+          message: `${title} was added to your library.`
+        })
+      }
       await loadDashboard()
     } catch (error) {
       setActionNotice({
