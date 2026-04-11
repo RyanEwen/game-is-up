@@ -113,6 +113,31 @@ function buildAbsoluteApiUrl(path: string): string {
   return buildApiUrl(path)
 }
 
+function getInstallSupport(installPromptEvent: BeforeInstallPromptEvent | null): 'prompt' | 'chromium-manual' | 'ios-manual' | null {
+  if (typeof window === 'undefined') {
+    return null
+  }
+
+  if (installPromptEvent) {
+    return 'prompt'
+  }
+
+  const userAgent = window.navigator.userAgent.toLowerCase()
+  const isiOS = /iphone|ipad|ipod/.test(userAgent)
+  const isSafari = /safari/.test(userAgent) && !/crios|fxios|edgios|chrome|android/.test(userAgent)
+  const isChromiumFamily = /android|chrome|chromium|edg|opr/.test(userAgent)
+
+  if (isiOS && isSafari) {
+    return 'ios-manual'
+  }
+
+  if (isChromiumFamily) {
+    return 'chromium-manual'
+  }
+
+  return null
+}
+
 export function useDashboardApp() {
   const [state, setState] = useState<LoadState>(initialState)
   const [authNotice, setAuthNotice] = useState<Notice | null>(null)
@@ -130,6 +155,7 @@ export function useDashboardApp() {
   const browserTimeZoneId = getBrowserTimeZoneId()
   const isInstalledBrowserApp = typeof window !== 'undefined'
     && (window.matchMedia('(display-mode: standalone)').matches || window.matchMedia('(display-mode: window-controls-overlay)').matches)
+  const installSupport = !isNativeApp && !isInstalledBrowserApp ? getInstallSupport(installPromptEvent) : null
 
   const isSignedIn = Boolean(state.session?.authenticated && state.session.user)
   const libraryEntries = state.library?.entries ?? emptyLibraryEntries
@@ -664,7 +690,27 @@ export function useDashboardApp() {
   }, [isNativeApp])
 
   const handleInstallApp = useCallback(async () => {
-    if (!installPromptEvent || installPromptPending) {
+    if (installPromptPending) {
+      return
+    }
+
+    if (!installSupport) {
+      return
+    }
+
+    if (installSupport === 'ios-manual') {
+      setActionNotice({
+        tone: 'neutral',
+        message: 'Open Safari\'s Share menu and choose Add to Home Screen.'
+      })
+      return
+    }
+
+    if (!installPromptEvent) {
+      setActionNotice({
+        tone: 'neutral',
+        message: 'Open your browser menu and choose Install app or Add to Home screen.'
+      })
       return
     }
 
@@ -680,7 +726,7 @@ export function useDashboardApp() {
     } finally {
       setInstallPromptPending(false)
     }
-  }, [installPromptEvent, installPromptPending])
+  }, [installPromptEvent, installPromptPending, installSupport])
 
   const handleToggleFriend = useCallback(async (target: FriendTarget) => {
     setFriendPendingId(target.id)
@@ -770,7 +816,7 @@ export function useDashboardApp() {
   return {
     layoutProps: {
       toastNotices,
-      installPrompt: !isNativeApp && !isInstalledBrowserApp && installPromptEvent
+      installPrompt: installSupport
         ? {
             label: 'Install app',
             pending: installPromptPending,
