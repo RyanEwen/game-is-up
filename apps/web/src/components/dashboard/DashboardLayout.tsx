@@ -46,7 +46,6 @@ export const DashboardLayout = ({
         sx={{
           minHeight: '100vh',
           position: 'relative',
-          overflow: 'hidden',
           px: { xs: 2, md: 4 },
           pt: {
             xs: 'calc(var(--app-top-inset, 0px) + 18px)',
