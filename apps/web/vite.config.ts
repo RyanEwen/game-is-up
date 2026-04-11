@@ -20,6 +20,7 @@ export default defineConfig({
         description: 'Find players who want to queue the same games as you.',
         theme_color: '#0b1020',
         background_color: '#0b1020',
+        display_override: ['window-controls-overlay', 'standalone'],
         display: 'standalone',
         start_url: '/',
         icons: [

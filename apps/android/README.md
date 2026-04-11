@@ -13,6 +13,8 @@ In the devcontainer, Java 21 and the Android SDK are provisioned for you. The na
 5. Install to a connected device with `npm run install:debug`, or use `npm run install:debug:usb` to apply the reverse mapping first.
 6. Open the native project with `npm run open` when you want Android Studio.
 
+To build an APK that uses the hosted production app at `https://app.example.com`, run `npm run assemble:debug:prod`. That sets `CAPACITOR_SERVER_URL` so the wrapper loads the production origin directly instead of the bundled local web assets.
+
 Android Discord sign-in does not complete inside the WebView. The app opens the system browser for OAuth, receives the return through the `gameisup://auth` deep link, and then finishes the mobile session exchange against the API. During local development, keep `npm run adb:reverse` active before testing sign-in.
 
 The repository still does not check in the generated native Android project because it depends on local SDK and toolchain state.

@@ -89,7 +89,23 @@ function getBrowserTimeZoneId(): string | null {
 }
 
 function buildApiUrl(path: string): string {
+  if (!apiBaseUrl) {
+    if (typeof window === 'undefined') {
+      return path
+    }
+
+    return new URL(path, window.location.origin).toString()
+  }
+
   return `${apiBaseUrl}${path}`
+}
+
+function buildAbsoluteApiUrl(path: string): string {
+  if (typeof window !== 'undefined') {
+    return new URL(buildApiUrl(path), window.location.origin).toString()
+  }
+
+  return buildApiUrl(path)
 }
 
 export function useDashboardApp() {
@@ -602,14 +618,16 @@ export function useDashboardApp() {
   }, [])
 
   const handleDiscordLogin = useCallback(async () => {
+    const loginUrl = buildAbsoluteApiUrl(`/api/auth/discord/login?returnTo=${encodeURIComponent(isNativeApp ? mobileAuthRedirectUrl : window.location.href)}`)
+
     if (isNativeApp) {
       await Browser.open({
-        url: buildApiUrl(`/api/auth/discord/login?returnTo=${encodeURIComponent(mobileAuthRedirectUrl)}`)
+        url: loginUrl
       })
       return
     }
 
-    window.location.assign(buildApiUrl(`/api/auth/discord/login?returnTo=${encodeURIComponent(window.location.href)}`))
+    window.location.assign(loginUrl)
   }, [isNativeApp])
 
   const handleToggleFriend = useCallback(async (target: FriendTarget) => {

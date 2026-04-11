@@ -45,10 +45,50 @@ export const DashboardLayout = ({
       <Box
         sx={{
           minHeight: '100vh',
+          position: 'relative',
+          overflow: 'hidden',
           px: { xs: 2, md: 4 },
-          py: { xs: 3, md: 5 }
+          pt: {
+            xs: 'calc(var(--app-top-inset, 0px) + 18px)',
+            md: 'calc(var(--app-top-inset, 0px) + 28px)'
+          },
+          pb: { xs: 3, md: 5 }
         }}
       >
+        <Box
+          aria-hidden="true"
+          sx={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            height: 'calc(var(--app-top-inset, 0px) + 88px)',
+            background: [
+              'linear-gradient(180deg, rgba(8, 13, 24, 0.96) 0%, rgba(8, 13, 24, 0.78) 48%, rgba(8, 13, 24, 0) 100%)',
+              'radial-gradient(circle at 18% 0%, rgba(78, 240, 183, 0.18), transparent 34%)',
+              'radial-gradient(circle at 82% 8%, rgba(244, 178, 63, 0.14), transparent 26%)'
+            ].join(','),
+            borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+            backdropFilter: 'blur(18px)',
+            pointerEvents: 'none',
+            zIndex: 0
+          }}
+        />
+
+        <Box
+          aria-hidden="true"
+          sx={{
+            position: 'fixed',
+            top: 0,
+            left: 'var(--app-titlebar-x, 0px)',
+            width: 'var(--app-titlebar-width, 100%)',
+            height: 'var(--app-titlebar-height, 0px)',
+            background: 'linear-gradient(90deg, rgba(78, 240, 183, 0.1), rgba(78, 240, 183, 0))',
+            pointerEvents: 'none',
+            zIndex: 1
+          }}
+        />
+
         {toastNotices.length > 0 ? (
           <Stack
             spacing={1.25}
@@ -103,7 +143,7 @@ export const DashboardLayout = ({
           </Stack>
         ) : null}
 
-        <Stack spacing={4} sx={{ maxWidth: 1200, mx: 'auto' }}>
+        <Stack spacing={4} sx={{ position: 'relative', zIndex: 1, maxWidth: 1200, mx: 'auto' }}>
           <Sheet
             variant="plain"
             sx={{
@@ -119,7 +159,7 @@ export const DashboardLayout = ({
                 Beta
               </Chip>
               <Typography level="h1" sx={{ fontSize: { xs: '2.4rem', md: '4rem' } }}>
-                Find people waiting to play the same games as you.
+                Find others looking to play the same games as you.
               </Typography>
               <Typography level="body-lg" sx={{ color: 'neutral.200' }}>
                 Build your library, see who is around, and turn "anyone up for a game?" into an actual plan.
@@ -150,8 +190,8 @@ export const DashboardLayout = ({
                 gap: { xs: 0.5, sm: 1 },
                 position: 'sticky',
                 top: {
-                  xs: 'calc(env(safe-area-inset-top, 0px) + 12px)',
-                  md: 'calc(env(safe-area-inset-top, 0px) + 16px)'
+                  xs: 'calc(var(--app-top-inset, 0px) + 12px)',
+                  md: 'calc(var(--app-top-inset, 0px) + 16px)'
                 },
                 zIndex: 20,
                 borderRadius: 'xl',

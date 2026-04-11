@@ -9,6 +9,7 @@
     "copy": "cap copy android",
     "ensure": "bash ../../scripts/dev/ensure-android-project.sh",
     "assemble:debug": "npm run ensure && cd android && ./gradlew assembleDebug",
+    "assemble:debug:prod": "CAPACITOR_SERVER_URL=https://app.example.com npm run assemble:debug",
     "install:debug": "npm run ensure && cd android && ./gradlew installDebug",
     "install:debug:usb": "npm run adb:reverse && npm run install:debug",
     "sync": "cap sync android",

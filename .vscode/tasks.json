@@ -129,6 +129,16 @@
       "problemMatcher": []
     },
     {
+      "label": "Android: assemble debug (prod)",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "assemble:debug:prod", "--workspace", "@game-is-up/android"],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
       "label": "Android: install debug (USB)",
       "type": "shell",
       "command": "npm",

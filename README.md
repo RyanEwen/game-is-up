@@ -137,6 +137,8 @@ For a host-Nginx setup, the important production values are:
 - `VITE_API_BASE_URL=` so the frontend uses same-origin `/api`
 - `PORT=8080` as the default host port behind Nginx
 
+When the web app is built for same-origin production hosting with `VITE_API_BASE_URL=` empty, native Android login flows should still construct absolute OAuth entry URLs before calling the Capacitor browser plugin. Keep that behavior intact if the auth shell changes later.
+
 For Cloudflare-backed deployments, the repo now includes a purge helper that reads the same root `.env` file used by Docker Compose. Set `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ZONE_ID`, then run `npm run cache:purge:cloudflare` after deployment. By default it purges the app shell URLs most likely to stay stale at the edge: `/`, `/index.html`, `/sw.js`, `/registerSW.js`, and `/manifest.webmanifest`.
 
 If you need to add more URLs, set `CLOUDFLARE_PURGE_PATHS` as a comma-separated list or pass repeated `--path` flags, for example:
@@ -199,6 +201,7 @@ The devcontainer now provisions Java 21 plus the Android SDK needed by the Capac
 
 - `npm run ensure --workspace @game-is-up/android` builds the web app, generates or syncs the local Android project, and writes `local.properties`.
 - `npm run assemble:debug --workspace @game-is-up/android` builds a debug APK.
+- `npm run assemble:debug:prod --workspace @game-is-up/android` builds a debug APK that loads the hosted production app at `https://app.example.com`.
 - `npm run adb:reverse --workspace @game-is-up/android` maps Android `localhost:4000` back to the adb host for local API testing.
 - `npm run install:debug --workspace @game-is-up/android` installs the debug build with `adb`.
 
