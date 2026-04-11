@@ -5,6 +5,13 @@ export const theme = extendTheme({
     body: 'IBM Plex Sans, sans-serif',
     display: 'Space Grotesk, sans-serif'
   },
+  components: {
+    JoyStack: {
+      defaultProps: {
+        useFlexGap: true
+      }
+    }
+  },
   colorSchemes: {
     dark: {
       palette: {

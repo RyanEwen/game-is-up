@@ -13,11 +13,15 @@ export const maximumPlayIntentDurationMinutes = 24 * 60
 export const playIntentPresetDurations = [60, 120, 240] as const
 
 export const dashboardTabSx = {
-  flexGrow: 1,
-  minHeight: 52,
+  flex: '1 1 0',
+  minHeight: { xs: 44, sm: 52 },
+  minWidth: 0,
+  px: { xs: 1.5, sm: 2 },
   borderRadius: 'lg',
   color: 'neutral.300',
+  fontSize: { xs: 'sm', sm: 'md' },
   fontWeight: 'md',
+  whiteSpace: 'nowrap',
   transition: 'background-color 180ms ease, color 180ms ease, box-shadow 180ms ease',
   '&:hover': {
     backgroundColor: 'rgba(255, 255, 255, 0.04)',

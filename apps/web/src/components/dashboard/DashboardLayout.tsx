@@ -143,10 +143,16 @@ export const DashboardLayout = ({
             <TabList
               disableUnderline
               sx={{
-                p: 1,
-                gap: 1,
+                p: { xs: 0.75, sm: 1 },
+                gap: { xs: 0.5, sm: 1 },
+                position: 'sticky',
+                top: {
+                  xs: 'calc(env(safe-area-inset-top, 0px) + 12px)',
+                  md: 'calc(env(safe-area-inset-top, 0px) + 16px)'
+                },
+                zIndex: 20,
                 borderRadius: 'xl',
-                flexWrap: 'wrap',
+                flexWrap: 'nowrap',
                 backgroundColor: 'rgba(11, 16, 32, 0.82)',
                 border: '1px solid rgba(255, 255, 255, 0.08)',
                 backdropFilter: 'blur(18px)',
