@@ -37,6 +37,10 @@ type BeforeInstallPromptEvent = Event & {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
 };
 
+type NavigatorWithStandalone = Navigator & {
+  standalone?: boolean;
+};
+
 const configuredApiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim()
 const apiBaseUrl = configuredApiBaseUrl != null ? configuredApiBaseUrl.replace(/\/$/, '') : 'http://localhost:4000'
 const apiReconnectPollMs = 5000
@@ -113,7 +117,7 @@ function buildAbsoluteApiUrl(path: string): string {
   return buildApiUrl(path)
 }
 
-function getInstallSupport(installPromptEvent: BeforeInstallPromptEvent | null): 'prompt' | 'chromium-manual' | 'ios-manual' | null {
+function getInstallSupport(installPromptEvent: BeforeInstallPromptEvent | null): 'prompt' | 'ios-manual' | null {
   if (typeof window === 'undefined') {
     return null
   }
@@ -125,17 +129,26 @@ function getInstallSupport(installPromptEvent: BeforeInstallPromptEvent | null):
   const userAgent = window.navigator.userAgent.toLowerCase()
   const isiOS = /iphone|ipad|ipod/.test(userAgent)
   const isSafari = /safari/.test(userAgent) && !/crios|fxios|edgios|chrome|android/.test(userAgent)
-  const isChromiumFamily = /android|chrome|chromium|edg|opr/.test(userAgent)
 
   if (isiOS && isSafari) {
     return 'ios-manual'
   }
 
-  if (isChromiumFamily) {
-    return 'chromium-manual'
+  return null
+}
+
+function getIsInstalledBrowserApp(): boolean {
+  if (typeof window === 'undefined') {
+    return false
   }
 
-  return null
+  const navigator = window.navigator as NavigatorWithStandalone
+
+  return navigator.standalone === true
+    || window.matchMedia('(display-mode: standalone)').matches
+    || window.matchMedia('(display-mode: window-controls-overlay)').matches
+    || window.matchMedia('(display-mode: minimal-ui)').matches
+    || window.matchMedia('(display-mode: fullscreen)').matches
 }
 
 export function useDashboardApp() {
@@ -153,8 +166,7 @@ export function useDashboardApp() {
   const timezoneSyncPendingIdRef = useRef<string | null>(null)
   const isNativeApp = Capacitor.isNativePlatform()
   const browserTimeZoneId = getBrowserTimeZoneId()
-  const isInstalledBrowserApp = typeof window !== 'undefined'
-    && (window.matchMedia('(display-mode: standalone)').matches || window.matchMedia('(display-mode: window-controls-overlay)').matches)
+  const isInstalledBrowserApp = getIsInstalledBrowserApp()
   const installSupport = !isNativeApp && !isInstalledBrowserApp ? getInstallSupport(installPromptEvent) : null
 
   const isSignedIn = Boolean(state.session?.authenticated && state.session.user)
