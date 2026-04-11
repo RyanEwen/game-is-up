@@ -27,6 +27,7 @@ const dashboardTabs: Array<{ value: DashboardTab; label: string }> = [
 export const DashboardLayout = ({
   activeTab,
   onTabChange,
+  installPrompt,
   toastNotices,
   onboarding,
   tabsAnchorRef,
@@ -34,6 +35,11 @@ export const DashboardLayout = ({
 }: {
   activeTab: DashboardTab;
   onTabChange: (tab: DashboardTab) => void;
+  installPrompt?: {
+    label: string;
+    pending: boolean;
+    onInstall: () => void | Promise<void>;
+  };
   toastNotices: DashboardToast[];
   onboarding?: ReactNode;
   tabsAnchorRef: RefObject<HTMLDivElement>;
@@ -167,6 +173,44 @@ export const DashboardLayout = ({
           </Sheet>
 
           {onboarding ?? null}
+
+          {installPrompt ? (
+            <Sheet
+              variant="soft"
+              color="primary"
+              sx={{
+                p: { xs: 2, md: 2.5 },
+                borderRadius: 'xl',
+                border: '1px solid rgba(87, 244, 193, 0.2)',
+                background: 'linear-gradient(135deg, rgba(18, 47, 43, 0.88), rgba(11, 16, 32, 0.82))',
+                boxShadow: 'lg'
+              }}
+            >
+              <Stack
+                direction={{ xs: 'column', sm: 'row' }}
+                spacing={1.5}
+                sx={{ alignItems: { xs: 'stretch', sm: 'center' }, justifyContent: 'space-between' }}
+              >
+                <Box>
+                  <Typography level="title-md" sx={{ color: 'primary.100', mb: 0.5 }}>
+                    Keep Game Is Up on your home screen.
+                  </Typography>
+                  <Typography level="body-sm" sx={{ color: 'neutral.200' }}>
+                    Install it for faster launches and an app-like shell in supported browsers.
+                  </Typography>
+                </Box>
+                <Button
+                  size="md"
+                  color="primary"
+                  onClick={installPrompt.onInstall}
+                  loading={installPrompt.pending}
+                  sx={{ flexShrink: 0, minWidth: { sm: 150 } }}
+                >
+                  {installPrompt.label}
+                </Button>
+              </Stack>
+            </Sheet>
+          ) : null}
 
           <Tabs
             ref={tabsAnchorRef}

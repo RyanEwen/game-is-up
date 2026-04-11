@@ -32,6 +32,11 @@ import { useDashboardInvites } from './useDashboardInvites'
 import { useDashboardLibrary } from './useDashboardLibrary'
 import { useDashboardPlay } from './useDashboardPlay'
 
+type BeforeInstallPromptEvent = Event & {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
+};
+
 const configuredApiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim()
 const apiBaseUrl = configuredApiBaseUrl != null ? configuredApiBaseUrl.replace(/\/$/, '') : 'http://localhost:4000'
 const apiReconnectPollMs = 5000
@@ -114,6 +119,8 @@ export function useDashboardApp() {
   const [actionNotice, setActionNotice] = useState<Notice | null>(null)
   const [profileNotice, setProfileNotice] = useState<Notice | null>(null)
   const [playIntentNotice, setPlayIntentNotice] = useState<Notice | null>(null)
+  const [installPromptEvent, setInstallPromptEvent] = useState<BeforeInstallPromptEvent | null>(null)
+  const [installPromptPending, setInstallPromptPending] = useState(false)
   const [friendPendingId, setFriendPendingId] = useState<string | null>(null)
   const [addingLibraryGameId, setAddingLibraryGameId] = useState<string | null>(null)
   const [serverPreferencePendingId, setServerPreferencePendingId] = useState<string | null>(null)
@@ -121,6 +128,8 @@ export function useDashboardApp() {
   const timezoneSyncPendingIdRef = useRef<string | null>(null)
   const isNativeApp = Capacitor.isNativePlatform()
   const browserTimeZoneId = getBrowserTimeZoneId()
+  const isInstalledBrowserApp = typeof window !== 'undefined'
+    && (window.matchMedia('(display-mode: standalone)').matches || window.matchMedia('(display-mode: window-controls-overlay)').matches)
 
   const isSignedIn = Boolean(state.session?.authenticated && state.session.user)
   const libraryEntries = state.library?.entries ?? emptyLibraryEntries
@@ -183,6 +192,30 @@ export function useDashboardApp() {
   useTimedNotice(authNotice, setAuthNotice)
   useTimedNotice(profileNotice, setProfileNotice)
   useTimedNotice(playIntentNotice, setPlayIntentNotice)
+
+  useEffect(() => {
+    if (isNativeApp || typeof window === 'undefined') {
+      return
+    }
+
+    const handleBeforeInstallPrompt = (event: Event) => {
+      event.preventDefault()
+      setInstallPromptEvent(event as BeforeInstallPromptEvent)
+    }
+
+    const handleAppInstalled = () => {
+      setInstallPromptEvent(null)
+      setInstallPromptPending(false)
+    }
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
+    window.addEventListener('appinstalled', handleAppInstalled)
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
+      window.removeEventListener('appinstalled', handleAppInstalled)
+    }
+  }, [isNativeApp])
 
   const loadDashboard = useCallback(async () => {
     const requestInit = {
@@ -630,6 +663,25 @@ export function useDashboardApp() {
     window.location.assign(loginUrl)
   }, [isNativeApp])
 
+  const handleInstallApp = useCallback(async () => {
+    if (!installPromptEvent || installPromptPending) {
+      return
+    }
+
+    setInstallPromptPending(true)
+
+    try {
+      await installPromptEvent.prompt()
+      const choice = await installPromptEvent.userChoice
+
+      if (choice.outcome === 'accepted') {
+        setInstallPromptEvent(null)
+      }
+    } finally {
+      setInstallPromptPending(false)
+    }
+  }, [installPromptEvent, installPromptPending])
+
   const handleToggleFriend = useCallback(async (target: FriendTarget) => {
     setFriendPendingId(target.id)
     setActionNotice(null)
@@ -718,6 +770,13 @@ export function useDashboardApp() {
   return {
     layoutProps: {
       toastNotices,
+      installPrompt: !isNativeApp && !isInstalledBrowserApp && installPromptEvent
+        ? {
+            label: 'Install app',
+            pending: installPromptPending,
+            onInstall: handleInstallApp
+          }
+        : undefined,
       onboarding: showSignedInOnboarding ? (
         <EmptyStateCard
           title="Your account is live, but it does not have any game data yet"
