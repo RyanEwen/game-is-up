@@ -1,4 +1,4 @@
-import { Box, Card, Chip, Stack, Typography } from '@mui/joy'
+import { Avatar, Box, Card, Chip, Stack, Typography } from '@mui/joy'
 import type { PlayIntentPreview } from '@game-is-up/shared'
 import { formatNotifyScopeLabel } from './dashboardUtils'
 import { GameActionPopover } from './GameActionPopover'
@@ -29,12 +29,15 @@ export function PlayIntentCard({
       }}
     >
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} justifyContent="space-between" sx={{ mb: 1.5 }}>
-        <Box>
-          <Typography level="title-lg">{intent.title}</Typography>
-          <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
-            {intent.availabilityWindow.label}
-          </Typography>
-        </Box>
+        <Stack direction="row" spacing={1.25} alignItems="center">
+          <Avatar src={intent.user.avatarUrl ?? undefined} alt={intent.user.displayName} size="lg" variant="soft" />
+          <Box>
+            <Typography level="title-lg">{intent.title}</Typography>
+            <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
+              {intent.availabilityWindow.label}
+            </Typography>
+          </Box>
+        </Stack>
         <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
           <Chip color="primary" variant="soft">
             {isLibraryWide ? 'Any game in library' : 'Selected games'}

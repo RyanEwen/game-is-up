@@ -114,6 +114,7 @@ export type DashboardInviteOverviewProps = {
   onInviteMemberQueryChange: (value: string) => void;
   inviteMembersLoading: boolean;
   inviteMembersNotice: Notice | null;
+  inviteMembers: DiscordServerMembersResponse['members'];
   filteredInviteMembers: DiscordServerMembersResponse['members'];
   selectedInviteUserIds: string[];
   onToggleInviteUser: (userId: string) => void;
@@ -399,6 +400,7 @@ export function useDashboardInvites({
     onInviteMemberQueryChange: handleInviteMemberQueryChange,
     inviteMembersLoading,
     inviteMembersNotice,
+    inviteMembers,
     filteredInviteMembers,
     selectedInviteUserIds,
     onToggleInviteUser: handleToggleInviteUser,

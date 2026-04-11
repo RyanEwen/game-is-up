@@ -1,4 +1,4 @@
-import { Chip, Divider, Dropdown, Menu, MenuButton, MenuItem, Stack, Typography } from '@mui/joy'
+import { Avatar, Chip, Divider, Dropdown, Menu, MenuButton, MenuItem, Stack, Typography } from '@mui/joy'
 import type { FriendTarget } from './types'
 
 const interactiveTriggerSx = {
@@ -59,28 +59,39 @@ export function FriendActionPopover({
         color="neutral"
         sx={interactiveTriggerSx}
       >
-        <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }} alignItems="center">
-          <Typography className="friend-trigger-name" level={large ? 'title-lg' : 'title-sm'}>
-            {target.displayName}
-          </Typography>
-          <Chip className="friend-trigger-handle" size="sm" variant="soft" color="primary">
-            @{handle}
-          </Chip>
+        <Stack direction="row" spacing={1} alignItems="center">
+          <Avatar
+            src={target.avatarUrl ?? undefined}
+            alt={target.displayName}
+            size={large ? 'lg' : 'sm'}
+            variant="soft"
+          />
+          <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }} alignItems="center">
+            <Typography className="friend-trigger-name" level={large ? 'title-lg' : 'title-sm'}>
+              {target.displayName}
+            </Typography>
+            <Chip className="friend-trigger-handle" size="sm" variant="soft" color="primary">
+              @{handle}
+            </Chip>
+          </Stack>
         </Stack>
       </MenuButton>
 
       <Menu placement="bottom-start" size="sm" sx={{ minWidth: 280, maxWidth: 320 }}>
         <MenuItem disabled sx={{ whiteSpace: 'normal', alignItems: 'flex-start', py: 1.25 }}>
-          <Stack spacing={0.5}>
-            <Typography level="title-md">{target.displayName}</Typography>
-            <Typography level="body-sm" sx={{ color: 'primary.200' }}>
-              @{handle}
-            </Typography>
-            {supportingText ? (
-              <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
-                {supportingText}
+          <Stack direction="row" spacing={1.25} alignItems="center">
+            <Avatar src={target.avatarUrl ?? undefined} alt={target.displayName} size="md" variant="soft" />
+            <Stack spacing={0.5}>
+              <Typography level="title-md">{target.displayName}</Typography>
+              <Typography level="body-sm" sx={{ color: 'primary.200' }}>
+                @{handle}
               </Typography>
-            ) : null}
+              {supportingText ? (
+                <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
+                  {supportingText}
+                </Typography>
+              ) : null}
+            </Stack>
           </Stack>
         </MenuItem>
 

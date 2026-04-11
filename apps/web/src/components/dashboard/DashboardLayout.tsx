@@ -152,10 +152,10 @@ export const DashboardLayout = ({
                 Beta
               </Chip>
               <Typography level="h1" sx={{ fontSize: { xs: '2.4rem', md: '4rem' } }}>
-                Find others looking to play the same games as you.
+                Game Is Up
               </Typography>
               <Typography level="body-lg" sx={{ color: 'neutral.200' }}>
-                Build your library, see who is around, and turn "anyone up for a game?" into an actual plan.
+                Build your library, find other's who play, and turn "anyone up for a game?" into an actual plan.
               </Typography>
             </Stack>
           </Sheet>

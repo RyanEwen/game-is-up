@@ -124,9 +124,17 @@ export const playIntentGameSchema = z.object({
   platform: z.string().min(1)
 })
 
+export const playIntentPreviewUserSchema = z.object({
+  id: z.string().uuid(),
+  handle: z.string().min(2).max(32),
+  displayName: z.string().min(2).max(60),
+  avatarUrl: z.string().url().nullable()
+})
+
 export const playIntentPreviewSchema = z.object({
   id: z.string().uuid(),
   title: z.string().min(1),
+  user: playIntentPreviewUserSchema,
   selectionMode: playIntentSelectionModeSchema,
   notifyScope: playIntentNotifyScopeSchema,
   platforms: z.array(z.string()).min(1),

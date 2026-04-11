@@ -9,6 +9,7 @@ export type PlayIntentTimingMode = 'preset' | 'custom' | 'end-time';
 export type FriendTarget = {
   id: string;
   displayName: string;
+  avatarUrl?: string | null;
   friendEligible: boolean;
 };
 

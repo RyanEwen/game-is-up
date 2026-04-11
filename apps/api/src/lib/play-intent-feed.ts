@@ -135,6 +135,12 @@ export async function buildPlayIntentFeed(viewerId?: string | null): Promise<Pla
       return {
         id: intent.id,
         title: intent.headline,
+        user: {
+          id: intent.user.id,
+          handle: intent.user.handle,
+          displayName: intent.user.displayName,
+          avatarUrl: intent.user.avatarUrl
+        },
         selectionMode: toSelectionMode(intent.selectionMode),
         notifyScope: toNotifyScope(intent.scope),
         platforms: intent.platforms.map((platform) => platform.platformLabel).sort((left, right) => left.localeCompare(right)),

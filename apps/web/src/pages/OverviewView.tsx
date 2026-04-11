@@ -1,4 +1,4 @@
-import { Box, Button, Card, Chip, Input, Sheet, Stack, Typography } from '@mui/joy'
+import { Avatar, Box, Button, Card, Chip, Input, Sheet, Stack, Typography } from '@mui/joy'
 import type {
   AuthSessionResponse,
   DiscordServerMembersResponse,
@@ -34,16 +34,24 @@ function AccountCard({
       </Typography>
       {signedInUser ? (
         <Stack spacing={1.5}>
-          <Typography level="body-md">
-            Signed in as {signedInUser.displayName} ({signedInUser.handle})
-          </Typography>
+          <Stack direction="row" spacing={1.5} alignItems="center">
+            <Avatar
+              src={signedInUser.avatarUrl ?? undefined}
+              alt={signedInUser.displayName}
+              size="lg"
+              variant="soft"
+            />
+            <Stack spacing={0.25}>
+              <Typography level="title-md">{signedInUser.displayName}</Typography>
+              <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
+                @{signedInUser.handle}
+              </Typography>
+            </Stack>
+          </Stack>
           <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
             <Chip color="success">{signedInUser.authProvider}</Chip>
             {signedInUser.email ? <Chip variant="outlined">{signedInUser.email}</Chip> : null}
           </Stack>
-          <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
-            Your account is ready to sync discovery servers, build your library, and share play plans.
-          </Typography>
           <Button variant="outlined" color="neutral" onClick={() => void onLogout()}>
             Sign out
           </Button>
@@ -253,6 +261,7 @@ function InviteUsersCard({
   onInviteMemberQueryChange,
   inviteMembersLoading,
   inviteMembersNotice,
+  inviteMembers,
   filteredInviteMembers,
   selectedInviteUserIds,
   onToggleInviteUser,
@@ -272,6 +281,7 @@ function InviteUsersCard({
   onInviteMemberQueryChange: (value: string) => void;
   inviteMembersLoading: boolean;
   inviteMembersNotice: Notice | null;
+  inviteMembers: InviteMember[];
   filteredInviteMembers: InviteMember[];
   selectedInviteUserIds: string[];
   onToggleInviteUser: (userId: string) => void;
@@ -283,6 +293,8 @@ function InviteUsersCard({
   onShareInvite: () => Promise<void>;
   inviteSendSummary: SendDiscordServerInvitesResponse | null;
 }) {
+  const inviteMemberAvatarById = new Map(inviteMembers.map((member) => [member.id, member.avatarUrl]))
+
   return (
     <Card variant="soft" sx={{ p: 3 }}>
       <Stack spacing={2}>
@@ -351,13 +363,16 @@ function InviteUsersCard({
                           }}
                         >
                           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.25} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }}>
-                            <Box>
-                              <Typography level="title-sm">{member.displayName}</Typography>
-                              <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
-                                @{member.username}
-                                {member.isAppUser && member.appHandle ? ` • Game Is Up: @${member.appHandle}` : ''}
-                              </Typography>
-                            </Box>
+                            <Stack direction="row" spacing={1.25} alignItems="center">
+                              <Avatar src={member.avatarUrl ?? undefined} alt={member.displayName} size="md" variant="soft" />
+                              <Box>
+                                <Typography level="title-sm">{member.displayName}</Typography>
+                                <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
+                                  @{member.username}
+                                  {member.isAppUser && member.appHandle ? ` • Game Is Up: @${member.appHandle}` : ''}
+                                </Typography>
+                              </Box>
+                            </Stack>
                             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'center' }}>
                               <Chip size="sm" color={member.isAppUser ? 'success' : 'neutral'} variant={member.isAppUser ? 'soft' : 'outlined'}>
                                 {member.isAppUser ? 'On Game Is Up' : 'Discord only'}
@@ -431,17 +446,25 @@ function InviteUsersCard({
                     }}
                   >
                     <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.25} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }}>
-                      <Box>
-                        <Typography level="title-sm">{result.displayName}</Typography>
-                        <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
-                          @{result.username}
-                        </Typography>
-                        {result.error ? (
-                          <Typography level="body-sm" sx={{ color: 'warning.300', mt: 0.5 }}>
-                            {result.error}
+                      <Stack direction="row" spacing={1.25} alignItems="center">
+                        <Avatar
+                          src={inviteMemberAvatarById.get(result.memberId) ?? undefined}
+                          alt={result.displayName}
+                          size="md"
+                          variant="soft"
+                        />
+                        <Box>
+                          <Typography level="title-sm">{result.displayName}</Typography>
+                          <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
+                            @{result.username}
                           </Typography>
-                        ) : null}
-                      </Box>
+                          {result.error ? (
+                            <Typography level="body-sm" sx={{ color: 'warning.300', mt: 0.5 }}>
+                              {result.error}
+                            </Typography>
+                          ) : null}
+                        </Box>
+                      </Stack>
                       <Chip size="sm" color={result.status === 'sent' ? 'success' : 'warning'} variant={result.status === 'sent' ? 'soft' : 'outlined'}>
                         {result.status === 'sent' ? 'Sent' : 'Failed'}
                       </Chip>
@@ -477,6 +500,7 @@ function OverviewViewContent({
   onInviteMemberQueryChange,
   inviteMembersLoading,
   inviteMembersNotice,
+  inviteMembers,
   filteredInviteMembers,
   selectedInviteUserIds,
   onToggleInviteUser,
@@ -507,6 +531,7 @@ function OverviewViewContent({
   onInviteMemberQueryChange: (value: string) => void;
   inviteMembersLoading: boolean;
   inviteMembersNotice: Notice | null;
+  inviteMembers: InviteMember[];
   filteredInviteMembers: InviteMember[];
   selectedInviteUserIds: string[];
   onToggleInviteUser: (userId: string) => void;
@@ -550,6 +575,7 @@ function OverviewViewContent({
           onInviteMemberQueryChange={onInviteMemberQueryChange}
           inviteMembersLoading={inviteMembersLoading}
           inviteMembersNotice={inviteMembersNotice}
+          inviteMembers={inviteMembers}
           filteredInviteMembers={filteredInviteMembers}
           selectedInviteUserIds={selectedInviteUserIds}
           onToggleInviteUser={onToggleInviteUser}
