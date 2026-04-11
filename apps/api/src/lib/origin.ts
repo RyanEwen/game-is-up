@@ -31,7 +31,14 @@ export function resolveAuthRedirectTarget(candidate: string | undefined): string
     return candidate
   }
 
-  return candidate === env.CLIENT_ORIGIN ? candidate : env.CLIENT_ORIGIN
+  try {
+    const candidateUrl = new URL(candidate)
+    const clientUrl = new URL(env.CLIENT_ORIGIN)
+
+    return candidateUrl.origin === clientUrl.origin ? candidateUrl.toString() : env.CLIENT_ORIGIN
+  } catch {
+    return env.CLIENT_ORIGIN
+  }
 }
 
 export function isMobileAuthRedirectTarget(target: string): boolean {

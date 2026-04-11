@@ -69,6 +69,8 @@ Optional: set `VITE_PUBLIC_APP_URL` when you want in-app invites to point at a p
 
 Optional: set `VITE_API_BASE_URL` to an explicit origin if the web app should call an API on a different host. Leave it empty when the app is served behind a reverse proxy on the same origin.
 
+The dashboard uses route-backed tabs, so the main views live at `/`, `/library`, `/discovery`, and `/play`. Discord sign-in now preserves same-origin return URLs so a user can authenticate and land back on the view they started from.
+
 For a clean local reset plus startup in one command, run:
 
 ```bash
@@ -139,7 +141,9 @@ For Cloudflare-backed deployments, the repo now includes a purge helper that rea
 If you need to add more URLs, set `CLOUDFLARE_PURGE_PATHS` as a comma-separated list or pass repeated `--path` flags, for example:
 
 ```bash
-npm run cache:purge:cloudflare -- --path /discover --path /library
+npm run cache:purge:cloudflare -- --path /discovery --path /library
+
+Note: if you are purging route-backed dashboard pages, use `/discovery` rather than `/discover`.
 ```
 
 For an emergency full-zone purge, run:

@@ -1,0 +1,184 @@
+import { Box, Button, Card, Chip, Divider, Sheet, Stack, Typography } from '@mui/joy'
+import type { DiscoveryPerson } from '@game-is-up/shared'
+import { AvailabilityChip } from './AvailabilityChip'
+import { formatDiscordActivityTypeLabel, formatLibraryIntentLabel, memberGameGridSx } from './dashboardUtils'
+import type { FriendTarget } from './types'
+
+export function PersonCard({
+  person,
+  canManage,
+  isPending,
+  onToggleFriend
+}: {
+  person: DiscoveryPerson;
+  canManage: boolean;
+  isPending: boolean;
+  onToggleFriend: (target: FriendTarget) => Promise<void>;
+}) {
+  return (
+    <Card
+      variant="outlined"
+      sx={{
+        p: 3,
+        backdropFilter: 'blur(16px)',
+        backgroundColor: 'rgba(17, 24, 38, 0.74)',
+        borderColor: 'rgba(255, 255, 255, 0.08)',
+        boxShadow: 'lg'
+      }}
+    >
+      <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1.5, flexWrap: 'wrap' }}>
+        <Typography level="title-lg">{person.displayName}</Typography>
+        <Chip size="sm" color="primary" variant="soft">
+          {person.handle}
+        </Chip>
+        <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
+          {person.lastActiveLabel}
+        </Typography>
+      </Stack>
+
+      <Typography level="body-md" sx={{ mb: 2, color: 'neutral.200' }}>
+        {person.bio}
+      </Typography>
+
+      <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: 'wrap' }}>
+        {person.mutualServers.map((serverName) => (
+          <Chip key={serverName} size="sm" color="warning" variant="soft">
+            {serverName}
+          </Chip>
+        ))}
+        <Chip variant="outlined" color="warning">
+          {person.timezoneLabel}
+        </Chip>
+        {person.usualAvailability ? (
+          <Chip variant="soft" color="success">
+            Usually: {person.usualAvailability}
+          </Chip>
+        ) : null}
+      </Stack>
+
+      {person.discordActivity ? (
+        <Sheet
+          variant="soft"
+          sx={{
+            mb: 2,
+            p: 1.5,
+            borderRadius: 'md'
+          }}
+        >
+          <Typography level="title-sm">
+            {formatDiscordActivityTypeLabel(person.discordActivity.activityType)} {person.discordActivity.title}
+          </Typography>
+          <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
+            Last seen {new Date(person.discordActivity.lastObservedAt).toLocaleString()}
+            {person.discordActivity.sourceServerName ? ` via ${person.discordActivity.sourceServerName}` : ''}
+          </Typography>
+          {person.discordActivity.details || person.discordActivity.state ? (
+            <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
+              {[person.discordActivity.details, person.discordActivity.state].filter(Boolean).join(' • ')}
+            </Typography>
+          ) : null}
+        </Sheet>
+      ) : null}
+
+      <Box sx={{ mb: 2 }}>
+        {person.games.length > 0 ? (
+          <Box sx={memberGameGridSx}>
+            {person.games.map((game) => (
+              <Sheet
+                key={game.id}
+                variant="soft"
+                sx={{
+                  p: 1.5,
+                  borderRadius: 'md',
+                  height: '100%'
+                }}
+              >
+                <Stack spacing={1.25} sx={{ height: '100%' }}>
+                  <Stack direction="row" spacing={1.25} alignItems="flex-start">
+                    <Box
+                      sx={{
+                        width: 52,
+                        height: 68,
+                        borderRadius: 'sm',
+                        overflow: 'hidden',
+                        backgroundColor: 'rgba(255,255,255,0.06)',
+                        flexShrink: 0
+                      }}
+                    >
+                      {game.coverUrl ? (
+                        <Box component="img" src={game.coverUrl} alt={game.title} sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ) : null}
+                    </Box>
+                    <Stack direction="row" spacing={1} sx={{ minWidth: 0, flex: 1, justifyContent: 'space-between' }}>
+                      <Stack spacing={0.5} sx={{ minWidth: 0, flex: 1 }}>
+                        <Typography
+                          level="title-sm"
+                          sx={{ display: '-webkit-box', overflow: 'hidden', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}
+                        >
+                          {game.title}
+                        </Typography>
+                        <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
+                          {game.platformLabels.join(', ')}
+                        </Typography>
+                      </Stack>
+                      <Chip color={game.intent === 'playing-now' ? 'success' : 'primary'} size="sm" sx={{ alignSelf: 'flex-start', flexShrink: 0 }}>
+                        {formatLibraryIntentLabel(game.intent)}
+                      </Chip>
+                    </Stack>
+                  </Stack>
+
+                  {game.availability && game.availabilitySource === 'game-specific' ? (
+                    <Stack direction="row" spacing={1} sx={{ mt: 'auto', flexWrap: 'wrap' }} alignItems="center">
+                      <AvailabilityChip
+                        availability={game.availability}
+                        availabilitySource={game.availabilitySource}
+                        showInherited={false}
+                        compactGameSpecificLabel
+                      />
+                    </Stack>
+                  ) : null}
+                </Stack>
+              </Sheet>
+            ))}
+          </Box>
+        ) : (
+          <Sheet
+            variant="soft"
+            sx={{
+              p: 1.5,
+              borderRadius: 'md'
+            }}
+          >
+            <Typography level="title-sm">No games shared yet</Typography>
+            <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
+              This person is visible through your discovery servers or friends list, but they have not added any games yet. You can still add them as an in-app friend now.
+            </Typography>
+          </Sheet>
+        )}
+      </Box>
+
+      <Divider sx={{ my: 2 }} />
+
+      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} alignItems={{ xs: 'stretch', sm: 'center' }}>
+        <Button
+          color="primary"
+          size="lg"
+          variant={person.friendEligible ? 'solid' : 'soft'}
+          disabled={!canManage || isPending}
+          onClick={() => void onToggleFriend(person)}
+        >
+          {!canManage
+            ? 'Sign in to manage friends'
+            : isPending
+              ? 'Saving...'
+              : person.friendEligible
+                ? 'Add friend'
+                : 'Remove friend'}
+        </Button>
+        <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
+          {person.contactHint}
+        </Typography>
+      </Stack>
+    </Card>
+  )
+}
