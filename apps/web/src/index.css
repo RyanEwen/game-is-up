@@ -20,8 +20,9 @@ body {
   min-width: 320px;
   min-height: 100vh;
   background:
-    radial-gradient(circle at top, rgba(78, 240, 183, 0.18), transparent 34%),
-    radial-gradient(circle at 80% 10%, rgba(244, 178, 63, 0.18), transparent 26%),
+    radial-gradient(circle at 50% -6%, rgba(78, 240, 183, 0.28), transparent 48%),
+    radial-gradient(circle at 82% 8%, rgba(244, 178, 63, 0.24), transparent 34%),
+    radial-gradient(circle at 18% 18%, rgba(78, 240, 183, 0.12), transparent 40%),
     #070b14;
   background-repeat: no-repeat;
 }

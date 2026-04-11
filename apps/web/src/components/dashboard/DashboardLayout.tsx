@@ -71,8 +71,9 @@ export const DashboardLayout = ({
             position: 'absolute',
             inset: 0,
             background: [
-              'linear-gradient(180deg, rgba(7, 11, 20, 0) 0px, rgba(7, 11, 20, 0.22) 140px, rgba(7, 11, 20, 0.74) 320px, rgba(7, 11, 20, 0.9) 520px)',
-              'radial-gradient(circle at 50% 220px, rgba(28, 171, 132, 0.08), transparent 420px)'
+              'linear-gradient(180deg, rgba(7, 11, 20, 0) 0px, rgba(7, 11, 20, 0.14) 180px, rgba(7, 11, 20, 0.56) 420px, rgba(7, 11, 20, 0.82) 760px)',
+              'radial-gradient(circle at 50% 220px, rgba(28, 171, 132, 0.14), transparent 640px)',
+              'radial-gradient(circle at 18% 180px, rgba(244, 178, 63, 0.08), transparent 520px)'
             ].join(','),
             pointerEvents: 'none',
             zIndex: 0
@@ -153,15 +154,44 @@ export const DashboardLayout = ({
             }}
           >
             <Stack spacing={2}>
-              <Chip size="lg" color="primary" variant="soft" sx={{ alignSelf: 'flex-start' }}>
-                Beta
-              </Chip>
-              <Typography level="h1" sx={{ fontSize: { xs: '2.4rem', md: '4rem' } }}>
-                Game Is Up
-              </Typography>
-              <Typography level="body-lg" sx={{ color: 'neutral.200' }}>
-                Build your library, find others who play, and turn "anyone up for a game?" into an actual plan.
-              </Typography>
+              <Stack
+                direction={{ xs: 'column', sm: 'row' }}
+                spacing={{ xs: 2, sm: 2.5 }}
+                sx={{ alignItems: { xs: 'flex-start', sm: 'center' } }}
+              >
+                <Box
+                  component="img"
+                  src="/icon-discord-transparent.svg"
+                  alt=""
+                  sx={{
+                    width: { xs: 72, md: 92 },
+                    height: { xs: 72, md: 92 },
+                    flexShrink: 0,
+                    borderRadius: '24px',
+                    p: 1,
+                    background: 'linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03))',
+                    border: '1px solid rgba(255, 255, 255, 0.08)',
+                    boxShadow: '0 20px 44px rgba(0, 0, 0, 0.28)'
+                  }}
+                />
+                <Stack spacing={1.25} sx={{ minWidth: 0 }}>
+                  <Stack
+                    direction={{ xs: 'column', md: 'row' }}
+                    spacing={1.5}
+                    sx={{ alignItems: { xs: 'flex-start', md: 'center' } }}
+                  >
+                    <Typography level="h1" sx={{ fontSize: { xs: '2.4rem', md: '4rem' } }}>
+                      Game Is Up
+                    </Typography>
+                    <Chip size="lg" color="primary" variant="soft" sx={{ alignSelf: { xs: 'flex-start', md: 'center' } }}>
+                      Beta
+                    </Chip>
+                  </Stack>
+                  <Typography level="body-lg" sx={{ color: 'neutral.200', maxWidth: 720 }}>
+                    Build your library, find others who play, and turn "anyone up for a game?" into an actual plan.
+                  </Typography>
+                </Stack>
+              </Stack>
             </Stack>
           </Sheet>
 
