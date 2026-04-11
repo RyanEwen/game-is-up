@@ -1,8 +1,8 @@
 import type { ReactNode, RefObject } from 'react'
 import {
+  Alert,
   Box,
   Button,
-  Card,
   Chip,
   CssBaseline,
   Sheet,
@@ -102,31 +102,12 @@ export const DashboardLayout = ({
             }}
           >
             {toastNotices.map((toast) => (
-              <Card
+              <Alert
                 key={toast.id}
                 color={toast.notice.tone}
                 variant="soft"
-                role="status"
-                sx={{
-                  p: 1.5,
-                  borderRadius: 'sm',
-                  boxShadow: 'lg',
-                  border: '1px solid rgba(255, 255, 255, 0.08)',
-                  backdropFilter: 'blur(18px)',
-                  pointerEvents: 'auto'
-                }}
-              >
-                <Box
-                  sx={{
-                    display: 'grid',
-                    gridTemplateColumns: 'minmax(0, 1fr) auto',
-                    columnGap: 1.5,
-                    alignItems: 'center'
-                  }}
-                >
-                  <Typography level="body-sm" sx={{ minWidth: 0, lineHeight: 1.5, display: 'flex', alignItems: 'center' }}>
-                    {toast.notice.message}
-                  </Typography>
+                role={toast.notice.tone === 'danger' ? 'alert' : 'status'}
+                endDecorator={
                   <Button
                     size="sm"
                     variant="plain"
@@ -136,8 +117,21 @@ export const DashboardLayout = ({
                   >
                     Dismiss
                   </Button>
-                </Box>
-              </Card>
+                }
+                sx={{
+                  p: 1.5,
+                  borderRadius: 'sm',
+                  boxShadow: 'lg',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  backdropFilter: 'blur(18px)',
+                  pointerEvents: 'auto',
+                  alignItems: 'center'
+                }}
+              >
+                <Typography level="body-sm" sx={{ minWidth: 0, lineHeight: 1.5 }}>
+                  {toast.notice.message}
+                </Typography>
+              </Alert>
             ))}
           </Stack>
         ) : null}
