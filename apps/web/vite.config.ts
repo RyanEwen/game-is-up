@@ -9,7 +9,10 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       workbox: {
-        navigateFallbackDenylist: [/^\/api(?:\/|$)/]
+        cleanupOutdatedCaches: true,
+        clientsClaim: true,
+        navigateFallbackDenylist: [/^\/api(?:\/|$)/],
+        skipWaiting: true
       },
       manifest: {
         name: 'Game Is Up',
