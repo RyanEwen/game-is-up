@@ -13,6 +13,7 @@ const prisma = new PrismaClient()
 async function main() {
   await prisma.$transaction([
     prisma.report.deleteMany(),
+    prisma.discordAutoPlayPrompt.deleteMany(),
     prisma.notification.deleteMany(),
     prisma.playIntentPlatform.deleteMany(),
     prisma.playIntentGame.deleteMany(),

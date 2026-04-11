@@ -2,7 +2,8 @@ import type { DiscordServerMembersResponse, DiscordServerPreferencesResponse } f
 import { AuthProvider as PrismaAuthProvider } from '@prisma/client'
 import { prisma } from './prisma.js'
 import type { DiscordGuildSummary } from './discord-auth.js'
-import { getDiscordPresenceBotState, listDiscordGuildMembers, sendDiscordGuildInvites } from './discord-presence-bot.js'
+import { getDiscordPresenceBotState } from './discord-bot-runtime.js'
+import { listDiscordGuildMembers, sendDiscordGuildInvites } from './discord-presence-bot.js'
 
 function buildDiscordServerIconUrl(serverId: string, iconHash: string | null): string | null {
   if (!iconHash) {

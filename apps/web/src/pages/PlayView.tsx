@@ -1,4 +1,4 @@
-import { Box, Button, Stack, Typography } from '@mui/joy'
+import { Box, Button, Card, Stack, Switch, Typography } from '@mui/joy'
 import type {
   ActivePlayIntent,
   DiscoveryPerson,
@@ -14,8 +14,47 @@ import { PlayIntentComposerCard } from '../components/dashboard/PlayIntentCompos
 import { useDashboardContext } from '../contexts/useDashboardContext'
 import type { DashboardLibraryQuickAddGame, PlayIntentStartMode, PlayIntentTimingMode } from '../components/dashboard/types'
 
+function DiscordAutomationCard({
+  enabled,
+  saving,
+  onToggle
+}: {
+  enabled: boolean;
+  saving: boolean;
+  onToggle: (nextEnabled: boolean) => Promise<void>;
+}) {
+  return (
+    <Card variant="soft" sx={{ p: 3 }}>
+      <Stack spacing={1.5}>
+        <Box>
+          <Typography level="title-lg">Discord automation</Typography>
+          <Typography level="body-sm" sx={{ color: 'neutral.300', mt: 0.75 }}>
+            When this is on, the bot can DM you after it sees you start a game and offer to create a call to play directly from Discord. It only prompts when you do not already have an active call and there is someone visible who could receive it.
+          </Typography>
+        </Box>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }}>
+          <Box>
+            <Typography level="title-sm">Automatic call-to-play prompts</Typography>
+            <Typography level="body-xs" sx={{ color: 'neutral.400', mt: 0.5 }}>
+              Default: on. You can still open the app instead of completing the prompt in Discord.
+            </Typography>
+          </Box>
+          <Switch
+            checked={enabled}
+            disabled={saving}
+            onChange={(event) => void onToggle(event.target.checked)}
+            endDecorator={saving ? 'Saving...' : enabled ? 'On' : 'Off'}
+          />
+        </Stack>
+      </Stack>
+    </Card>
+  )
+}
+
 function PlayViewContent({
   isSignedIn,
+  discordAutoPromptPlayIntent,
+  discordAutoPromptPlayIntentSaving,
   activePlayIntent,
   isPlayIntentComposerOpen,
   openPlayIntentComposer,
@@ -58,9 +97,12 @@ function PlayViewContent({
   playIntentPreviews,
   libraryGameIds,
   addingLibraryGameId,
-  onAddGameToLibrary
+  onAddGameToLibrary,
+  onToggleDiscordAutoPromptPlayIntent
 }: {
   isSignedIn: boolean;
+  discordAutoPromptPlayIntent: boolean;
+  discordAutoPromptPlayIntentSaving: boolean;
   activePlayIntent: ActivePlayIntent | null;
   isPlayIntentComposerOpen: boolean;
   openPlayIntentComposer: () => void;
@@ -104,6 +146,7 @@ function PlayViewContent({
   libraryGameIds: ReadonlySet<string>;
   addingLibraryGameId: string | null;
   onAddGameToLibrary: (game: DashboardLibraryQuickAddGame) => Promise<void>;
+  onToggleDiscordAutoPromptPlayIntent: (nextEnabled: boolean) => Promise<void>;
 }) {
   const hasScheduledOwnCallToPlay = activePlayIntent ? new Date(activePlayIntent.windowStartsAt).getTime() > Date.now() + 60 * 1000 : false
   const playComposerButtonLabel = activePlayIntent
@@ -127,6 +170,14 @@ function PlayViewContent({
           </Button>
         ) : null}
       </Stack>
+
+      {isSignedIn ? (
+        <DiscordAutomationCard
+          enabled={discordAutoPromptPlayIntent}
+          saving={discordAutoPromptPlayIntentSaving}
+          onToggle={onToggleDiscordAutoPromptPlayIntent}
+        />
+      ) : null}
 
       {isSignedIn ? (
         <DashboardModal open={isPlayIntentComposerOpen} onClose={closePlayIntentComposer} width="min(96vw, 820px)">
@@ -190,11 +241,6 @@ function PlayViewContent({
             isSignedIn
               ? 'When someone visible to you posts a call to play that overlaps with your library, it will show up here.'
               : 'Once the API responds, this section shows current and scheduled calls to play from people visible to you.'
-          }
-          chips={
-            isSignedIn
-              ? ['Library overlap required', 'Friends drive visibility', 'Now or later']
-              : ['Whole library', 'Selected games', 'Scheduled calls']
           }
         />
       )}

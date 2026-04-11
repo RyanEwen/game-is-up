@@ -1,5 +1,6 @@
 import type { DiscoveryPerson } from '@game-is-up/shared'
 import { AuthProvider, DiscordActivityType, type Prisma } from '@prisma/client'
+import { maybeSendDiscordAutoPlayPromptForObservation } from './discord-auto-play-prompts.js'
 import { findOrCreateGameByTitle } from './game-catalog.js'
 import { prisma } from './prisma.js'
 
@@ -201,6 +202,7 @@ export async function recordDiscordPresence(
     })
 
     matchedObservationIds.add(createdObservation.id)
+    void maybeSendDiscordAutoPlayPromptForObservation(createdObservation.id)
   }
 
   if (!userId) {

@@ -7,6 +7,7 @@ import type {
   ActivePlayIntent,
   AuthProvidersResponse,
   AuthSessionResponse,
+  DebugAdminResponse,
   DiscordServerPreferencesResponse,
   DiscoveryFeed,
   HealthResponse,
@@ -18,6 +19,7 @@ import type {
 import {
   authProvidersResponseSchema,
   authSessionResponseSchema,
+  debugAdminResponseSchema,
   discordServerPreferencesResponseSchema,
   discoveryFeedSchema,
   healthResponseSchema,
@@ -51,6 +53,7 @@ type LoadState = {
   activePlayIntent: ActivePlayIntent | null;
   session: AuthSessionResponse | null;
   auth: AuthProvidersResponse | null;
+  debugAdmin: DebugAdminResponse | null;
   discordServers: DiscordServerPreferencesResponse | null;
   discovery: DiscoveryFeed | null;
   health: HealthResponse | null;
@@ -63,6 +66,7 @@ const initialState: LoadState = {
   activePlayIntent: null,
   session: null,
   auth: null,
+  debugAdmin: null,
   discordServers: null,
   discovery: null,
   health: null,
@@ -157,6 +161,7 @@ export function useDashboardApp() {
   const [actionNotice, setActionNotice] = useState<Notice | null>(null)
   const [profileNotice, setProfileNotice] = useState<Notice | null>(null)
   const [playIntentNotice, setPlayIntentNotice] = useState<Notice | null>(null)
+  const [discordAutoPromptPlayIntentSaving, setDiscordAutoPromptPlayIntentSaving] = useState(false)
   const [installPromptEvent, setInstallPromptEvent] = useState<BeforeInstallPromptEvent | null>(null)
   const [installPromptPending, setInstallPromptPending] = useState(false)
   const [friendPendingId, setFriendPendingId] = useState<string | null>(null)
@@ -165,6 +170,7 @@ export function useDashboardApp() {
   const lastHandledAuthUrlRef = useRef<string | null>(null)
   const timezoneSyncPendingIdRef = useRef<string | null>(null)
   const isNativeApp = Capacitor.isNativePlatform()
+  const showDebugView = import.meta.env.DEV
   const browserTimeZoneId = getBrowserTimeZoneId()
   const isInstalledBrowserApp = getIsInstalledBrowserApp()
   const installSupport = !isNativeApp && !isInstalledBrowserApp ? getInstallSupport(installPromptEvent) : null
@@ -235,7 +241,7 @@ export function useDashboardApp() {
       tone: 'danger',
       message: `Discord sign-in failed${reason ? `: ${reason}` : '.'}`
     })
-  }, [])
+    }, [])
 
   useTimedNotice(actionNotice, setActionNotice)
   useTimedNotice(authNotice, setAuthNotice)
@@ -286,11 +292,12 @@ export function useDashboardApp() {
 
       const parsedSession = authSessionResponseSchema.parse(sessionJson)
 
-      const [discoveryResponse, playIntentsResponse, libraryResponse, currentPlayIntentResponse] = await Promise.all([
+      const [discoveryResponse, playIntentsResponse, libraryResponse, currentPlayIntentResponse, debugResponse] = await Promise.all([
         fetch(buildApiUrl('/api/discovery/feed'), requestInit),
         fetch(buildApiUrl('/api/play-intents/feed'), requestInit),
         parsedSession.authenticated ? fetch(buildApiUrl('/api/library/me'), requestInit) : Promise.resolve(null),
-        parsedSession.authenticated ? fetch(buildApiUrl('/api/play-intents/me'), requestInit) : Promise.resolve(null)
+        parsedSession.authenticated ? fetch(buildApiUrl('/api/play-intents/me'), requestInit) : Promise.resolve(null),
+        parsedSession.authenticated && showDebugView ? fetch(buildApiUrl('/api/debug/admin'), requestInit) : Promise.resolve(null)
       ])
 
       const [discoveryJson, playIntentsJson] = await Promise.all([
@@ -302,6 +309,7 @@ export function useDashboardApp() {
 
       let library: LibraryResponse | null = null
       let activePlayIntentState: ActivePlayIntent | null = null
+      let debugAdmin: DebugAdminResponse | null = null
       let discordServers: DiscordServerPreferencesResponse | null = null
 
       if (libraryResponse) {
@@ -319,11 +327,17 @@ export function useDashboardApp() {
         discordServers = discordServerPreferencesResponseSchema.parse(discordServersJson)
       }
 
+      if (debugResponse) {
+        const debugJson = await debugResponse.json()
+        debugAdmin = debugAdminResponseSchema.parse(debugJson)
+      }
+
       setState({
         activePlayIntent: activePlayIntentState,
         session: parsedSession,
         health: healthResponseSchema.parse(healthJson),
         auth: authProvidersResponseSchema.parse(authJson),
+        debugAdmin,
         discordServers,
         discovery: discoveryFeedSchema.parse(discoveryJson),
         playIntents: playIntentFeedSchema.parse(playIntentsJson),
@@ -336,9 +350,9 @@ export function useDashboardApp() {
         error: error instanceof Error ? error.message : 'Unknown error'
       }))
     }
-  }, [])
+  }, [showDebugView])
 
-  const updateProfile = useCallback(async (profilePatch: { usualAvailability?: string; timezoneId?: string }) => {
+  const updateProfile = useCallback(async (profilePatch: { usualAvailability?: string; timezoneId?: string; discordAutoPromptPlayIntent?: boolean }) => {
     const response = await fetch(buildApiUrl('/api/profile/me'), {
       method: 'PUT',
       credentials: 'include',
@@ -371,7 +385,8 @@ export function useDashboardApp() {
             user: {
               ...current.session.user,
               timezoneId: parsedProfile.timezoneId,
-              usualAvailability: parsedProfile.usualAvailability
+              usualAvailability: parsedProfile.usualAvailability,
+              discordAutoPromptPlayIntent: parsedProfile.discordAutoPromptPlayIntent
             }
           }
         : current.session,
@@ -383,6 +398,37 @@ export function useDashboardApp() {
         : current.library
     }))
   }, [])
+
+  const handleDiscordAutoPromptPlayIntentChange = useCallback(async (nextEnabled: boolean) => {
+    if (!isSignedIn || discordAutoPromptPlayIntentSaving) {
+      return
+    }
+
+    setDiscordAutoPromptPlayIntentSaving(true)
+    setProfileNotice(null)
+
+    try {
+      const parsedProfile = await updateProfile({
+        discordAutoPromptPlayIntent: nextEnabled
+      })
+
+      applyProfileUpdate(parsedProfile)
+      setProfileNotice({
+        tone: 'success',
+        message: nextEnabled
+          ? 'Discord can now prompt you to create a call to play when it sees you start a game.'
+          : 'Automatic Discord call-to-play prompts are now off.'
+      })
+      await loadDashboard()
+    } catch (error) {
+      setProfileNotice({
+        tone: 'danger',
+        message: error instanceof Error ? error.message : 'Unable to update your Discord prompt setting right now.'
+      })
+    } finally {
+      setDiscordAutoPromptPlayIntentSaving(false)
+    }
+  }, [applyProfileUpdate, discordAutoPromptPlayIntentSaving, isSignedIn, loadDashboard, updateProfile])
 
   const setActivePlayIntent = useCallback((activePlayIntent: ActivePlayIntent | null) => {
     setState((current) => ({
@@ -844,6 +890,7 @@ export function useDashboardApp() {
   return {
     layoutProps: {
       toastNotices,
+      showDebugView,
       installPrompt: installSupport
         ? {
             label: 'Install app',
@@ -878,9 +925,12 @@ export function useDashboardApp() {
     playViewProps: {
       ...playViewProps,
       isSignedIn,
+      discordAutoPromptPlayIntent: state.session?.user?.discordAutoPromptPlayIntent ?? true,
+      discordAutoPromptPlayIntentSaving,
       libraryGameIds,
       addingLibraryGameId,
-      onAddGameToLibrary: handleAddGameToLibrary
+      onAddGameToLibrary: handleAddGameToLibrary,
+      onToggleDiscordAutoPromptPlayIntent: handleDiscordAutoPromptPlayIntentChange
     },
     discoveryViewProps: {
       error: state.error,
@@ -894,6 +944,12 @@ export function useDashboardApp() {
       friendPendingId,
       onToggleFriend: handleToggleFriend,
       onAddGameToLibrary: handleAddGameToLibrary
+    },
+    debugViewProps: {
+      isSignedIn,
+      debugAdmin: state.debugAdmin,
+      debugLoading: showDebugView && isSignedIn && state.debugAdmin == null && !state.error,
+      onRefreshDebug: loadDashboard
     }
   }
 }

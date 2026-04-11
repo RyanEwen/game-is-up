@@ -339,10 +339,10 @@ export function useDashboardPlay({
         message: isScheduledIntent
           ? parsedResponse.notifiedFriendCount > 0
             ? `Your call to play is scheduled. ${parsedResponse.notifiedFriendCount} overlapping friend${parsedResponse.notifiedFriendCount === 1 ? '' : 's'} were notified.`
-            : 'Your call to play is scheduled. No overlapping friends matched that time window yet.'
+            : 'Your call to play is scheduled. No Discord DMs were delivered yet.'
           : parsedResponse.notifiedFriendCount > 0
             ? `Your call to play is live. ${parsedResponse.notifiedFriendCount} overlapping friend${parsedResponse.notifiedFriendCount === 1 ? '' : 's'} were notified.`
-            : 'Your call to play is live. No overlapping friends matched it yet.'
+            : 'Your call to play is live. No Discord DMs were delivered yet.'
       })
       void loadDashboard()
     } catch (error) {

@@ -12,10 +12,6 @@ import type { Notice } from '../components/dashboard/types'
 type DiscoveryServer = DiscordServerPreferencesResponse['servers'][number]
 type InviteMember = DiscordServerMembersResponse['members'][number]
 
-function formatCountLabel(count: number, singular: string, plural: string) {
-  return `${count} ${count === 1 ? singular : plural}`
-}
-
 function AccountCard({
   session,
   discordEnabled,
@@ -75,56 +71,6 @@ function AccountCard({
           ) : null}
         </Stack>
       )}
-    </Card>
-  )
-}
-
-function DiscoveryGuideCard({
-  isSignedIn,
-  selectedDiscoveryServerCount,
-  addedFriendCount
-}: {
-  isSignedIn: boolean;
-  selectedDiscoveryServerCount: number;
-  addedFriendCount: number;
-}) {
-  return (
-    <Card variant="soft" sx={{ p: 3 }}>
-      <Stack spacing={1.25}>
-        <Typography level="title-lg">How discovery works</Typography>
-        <Stack spacing={1}>
-          <Sheet variant="outlined" sx={{ p: 1.25, borderRadius: 'md', backgroundColor: 'rgba(255, 255, 255, 0.02)' }}>
-            <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
-              1. Choose the Discord servers where Game Is Up should look for your friends and other players.
-            </Typography>
-          </Sheet>
-          <Sheet variant="outlined" sx={{ p: 1.25, borderRadius: 'md', backgroundColor: 'rgba(255, 255, 255, 0.02)' }}>
-            <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
-              2. Once those servers are selected, add the people you know as friends in Game Is Up.
-            </Typography>
-          </Sheet>
-        </Stack>
-        <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
-          Only people who also joined Game Is Up can be found here.
-        </Typography>
-        <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-          <Chip color={selectedDiscoveryServerCount > 0 ? 'primary' : 'neutral'} variant={selectedDiscoveryServerCount > 0 ? 'soft' : 'outlined'}>
-            {formatCountLabel(selectedDiscoveryServerCount, 'selected server', 'selected servers')}
-          </Chip>
-          <Chip color={addedFriendCount > 0 ? 'success' : 'neutral'} variant={addedFriendCount > 0 ? 'soft' : 'outlined'}>
-            {formatCountLabel(addedFriendCount, 'added friend', 'added friends')}
-          </Chip>
-        </Stack>
-        {isSignedIn ? (
-          <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
-            Choose the servers below, then add friends from the people Game Is Up finds there.
-          </Typography>
-        ) : (
-          <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
-            Sign in with Discord to choose servers and start finding people.
-          </Typography>
-        )}
-      </Stack>
     </Card>
   )
 }
@@ -497,7 +443,6 @@ function OverviewViewContent({
   isSignedIn,
   discordBotInstallUrl,
   availableDiscoveryServers,
-  addedFriendCount,
   hasSyncedDiscordServers,
   serverPreferencePendingId,
   onLogout,
@@ -529,7 +474,6 @@ function OverviewViewContent({
   isSignedIn: boolean;
   discordBotInstallUrl: string | null;
   availableDiscoveryServers: DiscoveryServer[];
-  addedFriendCount: number;
   hasSyncedDiscordServers: boolean;
   serverPreferencePendingId: string | null;
   onLogout: () => Promise<void>;
@@ -555,8 +499,6 @@ function OverviewViewContent({
   onShareInvite: () => Promise<void>;
   inviteSendSummary: SendDiscordServerInvitesResponse | null;
 }) {
-  const selectedDiscoveryServerCount = availableDiscoveryServers.filter((server) => server.selected).length
-
   return (
     <Stack spacing={3}>
       <AccountCard
@@ -567,11 +509,6 @@ function OverviewViewContent({
         onDiscordLogin={onDiscordLogin}
       />
       <QuickStartCard />
-      <DiscoveryGuideCard
-        isSignedIn={isSignedIn}
-        selectedDiscoveryServerCount={selectedDiscoveryServerCount}
-        addedFriendCount={addedFriendCount}
-      />
 
       {isSignedIn ? (
         <DiscoveryServersSection

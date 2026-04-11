@@ -80,7 +80,7 @@ export function useDashboardLibrary({
   currentUsualAvailability: string | null;
   browserTimeZoneId: string | null;
   loadDashboard: () => Promise<void>;
-  updateProfile: (profilePatch: { usualAvailability?: string; timezoneId?: string }) => Promise<UserProfileResponse>;
+  updateProfile: (profilePatch: { usualAvailability?: string; timezoneId?: string; discordAutoPromptPlayIntent?: boolean }) => Promise<UserProfileResponse>;
   applyProfileUpdate: (profile: UserProfileResponse) => void;
   setActionNotice: Dispatch<SetStateAction<Notice | null>>;
   setProfileNotice: Dispatch<SetStateAction<Notice | null>>;

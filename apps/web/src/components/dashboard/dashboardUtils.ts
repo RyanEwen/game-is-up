@@ -5,7 +5,8 @@ export const dashboardTabPaths: Record<DashboardTab, string> = {
   overview: '/',
   discovery: '/discovery',
   library: '/library',
-  play: '/play'
+  play: '/play',
+  debug: '/debug'
 }
 
 export const minimumPlayIntentDurationMinutes = 15
@@ -65,6 +66,8 @@ export function getDashboardTabFromPathname(pathname: string): DashboardTab | nu
       return 'library'
     case dashboardTabPaths.play:
       return 'play'
+    case dashboardTabPaths.debug:
+      return 'debug'
     default:
       return null
   }

@@ -21,7 +21,8 @@ const dashboardTabs: Array<{ value: DashboardTab; label: string }> = [
   { value: 'overview', label: 'Overview' },
   { value: 'library', label: 'Library' },
   { value: 'discovery', label: 'Discover' },
-  { value: 'play', label: 'Play' }
+  { value: 'play', label: 'Play' },
+  { value: 'debug', label: 'Debug' }
 ]
 
 export const DashboardLayout = ({
@@ -30,6 +31,7 @@ export const DashboardLayout = ({
   installPrompt,
   toastNotices,
   onboarding,
+  showDebugTab,
   tabsAnchorRef,
   children
 }: {
@@ -42,9 +44,12 @@ export const DashboardLayout = ({
   };
   toastNotices: DashboardToast[];
   onboarding?: ReactNode;
+  showDebugTab: boolean;
   tabsAnchorRef: RefObject<HTMLDivElement>;
   children: ReactNode;
 }) => {
+  const visibleTabs = showDebugTab ? dashboardTabs : dashboardTabs.filter((tab) => tab.value !== 'debug')
+
   return (
     <CssVarsProvider theme={theme} defaultMode="dark">
       <CssBaseline />
@@ -233,7 +238,7 @@ export const DashboardLayout = ({
                 boxShadow: 'lg'
               }}
             >
-              {dashboardTabs.map((tab) => (
+              {visibleTabs.map((tab) => (
                 <Tab key={tab.value} value={tab.value} sx={dashboardTabSx}>
                   {tab.label}
                 </Tab>

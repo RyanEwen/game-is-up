@@ -8,6 +8,7 @@ import {
 import { DashboardProvider } from './contexts/DashboardContext'
 import { useDashboardContext } from './contexts/useDashboardContext'
 import { DiscoveryView } from './pages/DiscoveryView'
+import { DebugView } from './pages/DebugView'
 import { LibraryView } from './pages/LibraryView'
 import { OverviewView } from './pages/OverviewView'
 import { PlayView } from './pages/PlayView'
@@ -24,7 +25,8 @@ function DashboardAppShell() {
   const location = useLocation()
   const navigate = useNavigate()
   const { layoutProps } = useDashboardContext()
-  const activeTab = getDashboardTabFromPathname(location.pathname) ?? 'overview'
+  const requestedTab = getDashboardTabFromPathname(location.pathname)
+  const activeTab = requestedTab === 'debug' && !layoutProps.showDebugView ? 'overview' : (requestedTab ?? 'overview')
   const tabsAnchorRef = useRef<HTMLDivElement | null>(null)
 
   return (
@@ -34,6 +36,7 @@ function DashboardAppShell() {
       installPrompt={layoutProps.installPrompt}
       toastNotices={layoutProps.toastNotices}
       onboarding={layoutProps.onboarding}
+      showDebugTab={layoutProps.showDebugView}
       tabsAnchorRef={tabsAnchorRef}
     >
       <ScrollReset tabsAnchorRef={tabsAnchorRef} />
@@ -54,6 +57,10 @@ function DashboardAppShell() {
         <Route
           path={dashboardTabPaths.discovery}
           element={<DiscoveryView />}
+        />
+        <Route
+          path={dashboardTabPaths.debug}
+          element={layoutProps.showDebugView ? <DebugView /> : <Navigate to={dashboardTabPaths.overview} replace />}
         />
         <Route path="*" element={<Navigate to={dashboardTabPaths.overview} replace />} />
       </Routes>

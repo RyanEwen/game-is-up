@@ -45,10 +45,12 @@ profileRouter.put('/me', async (request, response, next) => {
       },
       select: {
         timezoneId: true,
-        usualAvailability: true
+        usualAvailability: true,
+        discordAutoPromptPlayIntent: true
       },
       data: {
         usualAvailability,
+        ...(payload.discordAutoPromptPlayIntent != null ? { discordAutoPromptPlayIntent: payload.discordAutoPromptPlayIntent } : {}),
         ...(timezoneId ? { timezoneId } : {})
       }
     })

@@ -15,7 +15,7 @@ import {
   markDiscordGuildSync,
   upsertDiscordUser
 } from '../lib/discord-auth.js'
-import { getDiscordPresenceBotState } from '../lib/discord-presence-bot.js'
+import { getDiscordPresenceBotState } from '../lib/discord-bot-runtime.js'
 import { ensureDevelopmentSampleFriends } from '../lib/dev-sample-network.js'
 import { syncDiscordServersForUser } from '../lib/discord-servers.js'
 import { env } from '../lib/env.js'
@@ -202,7 +202,8 @@ authRouter.get('/me', async (request, response) => {
       avatarUrl: true,
       email: true,
       timezoneId: true,
-      usualAvailability: true
+      usualAvailability: true,
+      discordAutoPromptPlayIntent: true
     }
   })
 

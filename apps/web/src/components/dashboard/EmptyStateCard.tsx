@@ -7,7 +7,7 @@ export function EmptyStateCard({
 }: {
   title: string;
   body: string;
-  chips: string[];
+  chips?: string[];
 }) {
   return (
     <Card
@@ -23,13 +23,15 @@ export function EmptyStateCard({
         <Typography level="body-md" sx={{ color: 'neutral.300' }}>
           {body}
         </Typography>
-        <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-          {chips.map((chip) => (
-            <Chip key={chip} variant="outlined" color="neutral">
-              {chip}
-            </Chip>
-          ))}
-        </Stack>
+        {chips && chips.length > 0 ? (
+          <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+            {chips.map((chip) => (
+              <Chip key={chip} variant="outlined" color="neutral">
+                {chip}
+              </Chip>
+            ))}
+          </Stack>
+        ) : null}
       </Stack>
     </Card>
   )

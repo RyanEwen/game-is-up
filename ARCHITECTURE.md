@@ -41,6 +41,8 @@ Play intents can notify either explicit friends only, a specific hand-picked set
 
 The scheduling model uses an explicit start and end window so the same aggregate supports both live-now calls to play and scheduled future sessions without a second entity type.
 
+Discord activity observations can also drive a secondary auto-prompt flow: when the presence bot sees a user start a game, the API can persist a prompt record, DM that user through the bot, and create a normal play intent if the user accepts.
+
 Discord presence tracking now also maintains a lossy observed-game history keyed by Discord identity rather than only by app user. That lets the library API return suggested games based on titles the bot has seen the user playing, while still allowing non-members to contribute to the raw observation set.
 
 ## Repository guidance

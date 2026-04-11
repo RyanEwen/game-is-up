@@ -69,7 +69,7 @@ Optional: set `VITE_PUBLIC_APP_URL` when you want in-app invites to point at a p
 
 Optional: set `VITE_API_BASE_URL` to an explicit origin if the web app should call an API on a different host. Leave it empty when the app is served behind a reverse proxy on the same origin.
 
-The dashboard uses route-backed tabs, so the main views live at `/`, `/library`, `/discovery`, and `/play`. Discord sign-in now preserves same-origin return URLs so a user can authenticate and land back on the view they started from.
+The dashboard uses route-backed tabs, so the main views live at `/`, `/library`, `/discovery`, and `/play`. In local development, a dev-only `/debug` tab is also available for bot, prompt, and notification diagnostics. Discord sign-in now preserves same-origin return URLs so a user can authenticate and land back on the view they started from.
 
 For a clean local reset plus startup in one command, run:
 
@@ -170,9 +170,11 @@ This repo now treats Prisma migrations as the source of truth for schema changes
 7. Optional: set `DISCORD_BOT_TOKEN`, install the bot in shared Discord servers, and enable the Presence Intent in the Discord developer portal if you want lossy recording of currently played Discord games.
 8. Bot-based activity tracking only records activity while the bot is online and present in a shared server, so it should be treated as opportunistic rather than authoritative history.
 9. If you want the app to browse every member in a selected Discord server for invite targeting, the bot also needs the Server Members intent enabled in the Discord developer portal.
-10. Discovery-based play-intent visibility can now include both explicit friends and users from the Discord servers you opted into discovery.
-11. Discord is the only sign-in path in this scaffold.
-12. On Android, Discord sign-in opens in the system browser and returns to the app through the `gameisup://auth` deep link. For local development, keep `adb reverse` active so the installed app can still reach the local API while completing sign-in.
+10. When a call to play matches someone who should be notified and that user has a linked Discord account, the bot can DM them directly.
+11. Users can leave a Play page setting on by default so the bot can DM them after it sees them start a game and offer to create a call to play straight from Discord. Those prompts only go out when there is no active call already and at least one visible overlap could receive it.
+12. Discovery-based play-intent visibility can now include both explicit friends and users from the Discord servers you opted into discovery.
+13. Discord is the only sign-in path in this scaffold.
+14. On Android, Discord sign-in opens in the system browser and returns to the app through the `gameisup://auth` deep link. For local development, keep `adb reverse` active so the installed app can still reach the local API while completing sign-in.
 
 ## Game catalog provider
 

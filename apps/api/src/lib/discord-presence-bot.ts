@@ -1,16 +1,14 @@
 import { ActivityType, Client, Events, GatewayIntentBits, type Presence } from 'discord.js'
 import { DiscordActivityType } from '@prisma/client'
+import {
+  discordPresenceBotState,
+  getDiscordBotClient,
+  setDiscordBotClient,
+  syncDiscordPresenceBotGuildIds
+} from './discord-bot-runtime.js'
+import { handleDiscordAutoPlayPromptInteraction } from './discord-auto-play-prompts.js'
 import { recordDiscordPresence } from './discord-activity.js'
 import { env } from './env.js'
-
-type DiscordPresenceBotState = {
-  configured: boolean;
-  connected: boolean;
-  guildIds: string[];
-  userTag: string | null;
-  lastReadyAt: string | null;
-  lastError: string | null;
-};
 
 type DiscordGuildMemberSummary = {
   id: string;
@@ -33,26 +31,11 @@ type DiscordGuildMemberCacheEntry = {
   members: DiscordGuildMemberSummary[];
   fetchedAt: number;
 };
-
-const state: DiscordPresenceBotState = {
-  configured: Boolean(env.DISCORD_BOT_TOKEN),
-  connected: false,
-  guildIds: [],
-  userTag: null,
-  lastReadyAt: null,
-  lastError: null
-}
-
-let client: Client | null = null
 let started = false
 const guildMemberCacheTtlMs = 2 * 60 * 1000
 const guildMemberCache = new Map<string, DiscordGuildMemberCacheEntry>()
 const guildMemberRequests = new Map<string, Promise<DiscordGuildMemberCacheEntry>>()
 const guildMemberCooldowns = new Map<string, number>()
-
-function syncGuildIds() {
-  state.guildIds = client ? [...client.guilds.cache.keys()] : []
-}
 
 function invalidateGuildMemberCache(serverId: string) {
   guildMemberCache.delete(serverId)
@@ -116,6 +99,7 @@ async function fetchDiscordGuildMembers(serverId: string): Promise<DiscordGuildM
   }
 
   const request = (async () => {
+    const client = getDiscordBotClient()
     const guild = client?.guilds.cache.get(serverId) ?? await client?.guilds.fetch(serverId)
 
     if (!guild) {
@@ -185,13 +169,6 @@ async function handlePresenceUpdate(presence: Presence) {
   }
 }
 
-export function getDiscordPresenceBotState() {
-  return {
-    ...state,
-    guildCount: state.guildIds.length
-  }
-}
-
 export async function listDiscordGuildMembers(serverId: string): Promise<{
   serverId: string;
   serverName: string;
@@ -201,7 +178,7 @@ export async function listDiscordGuildMembers(serverId: string): Promise<{
     throw new Error('Discord member browsing needs the bot to be configured.')
   }
 
-  if (!client || !state.connected) {
+  if (!getDiscordBotClient() || !discordPresenceBotState.connected) {
     throw new Error('Discord member browsing is unavailable because the bot is not connected.')
   }
 
@@ -250,7 +227,9 @@ export async function sendDiscordGuildInvites(options: {
     throw new Error('Discord invite sending needs the bot to be configured.')
   }
 
-  if (!client || !state.connected) {
+  const client = getDiscordBotClient()
+
+  if (!client || !discordPresenceBotState.connected) {
     throw new Error('Discord invite sending is unavailable because the bot is not connected.')
   }
 
@@ -323,17 +302,18 @@ export async function startDiscordPresenceBot() {
     return
   }
 
-  client = new Client({
+  const client = new Client({
     intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildPresences, GatewayIntentBits.GuildMembers]
   })
+  setDiscordBotClient(client)
 
   client.once(Events.ClientReady, () => {
-    state.connected = true
-    state.userTag = client?.user?.tag ?? null
-    state.lastReadyAt = new Date().toISOString()
-    state.lastError = null
-    syncGuildIds()
-    console.log(`Discord presence bot connected as ${state.userTag ?? 'unknown-user'} across ${state.guildIds.length} guild(s).`)
+    discordPresenceBotState.connected = true
+    discordPresenceBotState.userTag = client.user?.tag ?? null
+    discordPresenceBotState.lastReadyAt = new Date().toISOString()
+    discordPresenceBotState.lastError = null
+    syncDiscordPresenceBotGuildIds()
+    console.log(`Discord presence bot connected as ${discordPresenceBotState.userTag ?? 'unknown-user'} across ${discordPresenceBotState.guildIds.length} guild(s).`)
   })
 
   client.on('presenceUpdate', (_oldPresence, newPresence) => {
@@ -341,11 +321,11 @@ export async function startDiscordPresenceBot() {
   })
 
   client.on('guildCreate', () => {
-    syncGuildIds()
+    syncDiscordPresenceBotGuildIds()
   })
 
   client.on('guildDelete', (guild) => {
-    syncGuildIds()
+    syncDiscordPresenceBotGuildIds()
     invalidateGuildMemberCache(guild.id)
   })
 
@@ -357,20 +337,28 @@ export async function startDiscordPresenceBot() {
     invalidateGuildMemberCache(member.guild.id)
   })
 
+  client.on(Events.InteractionCreate, (interaction) => {
+    if (!interaction.isButton() || !interaction.customId.startsWith('auto-play:')) {
+      return
+    }
+
+    void handleDiscordAutoPlayPromptInteraction(interaction)
+  })
+
   client.on('shardDisconnect', () => {
-    state.connected = false
+    discordPresenceBotState.connected = false
   })
 
   client.on('error', (error) => {
-    state.lastError = error.message
+    discordPresenceBotState.lastError = error.message
     console.error('Discord presence bot error', error)
   })
 
   try {
     await client.login(env.DISCORD_BOT_TOKEN)
   } catch (error) {
-    state.connected = false
-    state.lastError = error instanceof Error ? error.message : 'Unknown Discord bot login error'
+    discordPresenceBotState.connected = false
+    discordPresenceBotState.lastError = error instanceof Error ? error.message : 'Unknown Discord bot login error'
     console.error('Discord presence bot failed to start', error)
   }
 }

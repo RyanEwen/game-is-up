@@ -105,7 +105,7 @@ function DiscoveryViewContent({
             }
             chips={
               noDiscoveryServersSelected
-                ? ['Enable a Discord server', 'Mutual users are hidden', 'Discovery is filtered']
+                ? undefined
                 : isSignedIn
                   ? ['Library drives overlap', 'Discovery servers filter visibility', 'Friends stay visible too']
                   : ['Game-first overlap', 'People per game', 'Demo data seeded']

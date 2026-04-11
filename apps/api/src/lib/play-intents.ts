@@ -6,12 +6,15 @@ import type {
   UpsertPlayIntentResponse
 } from '@game-is-up/shared'
 import {
+  AuthProvider,
   GameIntentType,
   NotificationType,
   PlayIntentScope,
   PlayIntentSelectionMode as PrismaPlayIntentSelectionMode
 } from '@prisma/client'
 import { getMutualDiscoveryAudienceUserIds } from './discord-servers.js'
+import { sendDiscordDirectMessages } from './discord-bot-runtime.js'
+import { env } from './env.js'
 import { prisma } from './prisma.js'
 
 export class PlayIntentValidationError extends Error {}
@@ -149,6 +152,18 @@ function dedupePlatformLabels(platformLabels: string[]) {
     .sort((left, right) => left.localeCompare(right))
 }
 
+function buildPlayIntentNotificationUrl(): string {
+  try {
+    return new URL('/play', env.CLIENT_ORIGIN).toString()
+  } catch {
+    return env.CLIENT_ORIGIN
+  }
+}
+
+function buildPlayIntentDirectMessage(title: string, body: string): string {
+  return `**${title}**\n${body}\n\nOpen Game Is Up: ${buildPlayIntentNotificationUrl()}`
+}
+
 function resolvePlayIntentWindow(payload: UpsertPlayIntentRequest, now: Date) {
   const startsAt = payload.startAt ? new Date(payload.startAt) : now
 
@@ -279,6 +294,24 @@ async function getRecipientUserIds(
   })
 
   return overlappingRecipients.map((entry) => entry.userId)
+}
+
+export async function getPlayIntentRecipientUserIds(
+  userId: string,
+  scope: PlayIntentNotifyScope,
+  overlappingGameIds: string[],
+  targetUserIds: string[] = []
+) {
+  const explicitFriendUserIds = (await prisma.friend.findMany({
+    where: {
+      userId
+    },
+    select: {
+      friendedUserId: true
+    }
+  })).map((friend) => friend.friendedUserId)
+
+  return getRecipientUserIds(userId, scope, overlappingGameIds, explicitFriendUserIds, targetUserIds)
 }
 
 async function getPlayableLibraryEntries(userId: string) {
@@ -437,6 +470,7 @@ export async function upsertCurrentPlayIntent(
   const note = payload.note?.trim() ?? ''
 
   let activeIntent: ActivePlayIntent | null = null
+  let createdNotifications: Array<{ id: string; userId: string; title: string; body: string }> = []
 
   await prisma.$transaction(async (transaction) => {
     await transaction.playIntent.updateMany({
@@ -486,20 +520,88 @@ export async function upsertCurrentPlayIntent(
     })
 
     if (recipientUserIds.length > 0) {
-      await transaction.notification.createMany({
-        data: recipientUserIds.map((recipientUserId) => ({
-          userId: recipientUserId,
-          triggeredByUserId: userId,
-          gameId: payload.selectionMode === 'subset' ? selectedGameIds[0] : null,
-          type: NotificationType.FRIEND_PLAYING,
-          title,
-          body
+      createdNotifications = await Promise.all(
+        recipientUserIds.map((recipientUserId) => transaction.notification.create({
+          data: {
+            userId: recipientUserId,
+            triggeredByUserId: userId,
+            gameId: payload.selectionMode === 'subset' ? selectedGameIds[0] : null,
+            type: NotificationType.FRIEND_PLAYING,
+            title,
+            body
+          },
+          select: {
+            id: true,
+            userId: true,
+            title: true,
+            body: true
+          }
         }))
-      })
+      )
     }
 
     activeIntent = serializeActivePlayIntent(createdIntent)
   })
+
+  let deliveredNotificationCount = 0
+
+  if (createdNotifications.length > 0) {
+    const recipientIdentities = await prisma.userIdentity.findMany({
+      where: {
+        provider: AuthProvider.DISCORD,
+        userId: {
+          in: createdNotifications.map((notification) => notification.userId)
+        }
+      },
+      select: {
+        userId: true,
+        providerUserId: true
+      }
+    })
+    const discordUserIdByUserId = new Map(recipientIdentities.map((identity) => [identity.userId, identity.providerUserId]))
+    const directMessageTargets = createdNotifications
+      .map((notification) => {
+        const discordUserId = discordUserIdByUserId.get(notification.userId)
+
+        if (!discordUserId) {
+          return null
+        }
+
+        return {
+          notificationId: notification.id,
+          discordUserId,
+          content: buildPlayIntentDirectMessage(notification.title, notification.body)
+        }
+      })
+      .filter((target): target is { notificationId: string; discordUserId: string; content: string } => target != null)
+
+    if (directMessageTargets.length > 0) {
+      const dmResults = await sendDiscordDirectMessages(
+        directMessageTargets.map((target) => ({
+          discordUserId: target.discordUserId,
+          content: target.content
+        }))
+      )
+      const deliveredNotificationIds = directMessageTargets
+        .filter((target) => dmResults.some((result) => result.discordUserId === target.discordUserId && result.status === 'sent'))
+        .map((target) => target.notificationId)
+
+      deliveredNotificationCount = deliveredNotificationIds.length
+
+      if (deliveredNotificationIds.length > 0) {
+        await prisma.notification.updateMany({
+          where: {
+            id: {
+              in: deliveredNotificationIds
+            }
+          },
+          data: {
+            deliveredAt: new Date()
+          }
+        })
+      }
+    }
+  }
 
   if (!activeIntent) {
     throw new PlayIntentValidationError('Unable to save your call to play right now.')
@@ -507,6 +609,6 @@ export async function upsertCurrentPlayIntent(
 
   return {
     activeIntent,
-    notifiedFriendCount: recipientUserIds.length
+    notifiedFriendCount: deliveredNotificationCount
   }
 }

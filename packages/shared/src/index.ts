@@ -349,25 +349,100 @@ export const authenticatedUserSchema = z.object({
   email: z.string().email().nullable(),
   timezoneId: timezoneIdSchema,
   usualAvailability: z.string().nullable(),
+  discordAutoPromptPlayIntent: z.boolean(),
   authProvider: authProviderSchema
 })
 
 export const userProfileSchema = z.object({
   timezoneId: timezoneIdSchema,
-  usualAvailability: z.string().nullable()
+  usualAvailability: z.string().nullable(),
+  discordAutoPromptPlayIntent: z.boolean()
 })
 
 export const userProfileResponseSchema = userProfileSchema
 
 export const updateUserProfileRequestSchema = z.object({
   timezoneId: timezoneIdSchema.optional(),
-  usualAvailability: z.string().trim().max(80).optional()
+  usualAvailability: z.string().trim().max(80).optional(),
+  discordAutoPromptPlayIntent: z.boolean().optional()
 })
 
 export const authSessionResponseSchema = z.object({
   authenticated: z.boolean(),
   user: authenticatedUserSchema.nullable(),
   discordGraph: discordGraphCapabilitiesSchema.nullable()
+})
+
+export const debugDiscordBotStateSchema = z.object({
+  configured: z.boolean(),
+  connected: z.boolean(),
+  guildIds: z.array(z.string().min(1)),
+  guildCount: z.number().int().nonnegative(),
+  userTag: z.string().nullable(),
+  lastReadyAt: z.string().datetime().nullable(),
+  lastError: z.string().nullable()
+})
+
+export const debugAutoPlayPromptStatusSchema = z.enum([
+  'sent',
+  'skipped',
+  'failed',
+  'accepted',
+  'declined',
+  'expired'
+])
+
+export const debugAutoPlayPromptSchema = z.object({
+  id: z.string().uuid(),
+  createdAt: z.string().datetime(),
+  deliveredAt: z.string().datetime().nullable(),
+  respondedAt: z.string().datetime().nullable(),
+  status: debugAutoPlayPromptStatusSchema,
+  statusDetail: z.string().nullable(),
+  dmError: z.string().nullable(),
+  durationMinutes: z.number().int().positive().nullable(),
+  notifyScope: playIntentNotifyScopeSchema.nullable(),
+  friendRecipientCount: z.number().int().nonnegative(),
+  networkRecipientCount: z.number().int().nonnegative(),
+  sourceServerName: z.string().nullable(),
+  observationStartedAt: z.string().datetime().nullable(),
+  createdPlayIntentId: z.string().uuid().nullable(),
+  user: z.object({
+    id: z.string().uuid(),
+    handle: z.string().min(2).max(32),
+    displayName: z.string().min(2).max(60),
+    discordAutoPromptPlayIntent: z.boolean()
+  }),
+  game: z.object({
+    id: z.string().uuid(),
+    title: z.string().min(1)
+  })
+})
+
+export const debugNotificationDeliverySchema = z.object({
+  id: z.string().uuid(),
+  createdAt: z.string().datetime(),
+  deliveredAt: z.string().datetime().nullable(),
+  title: z.string().min(1),
+  body: z.string().min(1),
+  gameTitle: z.string().nullable(),
+  recipient: z.object({
+    id: z.string().uuid(),
+    handle: z.string().min(2).max(32),
+    displayName: z.string().min(2).max(60)
+  }),
+  triggeredBy: z.object({
+    id: z.string().uuid(),
+    handle: z.string().min(2).max(32),
+    displayName: z.string().min(2).max(60)
+  }).nullable()
+})
+
+export const debugAdminResponseSchema = z.object({
+  generatedAt: z.string().datetime(),
+  bot: debugDiscordBotStateSchema,
+  recentAutoPlayPrompts: z.array(debugAutoPlayPromptSchema),
+  recentNotifications: z.array(debugNotificationDeliverySchema)
 })
 
 export const clientBootstrapSchema = z.object({
@@ -437,5 +512,10 @@ export type UserProfile = z.infer<typeof userProfileSchema>;
 export type UserProfileResponse = z.infer<typeof userProfileResponseSchema>;
 export type UpdateUserProfileRequest = z.infer<typeof updateUserProfileRequestSchema>;
 export type AuthSessionResponse = z.infer<typeof authSessionResponseSchema>;
+export type DebugDiscordBotState = z.infer<typeof debugDiscordBotStateSchema>;
+export type DebugAutoPlayPromptStatus = z.infer<typeof debugAutoPlayPromptStatusSchema>;
+export type DebugAutoPlayPrompt = z.infer<typeof debugAutoPlayPromptSchema>;
+export type DebugNotificationDelivery = z.infer<typeof debugNotificationDeliverySchema>;
+export type DebugAdminResponse = z.infer<typeof debugAdminResponseSchema>;
 export type ClientBootstrap = z.infer<typeof clientBootstrapSchema>;
 export type ServerEnv = z.infer<typeof serverEnvSchema>;
