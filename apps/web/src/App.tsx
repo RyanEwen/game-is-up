@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { DashboardLayout } from './components/dashboard/DashboardLayout'
 import {
@@ -32,6 +33,7 @@ function DashboardAppShell() {
       toastNotices={layoutProps.toastNotices}
       onboarding={layoutProps.onboarding}
     >
+      <ScrollReset />
       <Routes>
         <Route
           path={dashboardTabPaths.overview}
@@ -54,4 +56,14 @@ function DashboardAppShell() {
       </Routes>
     </DashboardLayout>
   )
+}
+
+function ScrollReset() {
+  const { pathname } = useLocation()
+
+  useEffect(() => {
+    window.scrollTo(0, 0)
+  }, [pathname])
+
+  return null
 }
