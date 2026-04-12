@@ -172,7 +172,8 @@ export const playIntentNotifyScopeSchema = z.enum(['discovery-and-friends', 'fri
 export const playIntentGameSchema = z.object({
   id: z.string().uuid(),
   title: z.string().min(1),
-  platform: z.string().min(1)
+  platform: z.string().min(1),
+  coverUrl: z.string().url().nullable()
 })
 
 export const playIntentPreviewUserSchema = z.object({

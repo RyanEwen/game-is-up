@@ -81,17 +81,14 @@ export function LibraryEntryCard({
             <Chip size="sm" variant="soft" color="primary">
               {formatLibraryIntentLabel(entry.intent)}
             </Chip>
-            {entry.availability && entry.availabilitySource === 'game-specific' ? (
-              <AvailabilityChip availability={entry.availability} availabilitySource={entry.availabilitySource} showInherited={false} />
-            ) : null}
-          </Stack>
-
-          <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
             {entry.platformLabels.map((platformLabel) => (
               <Chip key={platformLabel} size="sm" variant="outlined" color="neutral">
                 {platformLabel}
               </Chip>
             ))}
+            {entry.availability && entry.availabilitySource === 'game-specific' ? (
+              <AvailabilityChip availability={entry.availability} availabilitySource={entry.availabilitySource} showInherited={false} />
+            ) : null}
           </Stack>
         </Stack>
 

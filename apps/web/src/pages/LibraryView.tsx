@@ -915,8 +915,7 @@ function LibraryViewContent({
     return (
       <EmptyStateCard
         title="Sign in to build your library"
-        body="Library management becomes available after Discord sign-in. Once you are signed in, this tab is where you add games manually, connect Steam for selective import, and manage schedule defaults."
-        chips={['Discord sign-in', 'Steam import', 'Library drives overlap']}
+        body="Library management becomes available after Discord sign-in. Once you are signed in, this tab is where you add games manually, import from Steam, and manage schedule defaults."
       />
     )
   }
@@ -927,12 +926,12 @@ function LibraryViewContent({
         <Box>
           <Typography level="h2">Your library</Typography>
           <Typography level="body-md" sx={{ color: 'neutral.300', mt: 0.5 }}>
-            Add a few games to your library so discovery, friends, and play-intent matching have something real to work from.
+            Add games to your library to be able to discover others who share your interests.
           </Typography>
         </Box>
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
           <Button color="primary" variant="outlined" onClick={() => void onOpenSteamImport()}>
-            Add games from Steam
+            Import from Steam
           </Button>
           <Button color="primary" onClick={openLibraryEditor}>
             Add game to library
@@ -1015,8 +1014,7 @@ function LibraryViewContent({
       ) : (
         <EmptyStateCard
           title="Your library is still empty"
-          body="Add two or three games you care about, or pull in a hand-picked batch from Steam. That is enough to start populating overlap and make friends useful."
-          chips={['Steam import', 'Multi-platform flags', 'Discovery updates after save']}
+          body="Add or import the games you care about."
         />
       )}
     </Stack>

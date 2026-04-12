@@ -81,39 +81,36 @@ function QuickStartCard() {
       <Stack spacing={1.5}>
         <Box>
           <Typography level="title-lg">Quick start</Typography>
-          <Typography level="body-sm" sx={{ color: 'neutral.300', mt: 0.75 }}>
-            Set things up once, then use the overview to move from overlap to an actual game plan.
-          </Typography>
         </Box>
         <Stack spacing={1}>
           <Sheet variant="outlined" sx={{ p: 1.5, borderRadius: 'md', backgroundColor: 'rgba(255, 255, 255, 0.02)' }}>
             <Typography level="title-sm">1. Sign in</Typography>
             <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
-              Connect your Discord account so Game Is Up can load the servers you share with other people.
+              Connect your Discord account so Game Is Up can find other people.
             </Typography>
           </Sheet>
           <Sheet variant="outlined" sx={{ p: 1.5, borderRadius: 'md', backgroundColor: 'rgba(255, 255, 255, 0.02)' }}>
             <Typography level="title-sm">2. Pick servers</Typography>
             <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
-              Choose the Discord servers where Game Is Up should look for your friends and other players. If one is missing, invite the bot there first.
+              Choose the Discord servers where your friends and other players are. If one is missing, invite the bot there first.
             </Typography>
           </Sheet>
           <Sheet variant="outlined" sx={{ p: 1.5, borderRadius: 'md', backgroundColor: 'rgba(255, 255, 255, 0.02)' }}>
             <Typography level="title-sm">3. Build your library</Typography>
             <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
-              Add a few games to your library so overlap has something to match against.
+              Add games to your library so that you can be matched with other players.
             </Typography>
           </Sheet>
           <Sheet variant="outlined" sx={{ p: 1.5, borderRadius: 'md', backgroundColor: 'rgba(255, 255, 255, 0.02)' }}>
             <Typography level="title-sm">4. Add friends</Typography>
             <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
-              Browse the people Game Is Up finds from those servers, then add the friends you want to keep track of.
+              Browse the people in your network, then add the friends you want to keep track of most.
             </Typography>
           </Sheet>
           <Sheet variant="outlined" sx={{ p: 1.5, borderRadius: 'md', backgroundColor: 'rgba(255, 255, 255, 0.02)' }}>
             <Typography level="title-sm">5. Send a call to play</Typography>
             <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
-              Start a play call, or ask the bot to message selected people from a shared server.
+              Let others know you're ready to play and invite them to join.
             </Typography>
           </Sheet>
         </Stack>
@@ -137,12 +134,12 @@ function DiscoveryServersSection({
 }) {
   return (
     <Stack spacing={2}>
-      <Typography level="h2">Discovery servers</Typography>
+      <Typography level="h2">Discord servers</Typography>
       <Typography level="body-md" sx={{ color: 'neutral.300' }}>
-        Choose where Game Is Up should look for your friends and other players.
+        Choose the servers where your friends and other players are.
       </Typography>
       <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
-        If a server is missing, invite the Game Is Up bot to it first. Once you select servers here, people from those servers who also joined Game Is Up can be found throughout the app.
+        If a server is missing, invite the Game Is Up bot to it first. Once you select servers here, people from those servers who also join Game Is Up form your network.
       </Typography>
       {discordBotInstallUrl ? (
         <Box>
@@ -179,8 +176,8 @@ function DiscoveryServersSection({
                   {serverPreferencePendingId === server.id
                     ? 'Saving...'
                     : server.selected
-                      ? 'Used to find people'
-                      : 'Use to find people'}
+                      ? 'Used to find others'
+                      : 'Use to find others'}
                 </Button>
               </Stack>
             </Card>
@@ -189,14 +186,12 @@ function DiscoveryServersSection({
       ) : hasSyncedServers ? (
         <EmptyStateCard
           title="No bot-enabled servers available"
-          body="Your Discord servers are synced, but none currently have the Game Is Up bot installed. Install the bot in one shared server to use server-based player finding and member invites."
-          chips={['Bot required for discovery', 'Synced memberships found', 'Install bot in a shared server']}
+          body="Your Discord servers are connected, but none currently have the Game Is Up bot installed. Install the bot in a shared server."
         />
       ) : (
         <EmptyStateCard
-          title="No Discord servers synced yet"
-          body="Your current session does not have any synced Discord server memberships yet. Sign out and sign back in with Discord to grant server access and refresh the list."
-          chips={['Discord OAuth', 'Guild sync on sign-in', 'Discovery filters by selected servers']}
+          title="No Discord servers connected yet"
+          body="You do not have any connected Discord servers yet. Sign out and sign back in with Discord to grant server access and refresh the list."
         />
       )}
     </Stack>
@@ -252,7 +247,7 @@ function InviteUsersCard({
         <Box>
           <Typography level="title-lg">Invite people from selected servers</Typography>
           <Typography level="body-md" sx={{ color: 'neutral.300', mt: 0.75 }}>
-            Choose a server you use for discovery, then pick members for the bot to message.
+            Choose a server, then pick members for the bot to message.
           </Typography>
         </Box>
         {selectedDiscoveryServers.length > 0 ? (
@@ -361,7 +356,7 @@ function InviteUsersCard({
           </Stack>
         ) : (
           <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
-            Turn on at least one server where the bot is present to browse and target specific members.
+            Connect at least one server where the bot is present to browse and target specific members.
           </Typography>
         )}
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.25}>

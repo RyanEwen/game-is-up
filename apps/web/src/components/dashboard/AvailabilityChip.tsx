@@ -20,14 +20,20 @@ export function AvailabilityChip({
     return null
   }
 
+  const isGameSpecific = availabilitySource === 'game-specific'
   const label = availabilitySource === 'game-specific'
     ? compactGameSpecificLabel
       ? availability
-      : `This game: ${availability}`
+      : `Plays: ${availability}`
     : `Usually: ${availability}`
 
   return (
-    <Chip size="sm" variant="outlined" color="warning">
+    <Chip
+      size="sm"
+      variant="soft"
+      color={isGameSpecific ? 'primary' : 'neutral'}
+      sx={{ fontWeight: 'md' }}
+    >
       {label}
     </Chip>
   )

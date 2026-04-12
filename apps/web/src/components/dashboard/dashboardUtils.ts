@@ -43,7 +43,7 @@ export const discoveryGameGridSx = {
 
 export const memberGameGridSx = {
   display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))',
   gap: '12px'
 } as const
 

@@ -1,29 +1,25 @@
-import { Avatar, Chip, Divider, Dropdown, Menu, MenuButton, MenuItem, Stack, Typography } from '@mui/joy'
+import { Avatar, Divider, Dropdown, Menu, MenuButton, MenuItem, Stack, Typography } from '@mui/joy'
 import type { FriendTarget } from './types'
 
 const interactiveTriggerSx = {
-  px: 0.5,
-  py: 0.375,
-  minHeight: 'unset',
+  px: 0,
+  py: 0,
+  minHeight: 0,
   justifyContent: 'flex-start',
-  alignSelf: 'flex-start',
+  display: 'inline-flex',
+  alignItems: 'center',
+  lineHeight: 1,
   color: 'neutral.100',
   textAlign: 'left',
   borderRadius: 'sm',
   cursor: 'pointer',
-  transition: 'background-color 180ms ease, color 180ms ease, transform 180ms ease',
+  transition: 'color 180ms ease, transform 180ms ease',
   '&:hover': {
-    backgroundColor: 'rgba(87, 244, 193, 0.12)',
     color: 'primary.200',
-    transform: 'translateY(-1px)'
-  },
-  '&:hover .friend-trigger-name': {
+    transform: 'translateY(-1px)',
     textDecoration: 'underline',
     textDecorationColor: 'rgba(141, 255, 216, 0.85)',
     textUnderlineOffset: '0.18em'
-  },
-  '&:hover .friend-trigger-handle': {
-    backgroundColor: 'rgba(16, 106, 84, 0.7)'
   },
   '&:focus-visible': {
     outline: '2px solid',
@@ -55,28 +51,24 @@ export function FriendActionPopover({
 
   return (
     <Dropdown>
-      <MenuButton
-        variant="plain"
-        color="neutral"
-        sx={interactiveTriggerSx}
-      >
-        <Stack direction="row" spacing={1} alignItems="center">
-          <Avatar
-            src={target.avatarUrl ?? undefined}
-            alt={target.displayName}
-            size={large ? 'lg' : 'sm'}
-            variant="soft"
-          />
-          <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }} alignItems="center">
-            <Typography className="friend-trigger-name" level={large ? 'title-lg' : 'title-sm'}>
-              {target.displayName}
-            </Typography>
-            <Chip className="friend-trigger-handle" size="sm" variant="soft" color="primary">
-              @{handle}
-            </Chip>
-          </Stack>
-        </Stack>
-      </MenuButton>
+      <Stack direction="row" spacing={1} alignItems="center">
+        <Avatar
+          src={target.avatarUrl ?? undefined}
+          alt={target.displayName}
+          size={large ? 'lg' : 'sm'}
+          variant="soft"
+          sx={{ flexShrink: 0 }}
+        />
+        <MenuButton
+          variant="plain"
+          color="neutral"
+          sx={interactiveTriggerSx}
+        >
+          <Typography className="friend-trigger-name" level={large ? 'title-lg' : 'title-sm'} sx={{ lineHeight: 1.2, display: 'block' }}>
+            {target.displayName}
+          </Typography>
+        </MenuButton>
+      </Stack>
 
       <Menu placement="bottom-start" size="sm" sx={{ minWidth: 280, maxWidth: 320 }}>
         <MenuItem disabled sx={{ whiteSpace: 'normal', alignItems: 'flex-start', py: 1.25 }}>

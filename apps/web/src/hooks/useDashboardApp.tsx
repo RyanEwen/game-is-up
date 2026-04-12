@@ -209,6 +209,7 @@ export function useDashboardApp() {
   const steamConnected = Boolean(state.session?.connectedProviders.includes('steam'))
   const currentUsualAvailability = state.library?.usualAvailability ?? state.session?.user?.usualAvailability ?? null
   const libraryGameIds = new Set<string>(libraryEntries.map((entry) => entry.gameId))
+  const libraryEntryIdsByGameId = new Map<string, string>(libraryEntries.map((entry) => [entry.gameId, entry.id]))
 
   const toastNotices = [
     actionNotice
@@ -1022,10 +1023,13 @@ export function useDashboardApp() {
       noDiscoveryServersSelected,
       isSignedIn,
       libraryGameIds,
+      libraryEntryIdsByGameId,
       addingLibraryGameId,
+      removingLibraryEntryId: libraryViewProps.removingLibraryEntryId,
       friendPendingId,
       onToggleFriend: handleToggleFriend,
-      onAddGameToLibrary: openLibraryEditorForGame
+      onAddGameToLibrary: openLibraryEditorForGame,
+      onRemoveLibraryEntry: libraryViewProps.onRemoveLibraryEntry
     },
     debugViewProps: {
       isSignedIn,

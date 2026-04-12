@@ -15,6 +15,7 @@ import {
 import { getMutualDiscoveryAudienceUserIds } from './discord-servers.js'
 import { sendDiscordDirectMessages } from './discord-bot-runtime.js'
 import { env } from './env.js'
+import { toClientGameCoverUrl } from './game-media.js'
 import { prisma } from './prisma.js'
 
 export class PlayIntentValidationError extends Error {}
@@ -226,7 +227,7 @@ function serializeActivePlayIntent(intent: {
   windowEndsAt: Date;
   expiresAt: Date;
   platforms: { platformLabel: string }[];
-  games: { game: { id: string; title: string } }[];
+  games: { game: { id: string; title: string; coverUrl: string | null } }[];
   targetFriends: { friendUser: { id: string; handle: string; displayName: string; avatarUrl: string | null } }[];
 }): ActivePlayIntent {
   const primaryPlatform = intent.platforms[0]?.platformLabel ?? 'Unknown'
@@ -244,7 +245,8 @@ function serializeActivePlayIntent(intent: {
       .map((entry) => ({
         id: entry.game.id,
         title: entry.game.title,
-        platform: primaryPlatform
+        platform: primaryPlatform,
+        coverUrl: toClientGameCoverUrl(entry.game.coverUrl)
       }))
       .sort((left, right) => left.title.localeCompare(right.title)),
     note: intent.note,

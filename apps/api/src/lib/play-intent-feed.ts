@@ -1,6 +1,7 @@
 import type { PlayIntentFeed, PlayIntentPreview } from '@game-is-up/shared'
 import { GameIntentType, PlayIntentSelectionMode, PlayIntentScope } from '@prisma/client'
 import { getMutualDiscoveryAudienceUserIds } from './discord-servers.js'
+import { toClientGameCoverUrl } from './game-media.js'
 import { prisma } from './prisma.js'
 import { getViewer } from './demo-viewer.js'
 
@@ -116,8 +117,8 @@ export async function buildPlayIntentFeed(viewerId?: string | null): Promise<Pla
     }
   })
 
-  const previews: PlayIntentPreview[] = intents
-    .map((intent) => {
+  const previews = intents
+    .map<PlayIntentPreview | null>((intent) => {
       const isExplicitFriend = friendUserIds.includes(intent.userId)
       const isInDiscoveryAudience = discoveryAudienceUserIds.includes(intent.userId)
 
@@ -143,7 +144,8 @@ export async function buildPlayIntentFeed(viewerId?: string | null): Promise<Pla
         .map((entry) => ({
           id: entry.game.id,
           title: entry.game.title,
-          platform: intent.platforms[0]?.platformLabel ?? 'Unknown'
+          platform: intent.platforms[0]?.platformLabel ?? 'Unknown',
+          coverUrl: toClientGameCoverUrl(entry.game.coverUrl)
         }))
         .sort((left, right) => left.title.localeCompare(right.title))
 

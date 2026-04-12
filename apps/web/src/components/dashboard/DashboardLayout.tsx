@@ -3,7 +3,6 @@ import {
   Alert,
   Box,
   Button,
-  Chip,
   CssBaseline,
   Sheet,
   Stack,
@@ -207,7 +206,7 @@ export const DashboardLayout = ({
           >
             <Stack spacing={2}>
               <Stack
-                direction={{ xs: 'column', sm: 'row' }}
+                direction="row"
                 spacing={{ xs: 2, sm: 2.5 }}
                 sx={{ alignItems: { xs: 'flex-start', sm: 'center' }, width: '100%' }}
               >
@@ -255,16 +254,13 @@ export const DashboardLayout = ({
                 </Box>
                 <Stack spacing={1.25} sx={{ minWidth: 0, flex: 1 }}>
                   <Stack
-                    direction={{ xs: 'column', md: 'row' }}
+                    direction="row"
                     spacing={1.5}
-                    sx={{ alignItems: { xs: 'flex-start', md: 'center' } }}
+                    sx={{ alignItems: 'center' }}
                   >
                     <Typography level="h1" sx={{ fontSize: { xs: '2.4rem', md: '4rem' } }}>
                       Game Is Up
                     </Typography>
-                    <Chip size="lg" color="primary" variant="soft" sx={{ alignSelf: { xs: 'flex-start', md: 'center' } }}>
-                      Beta
-                    </Chip>
                   </Stack>
                   <Typography level="body-lg" sx={{ color: 'neutral.200', maxWidth: 'none' }}>
                     Build your library, find others who play, and turn "anyone up for a game?" into an actual plan.

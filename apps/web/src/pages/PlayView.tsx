@@ -25,27 +25,19 @@ function DiscordAutomationCard({
 }) {
   return (
     <Card variant="soft" sx={{ p: 3 }}>
-      <Stack spacing={1.5}>
+      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }}>
         <Box>
-          <Typography level="title-lg">Discord automation</Typography>
-          <Typography level="body-sm" sx={{ color: 'neutral.300', mt: 0.75 }}>
+          <Typography level="title-sm">Automatic call-to-play prompts</Typography>
+          <Typography level="body-sm" sx={{ color: 'neutral.400', mt: 0.5 }}>
             When this is on, the bot can DM you after it sees you start a game and offer to create a call to play directly from Discord. It only prompts when you do not already have an active call and there is someone visible who could receive it.
           </Typography>
         </Box>
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }}>
-          <Box>
-            <Typography level="title-sm">Automatic call-to-play prompts</Typography>
-            <Typography level="body-xs" sx={{ color: 'neutral.400', mt: 0.5 }}>
-              Default: on. You can still open the app instead of completing the prompt in Discord.
-            </Typography>
-          </Box>
-          <Switch
-            checked={enabled}
-            disabled={saving}
-            onChange={(event) => void onToggle(event.target.checked)}
-            endDecorator={saving ? 'Saving...' : enabled ? 'On' : 'Off'}
-          />
-        </Stack>
+        <Switch
+          checked={enabled}
+          disabled={saving}
+          onChange={(event) => void onToggle(event.target.checked)}
+          endDecorator={saving ? 'Saving...' : enabled ? 'On' : 'Off'}
+        />
       </Stack>
     </Card>
   )
@@ -161,7 +153,7 @@ function PlayViewContent({
         <Box>
           <Typography level="h2">Calls to play</Typography>
           <Typography level="body-md" sx={{ color: 'neutral.300', mt: 0.5 }}>
-            See who is looking to play now or later, whether they opened up their whole library or just a smaller set of games.
+            See who is looking to play, now or later.
           </Typography>
         </Box>
         {isSignedIn ? (
@@ -239,7 +231,7 @@ function PlayViewContent({
           title={isSignedIn ? 'No calls to play match your library yet' : 'Calls to play will appear here'}
           body={
             isSignedIn
-              ? 'When someone visible to you posts a call to play that overlaps with your library, it will show up here.'
+              ? 'When someone in your network posts a call to play that overlaps with your library, it will show up here.'
               : 'Once the API responds, this section shows current and scheduled calls to play from people visible to you.'
           }
         />

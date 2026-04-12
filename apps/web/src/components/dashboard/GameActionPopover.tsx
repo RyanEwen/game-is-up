@@ -2,18 +2,19 @@ import { Chip, Divider, Dropdown, Menu, MenuButton, MenuItem, Stack, Typography 
 import type { DashboardLibraryQuickAddGame } from './types'
 
 const titleTriggerSx = {
-  px: 0.5,
-  py: 0.375,
-  minHeight: 'unset',
+  px: 0,
+  py: 0,
+  minHeight: 0,
   justifyContent: 'flex-start',
-  alignSelf: 'flex-start',
+  display: 'inline-flex',
+  alignItems: 'center',
+  lineHeight: 1,
   color: 'neutral.100',
   textAlign: 'left',
   borderRadius: 'sm',
   cursor: 'pointer',
-  transition: 'background-color 180ms ease, color 180ms ease, transform 180ms ease',
+  transition: 'color 180ms ease, transform 180ms ease',
   '&:hover': {
-    backgroundColor: 'rgba(87, 244, 193, 0.12)',
     color: 'primary.200',
     transform: 'translateY(-1px)'
   },
@@ -84,7 +85,7 @@ export function GameActionPopover({
           <Typography
             className="game-trigger-title"
             level={large ? 'title-lg' : 'title-sm'}
-            sx={{ display: '-webkit-box', overflow: 'hidden', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}
+            sx={{ display: '-webkit-box', overflow: 'hidden', lineHeight: 1.2, WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}
           >
             {game.title}
           </Typography>

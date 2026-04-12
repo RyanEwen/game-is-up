@@ -262,8 +262,8 @@ export async function buildDiscoveryFeed(viewerId?: string | null): Promise<Disc
         isFriend,
         friendEligible: !isFriend,
         contactHint: isFriend
-          ? 'Already in your friends list. Discord handoff unlock comes next.'
-          : 'Discord handoff unlocks after you add them as a friend.'
+          ? 'Already in your friends list.'
+          : 'Add them as a friend to keep track of them in Game Is Up.'
       }
     })
     .sort((left, right) => {

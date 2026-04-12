@@ -1,8 +1,22 @@
-import { Avatar, Box, Card, Chip, Stack, Typography } from '@mui/joy'
+import { Avatar, Box, Button, Card, Chip, Sheet, Stack, Typography } from '@mui/joy'
 import type { PlayIntentPreview } from '@game-is-up/shared'
 import { formatNotifyScopeLabel } from './dashboardUtils'
-import { GameActionPopover } from './GameActionPopover'
 import type { DashboardLibraryQuickAddGame } from './types'
+
+const selectedGameGridSx = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))',
+  gap: 1.25
+} as const
+
+function getGameMonogram(title: string) {
+  return title
+    .split(/\s+/)
+    .map((part) => part[0] ?? '')
+    .join('')
+    .slice(0, 2)
+    .toUpperCase()
+}
 
 export function PlayIntentCard({
   intent,
@@ -52,41 +66,139 @@ export function PlayIntentCard({
         {intent.note}
       </Typography>
 
-      <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: 'wrap' }}>
-        {intent.platforms.map((platform) => (
-          <Chip key={platform} variant="outlined" color="neutral">
-            {platform}
-          </Chip>
-        ))}
-      </Stack>
-
       {isLibraryWide ? (
-        <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
-          Recipient matching will compare this call to play against the sender&apos;s library and the recipient&apos;s overlap instead of a single chosen title.
-        </Typography>
+        <>
+          <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: 'wrap' }}>
+            {intent.platforms.map((platform) => (
+              <Chip key={platform} variant="outlined" color="neutral">
+                {platform}
+              </Chip>
+            ))}
+          </Stack>
+          <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
+            Recipient matching will compare this call to play against the sender&apos;s library and the recipient&apos;s overlap instead of a single chosen title.
+          </Typography>
+        </>
       ) : (
-        <Stack spacing={1}>
-          {intent.games.map((game) => (
-            <GameActionPopover
-              key={game.id}
-              game={{
-                gameId: game.id,
-                title: game.title,
-                coverUrl: null,
-                platformLabels: [game.platform]
-              }}
-              canAddToLibrary={canAddToLibrary}
-              isInLibrary={libraryGameIds.has(game.id)}
-              isAddingToLibrary={addingLibraryGameId === game.id}
-              supportingText={`Included in this call to play on ${game.platform}.`}
-              detailLines={[
-                'Open this title to add it to your library without leaving the play feed.'
-              ]}
-              trigger="chip"
-              onAddToLibrary={onAddToLibrary}
-            />
-          ))}
-        </Stack>
+        <Box sx={selectedGameGridSx}>
+          {intent.games.map((game) => {
+            const libraryQuickAddGame: DashboardLibraryQuickAddGame = {
+              gameId: game.id,
+              title: game.title,
+              coverUrl: game.coverUrl ?? null,
+              platformLabels: [game.platform]
+            }
+            const isInLibrary = libraryGameIds.has(game.id)
+            const isAddingToLibrary = addingLibraryGameId === game.id
+
+            return (
+              <Sheet
+                key={game.id}
+                variant="soft"
+                sx={{
+                  p: 1.5,
+                  borderRadius: 'lg',
+                  border: '1px solid rgba(141, 255, 216, 0.12)',
+                  background: 'linear-gradient(180deg, rgba(13, 70, 58, 0.28), rgba(14, 21, 34, 0.88))',
+                  boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.04)',
+                  height: '100%'
+                }}
+              >
+                <Stack spacing={1.5} sx={{ height: '100%' }}>
+                  <Stack direction="row" spacing={1.25} alignItems="flex-start">
+                    <Box
+                      sx={{
+                        width: 58,
+                        height: 74,
+                        borderRadius: 'md',
+                        flexShrink: 0,
+                        overflow: 'hidden',
+                        background: 'linear-gradient(160deg, rgba(28, 171, 132, 0.8), rgba(17, 24, 38, 0.96) 72%)',
+                        boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.18)'
+                      }}
+                    >
+                      {game.coverUrl ? (
+                        <Box component="img" src={game.coverUrl} alt={game.title} sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ) : (
+                        <Box
+                          sx={{
+                            width: '100%',
+                            height: '100%',
+                            display: 'flex',
+                            alignItems: 'flex-end',
+                            justifyContent: 'flex-start',
+                            p: 1
+                          }}
+                        >
+                          <Typography
+                            level="h3"
+                            sx={{
+                              color: 'common.white',
+                              lineHeight: 0.9,
+                              letterSpacing: '0.06em',
+                              textShadow: '0 6px 18px rgba(0, 0, 0, 0.35)'
+                            }}
+                          >
+                            {getGameMonogram(game.title)}
+                          </Typography>
+                        </Box>
+                      )}
+                    </Box>
+
+                    <Stack spacing={1} sx={{ minWidth: 0, flex: 1 }}>
+                      <Typography
+                        level="title-sm"
+                        sx={{
+                          display: '-webkit-box',
+                          overflow: 'hidden',
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical',
+                          color: 'neutral.50'
+                        }}
+                      >
+                        {game.title}
+                      </Typography>
+
+                      <Stack direction="row" spacing={0.75} sx={{ flexWrap: 'wrap' }}>
+                        <Chip size="sm" variant="soft" color="primary">
+                          {game.platform}
+                        </Chip>
+                        <Chip size="sm" variant={isInLibrary ? 'soft' : 'outlined'} color={isInLibrary ? 'success' : 'neutral'}>
+                          {isInLibrary ? 'In your library' : 'Quick add'}
+                        </Chip>
+                      </Stack>
+
+                      <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
+                        Included in this call to play.
+                      </Typography>
+                    </Stack>
+                  </Stack>
+
+                  <Button
+                    size="sm"
+                    variant={isInLibrary ? 'soft' : 'solid'}
+                    color={isInLibrary ? 'neutral' : 'success'}
+                    disabled={!canAddToLibrary || isInLibrary || isAddingToLibrary}
+                    onClick={() => void onAddToLibrary(libraryQuickAddGame)}
+                    sx={{
+                      mt: 'auto',
+                      borderRadius: 'xl',
+                      justifyContent: 'center'
+                    }}
+                  >
+                    {!canAddToLibrary
+                      ? 'Sign in to add to library'
+                      : isInLibrary
+                        ? 'Already in your library'
+                        : isAddingToLibrary
+                          ? 'Adding...'
+                          : 'Add to library'}
+                  </Button>
+                </Stack>
+              </Sheet>
+            )
+          })}
+        </Box>
       )}
     </Card>
   )

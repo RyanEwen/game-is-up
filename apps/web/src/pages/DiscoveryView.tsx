@@ -46,10 +46,13 @@ function DiscoveryViewContent({
   noDiscoveryServersSelected,
   isSignedIn,
   libraryGameIds,
+  libraryEntryIdsByGameId,
   addingLibraryGameId,
+  removingLibraryEntryId,
   friendPendingId,
   onToggleFriend,
-  onAddGameToLibrary
+  onAddGameToLibrary,
+  onRemoveLibraryEntry
 }: {
   error: string | null;
   overlapGames: DiscoveryGame[];
@@ -58,17 +61,20 @@ function DiscoveryViewContent({
   noDiscoveryServersSelected: boolean;
   isSignedIn: boolean;
   libraryGameIds: ReadonlySet<string>;
+  libraryEntryIdsByGameId: ReadonlyMap<string, string>;
   addingLibraryGameId: string | null;
+  removingLibraryEntryId: string | null;
   friendPendingId: string | null;
   onToggleFriend: (target: FriendTarget) => Promise<void>;
   onAddGameToLibrary: (game: DashboardLibraryQuickAddGame) => Promise<void>;
+  onRemoveLibraryEntry: (entryId: string) => Promise<void>;
 }) {
   return (
     <Stack spacing={0}>
       <DiscoverySection
         isFirst
         title="Shared games"
-        description="These are the games you share with people Game Is Up can find through your selected servers and friends list."
+        description="Games you have in common with your friends and other users on the selected Discord servers."
       >
         {error ? (
           <Card color="danger" variant="soft">
@@ -87,10 +93,13 @@ function DiscoveryViewContent({
                 canManage={isSignedIn}
                 canAddToLibrary={isSignedIn}
                 isInLibrary={libraryGameIds.has(game.id)}
+                libraryEntryId={libraryEntryIdsByGameId.get(game.id) ?? null}
                 isAddingToLibrary={addingLibraryGameId === game.id}
+                isRemovingFromLibrary={removingLibraryEntryId === (libraryEntryIdsByGameId.get(game.id) ?? null)}
                 pendingFriendId={friendPendingId}
                 onToggleFriend={onToggleFriend}
                 onAddToLibrary={onAddGameToLibrary}
+                onRemoveFromLibrary={onRemoveLibraryEntry}
                 compact
               />
             ))}
@@ -117,8 +126,8 @@ function DiscoveryViewContent({
       </DiscoverySection>
 
       <DiscoverySection
-        title="Other visible games"
-        description="Browse games from people Game Is Up can currently find through your selected servers and friends list, even when those games are not in your own library yet."
+        title="Other games"
+        description="Games you don't have in common with your friends and other users on the selected Discord servers."
       >
         {browseGames.length > 0 ? (
           <Box sx={discoveryGameGridSx}>
@@ -129,10 +138,13 @@ function DiscoveryViewContent({
                 canManage={isSignedIn}
                 canAddToLibrary={isSignedIn}
                 isInLibrary={libraryGameIds.has(game.id)}
+                libraryEntryId={libraryEntryIdsByGameId.get(game.id) ?? null}
                 isAddingToLibrary={addingLibraryGameId === game.id}
+                isRemovingFromLibrary={removingLibraryEntryId === (libraryEntryIdsByGameId.get(game.id) ?? null)}
                 pendingFriendId={friendPendingId}
                 onToggleFriend={onToggleFriend}
                 onAddToLibrary={onAddGameToLibrary}
+                onRemoveFromLibrary={onRemoveLibraryEntry}
                 compact
               />
             ))}
@@ -164,8 +176,7 @@ function DiscoveryViewContent({
 
       <DiscoverySection
         title="Members"
-        description="See the people Game Is Up can currently find through your selected servers and your in-app friends list."
-        helperText="People appear here when they are on one of your selected servers and already use Game Is Up, or when you added them as a friend in the app."
+        description="Everyone on your friends list as well as on the selected Discord servers."
       >
         {discoveryPeople.length > 0 ? (
           <Stack spacing={2}>
@@ -176,10 +187,13 @@ function DiscoveryViewContent({
                 canManage={isSignedIn}
                 canAddToLibrary={isSignedIn}
                 libraryGameIds={libraryGameIds}
+                libraryEntryIdsByGameId={libraryEntryIdsByGameId}
                 addingLibraryGameId={addingLibraryGameId}
+                removingLibraryEntryId={removingLibraryEntryId}
                 isPending={friendPendingId === person.id}
                 onToggleFriend={onToggleFriend}
                 onAddToLibrary={onAddGameToLibrary}
+                onRemoveLibraryEntry={onRemoveLibraryEntry}
               />
             ))}
           </Stack>
