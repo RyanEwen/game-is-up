@@ -123,6 +123,26 @@ function normalizeTitle(value: string): string {
   return value.replace(/\s+/gu, ' ').trim().toLowerCase()
 }
 
+function compareSteamImportPreviewGames(
+  left: { alreadyInLibrary: boolean; title: string; sourceId: string },
+  right: { alreadyInLibrary: boolean; title: string; sourceId: string }
+): number {
+  if (left.alreadyInLibrary !== right.alreadyInLibrary) {
+    return Number(left.alreadyInLibrary) - Number(right.alreadyInLibrary)
+  }
+
+  const titleOrder = left.title.localeCompare(right.title, undefined, {
+    numeric: true,
+    sensitivity: 'base'
+  })
+
+  if (titleOrder !== 0) {
+    return titleOrder
+  }
+
+  return left.sourceId.localeCompare(right.sourceId)
+}
+
 async function getSteamIdentityForUser(userId: string) {
   return prisma.userIdentity.findFirst({
     where: {
@@ -179,7 +199,7 @@ async function loadSteamImportPreview(userId: string) {
   const games = ownedGames.map((game) => ({
     ...game,
     alreadyInLibrary: existingSteamSourceIds.has(game.sourceId) || existingTitles.has(normalizeTitle(game.title))
-  }))
+  })).sort(compareSteamImportPreviewGames)
 
   if (games.length === 0) {
     return steamLibraryImportPreviewResponseSchema.parse({

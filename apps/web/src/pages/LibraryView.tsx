@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import { Box, Button, Card, Checkbox, Chip, DialogContent, DialogTitle, Input, Sheet, Stack, Typography } from '@mui/joy'
 import type { GameSearchResponse, GameSearchResult, ImportSteamLibrarySelectionRequest, LibraryEntry, LibraryEntryIntent, LibrarySuggestedGame, SteamLibraryImportGame, SteamLibraryImportPreviewResponse } from '@game-is-up/shared'
 import { DashboardModal } from '../components/dashboard/DashboardModal'
@@ -12,6 +13,12 @@ import type { DashboardLibraryQuickAddGame } from '../components/dashboard/types
 import { useDashboardContext } from '../contexts/useDashboardContext'
 
 const steamImportPlatformOptions = ['PC', 'Xbox', 'PlayStation', 'Switch', 'Mobile', 'macOS', 'Linux'] as const
+const steamImportListMinHeight = 280
+const steamImportListMaxHeight = 'min(58vh, 640px)'
+const steamImportCollapsedRowEstimate = 108
+const steamImportExpandedRowEstimate = 336
+
+type SteamImportSelection = ImportSteamLibrarySelectionRequest['games'][number]
 
 function UsualAvailabilityCard({
   usualAvailability,
@@ -392,8 +399,9 @@ function SteamImportModalPicker({
 }) {
   const [query, setQuery] = useState('')
   const [selectedSourceIds, setSelectedSourceIds] = useState<string[]>([])
-  const [selectionOptions, setSelectionOptions] = useState<Record<string, ImportSteamLibrarySelectionRequest['games'][number]>>({})
+  const [selectionOptions, setSelectionOptions] = useState<Record<string, SteamImportSelection>>({})
   const [expandedSourceIds, setExpandedSourceIds] = useState<string[]>([])
+  const listScrollRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     const importableGames = preview.games.filter((game) => !game.alreadyInLibrary)
@@ -415,19 +423,48 @@ function SteamImportModalPicker({
     return game.title.toLowerCase().includes(normalizedQuery)
   })
   const selectedSourceIdSet = new Set(selectedSourceIds)
+  const expandedSourceIdSet = new Set(expandedSourceIds)
   const visibleImportableGames = filteredGames.filter((game) => !game.alreadyInLibrary)
   const allVisibleSelected = visibleImportableGames.length > 0 && visibleImportableGames.every((game) => selectedSourceIdSet.has(game.sourceId))
   const selectedGames = selectedSourceIds
     .map((sourceId) => selectionOptions[sourceId])
-    .filter((selection): selection is ImportSteamLibrarySelectionRequest['games'][number] => selection != null)
+    .filter((selection): selection is SteamImportSelection => selection != null)
+
+  const rowVirtualizer = useVirtualizer({
+    count: filteredGames.length,
+    getScrollElement: () => listScrollRef.current,
+    getItemKey: (index) => filteredGames[index]?.sourceId ?? index,
+    estimateSize: (index) => {
+      const game = filteredGames[index]
+
+      if (!game) {
+        return steamImportCollapsedRowEstimate
+      }
+
+      const isExpanded = selectedSourceIdSet.has(game.sourceId)
+        && !game.alreadyInLibrary
+        && expandedSourceIdSet.has(game.sourceId)
+
+      return isExpanded ? steamImportExpandedRowEstimate : steamImportCollapsedRowEstimate
+    },
+    overscan: 8
+  })
 
   useEffect(() => {
     onSelectionChange(selectedGames)
   }, [onSelectionChange, selectedGames])
 
+  useEffect(() => {
+    rowVirtualizer.measure()
+  }, [expandedSourceIds, selectedSourceIds, rowVirtualizer])
+
+  useEffect(() => {
+    listScrollRef.current?.scrollTo({ top: 0 })
+  }, [normalizedQuery, preview])
+
   const updateSelectionOptions = (
     sourceId: string,
-    updater: (current: ImportSteamLibrarySelectionRequest['games'][number]) => ImportSteamLibrarySelectionRequest['games'][number]
+    updater: (current: SteamImportSelection) => SteamImportSelection
   ) => {
     setSelectionOptions((current) => {
       const existing = current[sourceId]
@@ -525,171 +562,245 @@ function SteamImportModalPicker({
           </Stack>
         </Stack>
 
-        <Stack spacing={1.25}>
-          {filteredGames.length > 0 ? filteredGames.map((game) => {
-            const selected = selectedSourceIdSet.has(game.sourceId)
-            const options = selectionOptions[game.sourceId] ?? buildDefaultSteamImportSelection(game)
-            const showOptions = selected && !game.alreadyInLibrary && expandedSourceIds.includes(game.sourceId)
-            const platformOptions = [...new Set([...steamImportPlatformOptions, ...game.platformLabels, ...options.platformLabels])]
+        {filteredGames.length > 0 ? (
+          <Box
+            ref={listScrollRef}
+            sx={{
+              position: 'relative',
+              overflowY: 'auto',
+              minHeight: steamImportListMinHeight,
+              maxHeight: steamImportListMaxHeight,
+              pr: 0.5,
+              mr: -0.5,
+              overscrollBehavior: 'contain',
+              WebkitOverflowScrolling: 'touch'
+            }}
+          >
+            <Box sx={{ height: `${rowVirtualizer.getTotalSize()}px`, position: 'relative' }}>
+              {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                const game = filteredGames[virtualRow.index]
 
-            return (
-              <Sheet
-                key={game.sourceId}
-                variant="soft"
-                sx={{
-                  p: 1.25,
-                  borderRadius: 'md',
-                  border: '1px solid rgba(255,255,255,0.08)',
-                  cursor: game.alreadyInLibrary ? 'default' : 'pointer'
-                }}
-                onClick={() => toggleSelection(game)}
-              >
-                <Stack direction="row" spacing={1.25} alignItems="center">
-                  <Checkbox
-                    checked={game.alreadyInLibrary || selected}
-                    disabled={game.alreadyInLibrary || importing}
-                    onClick={(event) => event.stopPropagation()}
-                    onChange={() => toggleSelection(game)}
-                  />
+                if (!game) {
+                  return null
+                }
+
+                const selected = selectedSourceIdSet.has(game.sourceId)
+                const options = selectionOptions[game.sourceId] ?? buildDefaultSteamImportSelection(game)
+                const showOptions = selected && !game.alreadyInLibrary && expandedSourceIdSet.has(game.sourceId)
+
+                return (
                   <Box
+                    key={virtualRow.key}
+                    ref={rowVirtualizer.measureElement}
+                    data-index={virtualRow.index}
                     sx={{
-                      width: 56,
-                      height: 32,
-                      borderRadius: 'sm',
-                      overflow: 'hidden',
-                      backgroundColor: 'rgba(255,255,255,0.08)',
-                      flexShrink: 0
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      width: '100%',
+                      transform: `translateY(${virtualRow.start}px)`,
+                      pb: 1.25
                     }}
                   >
-                    {game.coverUrl ? (
-                      <Box component="img" src={game.coverUrl} alt={game.title} sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    ) : null}
+                    <SteamImportVirtualizedRow
+                      game={game}
+                      selected={selected}
+                      options={options}
+                      showOptions={showOptions}
+                      currentUsualAvailability={currentUsualAvailability}
+                      importing={importing}
+                      onToggleSelection={toggleSelection}
+                      onToggleExpanded={toggleExpanded}
+                      onUpdateSelectionOptions={updateSelectionOptions}
+                    />
                   </Box>
-                  <Stack spacing={0.5} sx={{ minWidth: 0, flex: 1 }}>
-                    <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }} alignItems="center">
-                      <Typography level="title-sm">{game.title}</Typography>
-                      {game.alreadyInLibrary ? <Chip size="sm" color="success" variant="soft">Already in library</Chip> : null}
-                      {selected && !game.alreadyInLibrary ? <Chip size="sm" variant="soft" color="primary">{formatLibraryIntentLabel(options.intent)}</Chip> : null}
-                    </Stack>
-                    <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
-                      {options.platformLabels.join(', ')}
-                    </Typography>
-                    <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-                      <Chip size="sm" variant="outlined" color="neutral">{formatSteamPlaytime(game.minutesPlayedTotal)}</Chip>
-                      {game.minutesPlayedRecent > 0 ? <Chip size="sm" variant="outlined" color="neutral">{formatSteamPlaytime(game.minutesPlayedRecent)} last 2 weeks</Chip> : null}
-                      {selected && !game.alreadyInLibrary && options.availability?.trim()
-                        ? <Chip size="sm" variant="outlined" color="neutral">{options.availability.trim()}</Chip>
-                        : null}
-                    </Stack>
-                  </Stack>
-                  {selected && !game.alreadyInLibrary ? (
-                    <Button
-                      size="sm"
-                      variant="outlined"
-                      color="neutral"
-                      onClick={(event) => {
-                        event.stopPropagation()
-                        toggleExpanded(game.sourceId)
-                      }}
-                    >
-                      {showOptions ? 'Hide options' : 'Options'}
-                    </Button>
-                  ) : null}
-                </Stack>
-                {showOptions ? (
-                  <Stack spacing={1.25} sx={{ mt: 1.25, pl: { xs: 0, sm: 6 } }} onClick={(event) => event.stopPropagation()}>
-                    <Stack spacing={1}>
-                      <Typography level="title-sm">Platform</Typography>
-                      <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
-                        Choose every platform where you actually play this game.
-                      </Typography>
-                      <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-                        {platformOptions.map((platform) => {
-                          const platformSelected = options.platformLabels.includes(platform)
-
-                          return (
-                            <Button
-                              key={platform}
-                              size="sm"
-                              variant={platformSelected ? 'solid' : 'outlined'}
-                              color={platformSelected ? 'primary' : 'neutral'}
-                              onClick={(event) => {
-                                event.stopPropagation()
-                                updateSelectionOptions(game.sourceId, (current) => {
-                                  if (current.platformLabels.includes(platform)) {
-                                    if (current.platformLabels.length === 1) {
-                                      return current
-                                    }
-
-                                    return {
-                                      ...current,
-                                      platformLabels: current.platformLabels.filter((entry) => entry !== platform)
-                                    }
-                                  }
-
-                                  return {
-                                    ...current,
-                                    platformLabels: [...current.platformLabels, platform]
-                                  }
-                                })
-                              }}
-                            >
-                              {platform}
-                            </Button>
-                          )
-                        })}
-                      </Stack>
-                    </Stack>
-                    <Stack spacing={1}>
-                      <Typography level="title-sm">Interest level</Typography>
-                      <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-                        {(['interested', 'wishlist', 'playing-now'] as const).map((intent) => (
-                          <Button
-                            key={intent}
-                            size="sm"
-                            variant={options.intent === intent ? 'solid' : 'outlined'}
-                            color={options.intent === intent ? 'primary' : 'neutral'}
-                            onClick={(event) => {
-                              event.stopPropagation()
-                              updateSelectionOptions(game.sourceId, (current) => ({
-                                ...current,
-                                intent
-                              }))
-                            }}
-                          >
-                            {formatLibraryIntentLabel(intent)}
-                          </Button>
-                        ))}
-                      </Stack>
-                    </Stack>
-                    <Stack spacing={1}>
-                      <Typography level="title-sm">Game-specific schedule override</Typography>
-                      <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
-                        Leave this blank to use your profile schedule. Only fill it in when this game usually happens at a different time.
-                      </Typography>
-                      <Input
-                        placeholder={currentUsualAvailability ? `Usually ${currentUsualAvailability}` : 'Example: Friday nights'}
-                        value={options.availability ?? ''}
-                        onClick={(event) => event.stopPropagation()}
-                        onChange={(event) => {
-                          updateSelectionOptions(game.sourceId, (current) => ({
-                            ...current,
-                            availability: event.target.value
-                          }))
-                        }}
-                      />
-                    </Stack>
-                  </Stack>
-                ) : null}
-              </Sheet>
-            )
-          }) : (
+                )
+              })}
+            </Box>
+          </Box>
+        ) : (
+          <Stack spacing={1.25}>
             <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
               No Steam games match that filter.
             </Typography>
-          )}
-        </Stack>
+          </Stack>
+        )}
     </>
+  )
+}
+
+function SteamImportVirtualizedRow({
+  game,
+  selected,
+  options,
+  showOptions,
+  currentUsualAvailability,
+  importing,
+  onToggleSelection,
+  onToggleExpanded,
+  onUpdateSelectionOptions
+}: {
+  game: SteamLibraryImportGame;
+  selected: boolean;
+  options: SteamImportSelection;
+  showOptions: boolean;
+  currentUsualAvailability: string | null;
+  importing: boolean;
+  onToggleSelection: (game: SteamLibraryImportGame) => void;
+  onToggleExpanded: (sourceId: string) => void;
+  onUpdateSelectionOptions: (sourceId: string, updater: (current: SteamImportSelection) => SteamImportSelection) => void;
+}) {
+  const platformOptions = [...new Set([...steamImportPlatformOptions, ...game.platformLabels, ...options.platformLabels])]
+
+  return (
+    <Sheet
+      variant="soft"
+      sx={{
+        p: 1.25,
+        borderRadius: 'md',
+        border: '1px solid rgba(255,255,255,0.08)',
+        cursor: game.alreadyInLibrary ? 'default' : 'pointer'
+      }}
+      onClick={() => onToggleSelection(game)}
+    >
+      <Stack direction="row" spacing={1.25} alignItems="center">
+        <Checkbox
+          checked={game.alreadyInLibrary || selected}
+          disabled={game.alreadyInLibrary || importing}
+          onClick={(event) => event.stopPropagation()}
+          onChange={() => onToggleSelection(game)}
+        />
+        <Box
+          sx={{
+            width: 56,
+            height: 32,
+            borderRadius: 'sm',
+            overflow: 'hidden',
+            backgroundColor: 'rgba(255,255,255,0.08)',
+            flexShrink: 0
+          }}
+        >
+          {game.coverUrl ? (
+            <Box component="img" src={game.coverUrl} alt={game.title} sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          ) : null}
+        </Box>
+        <Stack spacing={0.5} sx={{ minWidth: 0, flex: 1 }}>
+          <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }} alignItems="center">
+            <Typography level="title-sm">{game.title}</Typography>
+            {game.alreadyInLibrary ? <Chip size="sm" color="success" variant="soft">Already in library</Chip> : null}
+            {selected && !game.alreadyInLibrary ? <Chip size="sm" variant="soft" color="primary">{formatLibraryIntentLabel(options.intent)}</Chip> : null}
+          </Stack>
+          <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
+            {options.platformLabels.join(', ')}
+          </Typography>
+          <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+            <Chip size="sm" variant="outlined" color="neutral">{formatSteamPlaytime(game.minutesPlayedTotal)}</Chip>
+            {game.minutesPlayedRecent > 0 ? <Chip size="sm" variant="outlined" color="neutral">{formatSteamPlaytime(game.minutesPlayedRecent)} last 2 weeks</Chip> : null}
+            {selected && !game.alreadyInLibrary && options.availability?.trim()
+              ? <Chip size="sm" variant="outlined" color="neutral">{options.availability.trim()}</Chip>
+              : null}
+          </Stack>
+        </Stack>
+        {selected && !game.alreadyInLibrary ? (
+          <Button
+            size="sm"
+            variant="outlined"
+            color="neutral"
+            onClick={(event) => {
+              event.stopPropagation()
+              onToggleExpanded(game.sourceId)
+            }}
+          >
+            {showOptions ? 'Hide options' : 'Options'}
+          </Button>
+        ) : null}
+      </Stack>
+      {showOptions ? (
+        <Stack spacing={1.25} sx={{ mt: 1.25, pl: { xs: 0, sm: 6 } }} onClick={(event) => event.stopPropagation()}>
+          <Stack spacing={1}>
+            <Typography level="title-sm">Platform</Typography>
+            <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
+              Choose every platform where you actually play this game.
+            </Typography>
+            <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+              {platformOptions.map((platform) => {
+                const platformSelected = options.platformLabels.includes(platform)
+
+                return (
+                  <Button
+                    key={platform}
+                    size="sm"
+                    variant={platformSelected ? 'solid' : 'outlined'}
+                    color={platformSelected ? 'primary' : 'neutral'}
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      onUpdateSelectionOptions(game.sourceId, (current) => {
+                        if (current.platformLabels.includes(platform)) {
+                          if (current.platformLabels.length === 1) {
+                            return current
+                          }
+
+                          return {
+                            ...current,
+                            platformLabels: current.platformLabels.filter((entry) => entry !== platform)
+                          }
+                        }
+
+                        return {
+                          ...current,
+                          platformLabels: [...current.platformLabels, platform]
+                        }
+                      })
+                    }}
+                  >
+                    {platform}
+                  </Button>
+                )
+              })}
+            </Stack>
+          </Stack>
+          <Stack spacing={1}>
+            <Typography level="title-sm">Interest level</Typography>
+            <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+              {(['interested', 'wishlist', 'playing-now'] as const).map((intent) => (
+                <Button
+                  key={intent}
+                  size="sm"
+                  variant={options.intent === intent ? 'solid' : 'outlined'}
+                  color={options.intent === intent ? 'primary' : 'neutral'}
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    onUpdateSelectionOptions(game.sourceId, (current) => ({
+                      ...current,
+                      intent
+                    }))
+                  }}
+                >
+                  {formatLibraryIntentLabel(intent)}
+                </Button>
+              ))}
+            </Stack>
+          </Stack>
+          <Stack spacing={1}>
+            <Typography level="title-sm">Game-specific schedule override</Typography>
+            <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
+              Leave this blank to use your profile schedule. Only fill it in when this game usually happens at a different time.
+            </Typography>
+            <Input
+              placeholder={currentUsualAvailability ? `Usually ${currentUsualAvailability}` : 'Example: Friday nights'}
+              value={options.availability ?? ''}
+              onClick={(event) => event.stopPropagation()}
+              onChange={(event) => {
+                onUpdateSelectionOptions(game.sourceId, (current) => ({
+                  ...current,
+                  availability: event.target.value
+                }))
+              }}
+            />
+          </Stack>
+        </Stack>
+      ) : null}
+    </Sheet>
   )
 }
 
