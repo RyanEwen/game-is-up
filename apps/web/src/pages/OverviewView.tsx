@@ -51,10 +51,11 @@ function AccountCard({
               </Typography>
             </Stack>
           </Stack>
-          <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-            <Chip color="success">{signedInUser.authProvider}</Chip>
-            {signedInUser.email ? <Chip variant="outlined">{signedInUser.email}</Chip> : null}
-          </Stack>
+          {signedInUser.email ? (
+            <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+              <Chip variant="outlined">{signedInUser.email}</Chip>
+            </Stack>
+          ) : null}
           <Button variant="outlined" color="neutral" onClick={() => void onLogout()}>
             Sign out
           </Button>
@@ -95,13 +96,13 @@ function QuickStartCard() {
           <Sheet variant="outlined" sx={{ p: 1.5, borderRadius: 'md', backgroundColor: 'rgba(255, 255, 255, 0.02)' }}>
             <Typography level="title-sm">2. Build your network</Typography>
             <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
-              Connect the Discord servers where your friends and other players are. If one isn't shown, invite the bot there first.
+              Add the Discord servers where your friends and other players are. If one isn't shown, invite the bot there first.
             </Typography>
           </Sheet>
           <Sheet variant="outlined" sx={{ p: 1.5, borderRadius: 'md', backgroundColor: 'rgba(255, 255, 255, 0.02)' }}>
             <Typography level="title-sm">3. Build your library</Typography>
             <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
-              Add games to your library so that you can be matched with other players.
+              Add games to your library so that you can be matched with other players in your network.
             </Typography>
           </Sheet>
           <Sheet variant="outlined" sx={{ p: 1.5, borderRadius: 'md', backgroundColor: 'rgba(255, 255, 255, 0.02)' }}>
@@ -137,7 +138,7 @@ function DiscoveryServersSection({
     <Stack spacing={2}>
       <Typography level="h2">Your network</Typography>
       <Typography level="body-md" sx={{ color: 'neutral.300' }}>
-        Build your network by connecting with the Discord servers where your friends and other players are. If a server is missing, invite the Game Is Up bot to it first.
+        Build your network by adding the Discord servers where your friends and other players are. If a server is missing, invite the Game Is Up bot to it first.
       </Typography>
       {availableDiscoveryServers.length > 0 ? (
         <Stack spacing={1.5}>
@@ -153,22 +154,22 @@ function DiscoveryServersSection({
                   </Stack>
                   <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
                     {server.knownUserCount > 0
-                      ? `${server.knownUserCount} other app user${server.knownUserCount === 1 ? '' : 's'} currently share this server.`
-                      : 'No other app users from this server are known yet.'}
+                      ? `${server.knownUserCount} other members${server.knownUserCount === 1 ? '' : 's'} currently in your network via this server.`
+                      : 'No other members from this server are in your network yet.'}
                   </Typography>
                 </Stack>
                 <Button
                   size="sm"
-                  variant={server.selected ? 'solid' : 'outlined'}
-                  color={server.selected ? 'primary' : 'neutral'}
+                  variant={server.selected ? 'outlined' : 'solid'}
+                  color={server.selected ? 'neutral' : 'primary'}
                   disabled={serverPreferencePendingId === server.id}
                   onClick={() => void onToggleDiscordServer(server.id, !server.selected)}
                 >
                   {serverPreferencePendingId === server.id
                     ? 'Saving...'
                     : server.selected
-                      ? 'Used to find others'
-                      : 'Use to find others'}
+                      ? 'Remove from your network'
+                      : 'Add to your network'}
                 </Button>
               </Stack>
             </Card>
@@ -176,13 +177,13 @@ function DiscoveryServersSection({
         </Stack>
       ) : hasSyncedServers ? (
         <EmptyStateCard
-          title="No bot-enabled servers available"
-          body="Your Discord servers are connected, but none currently have the Game Is Up bot installed. Install the bot in a shared server."
+          title="No servers with the Game Is Up bot available"
+          body="You have Discord servers added to your network, but the bot is not running or is not installed on any of them."
         />
       ) : (
         <EmptyStateCard
-          title="No Discord servers connected yet"
-          body="You do not have any connected Discord servers yet. Sign out and sign back in with Discord to grant server access and refresh the list."
+          title="No Discord servers added yet"
+          body="You have not added any Discord servers yet."
         />
       )}
     </Stack>
@@ -251,19 +252,8 @@ function InviteUsersCard({
       >
         <Stack spacing={1.5}>
           <Typography level="body-md" sx={{ color: 'neutral.300' }}>
-            Choose a server, then pick members for the bot to message.
+            Choose a server, then pick members for the bot to send an invite message to.
           </Typography>
-          <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
-            The bot will DM the selected Discord members directly. If a DM fails because the user blocks bot DMs, you can still use the fallback copy/share actions.
-          </Typography>
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ flexWrap: 'wrap' }}>
-            <Chip variant="outlined" color="neutral">
-              {selectedDiscoveryServers.length === 1 ? '1 server selected' : `${selectedDiscoveryServers.length} servers selected`}
-            </Chip>
-            <Chip color={selectedInviteUserIds.length > 0 ? 'primary' : 'neutral'} variant={selectedInviteUserIds.length > 0 ? 'soft' : 'outlined'}>
-              {selectedInviteUserIds.length === 1 ? '1 member selected' : `${selectedInviteUserIds.length} members selected`}
-            </Chip>
-          </Stack>
         </Stack>
 
         {selectedDiscoveryServers.length > 0 ? (
@@ -373,7 +363,7 @@ function InviteUsersCard({
         ) : (
           <Sheet variant="soft" sx={{ p: 1.5, borderRadius: 'md' }}>
             <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
-              Connect at least one server where the bot is present to browse and target specific members.
+              Add at least one server where the bot is present to browse and target specific members.
             </Typography>
           </Sheet>
         )}
@@ -439,7 +429,7 @@ function InviteUsersCard({
       </DialogContent>
       <DashboardModalActionBar
         cancelAction={(
-          <Button size="lg" variant="outlined" color="neutral" onClick={onClose}>
+          <Button size="lg" variant="outlined" color="neutral" onClick={onClose} sx={{ minHeight: 52 }}>
             Close
           </Button>
         )}
@@ -471,7 +461,7 @@ function InviteUsersLauncherCard({
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.25}>
         <Box>
           <Button color="primary" onClick={onOpen}>
-            Invite people in your network
+            Invite people to Game Is Up
           </Button>
         </Box>
         {discordBotInstallUrl ? (
