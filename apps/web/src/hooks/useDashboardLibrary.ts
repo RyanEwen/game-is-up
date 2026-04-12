@@ -111,7 +111,7 @@ export function useDashboardLibrary({
   onAddGameToLibrary: (game: DashboardLibraryQuickAddGame) => Promise<void>;
 }) {
   const [libraryTitle, setLibraryTitle] = useState('')
-  const [selectedPlatformLabels, setSelectedPlatformLabels] = useState<string[]>(['PC'])
+  const [selectedPlatformLabels, setSelectedPlatformLabels] = useState<string[]>([])
   const [libraryAvailability, setLibraryAvailability] = useState('')
   const [usualAvailability, setUsualAvailability] = useState('')
   const [libraryIntent, setLibraryIntent] = useState<LibraryEntryIntent>('interested')
@@ -131,9 +131,9 @@ export function useDashboardLibrary({
 
   const editingLibraryEntry = libraryEntries.find((entry) => entry.id === editingLibraryEntryId) ?? null
   const platformOptions = [...new Set([
+    ...defaultPlatformOptions,
     ...(selectedCatalogResult?.platformLabels ?? []),
-    ...selectedPlatformLabels,
-    ...defaultPlatformOptions
+    ...selectedPlatformLabels
   ])]
   const usualAvailabilityChanged = usualAvailability.trim() !== (currentUsualAvailability ?? '')
   const usualAvailabilityButtonLabel = profileSaving
@@ -237,7 +237,7 @@ export function useDashboardLibrary({
     setEditingLibraryEntryId(null)
     setIsLibraryEditorOpen(false)
     setLibraryTitle('')
-    setSelectedPlatformLabels(['PC'])
+    setSelectedPlatformLabels([])
     setLibraryAvailability('')
     setGameSuggestions([])
     setSelectedCatalogResult(null)
@@ -271,7 +271,7 @@ export function useDashboardLibrary({
     setIsLibraryEditorOpen(true)
     setEditingLibraryEntryId(null)
     setLibraryTitle(title)
-    setSelectedPlatformLabels(normalizedPlatformLabels.length > 0 ? normalizedPlatformLabels : ['PC'])
+    setSelectedPlatformLabels(normalizedPlatformLabels)
     setLibraryAvailability('')
     setGameSuggestions([])
     setSelectedCatalogResult({

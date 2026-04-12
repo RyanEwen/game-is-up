@@ -530,7 +530,7 @@ function SteamImportModalPicker({
             const selected = selectedSourceIdSet.has(game.sourceId)
             const options = selectionOptions[game.sourceId] ?? buildDefaultSteamImportSelection(game)
             const showOptions = selected && !game.alreadyInLibrary && expandedSourceIds.includes(game.sourceId)
-            const platformOptions = [...new Set([...options.platformLabels, ...game.platformLabels, ...steamImportPlatformOptions])]
+            const platformOptions = [...new Set([...steamImportPlatformOptions, ...game.platformLabels, ...options.platformLabels])]
 
             return (
               <Sheet
