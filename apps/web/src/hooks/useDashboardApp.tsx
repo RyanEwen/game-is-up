@@ -945,7 +945,7 @@ export function useDashboardApp() {
           message:
             typeof responseBody === 'object' && responseBody && 'error' in responseBody && typeof responseBody.error === 'string'
               ? responseBody.error
-              : 'Unable to update this server setting right now.'
+              : 'Unable to update your Discord server network right now.'
         })
         return
       }
@@ -953,13 +953,13 @@ export function useDashboardApp() {
       discordServerPreferencesResponseSchema.parse(responseBody)
       setActionNotice({
         tone: 'success',
-        message: nextSelected ? 'Game Is Up will now use that server to find people.' : 'Game Is Up will no longer use that server to find people.'
+        message: nextSelected ? 'That Discord server was added to your network.' : 'That Discord server was removed from your network.'
       })
       await loadDashboard()
     } catch (error) {
       setActionNotice({
         tone: 'danger',
-        message: error instanceof Error ? error.message : 'Unable to update this server setting right now.'
+        message: error instanceof Error ? error.message : 'Unable to update your Discord server network right now.'
       })
     } finally {
       setServerPreferencePendingId(null)

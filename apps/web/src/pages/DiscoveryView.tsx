@@ -111,9 +111,9 @@ function DiscoveryViewContent({
             title={isSignedIn ? 'No shared games yet' : 'Shared games will appear here'}
             body={
               noDiscoveryServersSelected
-                ? 'Every synced server in your network is currently hidden from discovery, so the app has no network members to compare against.'
+                ? 'You do not have any Discord servers in your network, so the app has no network members to compare against.'
                 : isSignedIn
-                  ? 'Add games to your library and keep at least one server in your network enabled so Game Is Up can find people with overlapping libraries.'
+                  ? 'Add games to your library and add at least one Discord server to your network so Game Is Up can find people with overlapping libraries.'
                   : showsDemoDiscoveryCopy
                     ? 'This section shows games that the seeded demo viewer and other visible users both have in their playlists.'
                     : 'Sign in to compare your library with friends and visible network members.'
@@ -151,11 +151,11 @@ function DiscoveryViewContent({
             title={isSignedIn ? 'No extra visible games yet' : 'No extra visible games yet'}
             body={
               noDiscoveryServersSelected
-                ? 'Enable at least one synced server in your network to browse games from network members again.'
+                ? 'Add at least one Discord server to your network to browse games from network members.'
                 : isSignedIn
                   ? overlapGames.length > 0
                     ? 'Everything currently visible is already shown above because it also matches your library.'
-                    : 'No visible people in your network or on your friends list have games in their playlists yet.'
+                    : 'No one in your network has games in their playlist yet.'
                   : overlapGames.length > 0
                     ? 'All currently visible titles are already covered in the shared games section above.'
                     : 'Once the API responds, this section shows every visible game that is not already shared above.'
@@ -189,12 +189,12 @@ function DiscoveryViewContent({
           </Stack>
         ) : (
           <EmptyStateCard
-            title={isSignedIn ? 'No people visible yet' : 'People will appear here'}
+            title={isSignedIn ? 'No people to show yet' : 'People will appear here'}
             body={
               noDiscoveryServersSelected
-                ? 'All synced servers in your network are hidden, so network members are excluded from browsing right now.'
+                ? 'You do not have any Discord servers in your network to find others on.'
                 : isSignedIn
-                  ? 'No visible network members or in-app friends are available yet.'
+                  ? 'No network members or friends are available yet.'
                   : showsDemoDiscoveryCopy
                     ? 'This section shows the seeded people-first view, including visible network members and friends.'
                     : 'Sign in to browse friends and visible network members here.'
