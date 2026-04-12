@@ -22,11 +22,11 @@ body {
   min-width: 320px;
   min-height: 100vh;
   background:
-    radial-gradient(circle at 50% -14%, rgba(101, 255, 210, 0.44), transparent 58%),
-    radial-gradient(circle at 84% 10%, rgba(244, 178, 63, 0.3), transparent 38%),
-    radial-gradient(circle at 14% 18%, rgba(89, 205, 255, 0.16), transparent 34%),
-    radial-gradient(circle at 50% 34%, rgba(36, 94, 124, 0.18), transparent 52%),
-    linear-gradient(180deg, #0c1424 0%, #09101c 42%, #070b14 100%);
+    radial-gradient(circle at 50% -14%, rgba(101, 255, 210, 0.28), transparent 56%),
+    radial-gradient(circle at 84% 10%, rgba(244, 178, 63, 0.18), transparent 36%),
+    radial-gradient(circle at 14% 18%, rgba(89, 205, 255, 0.1), transparent 32%),
+    radial-gradient(circle at 50% 34%, rgba(28, 72, 98, 0.14), transparent 48%),
+    linear-gradient(180deg, #09111f 0%, #070d18 38%, #050912 100%);
   background-repeat: no-repeat;
   background-attachment: fixed;
 }

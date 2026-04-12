@@ -27,10 +27,10 @@ const dashboardTabs: Array<{ value: DashboardTab; label: string }> = [
 
 const ambientSpectrumGradient = 'linear-gradient(115deg, #49ff66 0%, #1dff8f 18%, #14ffd6 40%, #20d8ff 62%, #4d93ff 82%, #49ff66 100%)'
 const ambientOverlayBase = [
-  'linear-gradient(180deg, rgba(7, 11, 20, 0) 0px, rgba(7, 11, 20, 0.08) 220px, rgba(7, 11, 20, 0.32) 520px, rgba(7, 11, 20, 0.68) 860px, rgba(7, 11, 20, 0.88) 100%)',
-  'radial-gradient(circle at 50% 14%, rgba(255, 255, 255, 0.11), transparent 42%)',
-  'radial-gradient(circle at 14% 18%, rgba(255, 255, 255, 0.07), transparent 28%)',
-  'radial-gradient(circle at 84% 16%, rgba(255, 255, 255, 0.07), transparent 30%)'
+  'linear-gradient(180deg, rgba(6, 9, 18, 0.16) 0px, rgba(7, 11, 20, 0.24) 220px, rgba(7, 11, 20, 0.46) 520px, rgba(7, 11, 20, 0.78) 860px, rgba(7, 11, 20, 0.94) 100%)',
+  'radial-gradient(circle at 50% 14%, rgba(255, 255, 255, 0.07), transparent 40%)',
+  'radial-gradient(circle at 14% 18%, rgba(255, 255, 255, 0.04), transparent 26%)',
+  'radial-gradient(circle at 84% 16%, rgba(255, 255, 255, 0.04), transparent 28%)'
 ].join(',')
 
 export const DashboardLayout = ({
@@ -90,8 +90,8 @@ export const DashboardLayout = ({
             position: 'fixed',
             inset: 0,
             background: [
-              'linear-gradient(180deg, rgba(7, 11, 20, 0.02) 0%, rgba(7, 11, 20, 0.08) 18%, rgba(7, 11, 20, 0.24) 34%, rgba(7, 11, 20, 0.48) 50%, rgba(7, 11, 20, 0.74) 66%, rgba(7, 11, 20, 0.9) 82%, rgba(7, 11, 20, 0.98) 100%)',
-              'radial-gradient(circle at 50% 120%, rgba(4, 7, 16, 0.96), transparent 52%)'
+              'linear-gradient(180deg, rgba(7, 11, 20, 0.14) 0%, rgba(7, 11, 20, 0.2) 18%, rgba(7, 11, 20, 0.34) 34%, rgba(7, 11, 20, 0.58) 50%, rgba(7, 11, 20, 0.8) 66%, rgba(7, 11, 20, 0.94) 82%, rgba(7, 11, 20, 1) 100%)',
+              'radial-gradient(circle at 50% 120%, rgba(4, 7, 16, 0.98), transparent 50%)'
             ].join(','),
             mixBlendMode: 'multiply',
             pointerEvents: 'none',
@@ -105,15 +105,15 @@ export const DashboardLayout = ({
             position: 'fixed',
             inset: 0,
             backgroundImage: [
-              'radial-gradient(circle at 50% 12%, rgba(255, 255, 255, 0.54), transparent 42%)',
-              'radial-gradient(circle at 16% 20%, rgba(255, 255, 255, 0.36), transparent 28%)',
-              'radial-gradient(circle at 84% 16%, rgba(255, 255, 255, 0.38), transparent 30%)',
+              'radial-gradient(circle at 50% 12%, rgba(255, 255, 255, 0.36), transparent 40%)',
+              'radial-gradient(circle at 16% 20%, rgba(255, 255, 255, 0.22), transparent 26%)',
+              'radial-gradient(circle at 84% 16%, rgba(255, 255, 255, 0.24), transparent 28%)',
               ambientSpectrumGradient
             ].join(','),
             backgroundBlendMode: 'screen, screen, screen, normal',
             backgroundSize: 'auto, auto, auto, 220% 220%',
             backgroundPosition: 'center top, left top, right top, 0% 50%',
-            opacity: 0.12,
+            opacity: 0.08,
             WebkitMaskImage: 'linear-gradient(180deg, rgba(0, 0, 0, 1) 0%, rgba(0, 0, 0, 0.96) 22%, rgba(0, 0, 0, 0.82) 44%, rgba(0, 0, 0, 0.52) 66%, rgba(0, 0, 0, 0.18) 86%, rgba(0, 0, 0, 0.06) 100%)',
             maskImage: 'linear-gradient(180deg, rgba(0, 0, 0, 1) 0%, rgba(0, 0, 0, 0.96) 22%, rgba(0, 0, 0, 0.82) 44%, rgba(0, 0, 0, 0.52) 66%, rgba(0, 0, 0, 0.18) 86%, rgba(0, 0, 0, 0.06) 100%)',
             transformOrigin: '50% 18%',
@@ -139,7 +139,7 @@ export const DashboardLayout = ({
             backgroundImage: ambientSpectrumGradient,
             backgroundSize: '220% 220%',
             backgroundPosition: '0% 50%',
-            opacity: 0.08,
+            opacity: 0.05,
             animation: 'ambientSpectrumPanSingle var(--ambient-cycle-duration) ease-in-out infinite',
             pointerEvents: 'none',
             zIndex: 1
