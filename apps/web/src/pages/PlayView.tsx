@@ -29,7 +29,7 @@ function DiscordAutomationCard({
         <Box>
           <Typography level="title-sm">Automatic call-to-play prompts</Typography>
           <Typography level="body-sm" sx={{ color: 'neutral.400', mt: 0.5 }}>
-            When this is on, the bot can DM you when it sees you start a game and offer to create a call to play for you. It will only prompt if you do not already have an active call and there is someone visible who could receive it.
+            When this is on, the bot can DM you when it sees you start a game and offer to create a call to play for you. It will only prompt if you do not already have an active call and there is someone in your network or friends who could receive it.
           </Typography>
         </Box>
         <Switch
@@ -233,7 +233,7 @@ function PlayViewContent({
           body={
             isSignedIn
               ? 'When someone in your network posts a call to play that overlaps with your library, it will show up here.'
-              : 'Once the API responds, this section shows current and scheduled calls to play from people visible to you.'
+              : 'Once the API responds, this section shows current and scheduled calls to play from people in your network or friends.'
           }
         />
       )}

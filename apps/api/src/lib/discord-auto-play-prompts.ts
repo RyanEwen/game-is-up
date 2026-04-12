@@ -95,7 +95,7 @@ function buildAudienceRows(promptId: string, durationMinutes: number, friendReci
 function buildInitialPromptMessage(gameTitle: string, networkRecipientCount: number) {
   return [
     `**You just started playing ${gameTitle}.**`,
-    `${networkRecipientCount} people visible through your network and friends could receive a call to play for it right now.`,
+    `${networkRecipientCount} people in your network and friends could receive a call to play for it right now.`,
     'Pick a duration and I will ask who should receive it. Open the app if you want the full composer instead.'
   ].join('\n\n')
 }
@@ -373,7 +373,7 @@ export async function maybeSendDiscordAutoPlayPromptForObservation(observationId
       userId: observation.userId,
       gameId: observation.gameId,
       sourceServerId: observation.sourceServerId,
-      detail: 'Skipped because nobody visible through your network and friends currently overlaps on this game.',
+      detail: 'Skipped because nobody in your network or friends currently overlaps on this game.',
       friendRecipientCount: friendRecipients.length,
       networkRecipientCount: networkRecipients.length
     })

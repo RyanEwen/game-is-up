@@ -90,7 +90,7 @@ function QuickStartCard() {
           <Sheet variant="outlined" sx={{ p: 1.5, borderRadius: 'md', backgroundColor: 'rgba(255, 255, 255, 0.02)' }}>
             <Typography level="title-sm">1. Sign in</Typography>
             <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
-              Connect your Discord account so Game Is Up can find other people.
+              Sign in using your Discord account.
             </Typography>
           </Sheet>
           <Sheet variant="outlined" sx={{ p: 1.5, borderRadius: 'md', backgroundColor: 'rgba(255, 255, 255, 0.02)' }}>

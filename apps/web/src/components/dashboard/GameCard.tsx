@@ -97,7 +97,7 @@ export function GameCard({
                 canAddToLibrary={canAddToLibrary}
                 isInLibrary={isInLibrary}
                 isAddingToLibrary={isAddingToLibrary}
-                supportingText={`${game.playerCount} visible player${game.playerCount === 1 ? '' : 's'}`}
+                supportingText={`${game.playerCount} player${game.playerCount === 1 ? '' : 's'}`}
                 detailLines={[
                   game.sharedWithViewer ? 'This already overlaps with your library.' : 'This title is visible to you even if it is not in your library yet.'
                 ]}
@@ -308,7 +308,7 @@ export function GameCard({
           </Box>
           {hiddenPlayerCount > 0 ? (
             <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
-              +{hiddenPlayerCount} more visible players
+              +{hiddenPlayerCount} more players
             </Typography>
           ) : null}
           {showCompactSignInHint ? (

@@ -115,8 +115,8 @@ function DiscoveryViewContent({
                 : isSignedIn
                   ? 'Add games to your library and add at least one Discord server to your network so Game Is Up can find people with overlapping libraries.'
                   : showsDemoDiscoveryCopy
-                    ? 'This section shows games that the seeded demo viewer and other visible users both have in their playlists.'
-                    : 'Sign in to compare your library with friends and visible network members.'
+                    ? 'This section shows games that the seeded demo viewer and other users both have in their playlists.'
+                    : 'Sign in to compare your library with friends and network members.'
             }
           />
         )}
@@ -148,17 +148,17 @@ function DiscoveryViewContent({
           </Box>
         ) : (
           <EmptyStateCard
-            title={isSignedIn ? 'No extra visible games yet' : 'No extra visible games yet'}
+            title={isSignedIn ? 'No other games yet' : 'No other games yet'}
             body={
               noDiscoveryServersSelected
                 ? 'Add at least one Discord server to your network to browse games from network members.'
                 : isSignedIn
                   ? overlapGames.length > 0
-                    ? 'Everything currently visible is already shown above because it also matches your library.'
+                    ? 'Everything is already shown above because it also matches your library.'
                     : 'No one in your network has games in their playlist yet.'
                   : overlapGames.length > 0
-                    ? 'All currently visible titles are already covered in the shared games section above.'
-                    : 'Once the API responds, this section shows every visible game that is not already shared above.'
+                    ? 'All titles are already covered in the shared games section above.'
+                    : 'Sign in to see other games played by friends and network members.'
             }
           />
         )}
@@ -196,8 +196,8 @@ function DiscoveryViewContent({
                 : isSignedIn
                   ? 'No network members or friends are available yet.'
                   : showsDemoDiscoveryCopy
-                    ? 'This section shows the seeded people-first view, including visible network members and friends.'
-                    : 'Sign in to browse friends and visible network members here.'
+                    ? 'This section shows the seeded people-first view, including network members and friends.'
+                    : 'Sign in to browse friends and network members here.'
             }
           />
         )}
