@@ -984,8 +984,7 @@ export function useDashboardApp() {
       onboarding: showSignedInOnboarding ? (
         <EmptyStateCard
           title="Your account is live, but it does not have any game data yet"
-          body="Right now the discovery and play-intent sections are driven entirely by your own library overlap and friends list. Since your freshly created account has not added games, friends, or availability yet, those sections collapse to empty results instead of showing the seeded demo user experience."
-          chips={['Add library flow live', 'Friends unlock overlap', 'Play intent needs games first']}
+          body="The discovery and play sections are driven by the overlap between your library and the libraries of your friends and others in your network. Since your freshly created account has not added games, friends, or availability yet, those sections will be empty until you start filling out your profile."
         />
       ) : undefined
     },

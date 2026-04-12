@@ -27,6 +27,8 @@ function buildDefaultScheduledStartAtInput() {
   return toLocalDateTimeInputValue(new Date(Date.now() + 60 * 60 * 1000))
 }
 
+const defaultPlayIntentDurationMinutes: number = playIntentPresetDurations[0]
+
 export type DashboardPlayViewProps = {
   isSignedIn: boolean;
   activePlayIntent: ActivePlayIntent | null;
@@ -96,10 +98,10 @@ export function useDashboardPlay({
   const [playIntentNotifyScope, setPlayIntentNotifyScope] = useState<PlayIntentNotifyScope>('network')
   const [playIntentStartMode, setPlayIntentStartMode] = useState<PlayIntentStartMode>('now')
   const [playIntentTimingMode, setPlayIntentTimingMode] = useState<PlayIntentTimingMode>('preset')
-  const [playIntentDurationMinutes, setPlayIntentDurationMinutes] = useState(120)
-  const [playIntentCustomDurationInput, setPlayIntentCustomDurationInput] = useState('120')
+  const [playIntentDurationMinutes, setPlayIntentDurationMinutes] = useState(defaultPlayIntentDurationMinutes)
+  const [playIntentCustomDurationInput, setPlayIntentCustomDurationInput] = useState(String(defaultPlayIntentDurationMinutes))
   const [playIntentStartAtInput, setPlayIntentStartAtInput] = useState(buildDefaultScheduledStartAtInput)
-  const [playIntentEndAtInput, setPlayIntentEndAtInput] = useState(() => buildPlayIntentEndTimeInputValue(120))
+  const [playIntentEndAtInput, setPlayIntentEndAtInput] = useState(() => buildPlayIntentEndTimeInputValue(defaultPlayIntentDurationMinutes))
   const [playIntentNote, setPlayIntentNote] = useState('')
   const [selectedPlayIntentGameIds, setSelectedPlayIntentGameIds] = useState<string[]>([])
   const [selectedPlayIntentTargetUserIds, setSelectedPlayIntentTargetUserIds] = useState<string[]>([])
@@ -197,10 +199,10 @@ export function useDashboardPlay({
       setPlayIntentNotifyScope('network')
       setPlayIntentStartMode('now')
       setPlayIntentTimingMode('preset')
-      setPlayIntentDurationMinutes(120)
-      setPlayIntentCustomDurationInput('120')
+      setPlayIntentDurationMinutes(defaultPlayIntentDurationMinutes)
+      setPlayIntentCustomDurationInput(String(defaultPlayIntentDurationMinutes))
       setPlayIntentStartAtInput(buildDefaultScheduledStartAtInput())
-      setPlayIntentEndAtInput(buildPlayIntentEndTimeInputValue(120))
+      setPlayIntentEndAtInput(buildPlayIntentEndTimeInputValue(defaultPlayIntentDurationMinutes))
       setPlayIntentNote('')
       setSelectedPlayIntentGameIds([])
       setSelectedPlayIntentTargetUserIds([])

@@ -9,6 +9,8 @@ import { discoveryGameGridSx } from '../components/dashboard/dashboardUtils'
 import { useDashboardContext } from '../contexts/useDashboardContext'
 import type { DashboardLibraryQuickAddGame, FriendTarget } from '../components/dashboard/types'
 
+const showsDemoDiscoveryCopy = import.meta.env.DEV
+
 function DiscoverySection({
   isFirst = false,
   title,
@@ -112,14 +114,9 @@ function DiscoveryViewContent({
                 ? 'Every synced server in your network is currently hidden from discovery, so the app has no network members to compare against.'
                 : isSignedIn
                   ? 'Add games to your library and keep at least one server in your network enabled so Game Is Up can find people with overlapping libraries.'
-                  : 'This section shows games that the seeded demo viewer and other visible users both have in their playlists.'
-            }
-            chips={
-              noDiscoveryServersSelected
-                ? undefined
-                : isSignedIn
-                  ? ['Library drives overlap', 'Network filters visibility', 'Friends stay visible too']
-                  : ['Game-first overlap', 'People per game', 'Demo data seeded']
+                  : showsDemoDiscoveryCopy
+                    ? 'This section shows games that the seeded demo viewer and other visible users both have in their playlists.'
+                    : 'Sign in to compare your library with friends and visible network members.'
             }
           />
         )}
@@ -163,13 +160,6 @@ function DiscoveryViewContent({
                     ? 'All currently visible titles are already covered in the shared games section above.'
                     : 'Once the API responds, this section shows every visible game that is not already shared above.'
             }
-            chips={
-              noDiscoveryServersSelected
-                ? ['Network filters', 'Network members hidden', 'Turn one back on']
-                : overlapGames.length > 0
-                  ? ['Overlap shown above', 'Only new titles here', 'No duplicates']
-                  : ['Manual discovery', 'Find new friends by game', 'People per title']
-            }
           />
         )}
       </DiscoverySection>
@@ -205,12 +195,9 @@ function DiscoveryViewContent({
                 ? 'All synced servers in your network are hidden, so network members are excluded from browsing right now.'
                 : isSignedIn
                   ? 'No visible network members or in-app friends are available yet.'
-                  : 'This section shows the seeded people-first view, including visible network members and friends.'
-            }
-            chips={
-              noDiscoveryServersSelected
-                ? ['Server filters applied', 'No mutual users visible', 'Friends remain separate']
-                : ['Network people', 'Friends stay visible', 'Add friends before game overlap']
+                  : showsDemoDiscoveryCopy
+                    ? 'This section shows the seeded people-first view, including visible network members and friends.'
+                    : 'Sign in to browse friends and visible network members here.'
             }
           />
         )}

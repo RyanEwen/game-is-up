@@ -1,3 +1,4 @@
+import { env } from './env.js'
 import { prisma } from './prisma.js'
 
 export async function getViewer(viewerId?: string | null) {
@@ -11,6 +12,10 @@ export async function getViewer(viewerId?: string | null) {
     if (viewer) {
       return viewer
     }
+  }
+
+  if (env.NODE_ENV === 'production') {
+    return null
   }
 
   return prisma.user.findFirst({
