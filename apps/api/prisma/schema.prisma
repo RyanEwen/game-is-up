@@ -20,6 +20,13 @@ enum DiscordRelationshipSyncStatus {
   ERROR
 }
 
+enum DiscordRelationshipType {
+  FRIEND
+  BLOCKED
+  PENDING_INCOMING
+  PENDING_OUTGOING
+}
+
 enum DiscordActivityType {
   PLAYING
   COMPETING
@@ -85,8 +92,10 @@ model User {
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
   identities        UserIdentity[]
+  discordAccountInstall DiscordAccountInstall?
   discordServers    DiscordServerMembership[]
   discordServerPreferences DiscordServerPreference[]
+  importedDiscordRelationships DiscordRelationship[]
   discordActivityObservations DiscordActivityObservation[]
   gameInterests     UserGameInterest[]
   friendsGiven      Friend[]           @relation("friends_given")
@@ -117,6 +126,40 @@ model UserIdentity {
   user               User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerUserId])
+}
+
+model DiscordAccountInstall {
+  id                 String   @id @default(uuid())
+  userId             String?  @unique
+  discordUserId      String   @unique
+  username           String
+  displayName        String
+  avatarUrl          String?
+  installed          Boolean  @default(true)
+  grantedScopes      String[] @default([])
+  lastAuthorizedAt   DateTime?
+  lastDeauthorizedAt DateTime?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  user               User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([installed])
+}
+
+model DiscordRelationship {
+  id               String                  @id @default(uuid())
+  ownerUserId      String
+  discordUserId    String
+  username         String
+  displayName      String
+  avatarUrl        String?
+  relationshipType DiscordRelationshipType
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+  ownerUser        User                    @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+
+  @@unique([ownerUserId, discordUserId])
+  @@index([ownerUserId, relationshipType])
 }
 
 model DiscordServer {

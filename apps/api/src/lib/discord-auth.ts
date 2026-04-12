@@ -1,6 +1,7 @@
 import { AuthProvider as PrismaAuthProvider } from '@prisma/client'
 import { prisma } from './prisma.js'
 import { env } from './env.js'
+import { attachDiscordAccountInstallToUser } from './discord-account-installs.js'
 import { ensureUniqueHandle, normalizeHandleBase } from './user-profile.js'
 
 const DISCORD_AUTHORIZE_URL = 'https://discord.com/oauth2/authorize'
@@ -8,10 +9,11 @@ const DISCORD_TOKEN_URL = 'https://discord.com/api/oauth2/token'
 const DISCORD_ME_URL = 'https://discord.com/api/users/@me'
 const DISCORD_GUILDS_URL = 'https://discord.com/api/users/@me/guilds'
 const DISCORD_BOT_SCOPES = ['bot', 'applications.commands'] as const
+const DISCORD_USER_INSTALL_SCOPES = ['applications.commands'] as const
 const DISCORD_BOT_PERMISSIONS = '0'
 
-export const DISCORD_REQUESTED_SCOPES = ['identify', 'email', 'guilds'] as const
-export const DISCORD_APPROVAL_GATED_SCOPES = ['relationships.read'] as const
+export const DISCORD_REQUESTED_SCOPES = ['identify', 'email', 'guilds', 'relationships.read'] as const
+export const DISCORD_APPROVAL_GATED_SCOPES: readonly string[] = []
 
 type DiscordTokenResponse = {
   access_token: string;
@@ -39,12 +41,12 @@ function normalizeGrantedScopes(scope: string): string[] {
   return [...new Set(scope.split(/\s+/u).map((entry) => entry.trim()).filter(Boolean))].sort((left, right) => left.localeCompare(right))
 }
 
-function getDiscordRelationshipSyncStatus(grantedScopes: string[]) {
+function getDiscordRelationshipSyncStatus(grantedScopes: string[], previousStatus?: 'APPROVAL_REQUIRED' | 'SCOPE_MISSING' | 'READY' | 'SYNCED' | 'ERROR') {
   if (grantedScopes.includes('relationships.read')) {
-    return 'READY' as const
+    return previousStatus === 'SYNCED' ? 'SYNCED' as const : 'READY' as const
   }
 
-  return 'APPROVAL_REQUIRED' as const
+  return 'SCOPE_MISSING' as const
 }
 
 function buildDiscordAvatarUrl(profile: DiscordUserProfile): string | null {
@@ -83,14 +85,32 @@ export function buildDiscordBotInstallUrl(): string | null {
   return url.toString()
 }
 
-export async function exchangeDiscordCode(code: string): Promise<DiscordTokenResponse> {
+export function buildDiscordUserInstallUrl(): string | null {
+  if (!env.DISCORD_CLIENT_ID) {
+    return null
+  }
+
+  const url = new URL(DISCORD_AUTHORIZE_URL)
+  url.searchParams.set('client_id', env.DISCORD_CLIENT_ID)
+  url.searchParams.set('scope', DISCORD_USER_INSTALL_SCOPES.join(' '))
+  url.searchParams.set('integration_type', '1')
+
+  return url.toString()
+}
+
+export async function exchangeDiscordCode(code: string, options?: { redirectUri?: string | null }): Promise<DiscordTokenResponse> {
   const body = new URLSearchParams({
     client_id: env.DISCORD_CLIENT_ID ?? '',
     client_secret: env.DISCORD_CLIENT_SECRET ?? '',
     grant_type: 'authorization_code',
-    code,
-    redirect_uri: env.DISCORD_CALLBACK_URL ?? ''
+    code
   })
+
+  const redirectUri = options?.redirectUri === undefined ? (env.DISCORD_CALLBACK_URL ?? '') : options.redirectUri
+
+  if (redirectUri) {
+    body.set('redirect_uri', redirectUri)
+  }
 
   const response = await fetch(DISCORD_TOKEN_URL, {
     method: 'POST',
@@ -143,7 +163,6 @@ export async function upsertDiscordUser(profile: DiscordUserProfile, grantedScop
   const displayName = profile.global_name?.trim() || profile.username
   const avatarUrl = buildDiscordAvatarUrl(profile)
   const grantedScopes = normalizeGrantedScopes(grantedScopeString)
-  const relationshipSyncStatus = getDiscordRelationshipSyncStatus(grantedScopes)
 
   const existingIdentity = await prisma.userIdentity.findUnique({
     where: {
@@ -158,6 +177,7 @@ export async function upsertDiscordUser(profile: DiscordUserProfile, grantedScop
   })
 
   if (existingIdentity) {
+    const relationshipSyncStatus = getDiscordRelationshipSyncStatus(grantedScopes, existingIdentity.discordRelationshipSyncStatus)
     const conflictingUser = email
       ? await prisma.user.findUnique({
           where: {
@@ -195,8 +215,12 @@ export async function upsertDiscordUser(profile: DiscordUserProfile, grantedScop
       }
     })
 
+    await attachDiscordAccountInstallToUser(profile.id, updatedUser.id)
+
     return updatedUser
   }
+
+  const relationshipSyncStatus = getDiscordRelationshipSyncStatus(grantedScopes)
 
   let user = email
     ? await prisma.user.findUnique({
@@ -242,6 +266,8 @@ export async function upsertDiscordUser(profile: DiscordUserProfile, grantedScop
       discordRelationshipSyncError: null
     }
   })
+
+  await attachDiscordAccountInstallToUser(profile.id, user.id)
 
   return user
 }

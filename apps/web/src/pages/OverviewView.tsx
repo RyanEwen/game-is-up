@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { Avatar, Box, Button, Card, Chip, DialogContent, DialogTitle, Input, Sheet, Stack, Typography } from '@mui/joy'
 import type {
   AuthSessionResponse,
+  DiscordAccountInstall,
+  DiscordFriendsResponse,
   DiscordServerMembersResponse,
   DiscordServerPreferencesResponse,
   SendDiscordServerInvitesResponse
@@ -63,7 +65,7 @@ function AccountCard({
       ) : (
         <Stack spacing={1.5}>
           <Typography level="body-md">
-            Sign in with Discord to build your network and find your friends and other players.
+            Sign in with Discord to build your network from servers today, then layer imported Discord friends on top as that sync becomes available.
           </Typography>
           <Button color="primary" disabled={!discordEnabled} onClick={() => void onDiscordLogin()}>
             Sign in with Discord
@@ -96,7 +98,7 @@ function QuickStartCard() {
           <Sheet variant="outlined" sx={{ p: 1.5, borderRadius: 'md', backgroundColor: 'rgba(255, 255, 255, 0.02)' }}>
             <Typography level="title-sm">2. Build your network</Typography>
             <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
-              Add the Discord servers where your friends and other players are. If one isn't shown, invite the bot there first.
+              Start with Discord friends, then add the Discord servers where your wider group is active. If one isn't shown, invite the bot there first.
             </Typography>
           </Sheet>
           <Sheet variant="outlined" sx={{ p: 1.5, borderRadius: 'md', backgroundColor: 'rgba(255, 255, 255, 0.02)' }}>
@@ -123,23 +125,138 @@ function QuickStartCard() {
   )
 }
 
+function DiscordFriendsRowCard({
+  discordFriends,
+  discordAccountInstall,
+  discordFriendSyncing,
+  inviteUrl,
+  canShareInvite,
+  onShareInvite,
+  onOpenDiscordAccountInstall,
+  onSyncDiscordFriends
+}: {
+  discordFriends: DiscordFriendsResponse | null;
+  discordAccountInstall: DiscordAccountInstall | null;
+  discordFriendSyncing: boolean;
+  inviteUrl: string | null;
+  canShareInvite: boolean;
+  onShareInvite: () => Promise<void>;
+  onOpenDiscordAccountInstall: () => Promise<void>;
+  onSyncDiscordFriends: () => Promise<void>;
+}) {
+  const accountInstallActionLabel = discordAccountInstall?.status === 'removed'
+    ? 'Reinstall on Discord'
+    : discordAccountInstall?.status === 'installed'
+      ? 'Installed on your account'
+      : 'Add app to your account'
+
+  return (
+    <Card variant="soft" sx={{ p: 2.5 }}>
+      <Stack spacing={1.5}>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }}>
+          <Box>
+            <Typography level="title-md">Discord friends</Typography>
+            <Typography level="body-sm" sx={{ color: 'neutral.400', mt: 0.5 }}>
+              {discordFriends && discordFriends.counts.total > 0
+                ? `${discordFriends.counts.appUsers} of ${discordFriends.counts.total} imported Discord friends have signed into Game Is Up. ${discordFriends.counts.addableAppUsers} can be added from Friends right now.`
+                : 'Connect the bot to your Discord account and invite Discord friends to the app.'}
+            </Typography>
+          </Box>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'center' }}>
+            <Button color="primary" disabled={discordFriendSyncing} onClick={() => void onSyncDiscordFriends()}>
+              {discordFriendSyncing ? 'Syncing Discord friends...' : 'Sync Discord friends'}
+            </Button>
+            {canShareInvite ? (
+              <Button variant="outlined" color="neutral" disabled={!inviteUrl} onClick={() => void onShareInvite()}>
+                Share app invite
+              </Button>
+            ) : null}
+            <Button
+              variant={discordAccountInstall?.status === 'installed' ? 'soft' : 'solid'}
+              color={discordAccountInstall?.status === 'installed' ? 'success' : 'primary'}
+              onClick={() => void onOpenDiscordAccountInstall()}
+            >
+              {accountInstallActionLabel}
+            </Button>
+          </Stack>
+        </Stack>
+        <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+          <Chip size="sm" variant="soft" color="primary">
+            {discordFriends?.counts.total ?? 0} imported
+          </Chip>
+          <Chip size="sm" variant="soft" color="success">
+            {discordFriends?.counts.appUsers ?? 0} on Game Is Up
+          </Chip>
+          <Chip
+            size="sm"
+            variant={discordAccountInstall?.status === 'installed' ? 'soft' : 'outlined'}
+            color={discordAccountInstall?.status === 'installed' ? 'success' : 'neutral'}
+          >
+            Discord account: {discordAccountInstall?.status ?? 'unknown'}
+          </Chip>
+        </Stack>
+        <Typography level="body-sm" sx={{ color: discordAccountInstall?.status === 'removed' ? 'warning.300' : 'neutral.400' }}>
+          {discordAccountInstall?.note ?? 'Sign in with Discord to track account install state.'}
+        </Typography>
+        {discordFriends?.note ? (
+          <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
+            {discordFriends.note} Run the sync action from the Game Is Up activity inside Discord to refresh this list.
+          </Typography>
+        ) : null}
+      </Stack>
+    </Card>
+  )
+}
+
 function DiscoveryServersSection({
+  showDiscordFriendBeta,
+  discordFriends,
+  discordAccountInstall,
+  discordFriendSyncing,
   availableDiscoveryServers,
   hasSyncedServers,
   serverPreferencePendingId,
+  inviteUrl,
+  canShareInvite,
+  onShareInvite,
+  onOpenDiscordAccountInstall,
+  onSyncDiscordFriends,
   onToggleDiscordServer
 }: {
+  showDiscordFriendBeta: boolean;
+  discordFriends: DiscordFriendsResponse | null;
+  discordAccountInstall: DiscordAccountInstall | null;
+  discordFriendSyncing: boolean;
   availableDiscoveryServers: DiscoveryServer[];
   hasSyncedServers: boolean;
   serverPreferencePendingId: string | null;
+  inviteUrl: string | null;
+  canShareInvite: boolean;
+  onShareInvite: () => Promise<void>;
+  onOpenDiscordAccountInstall: () => Promise<void>;
+  onSyncDiscordFriends: () => Promise<void>;
   onToggleDiscordServer: (serverId: string, nextSelected: boolean) => Promise<void>;
 }) {
   return (
     <Stack spacing={2}>
       <Typography level="h2">Your network</Typography>
       <Typography level="body-md" sx={{ color: 'neutral.300' }}>
-        Build your network by adding the Discord servers where your friends and other players are. If a server is missing, invite the Game Is Up bot to it first.
+        {showDiscordFriendBeta
+          ? 'Start with Discord friends, then widen the net with Discord servers where your friends and other players are active.'
+          : 'Use Discord servers where your friends and other players are active to widen your network.'}
       </Typography>
+      {showDiscordFriendBeta ? (
+        <DiscordFriendsRowCard
+          discordFriends={discordFriends}
+          discordAccountInstall={discordAccountInstall}
+          discordFriendSyncing={discordFriendSyncing}
+          inviteUrl={inviteUrl}
+          canShareInvite={canShareInvite}
+          onShareInvite={onShareInvite}
+          onOpenDiscordAccountInstall={onOpenDiscordAccountInstall}
+          onSyncDiscordFriends={onSyncDiscordFriends}
+        />
+      ) : null}
       {availableDiscoveryServers.length > 0 ? (
         <Stack spacing={1.5}>
           {availableDiscoveryServers.map((server) => (
@@ -461,7 +578,7 @@ function InviteUsersLauncherCard({
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.25}>
         <Box sx={{ width: { xs: '100%', sm: 'auto' } }}>
           <Button color="primary" onClick={onOpen} sx={{ width: { xs: '100%', sm: 'auto' } }}>
-            Invite people to Game Is Up
+            Invite from selected servers
           </Button>
         </Box>
         {discordBotInstallUrl ? (
@@ -487,14 +604,20 @@ function InviteUsersLauncherCard({
 function OverviewViewContent({
   session,
   discordEnabled,
+  showDiscordFriendBeta,
   hasDiscordScopeWarning,
   isSignedIn,
   discordBotInstallUrl,
+  discordAccountInstall,
+  discordFriends,
+  discordFriendSyncing,
   availableDiscoveryServers,
   hasSyncedDiscordServers,
   serverPreferencePendingId,
   onLogout,
   onDiscordLogin,
+  onOpenDiscordAccountInstall,
+  onSyncDiscordFriends,
   onToggleDiscordServer,
   inviteUrl,
   selectedDiscoveryServers,
@@ -518,14 +641,20 @@ function OverviewViewContent({
 }: {
   session: AuthSessionResponse | null;
   discordEnabled: boolean;
+  showDiscordFriendBeta: boolean;
   hasDiscordScopeWarning: boolean;
   isSignedIn: boolean;
   discordBotInstallUrl: string | null;
+  discordAccountInstall: DiscordAccountInstall | null;
+  discordFriends: DiscordFriendsResponse | null;
+  discordFriendSyncing: boolean;
   availableDiscoveryServers: DiscoveryServer[];
   hasSyncedDiscordServers: boolean;
   serverPreferencePendingId: string | null;
   onLogout: () => Promise<void>;
   onDiscordLogin: () => Promise<void>;
+  onOpenDiscordAccountInstall: () => Promise<void>;
+  onSyncDiscordFriends: () => Promise<void>;
   onToggleDiscordServer: (serverId: string, nextSelected: boolean) => Promise<void>;
   inviteUrl: string | null;
   selectedDiscoveryServers: DiscoveryServer[];
@@ -563,9 +692,18 @@ function OverviewViewContent({
 
         {isSignedIn ? (
           <DiscoveryServersSection
+            showDiscordFriendBeta={showDiscordFriendBeta}
+            discordFriends={discordFriends}
+            discordAccountInstall={discordAccountInstall}
+            discordFriendSyncing={discordFriendSyncing}
             availableDiscoveryServers={availableDiscoveryServers}
             hasSyncedServers={hasSyncedDiscordServers}
             serverPreferencePendingId={serverPreferencePendingId}
+            inviteUrl={inviteUrl}
+            canShareInvite={canShareInvite}
+            onShareInvite={onShareInvite}
+            onOpenDiscordAccountInstall={onOpenDiscordAccountInstall}
+            onSyncDiscordFriends={onSyncDiscordFriends}
             onToggleDiscordServer={onToggleDiscordServer}
           />
         ) : null}

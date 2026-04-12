@@ -1,5 +1,12 @@
 import { Router } from 'express'
-import { authProvidersResponseSchema, authSessionResponseSchema, steamLinkIntentResponseSchema, type AuthProvider } from '@game-is-up/shared'
+import {
+  authProvidersResponseSchema,
+  authSessionResponseSchema,
+  exchangeDiscordEmbeddedCodeRequestSchema,
+  exchangeDiscordEmbeddedCodeResponseSchema,
+  steamLinkIntentResponseSchema,
+  type AuthProvider
+} from '@game-is-up/shared'
 import { AuthProvider as PrismaAuthProvider } from '@prisma/client'
 import { z } from 'zod'
 import { prisma } from '../lib/prisma.js'
@@ -9,6 +16,7 @@ import {
   DISCORD_REQUESTED_SCOPES,
   buildDiscordAuthorizationUrl,
   buildDiscordBotInstallUrl,
+  buildDiscordUserInstallUrl,
   exchangeDiscordCode,
   fetchDiscordGuilds,
   fetchDiscordUser,
@@ -16,6 +24,7 @@ import {
   markDiscordGuildSync,
   upsertDiscordUser
 } from '../lib/discord-auth.js'
+import { getDiscordAccountInstallSummaryForUser } from '../lib/discord-account-installs.js'
 import { getDiscordPresenceBotState } from '../lib/discord-bot-runtime.js'
 import { ensureDevelopmentSampleFriends } from '../lib/dev-sample-network.js'
 import { syncDiscordServersForUser } from '../lib/discord-servers.js'
@@ -64,14 +73,21 @@ async function buildDiscordGraphCapabilities(userId: string | null) {
       requestedScopes: [...DISCORD_REQUESTED_SCOPES],
       grantedScopes: [],
       fallbackSources: ['mutual-servers', 'app-friends'] as const,
+      accountInstall: {
+        installUrl: buildDiscordUserInstallUrl(),
+        status: 'unknown' as const,
+        lastAuthorizedAt: null,
+        lastDeauthorizedAt: null,
+        note: 'Sign in with Discord to track whether Game Is Up is installed on your Discord account.'
+      },
       guildSync: {
         active: false,
         lastSyncedAt: null
       },
       relationshipSync: {
         available: false,
-        requiresApproval: true,
-        status: 'approval-required' as const,
+        requiresApproval: false,
+        status: 'scope-missing' as const,
         lastSyncedAt: null,
         error: null
       },
@@ -99,7 +115,7 @@ async function buildDiscordGraphCapabilities(userId: string | null) {
   } as const
 
   const relationshipStatus = relationshipStatusMap[identity.discordRelationshipSyncStatus]
-  const [{ currentActivity, lastObservedAt }, sharedServerCount] = await Promise.all([
+  const [{ currentActivity, lastObservedAt }, sharedServerCount, accountInstall] = await Promise.all([
     getLatestDiscordActivityForUser(userId),
     botState.guildIds.length > 0
       ? prisma.discordServerMembership.count({
@@ -110,20 +126,22 @@ async function buildDiscordGraphCapabilities(userId: string | null) {
             }
           }
         })
-      : Promise.resolve(0)
+      : Promise.resolve(0),
+    getDiscordAccountInstallSummaryForUser(userId)
   ])
 
   return {
     requestedScopes: [...DISCORD_REQUESTED_SCOPES],
     grantedScopes: identity.grantedScopes,
     fallbackSources: ['mutual-servers', 'app-friends'] as const,
+    accountInstall,
     guildSync: {
       active: identity.grantedScopes.includes('guilds'),
       lastSyncedAt: identity.lastDiscordGuildsSyncAt?.toISOString() ?? null
     },
     relationshipSync: {
       available: relationshipStatus === 'ready' || relationshipStatus === 'synced',
-      requiresApproval: !identity.grantedScopes.includes('relationships.read'),
+      requiresApproval: false,
       status: relationshipStatus,
       lastSyncedAt: identity.lastDiscordRelationshipsSyncAt?.toISOString() ?? null,
       error: identity.discordRelationshipSyncError
@@ -180,18 +198,24 @@ authRouter.get('/providers', (_request, response) => {
           label: 'Discord',
           enabled: isDiscordAuthConfigured(),
           primary: true,
+          clientId: env.DISCORD_CLIENT_ID ?? null,
           requestedScopes: [...DISCORD_REQUESTED_SCOPES],
           gatedScopes: [...DISCORD_APPROVAL_GATED_SCOPES],
-          installUrl: buildDiscordBotInstallUrl()
+          installUrl: buildDiscordBotInstallUrl(),
+          serverInstallUrl: buildDiscordBotInstallUrl(),
+          accountInstallUrl: buildDiscordUserInstallUrl()
         },
         {
           id: 'steam',
           label: 'Steam library import',
           enabled: isSteamImportConfigured(),
           primary: false,
+          clientId: null,
           requestedScopes: ['library-read'],
           gatedScopes: [],
-          installUrl: null
+          installUrl: null,
+          serverInstallUrl: null,
+          accountInstallUrl: null
         }
       ]
     })
@@ -315,6 +339,39 @@ authRouter.get('/discord/callback', async (request, response) => {
     console.error('Discord callback failed', callbackError)
     clearDiscordState(response)
     response.redirect(buildClientRedirect('discord', redirectTarget, 'error', { reason: 'oauth-failed' }))
+  }
+})
+
+authRouter.post('/discord/token', async (request, response, next) => {
+  if (!isDiscordAuthConfigured()) {
+    response.status(503).json({
+      error: 'Discord OAuth is not configured.'
+    })
+    return
+  }
+
+  try {
+    const payload = exchangeDiscordEmbeddedCodeRequestSchema.parse(request.body)
+    const tokenResponse = await exchangeDiscordCode(payload.code, {
+      redirectUri: null
+    })
+    const profile = await fetchDiscordUser(tokenResponse.access_token)
+    const user = await upsertDiscordUser(profile, tokenResponse.scope)
+
+    if (tokenResponse.scope.split(/\s+/u).includes('guilds')) {
+      const guilds = await fetchDiscordGuilds(tokenResponse.access_token)
+      await syncDiscordServersForUser(user.id, guilds)
+      await markDiscordGuildSync(user.id)
+    }
+
+    setAuthSession(response, user.id, 'discord')
+    response.json(exchangeDiscordEmbeddedCodeResponseSchema.parse({
+      accessToken: tokenResponse.access_token,
+      scopes: tokenResponse.scope.split(/\s+/u).map((scope) => scope.trim()).filter(Boolean),
+      expiresInSeconds: tokenResponse.expires_in
+    }))
+  } catch (error) {
+    next(error)
   }
 })
 

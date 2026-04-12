@@ -6,6 +6,8 @@ import { clientBootstrapSchema } from '@game-is-up/shared'
 import { authRouter } from './routes/auth.js'
 import { debugRouter } from './routes/debug.js'
 import { discoveryRouter } from './routes/discovery.js'
+import { discordEventsRouter } from './routes/discord-events.js'
+import { discordFriendsRouter } from './routes/discord-friends.js'
 import { discordServersRouter } from './routes/discord-servers.js'
 import { friendsRouter } from './routes/friends.js'
 import { healthRouter } from './routes/health.js'
@@ -33,6 +35,7 @@ app.use(
   })
 )
 app.use(helmet())
+app.use('/api/discord/events', express.raw({ type: 'application/json' }), discordEventsRouter)
 app.use(express.json())
 
 app.get('/api/bootstrap', (_request, response) => {
@@ -52,6 +55,7 @@ app.get('/api/bootstrap', (_request, response) => {
 app.use('/api/health', healthRouter)
 app.use('/api/auth', authRouter)
 app.use('/api/debug', debugRouter)
+app.use('/api/discord-friends', discordFriendsRouter)
 app.use('/api/discord-servers', discordServersRouter)
 app.use('/api/discovery', discoveryRouter)
 app.use('/api/friends', friendsRouter)

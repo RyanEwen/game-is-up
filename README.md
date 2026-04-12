@@ -134,6 +134,7 @@ For a host-Nginx setup, the important production values are:
 
 - `CLIENT_ORIGIN=https://your-public-domain`
 - `DISCORD_CALLBACK_URL=https://your-public-domain/api/auth/discord/callback`
+- `DISCORD_APPLICATION_PUBLIC_KEY=<discord application public key>` so the API can verify Discord account-install webhooks at `/api/discord/events`
 - `VITE_API_BASE_URL=` so the frontend uses same-origin `/api`
 - `PORT=8080` as the default host port behind Nginx
 
@@ -173,9 +174,11 @@ This repo now treats Prisma migrations as the source of truth for schema changes
 10. When a call to play matches someone who should be notified and that user has a linked Discord account, the bot can DM them directly.
 11. Users can leave a Play page setting on by default so the bot can DM them after it sees them start a game and offer to create a call to play straight from Discord. Those prompts only go out when there is no active call already, at least one visible overlap could receive it, and the same game has not already prompted that user in the last 10 minutes.
 12. Discovery-based play-intent visibility can now include both explicit friends and users from the Discord servers you opted into discovery.
-13. Discord is still the only sign-in path in this scaffold.
-14. Steam can now be linked as a secondary account for library import only. It does not replace Discord auth or discovery.
-15. On Android, linked-account flows like Discord sign-in and Steam linking open in the system browser and return to the app through the `gameisup://auth` deep link. For local development, keep `adb reverse` active so the installed app can still reach the local API while completing those flows.
+13. Discord account installs are tracked separately from guild installs. Configure a Discord event webhook pointed at `/api/discord/events` and set `DISCORD_APPLICATION_PUBLIC_KEY` so the API can verify account authorized and deauthorized events.
+14. Imported Discord friend relationships are refreshed from the Game Is Up Discord Activity, not from the normal browser tab. The embedded Activity uses the Discord Embedded App SDK with `relationships.read`, then posts normalized relationships back to `/api/discord-friends/me/import` for the web app to display later.
+15. Discord is still the only sign-in path in this scaffold.
+16. Steam can now be linked as a secondary account for library import only. It does not replace Discord auth or discovery.
+17. On Android, linked-account flows like Discord sign-in and Steam linking open in the system browser and return to the app through the `gameisup://auth` deep link. For local development, keep `adb reverse` active so the installed app can still reach the local API while completing those flows.
 
 ## Steam import setup
 
