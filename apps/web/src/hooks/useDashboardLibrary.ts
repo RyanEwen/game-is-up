@@ -211,6 +211,43 @@ export function useDashboardLibrary({
     setActionNotice(null)
   }, [setActionNotice])
 
+  const openLibraryEditorForGame = useCallback(async ({ gameId, title, coverUrl, platformLabels }: DashboardLibraryQuickAddGame) => {
+    if (!isSignedIn) {
+      setActionNotice({
+        tone: 'danger',
+        message: 'Sign in before adding games to your library.'
+      })
+      return
+    }
+
+    if (libraryGameIds.has(gameId)) {
+      setActionNotice({
+        tone: 'neutral',
+        message: `${title} is already in your library.`
+      })
+      return
+    }
+
+    const normalizedPlatformLabels = [...new Set(platformLabels.map((platformLabel) => platformLabel.trim()).filter(Boolean))]
+
+    setIsLibraryEditorOpen(true)
+    setEditingLibraryEntryId(null)
+    setLibraryTitle(title)
+    setSelectedPlatformLabels(normalizedPlatformLabels.length > 0 ? normalizedPlatformLabels : ['PC'])
+    setLibraryAvailability('')
+    setGameSuggestions([])
+    setSelectedCatalogResult({
+      id: gameId,
+      source: 'local',
+      sourceId: gameId,
+      title,
+      coverUrl,
+      platformLabels: normalizedPlatformLabels
+    })
+    setLibraryIntent('interested')
+    setActionNotice(null)
+  }, [isSignedIn, libraryGameIds, setActionNotice])
+
   const handleEditLibraryEntry = useCallback((entry: LibraryEntry) => {
     setIsLibraryEditorOpen(true)
     setEditingLibraryEntryId(entry.id)
@@ -426,6 +463,7 @@ export function useDashboardLibrary({
 
   return {
     profileSaving,
-    libraryViewProps
+    libraryViewProps,
+    openLibraryEditorForGame
   }
 }

@@ -17,6 +17,7 @@ import { prisma } from './prisma.js'
 import { getCurrentPlayIntent, getPlayIntentRecipientUserIds, upsertCurrentPlayIntent } from './play-intents.js'
 
 const autoPlayPromptDurations = [60, 120, 240] as const
+const autoPlayPromptCooldownMinutes = 10
 const autoPlayPromptPrefix = 'auto-play'
 
 type AutoPlayPromptAction =
@@ -39,6 +40,10 @@ function formatDurationLabel(durationMinutes: number) {
   }
 
   return `${durationMinutes} minutes`
+}
+
+function getAutoPlayPromptCooldownCutoff(referenceTime: Date) {
+  return new Date(referenceTime.getTime() - (autoPlayPromptCooldownMinutes * 60 * 1000))
 }
 
 function buildLinkRow() {
@@ -315,6 +320,44 @@ export async function maybeSendDiscordAutoPlayPromptForObservation(observationId
       gameId: observation.gameId,
       sourceServerId: observation.sourceServerId,
       detail: 'Skipped because the user does not have a linked Discord identity.'
+    })
+    return
+  }
+
+  const cooldownCutoff = getAutoPlayPromptCooldownCutoff(new Date())
+  const recentPrompt = await prisma.discordAutoPlayPrompt.findFirst({
+    where: {
+      userId: observation.userId,
+      gameId: observation.gameId,
+      createdAt: {
+        gte: cooldownCutoff
+      },
+      OR: [
+        {
+          deliveredAt: {
+            not: null
+          }
+        },
+        {
+          status: DiscordAutoPlayPromptStatus.SENT
+        }
+      ]
+    },
+    orderBy: {
+      createdAt: 'desc'
+    },
+    select: {
+      createdAt: true
+    }
+  })
+
+  if (recentPrompt) {
+    await createSkippedPrompt({
+      observationId,
+      userId: observation.userId,
+      gameId: observation.gameId,
+      sourceServerId: observation.sourceServerId,
+      detail: `Skipped because ${observation.game.title} was already prompted within the last ${formatDurationLabel(autoPlayPromptCooldownMinutes)}.`
     })
     return
   }

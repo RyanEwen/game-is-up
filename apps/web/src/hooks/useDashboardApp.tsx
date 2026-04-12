@@ -519,7 +519,7 @@ export function useDashboardApp() {
     }
   }, [isSignedIn, libraryEntries, loadDashboard])
 
-  const { profileSaving, libraryViewProps } = useDashboardLibrary({
+  const { profileSaving, libraryViewProps, openLibraryEditorForGame } = useDashboardLibrary({
     isSignedIn,
     buildApiUrl,
     libraryEntries,
@@ -943,7 +943,7 @@ export function useDashboardApp() {
       addingLibraryGameId,
       friendPendingId,
       onToggleFriend: handleToggleFriend,
-      onAddGameToLibrary: handleAddGameToLibrary
+      onAddGameToLibrary: openLibraryEditorForGame
     },
     debugViewProps: {
       isSignedIn,

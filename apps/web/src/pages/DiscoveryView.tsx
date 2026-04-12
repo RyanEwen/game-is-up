@@ -1,7 +1,9 @@
 import { Box, Card, Stack, Typography } from '@mui/joy'
 import type { DiscoveryGame, DiscoveryPerson } from '@game-is-up/shared'
+import { DashboardModal } from '../components/dashboard/DashboardModal'
 import { EmptyStateCard } from '../components/dashboard/EmptyStateCard'
 import { GameCard } from '../components/dashboard/GameCard'
+import { LibraryEditorCard } from '../components/dashboard/LibraryEditorCard'
 import { PersonCard } from '../components/dashboard/PersonCard'
 import { discoveryGameGridSx } from '../components/dashboard/dashboardUtils'
 import { useDashboardContext } from '../contexts/useDashboardContext'
@@ -204,7 +206,33 @@ function DiscoveryViewContent({
 }
 
 export function DiscoveryView() {
-  const { discoveryViewProps } = useDashboardContext()
+  const { discoveryViewProps, libraryViewProps } = useDashboardContext()
 
-  return <DiscoveryViewContent {...discoveryViewProps} />
+  return (
+    <>
+      <DiscoveryViewContent {...discoveryViewProps} />
+      <DashboardModal open={libraryViewProps.isLibraryEditorOpen} onClose={libraryViewProps.closeLibraryEditor} width="min(96vw, 760px)">
+        <LibraryEditorCard
+          editingLibraryEntry={libraryViewProps.editingLibraryEntry}
+          libraryTitle={libraryViewProps.libraryTitle}
+          onLibraryTitleChange={libraryViewProps.onLibraryTitleChange}
+          selectedCatalogResult={libraryViewProps.selectedCatalogResult}
+          gameSuggestions={libraryViewProps.gameSuggestions}
+          gameSuggestionsLoading={libraryViewProps.gameSuggestionsLoading}
+          onSelectSuggestion={libraryViewProps.onSelectSuggestion}
+          platformOptions={libraryViewProps.platformOptions}
+          selectedPlatformLabels={libraryViewProps.selectedPlatformLabels}
+          onTogglePlatformLabel={libraryViewProps.onTogglePlatformLabel}
+          libraryIntent={libraryViewProps.libraryIntent}
+          onLibraryIntentChange={libraryViewProps.onLibraryIntentChange}
+          currentUsualAvailability={libraryViewProps.currentUsualAvailability}
+          libraryAvailability={libraryViewProps.libraryAvailability}
+          onLibraryAvailabilityChange={libraryViewProps.onLibraryAvailabilityChange}
+          librarySaving={libraryViewProps.librarySaving}
+          onAddLibraryEntry={libraryViewProps.onAddLibraryEntry}
+          onCancelLibraryEdit={libraryViewProps.onCancelLibraryEdit}
+        />
+      </DashboardModal>
+    </>
+  )
 }
