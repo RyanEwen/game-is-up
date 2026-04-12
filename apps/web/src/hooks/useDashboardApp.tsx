@@ -33,7 +33,7 @@ import {
   userProfileResponseSchema
 } from '@game-is-up/shared'
 import { EmptyStateCard } from '../components/dashboard/EmptyStateCard'
-import { syncDiscordFriendsFromEmbeddedSdk } from '../lib/discord-embedded'
+import { isDiscordEmbeddedActivity, signInWithDiscordFromEmbeddedSdk, syncDiscordFriendsFromEmbeddedSdk } from '../lib/discord-embedded'
 import type { DashboardLibraryQuickAddGame, FriendTarget, Notice } from '../components/dashboard/types'
 import { useDashboardInvites } from './useDashboardInvites'
 import { useDashboardLibrary } from './useDashboardLibrary'
@@ -874,6 +874,40 @@ export function useDashboardApp() {
   }, [])
 
   const handleDiscordLogin = useCallback(async () => {
+    if (isDiscordEmbeddedActivity()) {
+      const clientId = discordProvider?.clientId ?? null
+      const scopes = [...new Set(['applications.commands', ...(discordProvider?.requestedScopes ?? [])])]
+
+      if (!clientId) {
+        setAuthNotice({
+          tone: 'danger',
+          message: 'Discord sign-in is unavailable because the Discord client ID is not configured.'
+        })
+        return
+      }
+
+      try {
+        setAuthNotice(null)
+        await signInWithDiscordFromEmbeddedSdk({
+          clientId,
+          apiBaseUrl: buildAbsoluteApiUrl(''),
+          scopes
+        })
+        await loadDashboard()
+        setAuthNotice({
+          tone: 'success',
+          message: 'Signed in with Discord.'
+        })
+      } catch (error) {
+        setAuthNotice({
+          tone: 'danger',
+          message: error instanceof Error ? error.message : 'Unable to sign in with Discord right now.'
+        })
+      }
+
+      return
+    }
+
     const loginUrl = buildAbsoluteApiUrl(`/api/auth/discord/login?returnTo=${encodeURIComponent(isNativeApp ? mobileAuthRedirectUrl : window.location.href)}`)
 
     if (isNativeApp) {
@@ -884,7 +918,7 @@ export function useDashboardApp() {
     }
 
     window.location.assign(loginUrl)
-  }, [isNativeApp])
+  }, [discordProvider?.clientId, discordProvider?.requestedScopes, isNativeApp, loadDashboard])
 
   const openExternalUrl = useCallback(async (url: string) => {
     if (isNativeApp) {
