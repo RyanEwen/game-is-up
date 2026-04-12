@@ -15,6 +15,10 @@ export function getApiOrigin(): string {
     return new URL(env.DISCORD_CALLBACK_URL).origin
   }
 
+  if (env.STEAM_CALLBACK_URL) {
+    return new URL(env.STEAM_CALLBACK_URL).origin
+  }
+
   return `http://localhost:${env.API_PORT}`
 }
 

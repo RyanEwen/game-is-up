@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-export const authProviderSchema = z.enum(['discord'])
+export const authProviderSchema = z.enum(['discord', 'steam'])
 export const platformLabelSchema = z.string().trim().min(1).max(32)
 export const catalogProviderSchema = z.string().trim().min(1).max(32)
 export const availabilitySourceSchema = z.enum(['profile-default', 'game-specific'])
@@ -47,6 +47,47 @@ export const libraryResponseSchema = z.object({
   usualAvailability: z.string().nullable(),
   entries: z.array(libraryEntrySchema),
   suggestedGames: z.array(librarySuggestedGameSchema).default([])
+})
+
+export const steamLibraryImportStatusSchema = z.enum(['not-linked', 'ready', 'unavailable'])
+
+export const steamLibraryImportGameSchema = z.object({
+  sourceId: z.string().trim().min(1).max(96),
+  title: z.string().min(1),
+  coverUrl: z.string().url().nullable(),
+  platformLabels: z.array(platformLabelSchema).min(1),
+  minutesPlayedTotal: z.number().int().nonnegative(),
+  minutesPlayedRecent: z.number().int().nonnegative(),
+  alreadyInLibrary: z.boolean()
+})
+
+export const steamLibraryImportAccountSchema = z.object({
+  steamId: z.string().trim().min(1).max(32),
+  displayName: z.string().trim().min(1).max(120),
+  avatarUrl: z.string().url().nullable(),
+  profileUrl: z.string().url().nullable()
+})
+
+export const steamLibraryImportPreviewResponseSchema = z.object({
+  status: steamLibraryImportStatusSchema,
+  note: z.string().nullable(),
+  account: steamLibraryImportAccountSchema.nullable(),
+  games: z.array(steamLibraryImportGameSchema).default([])
+})
+
+export const steamLinkIntentResponseSchema = z.object({
+  authorizationUrl: z.string().url()
+})
+
+export const steamLibraryImportSelectionSchema = z.object({
+  sourceId: z.string().trim().min(1).max(96),
+  platformLabels: z.array(platformLabelSchema).min(1),
+  intent: libraryEntryIntentSchema,
+  availability: z.string().trim().max(80).optional()
+})
+
+export const importSteamLibrarySelectionRequestSchema = z.object({
+  games: z.array(steamLibraryImportSelectionSchema).min(1).max(500)
 })
 
 export const gameSearchResultSchema = z.object({
@@ -370,7 +411,8 @@ export const updateUserProfileRequestSchema = z.object({
 export const authSessionResponseSchema = z.object({
   authenticated: z.boolean(),
   user: authenticatedUserSchema.nullable(),
-  discordGraph: discordGraphCapabilitiesSchema.nullable()
+  discordGraph: discordGraphCapabilitiesSchema.nullable(),
+  connectedProviders: z.array(authProviderSchema).default([])
 })
 
 export const debugDiscordBotStateSchema = z.object({
@@ -465,6 +507,8 @@ export const serverEnvSchema = z.object({
   DISCORD_CLIENT_SECRET: z.string().optional(),
   DISCORD_CALLBACK_URL: z.string().url().optional(),
   DISCORD_BOT_TOKEN: z.string().optional(),
+  STEAM_CALLBACK_URL: z.string().url().optional(),
+  STEAM_WEB_API_KEY: z.string().optional(),
   RAWG_API_KEY: z.string().optional(),
   FCM_PROJECT_ID: z.string().optional(),
   FCM_CLIENT_EMAIL: z.string().optional(),
@@ -480,6 +524,13 @@ export type LibraryEntryIntent = z.infer<typeof libraryEntryIntentSchema>;
 export type LibraryEntry = z.infer<typeof libraryEntrySchema>;
 export type LibrarySuggestedGame = z.infer<typeof librarySuggestedGameSchema>;
 export type LibraryResponse = z.infer<typeof libraryResponseSchema>;
+export type SteamLibraryImportStatus = z.infer<typeof steamLibraryImportStatusSchema>;
+export type SteamLibraryImportGame = z.infer<typeof steamLibraryImportGameSchema>;
+export type SteamLibraryImportAccount = z.infer<typeof steamLibraryImportAccountSchema>;
+export type SteamLibraryImportPreviewResponse = z.infer<typeof steamLibraryImportPreviewResponseSchema>;
+export type SteamLinkIntentResponse = z.infer<typeof steamLinkIntentResponseSchema>;
+export type SteamLibraryImportSelection = z.infer<typeof steamLibraryImportSelectionSchema>;
+export type ImportSteamLibrarySelectionRequest = z.infer<typeof importSteamLibrarySelectionRequestSchema>;
 export type GameSearchResult = z.infer<typeof gameSearchResultSchema>;
 export type GameSearchResponse = z.infer<typeof gameSearchResponseSchema>;
 export type DiscordServerPreference = z.infer<typeof discordServerPreferenceSchema>;

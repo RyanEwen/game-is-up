@@ -14,6 +14,7 @@ import type {
   LibraryResponse,
   PlayIntentCurrentResponse,
   PlayIntentFeed,
+  SteamLinkIntentResponse,
   UserProfileResponse
 } from '@game-is-up/shared'
 import {
@@ -26,6 +27,7 @@ import {
   libraryResponseSchema,
   playIntentCurrentResponseSchema,
   playIntentFeedSchema,
+  steamLinkIntentResponseSchema,
   userProfileResponseSchema
 } from '@game-is-up/shared'
 import { EmptyStateCard } from '../components/dashboard/EmptyStateCard'
@@ -162,6 +164,7 @@ export function useDashboardApp() {
   const [profileNotice, setProfileNotice] = useState<Notice | null>(null)
   const [playIntentNotice, setPlayIntentNotice] = useState<Notice | null>(null)
   const [discordAutoPromptPlayIntentSaving, setDiscordAutoPromptPlayIntentSaving] = useState(false)
+  const [steamLinkPending, setSteamLinkPending] = useState(false)
   const [installPromptEvent, setInstallPromptEvent] = useState<BeforeInstallPromptEvent | null>(null)
   const [installPromptPending, setInstallPromptPending] = useState(false)
   const [friendPendingId, setFriendPendingId] = useState<string | null>(null)
@@ -202,6 +205,8 @@ export function useDashboardApp() {
   const selectedDiscoveryServerCount = availableDiscoveryServers.filter((server) => server.selected).length
   const noDiscoveryServersSelected = isSignedIn && availableDiscoveryServers.length > 0 && selectedDiscoveryServerCount === 0
   const discordProvider = state.auth?.providers.find((provider) => provider.id === 'discord') ?? null
+  const steamProvider = state.auth?.providers.find((provider) => provider.id === 'steam') ?? null
+  const steamConnected = Boolean(state.session?.connectedProviders.includes('steam'))
   const currentUsualAvailability = state.library?.usualAvailability ?? state.session?.user?.usualAvailability ?? null
   const libraryGameIds = new Set<string>(libraryEntries.map((entry) => entry.gameId))
 
@@ -220,7 +225,23 @@ export function useDashboardApp() {
       : null
   ].filter((toast): toast is { id: string; notice: Notice; dismiss: () => void } => toast != null)
 
-  const applyAuthNotice = useCallback((status: string, reason: string | null) => {
+  const applyAuthNotice = useCallback((auth: string, status: string, reason: string | null) => {
+    if (auth === 'steam') {
+      if (status === 'success') {
+        setAuthNotice({
+          tone: 'success',
+          message: 'Steam account connected. Review the import list and choose which games to add.'
+        })
+        return
+      }
+
+      setAuthNotice({
+        tone: 'danger',
+        message: `Steam link failed${reason ? `: ${reason}` : '.'}`
+      })
+      return
+    }
+
     if (status === 'success') {
       setAuthNotice({
         tone: 'success',
@@ -241,7 +262,7 @@ export function useDashboardApp() {
       tone: 'danger',
       message: `Discord sign-in failed${reason ? `: ${reason}` : '.'}`
     })
-    }, [])
+  }, [])
 
   useTimedNotice(actionNotice, setActionNotice)
   useTimedNotice(authNotice, setAuthNotice)
@@ -519,8 +540,65 @@ export function useDashboardApp() {
     }
   }, [isSignedIn, libraryEntries, loadDashboard])
 
+  const handleSteamLink = useCallback(async () => {
+    if (!isSignedIn || steamLinkPending) {
+      return
+    }
+
+    setSteamLinkPending(true)
+    setActionNotice(null)
+    setAuthNotice(null)
+
+    try {
+      const response = await fetch(buildApiUrl('/api/auth/steam/link-intent'), {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          returnTo: isNativeApp ? mobileAuthRedirectUrl : window.location.href
+        })
+      })
+
+      const responseBody = (await response.json()) as SteamLinkIntentResponse | { error?: string }
+
+      if (!response.ok) {
+        setActionNotice({
+          tone: 'danger',
+          message:
+            typeof responseBody === 'object' && responseBody && 'error' in responseBody && typeof responseBody.error === 'string'
+              ? responseBody.error
+              : 'Unable to start Steam linking right now.'
+        })
+        return
+      }
+
+      const parsed = steamLinkIntentResponseSchema.parse(responseBody)
+
+      if (isNativeApp) {
+        await Browser.open({
+          url: parsed.authorizationUrl
+        })
+        return
+      }
+
+      window.location.assign(parsed.authorizationUrl)
+    } catch (error) {
+      setActionNotice({
+        tone: 'danger',
+        message: error instanceof Error ? error.message : 'Unable to start Steam linking right now.'
+      })
+    } finally {
+      setSteamLinkPending(false)
+    }
+  }, [isNativeApp, isSignedIn, steamLinkPending])
+
   const { profileSaving, libraryViewProps, openLibraryEditorForGame } = useDashboardLibrary({
     isSignedIn,
+    steamImportEnabled: Boolean(steamProvider?.enabled),
+    steamConnected,
+    steamLinkPending,
     buildApiUrl,
     libraryEntries,
     suggestedGames: suggestedLibraryGames,
@@ -533,6 +611,7 @@ export function useDashboardApp() {
     applyProfileUpdate,
     setActionNotice,
     setProfileNotice,
+    onStartSteamLink: handleSteamLink,
     onAddGameToLibrary: handleAddGameToLibrary
   })
 
@@ -607,21 +686,24 @@ export function useDashboardApp() {
     const reason = params.get('reason')
     const handoff = params.get('handoff')
 
-    if (auth !== 'discord' || !status) {
+    if ((auth !== 'discord' && auth !== 'steam') || !status) {
       return false
     }
 
     try {
-      if (status === 'success' && handoff) {
-        await completeMobileAuth(handoff)
+      if (status === 'success') {
+        if (auth === 'discord' && handoff) {
+          await completeMobileAuth(handoff)
+        }
+
         await loadDashboard()
       }
 
-      applyAuthNotice(status, reason)
+      applyAuthNotice(auth, status, reason)
     } catch (error) {
       setAuthNotice({
         tone: 'danger',
-        message: error instanceof Error ? error.message : 'Unable to finish mobile sign-in.'
+        message: error instanceof Error ? error.message : auth === 'steam' ? 'Unable to finish Steam linking.' : 'Unable to finish mobile sign-in.'
       })
     } finally {
       if (options?.closeBrowser && isNativeApp) {

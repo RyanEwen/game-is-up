@@ -3,19 +3,35 @@ import { useCallback, useEffect, useState } from 'react'
 import type {
   GameSearchResponse,
   GameSearchResult,
+  ImportSteamLibrarySelectionRequest,
   LibraryEntry,
   LibraryEntryIntent,
   LibrarySuggestedGame,
   LibraryResponse,
+  SteamLibraryImportPreviewResponse,
   UserProfileResponse
 } from '@game-is-up/shared'
-import { gameSearchResponseSchema, libraryResponseSchema } from '@game-is-up/shared'
+import { gameSearchResponseSchema, libraryResponseSchema, steamLibraryImportPreviewResponseSchema } from '@game-is-up/shared'
 import type { DashboardLibraryQuickAddGame, Notice } from '../components/dashboard/types'
 
 const defaultPlatformOptions = ['PC', 'Xbox', 'PlayStation', 'Switch', 'Mobile', 'macOS', 'Linux'] as const
 
 export type DashboardLibraryViewProps = {
   isSignedIn: boolean;
+  steamImportEnabled: boolean;
+  steamConnected: boolean;
+  steamLinkPending: boolean;
+  steamPreviewLoading: boolean;
+  steamImporting: boolean;
+  steamDisconnectPending: boolean;
+  isSteamImportModalOpen: boolean;
+  steamImportPreview: SteamLibraryImportPreviewResponse | null;
+  onStartSteamLink: () => Promise<void>;
+  onOpenSteamImport: () => Promise<void>;
+  onCloseSteamImport: () => void;
+  onRefreshSteamImport: () => Promise<void>;
+  onImportSteamGames: (games: ImportSteamLibrarySelectionRequest['games']) => Promise<void>;
+  onDisconnectSteam: () => Promise<void>;
   usualAvailability: string;
   profileSaving: boolean;
   usualAvailabilityChanged: boolean;
@@ -57,6 +73,9 @@ export type DashboardLibraryViewProps = {
 
 export function useDashboardLibrary({
   isSignedIn,
+  steamImportEnabled,
+  steamConnected,
+  steamLinkPending,
   buildApiUrl,
   libraryEntries,
   suggestedGames,
@@ -69,9 +88,13 @@ export function useDashboardLibrary({
   applyProfileUpdate,
   setActionNotice,
   setProfileNotice,
+  onStartSteamLink,
   onAddGameToLibrary
 }: {
   isSignedIn: boolean;
+  steamImportEnabled: boolean;
+  steamConnected: boolean;
+  steamLinkPending: boolean;
   buildApiUrl: (path: string) => string;
   libraryEntries: LibraryEntry[];
   suggestedGames: LibrarySuggestedGame[];
@@ -84,6 +107,7 @@ export function useDashboardLibrary({
   applyProfileUpdate: (profile: UserProfileResponse) => void;
   setActionNotice: Dispatch<SetStateAction<Notice | null>>;
   setProfileNotice: Dispatch<SetStateAction<Notice | null>>;
+  onStartSteamLink: () => Promise<void>;
   onAddGameToLibrary: (game: DashboardLibraryQuickAddGame) => Promise<void>;
 }) {
   const [libraryTitle, setLibraryTitle] = useState('')
@@ -99,6 +123,11 @@ export function useDashboardLibrary({
   const [editingLibraryEntryId, setEditingLibraryEntryId] = useState<string | null>(null)
   const [removingLibraryEntryId, setRemovingLibraryEntryId] = useState<string | null>(null)
   const [isLibraryEditorOpen, setIsLibraryEditorOpen] = useState(false)
+  const [steamImportPreview, setSteamImportPreview] = useState<SteamLibraryImportPreviewResponse | null>(null)
+  const [steamPreviewLoading, setSteamPreviewLoading] = useState(false)
+  const [steamImporting, setSteamImporting] = useState(false)
+  const [steamDisconnectPending, setSteamDisconnectPending] = useState(false)
+  const [isSteamImportModalOpen, setIsSteamImportModalOpen] = useState(false)
 
   const editingLibraryEntry = libraryEntries.find((entry) => entry.id === editingLibraryEntryId) ?? null
   const platformOptions = [...new Set([
@@ -171,6 +200,15 @@ export function useDashboardLibrary({
   useEffect(() => {
     setUsualAvailability(currentUsualAvailability ?? '')
   }, [currentUsualAvailability])
+
+  useEffect(() => {
+    if (steamConnected) {
+      return
+    }
+
+    setSteamImportPreview(null)
+    setIsSteamImportModalOpen(false)
+  }, [steamConnected])
 
   const handleLibraryTitleChange = useCallback((nextTitle: string) => {
     setLibraryTitle(nextTitle)
@@ -293,6 +331,156 @@ export function useDashboardLibrary({
       setProfileSaving(false)
     }
   }, [applyProfileUpdate, browserTimeZoneId, loadDashboard, setActionNotice, setProfileNotice, updateProfile, usualAvailability])
+
+  const fetchSteamImportPreview = useCallback(async () => {
+    if (!steamImportEnabled) {
+      setActionNotice({
+        tone: 'neutral',
+        message: 'Steam import is not configured in this environment yet.'
+      })
+      return null
+    }
+
+    if (!steamConnected) {
+      return null
+    }
+
+    setSteamPreviewLoading(true)
+
+    try {
+      const response = await fetch(buildApiUrl('/api/library/imports/steam'), {
+        credentials: 'include'
+      })
+      const responseBody = (await response.json()) as SteamLibraryImportPreviewResponse | { error?: string }
+
+      if (!response.ok) {
+        setActionNotice({
+          tone: 'danger',
+          message:
+            typeof responseBody === 'object' && responseBody && 'error' in responseBody && typeof responseBody.error === 'string'
+              ? responseBody.error
+              : 'Unable to load your Steam library right now.'
+        })
+        return null
+      }
+
+      const parsed = steamLibraryImportPreviewResponseSchema.parse(responseBody)
+      setSteamImportPreview(parsed)
+
+      return parsed
+    } catch (error) {
+      setActionNotice({
+        tone: 'danger',
+        message: error instanceof Error ? error.message : 'Unable to load your Steam library right now.'
+      })
+      return null
+    } finally {
+      setSteamPreviewLoading(false)
+    }
+  }, [buildApiUrl, setActionNotice, steamConnected, steamImportEnabled])
+
+  const handleOpenSteamImport = useCallback(async () => {
+    setActionNotice(null)
+    setIsSteamImportModalOpen(true)
+
+    if (steamConnected && steamImportPreview == null) {
+      await fetchSteamImportPreview()
+    }
+  }, [fetchSteamImportPreview, setActionNotice, steamConnected, steamImportPreview])
+
+  const handleRefreshSteamImport = useCallback(async () => {
+    await fetchSteamImportPreview()
+  }, [fetchSteamImportPreview])
+
+  const handleImportSteamGames = useCallback(async (games: ImportSteamLibrarySelectionRequest['games']) => {
+    if (games.length === 0) {
+      setActionNotice({
+        tone: 'neutral',
+        message: 'Choose at least one Steam game before importing.'
+      })
+      return
+    }
+
+    setSteamImporting(true)
+    setActionNotice(null)
+
+    try {
+      const response = await fetch(buildApiUrl('/api/library/imports/steam'), {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          games
+        })
+      })
+      const responseBody = (await response.json()) as LibraryResponse | { error?: string }
+
+      if (!response.ok) {
+        setActionNotice({
+          tone: 'danger',
+          message:
+            typeof responseBody === 'object' && responseBody && 'error' in responseBody && typeof responseBody.error === 'string'
+              ? responseBody.error
+              : 'Unable to import those Steam games right now.'
+        })
+        return
+      }
+
+      libraryResponseSchema.parse(responseBody)
+      setIsSteamImportModalOpen(false)
+      setActionNotice({
+        tone: 'success',
+        message: games.length === 1 ? 'Imported 1 Steam game into your library.' : `Imported ${games.length} Steam games into your library.`
+      })
+      await loadDashboard()
+      await fetchSteamImportPreview()
+    } catch (error) {
+      setActionNotice({
+        tone: 'danger',
+        message: error instanceof Error ? error.message : 'Unable to import those Steam games right now.'
+      })
+    } finally {
+      setSteamImporting(false)
+    }
+  }, [buildApiUrl, fetchSteamImportPreview, loadDashboard, setActionNotice])
+
+  const handleDisconnectSteam = useCallback(async () => {
+    setSteamDisconnectPending(true)
+    setActionNotice(null)
+
+    try {
+      const response = await fetch(buildApiUrl('/api/auth/steam/link'), {
+        method: 'DELETE',
+        credentials: 'include'
+      })
+
+      if (!response.ok) {
+        const responseBody = (await response.json()) as { error?: string }
+        setActionNotice({
+          tone: 'danger',
+          message: responseBody.error ?? 'Unable to disconnect Steam right now.'
+        })
+        return
+      }
+
+      setSteamImportPreview(null)
+      setIsSteamImportModalOpen(false)
+      setActionNotice({
+        tone: 'success',
+        message: 'Steam account disconnected.'
+      })
+      await loadDashboard()
+    } catch (error) {
+      setActionNotice({
+        tone: 'danger',
+        message: error instanceof Error ? error.message : 'Unable to disconnect Steam right now.'
+      })
+    } finally {
+      setSteamDisconnectPending(false)
+    }
+  }, [buildApiUrl, loadDashboard, setActionNotice])
 
   const handleAddLibraryEntry = useCallback(async () => {
     const title = libraryTitle.trim()
@@ -422,6 +610,20 @@ export function useDashboardLibrary({
 
   const libraryViewProps: DashboardLibraryViewProps = {
     isSignedIn,
+    steamImportEnabled,
+    steamConnected,
+    steamLinkPending,
+    steamPreviewLoading,
+    steamImporting,
+    steamDisconnectPending,
+    isSteamImportModalOpen,
+    steamImportPreview,
+    onStartSteamLink,
+    onOpenSteamImport: handleOpenSteamImport,
+    onCloseSteamImport: () => setIsSteamImportModalOpen(false),
+    onRefreshSteamImport: handleRefreshSteamImport,
+    onImportSteamGames: handleImportSteamGames,
+    onDisconnectSteam: handleDisconnectSteam,
     usualAvailability,
     profileSaving,
     usualAvailabilityChanged,

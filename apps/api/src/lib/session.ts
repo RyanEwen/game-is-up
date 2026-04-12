@@ -9,6 +9,7 @@ const DISCORD_STATE_COOKIE_NAME = 'giu_discord_state'
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 30
 const DISCORD_STATE_TTL_SECONDS = 60 * 10
 const MOBILE_AUTH_HANDOFF_TTL_SECONDS = 60
+const STEAM_LINK_STATE_TTL_SECONDS = 60 * 10
 
 type SessionPayload = {
   userId: string;
@@ -28,11 +29,17 @@ type MobileAuthHandoffPayload = {
   issuedAt: string;
 };
 
+type SteamLinkStatePayload = {
+  userId: string;
+  redirectTo: string;
+  issuedAt: string;
+};
+
 function signValue(encodedPayload: string): string {
   return createHmac('sha256', env.SESSION_SECRET).update(encodedPayload).digest('base64url')
 }
 
-function encodeSignedPayload(payload: SessionPayload | DiscordStatePayload | MobileAuthHandoffPayload): string {
+function encodeSignedPayload(payload: SessionPayload | DiscordStatePayload | MobileAuthHandoffPayload | SteamLinkStatePayload): string {
   const encodedPayload = Buffer.from(JSON.stringify(payload), 'utf8').toString('base64url')
   const signature = signValue(encodedPayload)
   return `${encodedPayload}.${signature}`
@@ -62,6 +69,16 @@ function decodeSignedPayload<T>(value: string | undefined): T | null {
   } catch {
     return null
   }
+}
+
+function isFreshPayload(issuedAtValue: string, ttlSeconds: number): boolean {
+  const issuedAt = Date.parse(issuedAtValue)
+
+  if (Number.isNaN(issuedAt)) {
+    return false
+  }
+
+  return Date.now() <= issuedAt + ttlSeconds * 1000
 }
 
 function defaultCookieOptions(maxAge: number) {
@@ -106,17 +123,27 @@ export function createMobileAuthHandoff(userId: string, authProvider: AuthProvid
 export function consumeMobileAuthHandoff(value: string | undefined): MobileAuthHandoffPayload | null {
   const payload = decodeSignedPayload<MobileAuthHandoffPayload>(value)
 
-  if (!payload) {
+  if (!payload || !isFreshPayload(payload.issuedAt, MOBILE_AUTH_HANDOFF_TTL_SECONDS)) {
     return null
   }
 
-  const issuedAt = Date.parse(payload.issuedAt)
+  return payload
+}
 
-  if (Number.isNaN(issuedAt)) {
-    return null
+export function createSteamLinkState(userId: string, redirectTo: string): string {
+  const payload: SteamLinkStatePayload = {
+    userId,
+    redirectTo,
+    issuedAt: new Date().toISOString()
   }
 
-  if (Date.now() > issuedAt + MOBILE_AUTH_HANDOFF_TTL_SECONDS * 1000) {
+  return encodeSignedPayload(payload)
+}
+
+export function consumeSteamLinkState(value: string | undefined): SteamLinkStatePayload | null {
+  const payload = decodeSignedPayload<SteamLinkStatePayload>(value)
+
+  if (!payload || !isFreshPayload(payload.issuedAt, STEAM_LINK_STATE_TTL_SECONDS)) {
     return null
   }
 

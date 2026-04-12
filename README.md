@@ -173,8 +173,18 @@ This repo now treats Prisma migrations as the source of truth for schema changes
 10. When a call to play matches someone who should be notified and that user has a linked Discord account, the bot can DM them directly.
 11. Users can leave a Play page setting on by default so the bot can DM them after it sees them start a game and offer to create a call to play straight from Discord. Those prompts only go out when there is no active call already, at least one visible overlap could receive it, and the same game has not already prompted that user in the last 10 minutes.
 12. Discovery-based play-intent visibility can now include both explicit friends and users from the Discord servers you opted into discovery.
-13. Discord is the only sign-in path in this scaffold.
-14. On Android, Discord sign-in opens in the system browser and returns to the app through the `gameisup://auth` deep link. For local development, keep `adb reverse` active so the installed app can still reach the local API while completing sign-in.
+13. Discord is still the only sign-in path in this scaffold.
+14. Steam can now be linked as a secondary account for library import only. It does not replace Discord auth or discovery.
+15. On Android, linked-account flows like Discord sign-in and Steam linking open in the system browser and return to the app through the `gameisup://auth` deep link. For local development, keep `adb reverse` active so the installed app can still reach the local API while completing those flows.
+
+## Steam import setup
+
+1. Create a Steam Web API key at `https://steamcommunity.com/dev/apikey`.
+2. Set `STEAM_WEB_API_KEY` and `STEAM_CALLBACK_URL` in your environment or `.env` file.
+3. For local development, use the callback in `.env.development.example` unless you intentionally change the API port.
+4. Sign in with Discord first, open the Library tab, then use the Add games from Steam button to connect Steam and preview owned games.
+5. Steam import respects the existing library model: the app shows a picker first and only imports the titles the user selects.
+6. Steam may return no importable games when the account's game details are private or effectively unavailable to the API, so manual add should remain the fallback.
 
 ## Game catalog provider
 
@@ -211,7 +221,7 @@ The devcontainer now provisions Java 21 plus the Android SDK needed by the Capac
 
 For local USB testing against the devcontainer API, use `npm run install:debug:usb --workspace @game-is-up/android`.
 
-Android Discord sign-in uses the system browser plus the app deep link instead of trying to finish OAuth inside the WebView. The browser returns to `gameisup://auth`, and the app then exchanges a short-lived mobile auth handoff with the API to establish the in-app session.
+Android external account flows use the system browser plus the app deep link instead of trying to finish account linking inside the WebView. The browser returns to `gameisup://auth`; Discord then exchanges a short-lived mobile auth handoff with the API to establish the in-app session, while Steam just returns to the app after the link is written on the server.
 
 The generated `apps/android/android` project remains local and is not checked into git.
 

@@ -1,11 +1,14 @@
 import { Router } from 'express'
 import type { Request, Response } from 'express'
-import { GameIntentType } from '@prisma/client'
+import { AuthProvider as PrismaAuthProvider, GameIntentType } from '@prisma/client'
 import {
   gameSearchResponseSchema,
+  importSteamLibrarySelectionRequestSchema,
   libraryResponseSchema,
+  steamLibraryImportPreviewResponseSchema,
   upsertLibraryEntryRequestSchema,
   type CatalogGameMatch,
+  type ImportSteamLibrarySelectionRequest,
   type LibraryEntryIntent,
   type LibraryResponse
 } from '@game-is-up/shared'
@@ -14,6 +17,7 @@ import { findOrCreateGameByTitle, findOrCreateGameFromCatalogMatch, searchGamesB
 import { toClientGameCoverUrl } from '../lib/game-media.js'
 import { getObservedLibrarySuggestions } from '../lib/library-suggestions.js'
 import { prisma } from '../lib/prisma.js'
+import { fetchSteamOwnedGames, fetchSteamProfileSummary, isSteamImportConfigured } from '../lib/steam-auth.js'
 import { getAuthSession } from '../lib/session.js'
 import { resolveAvailability } from '../lib/availability.js'
 
@@ -115,6 +119,153 @@ async function resolveGame(catalogMatch: CatalogGameMatch | undefined, title: st
   return findOrCreateGameByTitle(title)
 }
 
+function normalizeTitle(value: string): string {
+  return value.replace(/\s+/gu, ' ').trim().toLowerCase()
+}
+
+async function getSteamIdentityForUser(userId: string) {
+  return prisma.userIdentity.findFirst({
+    where: {
+      userId,
+      provider: PrismaAuthProvider.STEAM
+    },
+    select: {
+      providerUserId: true
+    }
+  })
+}
+
+async function loadSteamImportPreview(userId: string) {
+  const steamIdentity = await getSteamIdentityForUser(userId)
+
+  if (!steamIdentity) {
+    return steamLibraryImportPreviewResponseSchema.parse({
+      status: 'not-linked',
+      note: 'Connect a Steam account first to preview your owned games.',
+      account: null,
+      games: []
+    })
+  }
+
+  const [account, ownedGames, existingEntries] = await Promise.all([
+    fetchSteamProfileSummary(steamIdentity.providerUserId),
+    fetchSteamOwnedGames(steamIdentity.providerUserId),
+    prisma.userGameInterest.findMany({
+      where: {
+        userId
+      },
+      select: {
+        game: {
+          select: {
+            title: true,
+            sources: {
+              select: {
+                source: true,
+                externalId: true
+              }
+            }
+          }
+        }
+      }
+    })
+  ])
+
+  const existingSteamSourceIds = new Set(
+    existingEntries.flatMap((entry) => entry.game.sources)
+      .filter((source) => source.source === 'steam')
+      .map((source) => source.externalId)
+  )
+  const existingTitles = new Set(existingEntries.map((entry) => normalizeTitle(entry.game.title)))
+  const games = ownedGames.map((game) => ({
+    ...game,
+    alreadyInLibrary: existingSteamSourceIds.has(game.sourceId) || existingTitles.has(normalizeTitle(game.title))
+  }))
+
+  if (games.length === 0) {
+    return steamLibraryImportPreviewResponseSchema.parse({
+      status: 'unavailable',
+      note: 'Steam did not return any importable games. The library may be private or empty.',
+      account,
+      games: []
+    })
+  }
+
+  return steamLibraryImportPreviewResponseSchema.parse({
+    status: 'ready',
+    note: null,
+    account,
+    games
+  })
+}
+
+async function importSteamGamesForUser(userId: string, selections: ImportSteamLibrarySelectionRequest['games']) {
+  const steamIdentity = await getSteamIdentityForUser(userId)
+
+  if (!steamIdentity) {
+    throw new Error('Connect a Steam account before importing games.')
+  }
+
+  const ownedGames = await fetchSteamOwnedGames(steamIdentity.providerUserId)
+  const selectionBySourceId = new Map(selections.map((selection) => [selection.sourceId, selection]))
+  const selectedGames = ownedGames.filter((game) => selectionBySourceId.has(game.sourceId))
+
+  if (selectedGames.length === 0) {
+    throw new Error('Steam did not return any of the selected games. Refresh the import list and try again.')
+  }
+
+  for (const game of selectedGames) {
+    const selection = selectionBySourceId.get(game.sourceId)
+
+    if (!selection) {
+      continue
+    }
+
+    const platformLabels = [...new Set(selection.platformLabels.map((platformLabel) => platformLabel.trim()).filter(Boolean))]
+    const availability = selection.availability?.trim() ? selection.availability.trim() : null
+    const resolvedGame = await findOrCreateGameFromCatalogMatch({
+      source: 'steam',
+      sourceId: game.sourceId,
+      title: game.title,
+      coverUrl: game.coverUrl,
+      platformLabels
+    })
+
+    await prisma.$transaction(async (transaction) => {
+      const interest = await transaction.userGameInterest.upsert({
+        where: {
+          userId_gameId: {
+            userId,
+            gameId: resolvedGame.id
+          }
+        },
+        update: {
+          intentType: toPrismaIntentType(selection.intent),
+          availability
+        },
+        create: {
+          userId,
+          gameId: resolvedGame.id,
+          intentType: toPrismaIntentType(selection.intent),
+          availability
+        }
+      })
+
+      await transaction.userGameInterestPlatform.deleteMany({
+        where: {
+          userGameInterestId: interest.id
+        }
+      })
+
+      await transaction.userGameInterestPlatform.createMany({
+        data: platformLabels.map((platformLabel) => ({
+          userGameInterestId: interest.id,
+          platformLabel
+        }))
+      })
+    })
+  }
+}
+
 libraryRouter.get('/catalog', async (request, response, next) => {
   try {
     const { query } = libraryCatalogQuerySchema.parse(request.query)
@@ -138,6 +289,27 @@ libraryRouter.get('/me', async (request, response, next) => {
 
   try {
     response.json(libraryResponseSchema.parse(await buildLibraryResponse(userId)))
+  } catch (error) {
+    next(error)
+  }
+})
+
+libraryRouter.get('/imports/steam', async (request, response, next) => {
+  const userId = requireSignedInUserId(request, response)
+
+  if (!userId) {
+    return
+  }
+
+  if (!isSteamImportConfigured()) {
+    response.status(503).json({
+      error: 'Steam import is not configured.'
+    })
+    return
+  }
+
+  try {
+    response.json(await loadSteamImportPreview(userId))
   } catch (error) {
     next(error)
   }
@@ -189,6 +361,31 @@ libraryRouter.post('/me', async (request, response, next) => {
         }))
       })
     })
+
+    response.json(libraryResponseSchema.parse(await buildLibraryResponse(userId)))
+  } catch (error) {
+    next(error)
+  }
+})
+
+libraryRouter.post('/imports/steam', async (request, response, next) => {
+  const userId = requireSignedInUserId(request, response)
+
+  if (!userId) {
+    return
+  }
+
+  if (!isSteamImportConfigured()) {
+    response.status(503).json({
+      error: 'Steam import is not configured.'
+    })
+    return
+  }
+
+  try {
+    const payload = importSteamLibrarySelectionRequestSchema.parse(request.body)
+
+    await importSteamGamesForUser(userId, payload.games)
 
     response.json(libraryResponseSchema.parse(await buildLibraryResponse(userId)))
   } catch (error) {
