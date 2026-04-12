@@ -167,7 +167,7 @@ export const upsertLibraryEntryRequestSchema = z.object({
 })
 
 export const playIntentSelectionModeSchema = z.enum(['library', 'subset'])
-export const playIntentNotifyScopeSchema = z.enum(['discovery-and-friends', 'friends-only', 'specific-friends'])
+export const playIntentNotifyScopeSchema = z.enum(['network', 'friends-only', 'specific-friends'])
 
 export const playIntentGameSchema = z.object({
   id: z.string().uuid(),

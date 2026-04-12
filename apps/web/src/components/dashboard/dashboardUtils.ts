@@ -88,8 +88,8 @@ export function formatLibraryIntentLabel(intent: LibraryEntryIntent): string {
 
 export function formatNotifyScopeLabel(scope: PlayIntentPreview['notifyScope']): string {
   switch (scope) {
-    case 'discovery-and-friends':
-      return 'Discovery + friends'
+    case 'network':
+      return 'Anyone in your network'
     case 'specific-friends':
       return 'Specific friends'
     default:
@@ -99,12 +99,12 @@ export function formatNotifyScopeLabel(scope: PlayIntentPreview['notifyScope']):
 
 export function formatNotifyScopeDescription(scope: PlayIntentPreview['notifyScope']): string {
   switch (scope) {
-    case 'discovery-and-friends':
-      return 'Anyone on a shared discovery server that both of you opted into can see it, plus people you added as friends. Matching game overlap still applies.'
+    case 'network':
+      return 'Anyone in your network, plus people you added as friends, where there is matching game overlap.'
     case 'specific-friends':
-      return 'Only the specific friends you choose can see it, and they still need a matching game overlap.'
+      return 'Only the specific friends you choose, where there is matching game overlap.'
     default:
-      return 'Only people you added as friends can see it, and they still need a matching game overlap.'
+      return 'Only people you added as friends, where there is matching game overlap.'
   }
 }
 

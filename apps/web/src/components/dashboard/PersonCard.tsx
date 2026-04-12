@@ -68,7 +68,7 @@ export function PersonCard({
             supportingText={person.lastActiveLabel}
             detailLines={[
               person.contactHint,
-              person.mutualServers.length > 0 ? `Mutual servers: ${person.mutualServers.join(', ')}` : 'Visible to you through selected servers or friends.',
+              person.mutualServers.length > 0 ? `Mutual servers: ${person.mutualServers.join(', ')}` : 'Visible to you through your network or friends.',
               `Shared games visible: ${person.games.length}`,
               `Timezone: ${person.timezoneLabel}`,
               person.usualAvailability ? `Usually plays: ${person.usualAvailability}` : ''
@@ -293,7 +293,7 @@ export function PersonCard({
           >
             <Typography level="title-sm">No games shared yet</Typography>
             <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
-              Game Is Up found this person through one of your selected servers or your friends list, but they have not added any games yet. You can still add them as a friend now.
+              Game Is Up found this person through your network or your friends list, but they have not added any games yet. You can still add them as a friend now.
             </Typography>
           </Sheet>
         )}

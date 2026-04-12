@@ -1,10 +1,13 @@
-import { Avatar, Box, Button, Card, Chip, Input, Sheet, Stack, Typography } from '@mui/joy'
+import { useState } from 'react'
+import { Avatar, Box, Button, Card, Chip, DialogContent, DialogTitle, Input, Sheet, Stack, Typography } from '@mui/joy'
 import type {
   AuthSessionResponse,
   DiscordServerMembersResponse,
   DiscordServerPreferencesResponse,
   SendDiscordServerInvitesResponse
 } from '@game-is-up/shared'
+import { DashboardModal } from '../components/dashboard/DashboardModal'
+import { DashboardModalActionBar } from '../components/dashboard/DashboardModalActionBar'
 import { EmptyStateCard } from '../components/dashboard/EmptyStateCard'
 import { useDashboardContext } from '../contexts/useDashboardContext'
 import type { Notice } from '../components/dashboard/types'
@@ -59,14 +62,14 @@ function AccountCard({
       ) : (
         <Stack spacing={1.5}>
           <Typography level="body-md">
-            Sign in with Discord to choose which servers Game Is Up should use to find your friends and other players.
+            Sign in with Discord to build your network and find your friends and other players.
           </Typography>
           <Button color="primary" disabled={!discordEnabled} onClick={() => void onDiscordLogin()}>
             Sign in with Discord
           </Button>
           {hasGatedScopeWarning ? (
             <Typography level="body-sm" sx={{ color: 'warning.300' }}>
-              Discord friend syncing is still limited, so Game Is Up first finds people through the servers you choose here. After that, add the friends you want to keep track of in the app.
+              Discord friend syncing is still limited, so Game Is Up first builds your network from the servers you choose here. After that, add the friends you want to keep track of in the app.
             </Typography>
           ) : null}
         </Stack>
@@ -90,9 +93,9 @@ function QuickStartCard() {
             </Typography>
           </Sheet>
           <Sheet variant="outlined" sx={{ p: 1.5, borderRadius: 'md', backgroundColor: 'rgba(255, 255, 255, 0.02)' }}>
-            <Typography level="title-sm">2. Pick servers</Typography>
+            <Typography level="title-sm">2. Build your network</Typography>
             <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
-              Choose the Discord servers where your friends and other players are. If one is missing, invite the bot there first.
+              Connect the Discord servers where your friends and other players are. If one isn't shown, invite the bot there first.
             </Typography>
           </Sheet>
           <Sheet variant="outlined" sx={{ p: 1.5, borderRadius: 'md', backgroundColor: 'rgba(255, 255, 255, 0.02)' }}>
@@ -120,13 +123,11 @@ function QuickStartCard() {
 }
 
 function DiscoveryServersSection({
-  discordBotInstallUrl,
   availableDiscoveryServers,
   hasSyncedServers,
   serverPreferencePendingId,
   onToggleDiscordServer
 }: {
-  discordBotInstallUrl: string | null;
   availableDiscoveryServers: DiscoveryServer[];
   hasSyncedServers: boolean;
   serverPreferencePendingId: string | null;
@@ -134,20 +135,10 @@ function DiscoveryServersSection({
 }) {
   return (
     <Stack spacing={2}>
-      <Typography level="h2">Discord servers</Typography>
+      <Typography level="h2">Your network</Typography>
       <Typography level="body-md" sx={{ color: 'neutral.300' }}>
-        Choose the servers where your friends and other players are.
+        Build your network by connecting with the Discord servers where your friends and other players are. If a server is missing, invite the Game Is Up bot to it first.
       </Typography>
-      <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
-        If a server is missing, invite the Game Is Up bot to it first. Once you select servers here, people from those servers who also join Game Is Up form your network.
-      </Typography>
-      {discordBotInstallUrl ? (
-        <Box>
-          <Button component="a" href={discordBotInstallUrl} target="_blank" rel="noreferrer" variant="outlined" color="neutral">
-            Invite bot to a server
-          </Button>
-        </Box>
-      ) : null}
       {availableDiscoveryServers.length > 0 ? (
         <Stack spacing={1.5}>
           {availableDiscoveryServers.map((server) => (
@@ -199,6 +190,7 @@ function DiscoveryServersSection({
 }
 
 function InviteUsersCard({
+  onClose,
   inviteUrl,
   selectedDiscoveryServers,
   activeInviteServer,
@@ -219,6 +211,7 @@ function InviteUsersCard({
   onShareInvite,
   inviteSendSummary
 }: {
+  onClose: () => void;
   inviteUrl: string | null;
   selectedDiscoveryServers: DiscoveryServer[];
   activeInviteServer: DiscoveryServer | null;
@@ -242,14 +235,37 @@ function InviteUsersCard({
   const inviteMemberAvatarById = new Map(inviteMembers.map((member) => [member.id, member.avatarUrl]))
 
   return (
-    <Card variant="soft" sx={{ p: 3 }}>
-      <Stack spacing={2}>
-        <Box>
-          <Typography level="title-lg">Invite people from selected servers</Typography>
-          <Typography level="body-md" sx={{ color: 'neutral.300', mt: 0.75 }}>
+    <>
+      <DialogTitle sx={{ pr: 6 }}>Invite people from selected servers</DialogTitle>
+      <DialogContent
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 2,
+          pr: 0.5,
+          minHeight: 0,
+          overflow: 'auto',
+          overscrollBehavior: 'contain',
+          WebkitOverflowScrolling: 'touch'
+        }}
+      >
+        <Stack spacing={1.5}>
+          <Typography level="body-md" sx={{ color: 'neutral.300' }}>
             Choose a server, then pick members for the bot to message.
           </Typography>
-        </Box>
+          <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
+            The bot will DM the selected Discord members directly. If a DM fails because the user blocks bot DMs, you can still use the fallback copy/share actions.
+          </Typography>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ flexWrap: 'wrap' }}>
+            <Chip variant="outlined" color="neutral">
+              {selectedDiscoveryServers.length === 1 ? '1 server selected' : `${selectedDiscoveryServers.length} servers selected`}
+            </Chip>
+            <Chip color={selectedInviteUserIds.length > 0 ? 'primary' : 'neutral'} variant={selectedInviteUserIds.length > 0 ? 'soft' : 'outlined'}>
+              {selectedInviteUserIds.length === 1 ? '1 member selected' : `${selectedInviteUserIds.length} members selected`}
+            </Chip>
+          </Stack>
+        </Stack>
+
         {selectedDiscoveryServers.length > 0 ? (
           <Stack spacing={1.5}>
             <Box>
@@ -355,18 +371,14 @@ function InviteUsersCard({
             ) : null}
           </Stack>
         ) : (
-          <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
-            Connect at least one server where the bot is present to browse and target specific members.
-          </Typography>
+          <Sheet variant="soft" sx={{ p: 1.5, borderRadius: 'md' }}>
+            <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
+              Connect at least one server where the bot is present to browse and target specific members.
+            </Typography>
+          </Sheet>
         )}
+
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.25}>
-          <Button
-            color="primary"
-            disabled={!inviteUrl || selectedInviteUserIds.length === 0 || inviteSending}
-            onClick={() => void onSendBotInvites()}
-          >
-            {inviteSending ? 'Sending bot invites...' : 'Send bot invites'}
-          </Button>
           <Button variant="outlined" color="neutral" disabled={!inviteUrl} onClick={() => void onCopyInvite()}>
             Copy fallback message
           </Button>
@@ -376,9 +388,7 @@ function InviteUsersCard({
             </Button>
           ) : null}
         </Stack>
-        <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
-          The bot will DM the selected Discord members directly. If a DM fails because the user blocks bot DMs, you can still use the fallback copy/share actions.
-        </Typography>
+
         {inviteSendSummary ? (
           <Card color={inviteSendSummary.failedCount > 0 ? 'warning' : 'success'} variant="soft">
             <Stack spacing={1.25}>
@@ -425,6 +435,51 @@ function InviteUsersCard({
               </Stack>
             </Stack>
           </Card>
+        ) : null}
+      </DialogContent>
+      <DashboardModalActionBar
+        cancelAction={(
+          <Button size="lg" variant="outlined" color="neutral" onClick={onClose}>
+            Close
+          </Button>
+        )}
+        primaryAction={(
+          <Button
+            size="lg"
+            color="primary"
+            disabled={!inviteUrl || selectedInviteUserIds.length === 0 || inviteSending}
+            onClick={() => void onSendBotInvites()}
+            sx={{ flex: 1, minHeight: 52, fontWeight: 700 }}
+          >
+            {inviteSending ? 'Sending bot invites...' : 'Send bot invites'}
+          </Button>
+        )}
+      />
+    </>
+  )
+}
+
+function InviteUsersLauncherCard({
+  discordBotInstallUrl,
+  onOpen
+}: {
+  discordBotInstallUrl: string | null;
+  onOpen: () => void;
+}) {
+  return (
+    <Card variant="soft" sx={{ p: 3 }}>
+      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.25}>
+        <Box>
+          <Button color="primary" onClick={onOpen}>
+            Invite people in your network
+          </Button>
+        </Box>
+        {discordBotInstallUrl ? (
+          <Box>
+            <Button component="a" href={discordBotInstallUrl} target="_blank" rel="noreferrer" variant="outlined" color="neutral">
+              Invite bot to a server
+            </Button>
+          </Box>
         ) : null}
       </Stack>
     </Card>
@@ -494,51 +549,64 @@ function OverviewViewContent({
   onShareInvite: () => Promise<void>;
   inviteSendSummary: SendDiscordServerInvitesResponse | null;
 }) {
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false)
+
   return (
-    <Stack spacing={3}>
-      <AccountCard
-        session={session}
-        discordEnabled={discordEnabled}
-        hasGatedScopeWarning={hasDiscordScopeWarning}
-        onLogout={onLogout}
-        onDiscordLogin={onDiscordLogin}
-      />
-      <QuickStartCard />
+    <>
+      <Stack spacing={3}>
+        <AccountCard
+          session={session}
+          discordEnabled={discordEnabled}
+          hasGatedScopeWarning={hasDiscordScopeWarning}
+          onLogout={onLogout}
+          onDiscordLogin={onDiscordLogin}
+        />
+        <QuickStartCard />
+
+        {isSignedIn ? (
+          <DiscoveryServersSection
+            availableDiscoveryServers={availableDiscoveryServers}
+            hasSyncedServers={hasSyncedDiscordServers}
+            serverPreferencePendingId={serverPreferencePendingId}
+            onToggleDiscordServer={onToggleDiscordServer}
+          />
+        ) : null}
+
+        {isSignedIn ? (
+          <InviteUsersLauncherCard
+            discordBotInstallUrl={discordBotInstallUrl}
+            onOpen={() => setIsInviteModalOpen(true)}
+          />
+        ) : null}
+      </Stack>
 
       {isSignedIn ? (
-        <DiscoveryServersSection
-          discordBotInstallUrl={discordBotInstallUrl}
-          availableDiscoveryServers={availableDiscoveryServers}
-          hasSyncedServers={hasSyncedDiscordServers}
-          serverPreferencePendingId={serverPreferencePendingId}
-          onToggleDiscordServer={onToggleDiscordServer}
-        />
+        <DashboardModal open={isInviteModalOpen} onClose={() => setIsInviteModalOpen(false)} width="min(96vw, 920px)">
+          <InviteUsersCard
+            onClose={() => setIsInviteModalOpen(false)}
+            inviteUrl={inviteUrl}
+            selectedDiscoveryServers={selectedDiscoveryServers}
+            activeInviteServer={activeInviteServer}
+            onSelectInviteServer={onSelectInviteServer}
+            inviteMemberQuery={inviteMemberQuery}
+            onInviteMemberQueryChange={onInviteMemberQueryChange}
+            inviteMembersLoading={inviteMembersLoading}
+            inviteMembersNotice={inviteMembersNotice}
+            inviteMembers={inviteMembers}
+            filteredInviteMembers={filteredInviteMembers}
+            selectedInviteUserIds={selectedInviteUserIds}
+            onToggleInviteUser={onToggleInviteUser}
+            onRetryInviteMembers={onRetryInviteMembers}
+            inviteSending={inviteSending}
+            onSendBotInvites={onSendBotInvites}
+            onCopyInvite={onCopyInvite}
+            canShareInvite={canShareInvite}
+            onShareInvite={onShareInvite}
+            inviteSendSummary={inviteSendSummary}
+          />
+        </DashboardModal>
       ) : null}
-
-      {isSignedIn ? (
-        <InviteUsersCard
-          inviteUrl={inviteUrl}
-          selectedDiscoveryServers={selectedDiscoveryServers}
-          activeInviteServer={activeInviteServer}
-          onSelectInviteServer={onSelectInviteServer}
-          inviteMemberQuery={inviteMemberQuery}
-          onInviteMemberQueryChange={onInviteMemberQueryChange}
-          inviteMembersLoading={inviteMembersLoading}
-          inviteMembersNotice={inviteMembersNotice}
-          inviteMembers={inviteMembers}
-          filteredInviteMembers={filteredInviteMembers}
-          selectedInviteUserIds={selectedInviteUserIds}
-          onToggleInviteUser={onToggleInviteUser}
-          onRetryInviteMembers={onRetryInviteMembers}
-          inviteSending={inviteSending}
-          onSendBotInvites={onSendBotInvites}
-          onCopyInvite={onCopyInvite}
-          canShareInvite={canShareInvite}
-          onShareInvite={onShareInvite}
-          inviteSendSummary={inviteSendSummary}
-        />
-      ) : null}
-    </Stack>
+    </>
   )
 }
 

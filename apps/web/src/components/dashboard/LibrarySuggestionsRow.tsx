@@ -27,9 +27,9 @@ export function LibrarySuggestionsRow({
     <Card variant="soft" sx={{ p: 2.25, overflow: 'hidden' }}>
       <Stack spacing={1.25}>
         <Box>
-          <Typography level="title-md">Seen you playing on Discord</Typography>
+          <Typography level="title-md">Suggestions based on your activity</Typography>
           <Typography level="body-sm" sx={{ color: 'neutral.400', mt: 0.5 }}>
-            These titles were observed in servers where the bot could see your activity. Add them quickly if they belong in your library.
+            Add them quickly if they belong in your library.
           </Typography>
         </Box>
         <Stack

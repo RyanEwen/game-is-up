@@ -86,10 +86,12 @@ function buildDefaultSteamImportSelection(game: SteamLibraryImportGame): ImportS
 function SteamImportConnectContent({
   steamImportEnabled,
   steamLinkPending,
+  onClose,
   onStartSteamLink,
 }: {
   steamImportEnabled: boolean;
   steamLinkPending: boolean;
+  onClose: () => void;
   onStartSteamLink: () => Promise<void>;
 }) {
   return (
@@ -122,6 +124,11 @@ function SteamImportConnectContent({
         </Stack>
       </DialogContent>
       <DashboardModalActionBar
+        cancelAction={(
+          <Button size="lg" variant="outlined" color="neutral" disabled={steamLinkPending} onClick={onClose} sx={{ minHeight: 52 }}>
+            Cancel
+          </Button>
+        )}
         primaryAction={(
           <Button
             size="lg"
@@ -142,12 +149,14 @@ function SteamImportUnavailableContent({
   preview,
   refreshing,
   disconnectPending,
+  onClose,
   onReload,
   onDisconnect
 }: {
   preview: SteamLibraryImportPreviewResponse;
   refreshing: boolean;
   disconnectPending: boolean;
+  onClose: () => void;
   onReload: () => Promise<void>;
   onDisconnect: () => Promise<void>;
 }) {
@@ -184,6 +193,11 @@ function SteamImportUnavailableContent({
             {disconnectPending ? 'Disconnecting...' : 'Disconnect'}
           </Button>
         )}
+        cancelAction={(
+          <Button size="lg" variant="outlined" color="neutral" disabled={refreshing || disconnectPending} onClick={onClose} sx={{ minHeight: 52 }}>
+            Cancel
+          </Button>
+        )}
         primaryAction={(
           <Button size="lg" color="primary" disabled={refreshing} onClick={() => void onReload()} sx={{ flex: 1, minHeight: 52, fontWeight: 700 }}>
             {refreshing ? 'Reloading from Steam...' : 'Reload from Steam'}
@@ -194,7 +208,11 @@ function SteamImportUnavailableContent({
   )
 }
 
-function SteamImportLoadingContent() {
+function SteamImportLoadingContent({
+  onClose
+}: {
+  onClose: () => void;
+}) {
   return (
     <>
       <DialogTitle sx={{ pr: 6 }}>Add games from Steam</DialogTitle>
@@ -215,6 +233,13 @@ function SteamImportLoadingContent() {
           This reloads the current game list available from the linked Steam account.
         </Typography>
       </DialogContent>
+      <DashboardModalActionBar
+        cancelAction={(
+          <Button size="lg" variant="outlined" color="neutral" onClick={onClose} sx={{ minHeight: 52 }}>
+            Cancel
+          </Button>
+        )}
+      />
     </>
   )
 }
@@ -288,8 +313,8 @@ function SteamImportReadyContent({
         />
       </DialogContent>
       <DashboardModalActionBar
-        secondaryAction={(
-          <Button variant="outlined" color="neutral" disabled={importing} onClick={onClose} sx={{ minHeight: 46 }}>
+        cancelAction={(
+          <Button size="lg" variant="outlined" color="neutral" disabled={importing} onClick={onClose} sx={{ minHeight: 52 }}>
             Cancel
           </Button>
         )}
@@ -348,11 +373,11 @@ function SteamImportModalContent({
   onDisconnect: () => Promise<void>;
 }) {
   if (!steamConnected) {
-    return <SteamImportConnectContent steamImportEnabled={steamImportEnabled} steamLinkPending={steamLinkPending} onStartSteamLink={onStartSteamLink} />
+    return <SteamImportConnectContent steamImportEnabled={steamImportEnabled} steamLinkPending={steamLinkPending} onClose={onClose} onStartSteamLink={onStartSteamLink} />
   }
 
   if (refreshing && preview == null) {
-    return <SteamImportLoadingContent />
+    return <SteamImportLoadingContent onClose={onClose} />
   }
 
   if (!preview || preview.status === 'unavailable') {
@@ -361,6 +386,7 @@ function SteamImportModalContent({
         preview={preview ?? { status: 'unavailable', note: 'Steam did not return any importable games right now.', account: null, games: [] }}
         refreshing={refreshing}
         disconnectPending={disconnectPending}
+        onClose={onClose}
         onReload={onReload}
         onDisconnect={onDisconnect}
       />

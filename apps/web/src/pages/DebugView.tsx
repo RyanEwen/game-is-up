@@ -72,7 +72,7 @@ function PromptLogCard({ debugAdmin }: { debugAdmin: DebugAdminResponse }) {
                   </Typography>
                   <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
                     <Chip size="sm" variant="outlined">friends {prompt.friendRecipientCount}</Chip>
-                    <Chip size="sm" variant="outlined">selected servers + friends {prompt.networkRecipientCount}</Chip>
+                    <Chip size="sm" variant="outlined">network + friends {prompt.networkRecipientCount}</Chip>
                     {prompt.durationMinutes ? <Chip size="sm" variant="outlined">{prompt.durationMinutes} min</Chip> : null}
                     {prompt.notifyScope ? <Chip size="sm" variant="outlined">{prompt.notifyScope}</Chip> : null}
                   </Stack>

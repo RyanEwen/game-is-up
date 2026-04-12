@@ -254,7 +254,7 @@ export function useDashboardApp() {
     if (reason === 'access_denied') {
       setAuthNotice({
         tone: 'danger',
-        message: 'Discord sign-in was canceled. Game Is Up currently needs Discord server access to build your mutual-server discovery graph. Direct Discord friend import is still pending Discord approval.'
+        message: 'Discord sign-in was canceled. Game Is Up currently needs Discord server access to build your network and find people around you. Direct Discord friend import is still pending Discord approval.'
       })
       return
     }

@@ -59,7 +59,7 @@ function toClientNotifyScope(scope: PlayIntentScope): PlayIntentNotifyScope {
     case PlayIntentScope.SPECIFIC_FRIENDS:
       return 'specific-friends'
     case PlayIntentScope.MUTUAL_FRIENDS:
-      return 'discovery-and-friends'
+      return 'network'
     default:
       return 'friends-only'
   }
@@ -69,7 +69,7 @@ function toPrismaNotifyScope(scope: PlayIntentNotifyScope): PlayIntentScope {
   switch (scope) {
     case 'specific-friends':
       return PlayIntentScope.SPECIFIC_FRIENDS
-    case 'discovery-and-friends':
+    case 'network':
       return PlayIntentScope.MUTUAL_FRIENDS
     default:
       return PlayIntentScope.FRIENDS_ONLY
@@ -267,7 +267,7 @@ async function getRecipientUserIds(
     return []
   }
 
-  const recipientUserIds = scope === 'discovery-and-friends'
+  const recipientUserIds = scope === 'network'
     ? [...new Set([...explicitFriendUserIds, ...(await getMutualDiscoveryAudienceUserIds(userId))])]
     : scope === 'specific-friends'
       ? targetUserIds

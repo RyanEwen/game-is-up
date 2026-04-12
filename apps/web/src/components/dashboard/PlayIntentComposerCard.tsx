@@ -54,6 +54,7 @@ export function PlayIntentComposerCard({
   onPlayIntentNoteChange,
   playIntentSaving,
   onSavePlayIntent,
+  onCancel,
   onClearPlayIntent
 }: {
   activePlayIntent: ActivePlayIntent | null;
@@ -91,6 +92,7 @@ export function PlayIntentComposerCard({
   onPlayIntentNoteChange: (value: string) => void;
   playIntentSaving: boolean;
   onSavePlayIntent: () => Promise<void>;
+  onCancel: () => void;
   onClearPlayIntent: () => Promise<void>;
 }) {
   const isScheduledIntent = activePlayIntent ? new Date(activePlayIntent.windowStartsAt).getTime() > Date.now() + 60 * 1000 : false
@@ -127,7 +129,7 @@ export function PlayIntentComposerCard({
         }}
       >
         <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
-          Let your friends know when you want to play, whether that is right now or later. The app only notifies overlapping friends based on the games in your library or the games you pick here.
+          Let others know when you want to play, whether that is now or later. The app only notifies users with the same games in their libraries.
         </Typography>
 
         {activePlayIntent ? (
@@ -189,9 +191,9 @@ export function PlayIntentComposerCard({
         ) : null}
 
         <Stack spacing={1}>
-          <Typography level="title-sm">Audience</Typography>
+          <Typography level="title-sm">Who do you want to target?</Typography>
           <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-            {(['discovery-and-friends', 'friends-only', 'specific-friends'] as const).map((scope) => (
+            {(['network', 'friends-only', 'specific-friends'] as const).map((scope) => (
               <Button
                 key={scope}
                 size="sm"
@@ -402,6 +404,11 @@ export function PlayIntentComposerCard({
             Clear call to play
           </Button>
         ) : undefined}
+        cancelAction={(
+          <Button size="lg" variant="outlined" color="neutral" disabled={playIntentSaving} onClick={onCancel} sx={{ minHeight: 52 }}>
+            Cancel
+          </Button>
+        )}
         primaryAction={(
           <Button
             size="lg"

@@ -9,12 +9,12 @@ function toSelectionMode(selectionMode: PlayIntentSelectionMode): 'library' | 's
   return selectionMode === PlayIntentSelectionMode.ENTIRE_LIBRARY ? 'library' : 'subset'
 }
 
-function toNotifyScope(scope: PlayIntentScope): 'friends-only' | 'discovery-and-friends' | 'specific-friends' {
+function toNotifyScope(scope: PlayIntentScope): 'friends-only' | 'network' | 'specific-friends' {
   switch (scope) {
     case PlayIntentScope.SPECIFIC_FRIENDS:
       return 'specific-friends'
     case PlayIntentScope.MUTUAL_FRIENDS:
-      return 'discovery-and-friends'
+      return 'network'
     default:
       return 'friends-only'
   }

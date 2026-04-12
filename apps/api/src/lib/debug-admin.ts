@@ -31,7 +31,7 @@ function toClientNotifyScope(scope: PlayIntentScope | null) {
     case PlayIntentScope.SPECIFIC_FRIENDS:
       return 'specific-friends'
     default:
-      return 'discovery-and-friends'
+      return 'network'
   }
 }
 

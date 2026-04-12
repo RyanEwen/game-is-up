@@ -93,7 +93,7 @@ export function useDashboardPlay({
   setPlayIntentNotice: Dispatch<SetStateAction<Notice | null>>;
 }) {
   const [playIntentSelectionMode, setPlayIntentSelectionMode] = useState<PlayIntentSelectionMode>('library')
-  const [playIntentNotifyScope, setPlayIntentNotifyScope] = useState<PlayIntentNotifyScope>('discovery-and-friends')
+  const [playIntentNotifyScope, setPlayIntentNotifyScope] = useState<PlayIntentNotifyScope>('network')
   const [playIntentStartMode, setPlayIntentStartMode] = useState<PlayIntentStartMode>('now')
   const [playIntentTimingMode, setPlayIntentTimingMode] = useState<PlayIntentTimingMode>('preset')
   const [playIntentDurationMinutes, setPlayIntentDurationMinutes] = useState(120)
@@ -194,7 +194,7 @@ export function useDashboardPlay({
   useEffect(() => {
     if (!activePlayIntent) {
       setPlayIntentSelectionMode('library')
-      setPlayIntentNotifyScope('discovery-and-friends')
+      setPlayIntentNotifyScope('network')
       setPlayIntentStartMode('now')
       setPlayIntentTimingMode('preset')
       setPlayIntentDurationMinutes(120)

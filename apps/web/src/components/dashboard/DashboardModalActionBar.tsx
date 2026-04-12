@@ -1,12 +1,14 @@
 import type { ReactNode } from 'react'
-import { DialogActions } from '@mui/joy'
+import { Box, DialogActions } from '@mui/joy'
 
 export function DashboardModalActionBar({
   primaryAction,
-  secondaryAction
+  secondaryAction,
+  cancelAction
 }: {
-  primaryAction: ReactNode;
+  primaryAction?: ReactNode;
   secondaryAction?: ReactNode;
+  cancelAction?: ReactNode;
 }) {
   return (
     <DialogActions
@@ -17,12 +19,12 @@ export function DashboardModalActionBar({
         gap: 1,
         flexDirection: 'row',
         alignItems: 'stretch',
-        justifyContent: 'flex-start',
         width: '100%'
       }}
     >
-      {primaryAction}
       {secondaryAction}
+      {primaryAction}
+      {cancelAction ? <Box sx={{ ml: 'auto' }}>{cancelAction}</Box> : null}
     </DialogActions>
   )
 }

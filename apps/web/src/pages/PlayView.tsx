@@ -209,6 +209,7 @@ function PlayViewContent({
               onPlayIntentNoteChange={onPlayIntentNoteChange}
               playIntentSaving={playIntentSaving}
               onSavePlayIntent={onSavePlayIntent}
+              onCancel={closePlayIntentComposer}
               onClearPlayIntent={onClearPlayIntent}
             />
         </DashboardModal>

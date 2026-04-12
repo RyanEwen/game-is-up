@@ -217,11 +217,11 @@ export function LibraryEditorCard({
         </Stack>
       </DialogContent>
       <DashboardModalActionBar
-        secondaryAction={editingLibraryEntry ? (
-          <Button variant="outlined" color="neutral" disabled={librarySaving} onClick={onCancelLibraryEdit} sx={{ minHeight: 46 }}>
+        cancelAction={(
+          <Button size="lg" variant="outlined" color="neutral" disabled={librarySaving} onClick={onCancelLibraryEdit} sx={{ minHeight: 52 }}>
             Cancel
           </Button>
-        ) : undefined}
+        )}
         primaryAction={(
           <Button
             size="lg"

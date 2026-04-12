@@ -74,7 +74,7 @@ function DiscoveryViewContent({
       <DiscoverySection
         isFirst
         title="Shared games"
-        description="Games you have in common with your friends and other users on the selected Discord servers."
+        description="Games you have in common with people in your network."
       >
         {error ? (
           <Card color="danger" variant="soft">
@@ -109,16 +109,16 @@ function DiscoveryViewContent({
             title={isSignedIn ? 'No shared games yet' : 'Shared games will appear here'}
             body={
               noDiscoveryServersSelected
-                ? 'Every synced Discord server is currently hidden from discovery, so the app has no mutual-server users to compare against.'
+                ? 'Every synced server in your network is currently hidden from discovery, so the app has no network members to compare against.'
                 : isSignedIn
-                  ? 'Add games to your library and keep at least one Discord server enabled so Game Is Up can find people with overlapping libraries.'
+                  ? 'Add games to your library and keep at least one server in your network enabled so Game Is Up can find people with overlapping libraries.'
                   : 'This section shows games that the seeded demo viewer and other visible users both have in their playlists.'
             }
             chips={
               noDiscoveryServersSelected
                 ? undefined
                 : isSignedIn
-                  ? ['Library drives overlap', 'Discovery servers filter visibility', 'Friends stay visible too']
+                  ? ['Library drives overlap', 'Network filters visibility', 'Friends stay visible too']
                   : ['Game-first overlap', 'People per game', 'Demo data seeded']
             }
           />
@@ -127,7 +127,7 @@ function DiscoveryViewContent({
 
       <DiscoverySection
         title="Other games"
-        description="Games you don't have in common with your friends and other users on the selected Discord servers."
+        description="Games you don't have in common with people in your network."
       >
         {browseGames.length > 0 ? (
           <Box sx={discoveryGameGridSx}>
@@ -154,18 +154,18 @@ function DiscoveryViewContent({
             title={isSignedIn ? 'No extra visible games yet' : 'No extra visible games yet'}
             body={
               noDiscoveryServersSelected
-                ? 'Enable at least one synced Discord server to browse games from mutual-server users again.'
+                ? 'Enable at least one synced server in your network to browse games from network members again.'
                 : isSignedIn
                   ? overlapGames.length > 0
                     ? 'Everything currently visible is already shown above because it also matches your library.'
-                    : 'No visible friends or mutual-server users have games in their playlists yet.'
+                    : 'No visible people in your network or on your friends list have games in their playlists yet.'
                   : overlapGames.length > 0
                     ? 'All currently visible titles are already covered in the shared games section above.'
                     : 'Once the API responds, this section shows every visible game that is not already shared above.'
             }
             chips={
               noDiscoveryServersSelected
-                ? ['Discord server filters', 'Mutual users hidden', 'Turn one back on']
+                ? ['Network filters', 'Network members hidden', 'Turn one back on']
                 : overlapGames.length > 0
                   ? ['Overlap shown above', 'Only new titles here', 'No duplicates']
                   : ['Manual discovery', 'Find new friends by game', 'People per title']
@@ -176,7 +176,7 @@ function DiscoveryViewContent({
 
       <DiscoverySection
         title="Members"
-        description="Everyone on your friends list as well as on the selected Discord servers."
+        description="Everyone on your friends list as well as in your network."
       >
         {discoveryPeople.length > 0 ? (
           <Stack spacing={2}>
@@ -202,15 +202,15 @@ function DiscoveryViewContent({
             title={isSignedIn ? 'No people visible yet' : 'People will appear here'}
             body={
               noDiscoveryServersSelected
-                ? 'All synced Discord servers are hidden, so mutual-server people are excluded from browsing right now.'
+                ? 'All synced servers in your network are hidden, so network members are excluded from browsing right now.'
                 : isSignedIn
-                  ? 'No visible discovery-server users or in-app friends are available yet.'
-                  : 'This section shows the seeded people-first view, including visible users from discovery servers and friends.'
+                  ? 'No visible network members or in-app friends are available yet.'
+                  : 'This section shows the seeded people-first view, including visible network members and friends.'
             }
             chips={
               noDiscoveryServersSelected
                 ? ['Server filters applied', 'No mutual users visible', 'Friends remain separate']
-                : ['Discovery-server people', 'Friends stay visible', 'Add friends before game overlap']
+                : ['Network people', 'Friends stay visible', 'Add friends before game overlap']
             }
           />
         )}

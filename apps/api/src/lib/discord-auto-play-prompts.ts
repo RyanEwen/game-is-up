@@ -22,7 +22,7 @@ const autoPlayPromptPrefix = 'auto-play'
 
 type AutoPlayPromptAction =
   | { kind: 'duration'; promptId: string; durationMinutes: number }
-  | { kind: 'confirm'; promptId: string; durationMinutes: number; notifyScope: 'friends-only' | 'discovery-and-friends' }
+  | { kind: 'confirm'; promptId: string; durationMinutes: number; notifyScope: 'friends-only' | 'network' }
   | { kind: 'decline'; promptId: string }
 
 function buildPlayUrl(): string {
@@ -80,8 +80,8 @@ function buildAudienceRows(promptId: string, durationMinutes: number, friendReci
         .setStyle(ButtonStyle.Secondary)
         .setDisabled(friendRecipientCount === 0),
       new ButtonBuilder()
-        .setCustomId(`${autoPlayPromptPrefix}:${promptId}:confirm:discovery-and-friends:${durationMinutes}`)
-        .setLabel(`Selected servers + friends (${networkRecipientCount})`)
+        .setCustomId(`${autoPlayPromptPrefix}:${promptId}:confirm:network:${durationMinutes}`)
+        .setLabel(`Your network + friends (${networkRecipientCount})`)
         .setStyle(ButtonStyle.Primary),
       new ButtonBuilder()
         .setCustomId(`${autoPlayPromptPrefix}:${promptId}:decline`)
@@ -95,7 +95,7 @@ function buildAudienceRows(promptId: string, durationMinutes: number, friendReci
 function buildInitialPromptMessage(gameTitle: string, networkRecipientCount: number) {
   return [
     `**You just started playing ${gameTitle}.**`,
-    `${networkRecipientCount} people visible through your selected servers and friends could receive a call to play for it right now.`,
+    `${networkRecipientCount} people visible through your network and friends could receive a call to play for it right now.`,
     'Pick a duration and I will ask who should receive it. Open the app if you want the full composer instead.'
   ].join('\n\n')
 }
@@ -103,7 +103,7 @@ function buildInitialPromptMessage(gameTitle: string, networkRecipientCount: num
 function buildAudienceMessage(gameTitle: string, durationMinutes: number, friendRecipientCount: number, networkRecipientCount: number) {
   return [
     `**${gameTitle} for the next ${formatDurationLabel(durationMinutes)}**`,
-    `Friends only can reach ${friendRecipientCount}. Selected servers plus friends can reach ${networkRecipientCount}.`,
+    `Friends only can reach ${friendRecipientCount}. Your network plus friends can reach ${networkRecipientCount}.`,
     'Choose who should receive this call to play.'
   ].join('\n\n')
 }
@@ -123,12 +123,12 @@ function buildExpiredMessage(reason: string) {
   ].join('\n\n')
 }
 
-function buildAcceptedMessage(gameTitle: string, durationMinutes: number, notifyScope: 'friends-only' | 'discovery-and-friends', deliveredCount: number) {
+function buildAcceptedMessage(gameTitle: string, durationMinutes: number, notifyScope: 'friends-only' | 'network', deliveredCount: number) {
   return [
     `Your call to play for ${gameTitle} is live for the next ${formatDurationLabel(durationMinutes)}.`,
     notifyScope === 'friends-only'
       ? 'Audience: friends only.'
-      : 'Audience: selected servers plus friends.',
+      : 'Audience: your network plus friends.',
     deliveredCount > 0
       ? `${deliveredCount} Discord DM${deliveredCount === 1 ? ' was' : 's were'} delivered right away.`
       : 'No Discord DMs were delivered right away, but the call is active in Game Is Up.'
@@ -161,14 +161,14 @@ function parseAction(customId: string): AutoPlayPromptAction | null {
   if (parts.length === 5 && parts[2] === 'confirm') {
     const durationMinutes = Number(parts[4])
 
-    if (!Number.isInteger(durationMinutes) || (parts[3] !== 'friends-only' && parts[3] !== 'discovery-and-friends')) {
+    if (!Number.isInteger(durationMinutes) || (parts[3] !== 'friends-only' && parts[3] !== 'network' && parts[3] !== 'discovery-and-friends')) {
       return null
     }
 
     return {
       kind: 'confirm',
       promptId,
-      notifyScope: parts[3],
+      notifyScope: parts[3] === 'discovery-and-friends' ? 'network' : parts[3],
       durationMinutes
     }
   }
@@ -364,7 +364,7 @@ export async function maybeSendDiscordAutoPlayPromptForObservation(observationId
 
   const [friendRecipients, networkRecipients] = await Promise.all([
     getPlayIntentRecipientUserIds(observation.userId, 'friends-only', [observation.gameId]),
-    getPlayIntentRecipientUserIds(observation.userId, 'discovery-and-friends', [observation.gameId])
+    getPlayIntentRecipientUserIds(observation.userId, 'network', [observation.gameId])
   ])
 
   if (networkRecipients.length === 0) {
@@ -373,7 +373,7 @@ export async function maybeSendDiscordAutoPlayPromptForObservation(observationId
       userId: observation.userId,
       gameId: observation.gameId,
       sourceServerId: observation.sourceServerId,
-      detail: 'Skipped because nobody visible through selected servers and friends currently overlaps on this game.',
+      detail: 'Skipped because nobody visible through your network and friends currently overlaps on this game.',
       friendRecipientCount: friendRecipients.length,
       networkRecipientCount: networkRecipients.length
     })
