@@ -71,6 +71,8 @@ function DiscoveryViewContent({
   onAddGameToLibrary: (game: DashboardLibraryQuickAddGame) => Promise<void>;
   onRemoveLibraryEntry: (entryId: string) => Promise<void>;
 }) {
+  const networkPeople = discoveryPeople.filter((person) => !person.isFriend)
+
   return (
     <Stack spacing={0}>
       <DiscoverySection
@@ -165,12 +167,12 @@ function DiscoveryViewContent({
       </DiscoverySection>
 
       <DiscoverySection
-        title="Members"
-        description="Everyone on your friends list as well as in your network."
+        title="Network members"
+        description="People you can see through your network who are not already on your friends list."
       >
-        {discoveryPeople.length > 0 ? (
+        {networkPeople.length > 0 ? (
           <Stack spacing={2}>
-            {discoveryPeople.map((person) => (
+            {networkPeople.map((person) => (
               <PersonCard
                 key={person.id}
                 person={person}
@@ -189,15 +191,15 @@ function DiscoveryViewContent({
           </Stack>
         ) : (
           <EmptyStateCard
-            title={isSignedIn ? 'No people to show yet' : 'People will appear here'}
+            title={isSignedIn ? 'No network members to show yet' : 'Network members will appear here'}
             body={
               noDiscoveryServersSelected
                 ? 'You do not have any Discord servers in your network to find others on.'
                 : isSignedIn
-                  ? 'No friends or people in your network are available yet.'
+                  ? 'No additional people in your network are available yet. Friends now appear in the Friends view.'
                   : showsDemoDiscoveryCopy
-                    ? 'This section shows the seeded people-first view, including friends and people in your network.'
-                    : 'Sign in to browse friends and people in your network here.'
+                    ? 'This section shows the seeded network-member view. Friends are listed separately in the Friends view.'
+                    : 'Sign in to browse people in your network here.'
             }
           />
         )}
