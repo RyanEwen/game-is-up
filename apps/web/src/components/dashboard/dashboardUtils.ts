@@ -3,8 +3,9 @@ import type { DashboardTab } from './types'
 
 export const dashboardTabPaths: Record<DashboardTab, string> = {
   overview: '/',
-  discovery: '/discovery',
   library: '/library',
+  friends: '/friends',
+  discovery: '/discovery',
   play: '/play',
   debug: '/debug'
 }
@@ -64,6 +65,8 @@ export function getDashboardTabFromPathname(pathname: string): DashboardTab | nu
       return 'discovery'
     case dashboardTabPaths.library:
       return 'library'
+    case dashboardTabPaths.friends:
+      return 'friends'
     case dashboardTabPaths.play:
       return 'play'
     case dashboardTabPaths.debug:

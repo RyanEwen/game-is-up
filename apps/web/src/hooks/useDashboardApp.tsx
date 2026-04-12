@@ -219,6 +219,8 @@ export function useDashboardApp() {
   const steamProvider = state.auth?.providers.find((provider) => provider.id === 'steam') ?? null
   const steamConnected = Boolean(state.session?.connectedProviders.includes('steam'))
   const currentUsualAvailability = state.library?.usualAvailability ?? state.session?.user?.usualAvailability ?? null
+  const friendPeople = [...discoveryPeople].filter((person) => person.isFriend).sort((left, right) => left.displayName.localeCompare(right.displayName))
+  const addableFriendPeople = [...discoveryPeople].filter((person) => person.friendEligible).sort((left, right) => left.displayName.localeCompare(right.displayName))
 
   const toastNotices = [
     actionNotice
@@ -1014,6 +1016,21 @@ export function useDashboardApp() {
       ...inviteOverviewProps
     },
     libraryViewProps,
+    friendsViewProps: {
+      error: state.error,
+      isSignedIn,
+      friends: friendPeople,
+      addableFriends: addableFriendPeople,
+      noDiscoveryServersSelected,
+      libraryGameIds,
+      libraryEntryIdsByGameId,
+      addingLibraryGameId,
+      removingLibraryEntryId: libraryViewProps.removingLibraryEntryId,
+      friendPendingId,
+      onToggleFriend: handleToggleFriend,
+      onAddGameToLibrary: openLibraryEditorForGame,
+      onRemoveLibraryEntry: libraryViewProps.onRemoveLibraryEntry
+    },
     playViewProps: {
       ...playViewProps,
       isSignedIn,

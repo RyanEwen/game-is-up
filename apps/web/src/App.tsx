@@ -9,6 +9,7 @@ import { DashboardProvider } from './contexts/DashboardContext'
 import { useDashboardContext } from './contexts/useDashboardContext'
 import { DiscoveryView } from './pages/DiscoveryView'
 import { DebugView } from './pages/DebugView'
+import { FriendsView } from './pages/FriendsView'
 import { LibraryView } from './pages/LibraryView'
 import { OverviewView } from './pages/OverviewView'
 import { PlayView } from './pages/PlayView'
@@ -49,6 +50,10 @@ function DashboardAppShell() {
         <Route
           path={dashboardTabPaths.library}
           element={<LibraryView />}
+        />
+        <Route
+          path={dashboardTabPaths.friends}
+          element={<FriendsView />}
         />
         <Route
           path={dashboardTabPaths.play}
