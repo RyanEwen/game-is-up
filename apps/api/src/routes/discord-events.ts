@@ -52,7 +52,8 @@ discordEventsRouter.post('/', async (request, response, next) => {
     const payload = discordWebhookPayloadSchema.parse(JSON.parse(rawBody.toString('utf8')))
 
     if (payload.type === 0) {
-      response.status(204).type('application/json').send()
+      response.set('Content-Type', 'application/json')
+      response.status(204).end()
       return
     }
 
@@ -73,7 +74,7 @@ discordEventsRouter.post('/', async (request, response, next) => {
       }
     }
 
-    response.status(204).type('application/json').send()
+    response.status(204).end()
   } catch (error) {
     next(error)
   }

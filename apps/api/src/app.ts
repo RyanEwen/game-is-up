@@ -35,7 +35,7 @@ app.use(
   })
 )
 app.use(helmet())
-app.use('/api/discord/events', express.raw({ type: 'application/json' }), discordEventsRouter)
+app.use('/api/discord/events', express.raw({ type: '*/*' }), discordEventsRouter)
 app.use(express.json())
 
 app.get('/api/bootstrap', (_request, response) => {
