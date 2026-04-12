@@ -1,4 +1,5 @@
-import { Box, Button, Card, Stack, Switch, Typography } from '@mui/joy'
+import { useState } from 'react'
+import { Box, Button, Chip, DialogContent, DialogTitle, Card, Stack, Switch, Typography } from '@mui/joy'
 import type {
   ActivePlayIntent,
   DiscoveryPerson,
@@ -9,8 +10,10 @@ import type {
 } from '@game-is-up/shared'
 import { EmptyStateCard } from '../components/dashboard/EmptyStateCard'
 import { DashboardModal } from '../components/dashboard/DashboardModal'
+import { DashboardModalActionBar } from '../components/dashboard/DashboardModalActionBar'
 import { PlayIntentCard } from '../components/dashboard/PlayIntentCard'
 import { PlayIntentComposerCard } from '../components/dashboard/PlayIntentComposerCard'
+import { formatNotifyScopeLabel, formatPlayIntentSelectionModeLabel } from '../components/dashboard/dashboardUtils'
 import { useDashboardContext } from '../contexts/useDashboardContext'
 import type { DashboardLibraryQuickAddGame, PlayIntentStartMode, PlayIntentTimingMode } from '../components/dashboard/types'
 
@@ -43,8 +46,87 @@ function DiscordAutomationCard({
   )
 }
 
+function OwnActivePlayIntentCard({
+  activePlayIntent,
+  onEdit
+}: {
+  activePlayIntent: ActivePlayIntent;
+  onEdit: () => void;
+}) {
+  const startsAt = new Date(activePlayIntent.windowStartsAt)
+  const endsAt = new Date(activePlayIntent.windowEndsAt)
+  const isScheduledIntent = startsAt.getTime() > Date.now() + 60 * 1000
+
+  return (
+    <Card
+      variant="soft"
+      color="primary"
+      sx={{
+        p: 3,
+        border: '1px solid rgba(87, 244, 193, 0.22)',
+        background: 'linear-gradient(180deg, rgba(15, 84, 68, 0.34), rgba(11, 16, 32, 0.92))',
+        boxShadow: '0 20px 36px -28px rgba(28, 171, 132, 0.5)'
+      }}
+    >
+      <Stack spacing={2}>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'flex-start' }}>
+          <Box>
+            <Typography level="body-xs" sx={{ color: 'primary.200', textTransform: 'uppercase', letterSpacing: '0.08em', mb: 0.75 }}>
+              Your active call to play
+            </Typography>
+            <Typography level="title-lg">{activePlayIntent.title}</Typography>
+            <Typography level="body-sm" sx={{ color: 'neutral.200', mt: 0.5 }}>
+              {isScheduledIntent
+                ? `Starts ${startsAt.toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })} and ends ${endsAt.toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}`
+                : `Live until ${endsAt.toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}`}
+            </Typography>
+          </Box>
+          <Button variant="solid" color="primary" onClick={onEdit}>
+            Edit call to play
+          </Button>
+        </Stack>
+
+        <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+          <Chip color="primary" variant="soft">
+            {formatPlayIntentSelectionModeLabel(activePlayIntent.selectionMode)}
+          </Chip>
+          <Chip color="warning" variant="outlined">
+            {formatNotifyScopeLabel(activePlayIntent.notifyScope)}
+          </Chip>
+          {activePlayIntent.platforms.map((platform) => (
+            <Chip key={platform} color="neutral" variant="outlined">
+              {platform}
+            </Chip>
+          ))}
+        </Stack>
+
+        {activePlayIntent.note ? (
+          <Typography level="body-md" sx={{ color: 'neutral.100' }}>
+            {activePlayIntent.note}
+          </Typography>
+        ) : null}
+
+        {activePlayIntent.selectionMode === 'subset' && activePlayIntent.games.length > 0 ? (
+          <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+            {activePlayIntent.games.map((game) => (
+              <Chip key={game.id} color="primary" variant="outlined">
+                {game.title}
+              </Chip>
+            ))}
+          </Stack>
+        ) : (
+          <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
+            Recipient matching compares this call to play against your library and each recipient&apos;s overlap.
+          </Typography>
+        )}
+      </Stack>
+    </Card>
+  )
+}
+
 function PlayViewContent({
   isSignedIn,
+  playIntentUnavailableAudienceMessage,
   discordAutoPromptPlayIntent,
   discordAutoPromptPlayIntentSaving,
   activePlayIntent,
@@ -52,6 +134,7 @@ function PlayViewContent({
   openPlayIntentComposer,
   closePlayIntentComposer,
   canPostPlayIntent,
+  playIntentFilteredAudienceMessage,
   playIntentNotifyScope,
   onPlayIntentNotifyScopeChange,
   playIntentFriendOptions,
@@ -93,6 +176,7 @@ function PlayViewContent({
   onToggleDiscordAutoPromptPlayIntent
 }: {
   isSignedIn: boolean;
+  playIntentUnavailableAudienceMessage: string | null;
   discordAutoPromptPlayIntent: boolean;
   discordAutoPromptPlayIntentSaving: boolean;
   activePlayIntent: ActivePlayIntent | null;
@@ -100,6 +184,7 @@ function PlayViewContent({
   openPlayIntentComposer: () => void;
   closePlayIntentComposer: () => void;
   canPostPlayIntent: boolean;
+  playIntentFilteredAudienceMessage: string | null;
   playIntentNotifyScope: PlayIntentNotifyScope;
   onPlayIntentNotifyScopeChange: (scope: PlayIntentNotifyScope) => void;
   playIntentFriendOptions: Array<Pick<DiscoveryPerson, 'id' | 'handle' | 'displayName' | 'avatarUrl'>>;
@@ -140,12 +225,34 @@ function PlayViewContent({
   onAddGameToLibrary: (game: DashboardLibraryQuickAddGame) => Promise<void>;
   onToggleDiscordAutoPromptPlayIntent: (nextEnabled: boolean) => Promise<void>;
 }) {
+  const [isUnavailableAudienceModalOpen, setIsUnavailableAudienceModalOpen] = useState(false)
   const hasScheduledOwnCallToPlay = activePlayIntent ? new Date(activePlayIntent.windowStartsAt).getTime() > Date.now() + 60 * 1000 : false
   const playComposerButtonLabel = activePlayIntent
     ? hasScheduledOwnCallToPlay
       ? 'Manage scheduled call to play'
       : 'Manage live call to play'
     : 'Create call to play'
+  const playIntentUnavailableMessage = !activePlayIntent && !canPostPlayIntent
+    ? 'You do not have any games in your library yet, so nobody can be matched with your call to play. Add at least one game first.'
+    : playIntentUnavailableAudienceMessage
+  const playIntentUnavailableTitle = !activePlayIntent && !canPostPlayIntent
+    ? 'Add A Game First'
+    : 'Nobody Can Receive This Yet'
+  const playIntentUnavailableCardTitle = !activePlayIntent && !canPostPlayIntent
+    ? 'Your library is still empty'
+    : 'Nobody can receive a call to play yet'
+  const playIntentUnavailableChips = !activePlayIntent && !canPostPlayIntent
+    ? ['Add a game', 'Import from Steam', 'Try again after that']
+    : ['Add Discord server', 'Add friends', 'Try again later']
+
+  const handleOpenPlayIntent = () => {
+    if (!activePlayIntent && playIntentUnavailableMessage) {
+      setIsUnavailableAudienceModalOpen(true)
+      return
+    }
+
+    openPlayIntentComposer()
+  }
 
   return (
     <Stack spacing={2}>
@@ -157,7 +264,7 @@ function PlayViewContent({
           </Typography>
         </Box>
         {isSignedIn ? (
-          <Button color="primary" disabled={!canPostPlayIntent && !activePlayIntent} onClick={openPlayIntentComposer}>
+          <Button color="primary" onClick={handleOpenPlayIntent}>
             {playComposerButtonLabel}
           </Button>
         ) : null}
@@ -171,11 +278,45 @@ function PlayViewContent({
         />
       ) : null}
 
+      {isSignedIn && activePlayIntent ? (
+        <OwnActivePlayIntentCard activePlayIntent={activePlayIntent} onEdit={openPlayIntentComposer} />
+      ) : null}
+
+      {isSignedIn ? (
+        <DashboardModal open={isUnavailableAudienceModalOpen} onClose={() => setIsUnavailableAudienceModalOpen(false)} width="min(96vw, 560px)">
+          <DialogTitle sx={{ pr: 6 }}>{playIntentUnavailableTitle}</DialogTitle>
+          <DialogContent
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 2,
+              pr: 0.5,
+              overscrollBehavior: 'contain',
+              WebkitOverflowScrolling: 'touch'
+            }}
+          >
+            <EmptyStateCard
+              title={playIntentUnavailableCardTitle}
+              body={playIntentUnavailableMessage ?? 'There is nobody available to receive a call to play right now.'}
+              chips={playIntentUnavailableChips}
+            />
+          </DialogContent>
+          <DashboardModalActionBar
+            cancelAction={(
+              <Button size="lg" variant="outlined" color="neutral" onClick={() => setIsUnavailableAudienceModalOpen(false)} sx={{ minHeight: 52 }}>
+                Close
+              </Button>
+            )}
+          />
+        </DashboardModal>
+      ) : null}
+
       {isSignedIn ? (
         <DashboardModal open={isPlayIntentComposerOpen} onClose={closePlayIntentComposer} width="min(96vw, 820px)">
             <PlayIntentComposerCard
               activePlayIntent={activePlayIntent}
               canPostPlayIntent={canPostPlayIntent}
+              playIntentFilteredAudienceMessage={playIntentFilteredAudienceMessage}
               playIntentNotifyScope={playIntentNotifyScope}
               onPlayIntentNotifyScopeChange={onPlayIntentNotifyScopeChange}
               playIntentFriendOptions={playIntentFriendOptions}
@@ -229,10 +370,12 @@ function PlayViewContent({
         </Stack>
       ) : (
         <EmptyStateCard
-          title={isSignedIn ? 'No calls to play match your library yet' : 'Calls to play will appear here'}
+          title={isSignedIn ? activePlayIntent ? 'No other calls to play match your library yet' : 'No calls to play match your library yet' : 'Calls to play will appear here'}
           body={
             isSignedIn
-              ? 'When someone in your network posts a call to play that overlaps with your library, it will show up here.'
+              ? activePlayIntent
+                ? 'Your call to play is live above. When someone else in your network posts a matching call to play, it will show up here too.'
+                : 'When someone in your network posts a call to play that overlaps with your library, it will show up here.'
               : 'Once the API responds, this section shows current and scheduled calls to play from people in your friends list or network.'
           }
         />

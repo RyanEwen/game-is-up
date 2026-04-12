@@ -46,7 +46,7 @@ type NavigatorWithStandalone = Navigator & {
 };
 
 const configuredApiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim()
-const apiBaseUrl = configuredApiBaseUrl != null ? configuredApiBaseUrl.replace(/\/$/, '') : 'http://localhost:4000'
+const apiBaseUrl = configuredApiBaseUrl != null ? configuredApiBaseUrl.replace(/\/$/, '') : ''
 const apiReconnectPollMs = 5000
 const mobileAuthRedirectUrl = 'gameisup://auth'
 const emptyLibraryEntries: LibraryResponse['entries'] = []
@@ -204,12 +204,21 @@ export function useDashboardApp() {
   const availableDiscoveryServers = (state.discordServers?.servers ?? []).filter((server) => server.botPresent)
   const selectedDiscoveryServerCount = availableDiscoveryServers.filter((server) => server.selected).length
   const noDiscoveryServersSelected = isSignedIn && availableDiscoveryServers.length > 0 && selectedDiscoveryServerCount === 0
+  const libraryGameIds = new Set<string>(libraryEntries.map((entry) => entry.gameId))
+  const libraryEntryIdsByGameId = new Map<string, string>(libraryEntries.map((entry) => [entry.gameId, entry.id]))
+  const hasLoadedAudienceContext = state.discovery != null
+  const playIntentDefaultAudienceCount = discoveryPeople.filter((person) => person.games.some((game) => libraryGameIds.has(game.id))).length
+  const playIntentUnavailableAudienceMessage = hasLoadedAudienceContext && isSignedIn && !state.activePlayIntent && hasLibraryEntries && playIntentDefaultAudienceCount === 0
+    ? noDiscoveryServersSelected
+      ? 'You do not have any Discord servers in your network right now, so nobody can receive a call to play. Add a Discord server back to your network or add friends first.'
+      : discoveryPeople.length === 0
+        ? 'You do not have any friends or people in your network who can receive a call to play yet. Add a Discord server to your network or add friends first.'
+        : 'Nobody in your friends list or network currently overlaps with your library, so nobody can receive a call to play yet. Add more games to your library or wait for more overlap.'
+    : null
   const discordProvider = state.auth?.providers.find((provider) => provider.id === 'discord') ?? null
   const steamProvider = state.auth?.providers.find((provider) => provider.id === 'steam') ?? null
   const steamConnected = Boolean(state.session?.connectedProviders.includes('steam'))
   const currentUsualAvailability = state.library?.usualAvailability ?? state.session?.user?.usualAvailability ?? null
-  const libraryGameIds = new Set<string>(libraryEntries.map((entry) => entry.gameId))
-  const libraryEntryIdsByGameId = new Map<string, string>(libraryEntries.map((entry) => [entry.gameId, entry.id]))
 
   const toastNotices = [
     actionNotice
@@ -621,6 +630,7 @@ export function useDashboardApp() {
     buildApiUrl,
     activePlayIntent: state.activePlayIntent,
     libraryEntries,
+    discoveryPeople,
     playIntentFriendOptions,
     playIntentPreviews: state.playIntents?.intents ?? [],
     loadDashboard,
@@ -1007,6 +1017,7 @@ export function useDashboardApp() {
     playViewProps: {
       ...playViewProps,
       isSignedIn,
+      playIntentUnavailableAudienceMessage,
       discordAutoPromptPlayIntent: state.session?.user?.discordAutoPromptPlayIntent ?? true,
       discordAutoPromptPlayIntentSaving,
       libraryGameIds,

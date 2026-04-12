@@ -21,6 +21,7 @@ import type { PlayIntentStartMode, PlayIntentTimingMode } from './types'
 export function PlayIntentComposerCard({
   activePlayIntent,
   canPostPlayIntent,
+  playIntentFilteredAudienceMessage,
   playIntentNotifyScope,
   onPlayIntentNotifyScopeChange,
   playIntentFriendOptions,
@@ -59,6 +60,7 @@ export function PlayIntentComposerCard({
 }: {
   activePlayIntent: ActivePlayIntent | null;
   canPostPlayIntent: boolean;
+  playIntentFilteredAudienceMessage: string | null;
   playIntentNotifyScope: PlayIntentNotifyScope;
   onPlayIntentNotifyScopeChange: (scope: PlayIntentNotifyScope) => void;
   playIntentFriendOptions: Array<Pick<DiscoveryPerson, 'id' | 'handle' | 'displayName' | 'avatarUrl'>>;
@@ -132,6 +134,12 @@ export function PlayIntentComposerCard({
           Let others know when you want to play, whether that is now or later. The app only notifies users with the same games in their libraries.
         </Typography>
 
+        {playIntentFilteredAudienceMessage ? (
+          <Card color="warning" variant="soft" sx={{ p: 2 }}>
+            <Typography level="body-sm">{playIntentFilteredAudienceMessage}</Typography>
+          </Card>
+        ) : null}
+
         {activePlayIntent ? (
           <Card color="success" variant="soft" sx={{ p: 2 }}>
             <Stack spacing={1}>
@@ -191,6 +199,44 @@ export function PlayIntentComposerCard({
         ) : null}
 
         <Stack spacing={1}>
+          <Typography level="title-sm">What are you up for?</Typography>
+          <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+            {(['library', 'subset'] as const).map((selectionMode) => (
+              <Button
+                key={selectionMode}
+                size="sm"
+                variant={playIntentSelectionMode === selectionMode ? 'solid' : 'outlined'}
+                color={playIntentSelectionMode === selectionMode ? 'primary' : 'neutral'}
+                disabled={!canPostPlayIntent}
+                onClick={() => onPlayIntentSelectionModeChange(selectionMode)}
+              >
+                {formatPlayIntentSelectionModeLabel(selectionMode)}
+              </Button>
+            ))}
+          </Stack>
+        </Stack>
+
+        {playIntentSelectionMode === 'subset' ? (
+          <Stack spacing={1}>
+            <Typography level="title-sm">Pick games</Typography>
+            <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+              {libraryEntries.map((entry) => (
+                <Button
+                  key={entry.id}
+                  size="sm"
+                  variant={selectedPlayIntentGameIds.includes(entry.gameId) ? 'solid' : 'outlined'}
+                  color={selectedPlayIntentGameIds.includes(entry.gameId) ? 'primary' : 'neutral'}
+                  disabled={!canPostPlayIntent}
+                  onClick={() => onTogglePlayIntentGame(entry.gameId)}
+                >
+                  {entry.title}
+                </Button>
+              ))}
+            </Stack>
+          </Stack>
+        ) : null}
+
+        <Stack spacing={1}>
           <Typography level="title-sm">Who do you want to target?</Typography>
           <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
             {(['network', 'friends-only', 'specific-friends'] as const).map((scope) => (
@@ -241,44 +287,6 @@ export function PlayIntentComposerCard({
             )
           ) : null}
         </Stack>
-
-        <Stack spacing={1}>
-          <Typography level="title-sm">What are you up for?</Typography>
-          <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-            {(['library', 'subset'] as const).map((selectionMode) => (
-              <Button
-                key={selectionMode}
-                size="sm"
-                variant={playIntentSelectionMode === selectionMode ? 'solid' : 'outlined'}
-                color={playIntentSelectionMode === selectionMode ? 'primary' : 'neutral'}
-                disabled={!canPostPlayIntent}
-                onClick={() => onPlayIntentSelectionModeChange(selectionMode)}
-              >
-                {formatPlayIntentSelectionModeLabel(selectionMode)}
-              </Button>
-            ))}
-          </Stack>
-        </Stack>
-
-        {playIntentSelectionMode === 'subset' ? (
-          <Stack spacing={1}>
-            <Typography level="title-sm">Pick games</Typography>
-            <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-              {libraryEntries.map((entry) => (
-                <Button
-                  key={entry.id}
-                  size="sm"
-                  variant={selectedPlayIntentGameIds.includes(entry.gameId) ? 'solid' : 'outlined'}
-                  color={selectedPlayIntentGameIds.includes(entry.gameId) ? 'primary' : 'neutral'}
-                  disabled={!canPostPlayIntent}
-                  onClick={() => onTogglePlayIntentGame(entry.gameId)}
-                >
-                  {entry.title}
-                </Button>
-              ))}
-            </Stack>
-          </Stack>
-        ) : null}
 
         <Stack spacing={1}>
           <Typography level="title-sm">When should this start?</Typography>

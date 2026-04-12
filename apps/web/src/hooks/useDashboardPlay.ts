@@ -29,6 +29,14 @@ function buildDefaultScheduledStartAtInput() {
 
 const defaultPlayIntentDurationMinutes: number = playIntentPresetDurations[0]
 
+function personHasGameOverlap(person: DiscoveryPerson, gameIds: ReadonlySet<string>) {
+  if (gameIds.size === 0) {
+    return false
+  }
+
+  return person.games.some((game) => gameIds.has(game.id))
+}
+
 export type DashboardPlayViewProps = {
   isSignedIn: boolean;
   activePlayIntent: ActivePlayIntent | null;
@@ -36,6 +44,7 @@ export type DashboardPlayViewProps = {
   openPlayIntentComposer: () => void;
   closePlayIntentComposer: () => void;
   canPostPlayIntent: boolean;
+  playIntentFilteredAudienceMessage: string | null;
   playIntentNotifyScope: PlayIntentNotifyScope;
   onPlayIntentNotifyScopeChange: (scope: PlayIntentNotifyScope) => void;
   playIntentFriendOptions: Array<Pick<DiscoveryPerson, 'id' | 'handle' | 'displayName' | 'avatarUrl'>>;
@@ -78,6 +87,7 @@ export function useDashboardPlay({
   buildApiUrl,
   activePlayIntent,
   libraryEntries,
+  discoveryPeople,
   playIntentFriendOptions,
   playIntentPreviews,
   loadDashboard,
@@ -88,6 +98,7 @@ export function useDashboardPlay({
   buildApiUrl: (path: string) => string;
   activePlayIntent: ActivePlayIntent | null;
   libraryEntries: LibraryEntry[];
+  discoveryPeople: DiscoveryPerson[];
   playIntentFriendOptions: Array<Pick<DiscoveryPerson, 'id' | 'handle' | 'displayName' | 'avatarUrl'>>;
   playIntentPreviews: PlayIntentPreview[];
   loadDashboard: () => Promise<void>;
@@ -109,6 +120,48 @@ export function useDashboardPlay({
   const [isPlayIntentComposerOpen, setIsPlayIntentComposerOpen] = useState(false)
 
   const canPostPlayIntent = libraryEntries.length > 0
+  const libraryGameIdSet = new Set<string>(libraryEntries.map((entry) => entry.gameId))
+  const selectedPlayIntentGameIdSet = new Set<string>(selectedPlayIntentGameIds)
+  const currentPlayIntentGameIdSet = playIntentSelectionMode === 'library' ? libraryGameIdSet : selectedPlayIntentGameIdSet
+  const selectedPlayIntentTargetUserIdSet = new Set<string>(selectedPlayIntentTargetUserIds)
+  const friendDiscoveryPeople = discoveryPeople.filter((person) => person.isFriend)
+  const targetedDiscoveryPeople = friendDiscoveryPeople.filter((person) => selectedPlayIntentTargetUserIdSet.has(person.id))
+  const networkRecipientsForLibrary = discoveryPeople.filter((person) => personHasGameOverlap(person, libraryGameIdSet))
+  const friendRecipientsForLibrary = friendDiscoveryPeople.filter((person) => personHasGameOverlap(person, libraryGameIdSet))
+  const targetedRecipientsForLibrary = targetedDiscoveryPeople.filter((person) => personHasGameOverlap(person, libraryGameIdSet))
+  const networkRecipientsForCurrentSelection = discoveryPeople.filter((person) => personHasGameOverlap(person, currentPlayIntentGameIdSet))
+  const friendRecipientsForCurrentSelection = friendDiscoveryPeople.filter((person) => personHasGameOverlap(person, currentPlayIntentGameIdSet))
+  const targetedRecipientsForCurrentSelection = targetedDiscoveryPeople.filter((person) => personHasGameOverlap(person, currentPlayIntentGameIdSet))
+  const currentScopeLibraryRecipients = playIntentNotifyScope === 'network'
+    ? networkRecipientsForLibrary
+    : playIntentNotifyScope === 'friends-only'
+      ? friendRecipientsForLibrary
+      : targetedRecipientsForLibrary
+  const currentRecipients = playIntentNotifyScope === 'network'
+    ? networkRecipientsForCurrentSelection
+    : playIntentNotifyScope === 'friends-only'
+      ? friendRecipientsForCurrentSelection
+      : targetedRecipientsForCurrentSelection
+  const currentAudienceLabel = playIntentNotifyScope === 'network'
+    ? 'your friends list or network'
+    : playIntentNotifyScope === 'friends-only'
+      ? 'your friends list'
+      : 'the friends you selected'
+  const playIntentFilteredAudienceMessage = !canPostPlayIntent
+    ? null
+    : playIntentNotifyScope === 'specific-friends' && selectedPlayIntentTargetUserIds.length === 0
+      ? 'Choose at least one friend before posting a specific-friends call to play. Without a selection, nobody will receive it.'
+      : playIntentSelectionMode === 'subset' && selectedPlayIntentGameIds.length === 0
+        ? 'Pick at least one game before posting a selected-games call to play. Without a selection, nobody will receive it.'
+        : currentRecipients.length > 0
+          ? null
+          : playIntentSelectionMode === 'subset' && currentScopeLibraryRecipients.length > 0
+            ? 'With these game choices, nobody matches right now. Pick different games or switch back to any game in your library.'
+            : playIntentNotifyScope === 'specific-friends' && friendRecipientsForCurrentSelection.length > 0
+              ? 'The friends you selected are not a match for this call to play right now. Pick different friends or widen the audience.'
+              : playIntentNotifyScope === 'friends-only' && networkRecipientsForCurrentSelection.length > 0
+                ? 'With friends-only selected, nobody is a match right now. Switch back to your network or add overlapping friends.'
+                : `No one in ${currentAudienceLabel} can currently receive this call to play.`
   const now = Date.now()
   const parsedPlayIntentStartAt = parseLocalDateTimeInput(playIntentStartAtInput)
   const parsedPlayIntentCustomDurationMinutes = parsePlayIntentDurationMinutes(playIntentCustomDurationInput)
@@ -291,6 +344,14 @@ export function useDashboardPlay({
       return
     }
 
+    if (playIntentFilteredAudienceMessage) {
+      setPlayIntentNotice({
+        tone: 'danger',
+        message: playIntentFilteredAudienceMessage
+      })
+      return
+    }
+
     const schedulingPayload = playIntentStartMode === 'scheduled'
       ? { startAt: parsedPlayIntentStartAt?.toISOString() }
       : {}
@@ -366,6 +427,7 @@ export function useDashboardPlay({
     playIntentSelectionMode,
     playIntentStartMode,
     playIntentStartValidationMessage,
+    playIntentFilteredAudienceMessage,
     playIntentTimingMode,
     playIntentTimingValidationMessage,
     parsedPlayIntentStartAt,
@@ -531,6 +593,7 @@ export function useDashboardPlay({
     openPlayIntentComposer,
     closePlayIntentComposer,
     canPostPlayIntent,
+    playIntentFilteredAudienceMessage,
     playIntentNotifyScope,
     onPlayIntentNotifyScopeChange: handlePlayIntentNotifyScopeChange,
     playIntentFriendOptions,

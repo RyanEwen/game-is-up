@@ -459,14 +459,22 @@ function InviteUsersLauncherCard({
   return (
     <Card variant="soft" sx={{ p: 3 }}>
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.25}>
-        <Box>
-          <Button color="primary" onClick={onOpen}>
+        <Box sx={{ width: { xs: '100%', sm: 'auto' } }}>
+          <Button color="primary" onClick={onOpen} sx={{ width: { xs: '100%', sm: 'auto' } }}>
             Invite people to Game Is Up
           </Button>
         </Box>
         {discordBotInstallUrl ? (
-          <Box>
-            <Button component="a" href={discordBotInstallUrl} target="_blank" rel="noreferrer" variant="outlined" color="neutral">
+          <Box sx={{ width: { xs: '100%', sm: 'auto' } }}>
+            <Button
+              component="a"
+              href={discordBotInstallUrl}
+              target="_blank"
+              rel="noreferrer"
+              variant="outlined"
+              color="neutral"
+              sx={{ width: { xs: '100%', sm: 'auto' } }}
+            >
               Invite bot to a server
             </Button>
           </Box>
