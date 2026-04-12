@@ -116,7 +116,7 @@ function DiscoveryViewContent({
                   ? 'Add games to your library and add at least one Discord server to your network so Game Is Up can find people with overlapping libraries.'
                   : showsDemoDiscoveryCopy
                     ? 'This section shows games that the seeded demo viewer and other users both have in their playlists.'
-                    : 'Sign in to compare your library with friends and network members.'
+                    : 'Sign in to compare your library with friends and people in your network.'
             }
           />
         )}
@@ -158,7 +158,7 @@ function DiscoveryViewContent({
                     : 'No one in your network has games in their playlist yet.'
                   : overlapGames.length > 0
                     ? 'All titles are already covered in the shared games section above.'
-                    : 'Sign in to see other games played by friends and network members.'
+                    : 'Sign in to see other games played by friends and people in your network.'
             }
           />
         )}
@@ -194,10 +194,10 @@ function DiscoveryViewContent({
               noDiscoveryServersSelected
                 ? 'You do not have any Discord servers in your network to find others on.'
                 : isSignedIn
-                  ? 'No network members or friends are available yet.'
+                  ? 'No friends or people in your network are available yet.'
                   : showsDemoDiscoveryCopy
-                    ? 'This section shows the seeded people-first view, including network members and friends.'
-                    : 'Sign in to browse friends and network members here.'
+                    ? 'This section shows the seeded people-first view, including friends and people in your network.'
+                    : 'Sign in to browse friends and people in your network here.'
             }
           />
         )}
