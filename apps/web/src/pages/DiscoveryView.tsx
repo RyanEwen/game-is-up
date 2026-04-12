@@ -196,7 +196,7 @@ function DiscoveryViewContent({
               noDiscoveryServersSelected
                 ? 'You do not have any Discord servers in your network to find others on.'
                 : isSignedIn
-                  ? 'No additional people in your network are available yet. Friends now appear in the Friends view.'
+                  ? 'No additional people in your network are available yet. Friends appear in the Friends view.'
                   : showsDemoDiscoveryCopy
                     ? 'This section shows the seeded network-member view. Friends are listed separately in the Friends view.'
                     : 'Sign in to browse people in your network here.'
