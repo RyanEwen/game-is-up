@@ -1,8 +1,5 @@
 import type { Dispatch, SetStateAction } from 'react'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { App as CapacitorApp } from '@capacitor/app'
-import { Browser } from '@capacitor/browser'
-import { Capacitor } from '@capacitor/core'
 import type {
   ActivePlayIntent,
   AuthProvidersResponse,
@@ -48,7 +45,6 @@ type NavigatorWithStandalone = Navigator & {
 const configuredApiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim()
 const apiBaseUrl = configuredApiBaseUrl != null ? configuredApiBaseUrl.replace(/\/$/, '') : ''
 const apiReconnectPollMs = 5000
-const mobileAuthRedirectUrl = 'gameisup://auth'
 const emptyLibraryEntries: LibraryResponse['entries'] = []
 
 type LoadState = {
@@ -170,13 +166,11 @@ export function useDashboardApp() {
   const [friendPendingId, setFriendPendingId] = useState<string | null>(null)
   const [addingLibraryGameId, setAddingLibraryGameId] = useState<string | null>(null)
   const [serverPreferencePendingId, setServerPreferencePendingId] = useState<string | null>(null)
-  const lastHandledAuthUrlRef = useRef<string | null>(null)
   const timezoneSyncPendingIdRef = useRef<string | null>(null)
-  const isNativeApp = Capacitor.isNativePlatform()
   const showDebugView = import.meta.env.DEV
   const browserTimeZoneId = getBrowserTimeZoneId()
   const isInstalledBrowserApp = getIsInstalledBrowserApp()
-  const installSupport = !isNativeApp && !isInstalledBrowserApp ? getInstallSupport(installPromptEvent) : null
+  const installSupport = !isInstalledBrowserApp ? getInstallSupport(installPromptEvent) : null
 
   const isSignedIn = Boolean(state.session?.authenticated && state.session.user)
   const libraryEntries = state.library?.entries ?? emptyLibraryEntries
@@ -281,7 +275,7 @@ export function useDashboardApp() {
   useTimedNotice(playIntentNotice, setPlayIntentNotice)
 
   useEffect(() => {
-    if (isNativeApp || typeof window === 'undefined') {
+    if (typeof window === 'undefined') {
       return
     }
 
@@ -302,7 +296,7 @@ export function useDashboardApp() {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
       window.removeEventListener('appinstalled', handleAppInstalled)
     }
-  }, [isNativeApp])
+  }, [])
 
   const loadDashboard = useCallback(async () => {
     const requestInit = {
@@ -568,7 +562,7 @@ export function useDashboardApp() {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          returnTo: isNativeApp ? mobileAuthRedirectUrl : window.location.href
+          returnTo: window.location.href
         })
       })
 
@@ -587,13 +581,6 @@ export function useDashboardApp() {
 
       const parsed = steamLinkIntentResponseSchema.parse(responseBody)
 
-      if (isNativeApp) {
-        await Browser.open({
-          url: parsed.authorizationUrl
-        })
-        return
-      }
-
       window.location.assign(parsed.authorizationUrl)
     } catch (error) {
       setActionNotice({
@@ -603,7 +590,7 @@ export function useDashboardApp() {
     } finally {
       setSteamLinkPending(false)
     }
-  }, [isNativeApp, isSignedIn, steamLinkPending])
+  }, [isSignedIn, steamLinkPending])
 
   const { profileSaving, libraryViewProps, openLibraryEditorForGame } = useDashboardLibrary({
     isSignedIn,
@@ -674,29 +661,12 @@ export function useDashboardApp() {
     })()
   }, [applyProfileUpdate, browserTimeZoneId, isSignedIn, loadDashboard, profileSaving, state.session?.user?.timezoneId, updateProfile])
 
-  const completeMobileAuth = useCallback(async (handoff: string) => {
-    const response = await fetch(buildApiUrl('/api/auth/mobile-complete'), {
-      method: 'POST',
-      credentials: 'include',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ handoff })
-    })
-
-    if (!response.ok) {
-      const responseBody = (await response.json()) as { error?: string }
-      throw new Error(responseBody.error ?? 'Unable to finish mobile sign-in.')
-    }
-  }, [])
-
-  const handleAuthRedirect = useCallback(async (urlString: string, options?: { clearBrowserUrl?: boolean; closeBrowser?: boolean }) => {
+  const handleAuthRedirect = useCallback(async (urlString: string, options?: { clearBrowserUrl?: boolean }) => {
     const url = new URL(urlString)
     const params = url.searchParams
     const auth = params.get('auth')
     const status = params.get('status')
     const reason = params.get('reason')
-    const handoff = params.get('handoff')
 
     if ((auth !== 'discord' && auth !== 'steam') || !status) {
       return false
@@ -704,10 +674,6 @@ export function useDashboardApp() {
 
     try {
       if (status === 'success') {
-        if (auth === 'discord' && handoff) {
-          await completeMobileAuth(handoff)
-        }
-
         await loadDashboard()
       }
 
@@ -715,75 +681,20 @@ export function useDashboardApp() {
     } catch (error) {
       setAuthNotice({
         tone: 'danger',
-        message: error instanceof Error ? error.message : auth === 'steam' ? 'Unable to finish Steam linking.' : 'Unable to finish mobile sign-in.'
+        message: error instanceof Error ? error.message : auth === 'steam' ? 'Unable to finish Steam linking.' : 'Unable to finish sign-in.'
       })
     } finally {
-      if (options?.closeBrowser && isNativeApp) {
-        try {
-          await Browser.close()
-        } catch {
-          // Browser.close is not supported in every native path.
-        }
-      }
-
       if (options?.clearBrowserUrl) {
         window.history.replaceState({}, document.title, window.location.pathname)
       }
     }
 
     return true
-  }, [applyAuthNotice, completeMobileAuth, isNativeApp, loadDashboard])
+  }, [applyAuthNotice, loadDashboard])
 
   useEffect(() => {
     void handleAuthRedirect(window.location.href, { clearBrowserUrl: true })
   }, [handleAuthRedirect])
-
-  useEffect(() => {
-    if (!isNativeApp) {
-      return
-    }
-
-    let listener: { remove: () => Promise<void> } | null = null
-
-    const handleNativeAuthUrl = async (urlString: string) => {
-      if (lastHandledAuthUrlRef.current === urlString) {
-        return
-      }
-
-      lastHandledAuthUrlRef.current = urlString
-      await handleAuthRedirect(urlString, { closeBrowser: true })
-    }
-
-    const registerListener = async () => {
-      listener = await CapacitorApp.addListener('appUrlOpen', (event) => {
-        const url = new URL(event.url)
-
-        if (url.protocol !== 'gameisup:' || url.host !== 'auth') {
-          return
-        }
-
-        void handleNativeAuthUrl(event.url)
-      })
-
-      const launchUrl = await CapacitorApp.getLaunchUrl()
-
-      if (launchUrl?.url) {
-        const url = new URL(launchUrl.url)
-
-        if (url.protocol === 'gameisup:' && url.host === 'auth') {
-          await handleNativeAuthUrl(launchUrl.url)
-        }
-      }
-    }
-
-    void registerListener()
-
-    return () => {
-      if (listener) {
-        void listener.remove()
-      }
-    }
-  }, [handleAuthRedirect, isNativeApp])
 
   useEffect(() => {
     if (!state.error) {
@@ -845,17 +756,10 @@ export function useDashboardApp() {
   }, [])
 
   const handleDiscordLogin = useCallback(async () => {
-    const loginUrl = buildAbsoluteApiUrl(`/api/auth/discord/login?returnTo=${encodeURIComponent(isNativeApp ? mobileAuthRedirectUrl : window.location.href)}`)
-
-    if (isNativeApp) {
-      await Browser.open({
-        url: loginUrl
-      })
-      return
-    }
+    const loginUrl = buildAbsoluteApiUrl(`/api/auth/discord/login?returnTo=${encodeURIComponent(window.location.href)}`)
 
     window.location.assign(loginUrl)
-  }, [isNativeApp])
+  }, [])
 
   const handleInstallApp = useCallback(async () => {
     if (installPromptPending) {

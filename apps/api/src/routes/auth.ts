@@ -24,15 +24,13 @@ import { getDiscordPresenceBotState } from '../lib/discord-bot-runtime.js'
 import { ensureDevelopmentSampleFriends } from '../lib/dev-sample-network.js'
 import { syncDiscordServersForUser } from '../lib/discord-servers.js'
 import { env } from '../lib/env.js'
-import { isMobileAuthRedirectTarget, resolveAuthRedirectTarget } from '../lib/origin.js'
+import { resolveAuthRedirectTarget } from '../lib/origin.js'
 import { buildSteamAuthorizationUrl, isSteamImportConfigured, upsertSteamIdentity, verifySteamOpenIdResponse } from '../lib/steam-auth.js'
 import {
   clearAuthSession,
   clearDiscordState,
   consumeDiscordState,
-  consumeMobileAuthHandoff,
   consumeSteamLinkState,
-  createMobileAuthHandoff,
   createDiscordState,
   createSteamLinkState,
   getAuthSession,
@@ -120,10 +118,6 @@ async function buildDiscordGraphCapabilities(userId: string | null) {
     }
   }
 }
-
-const mobileAuthCompleteRequestSchema = z.object({
-  handoff: z.string().min(1)
-})
 
 const steamLinkIntentRequestSchema = z.object({
   returnTo: z.string().optional()
@@ -282,12 +276,6 @@ authRouter.get('/discord/callback', async (request, response) => {
     await markDiscordGuildSync(user.id)
 
     clearDiscordState(response)
-
-    if (isMobileAuthRedirectTarget(redirectTarget)) {
-      const handoff = createMobileAuthHandoff(user.id, 'discord')
-      response.redirect(buildClientRedirect('discord', redirectTarget, 'success', { handoff }))
-      return
-    }
 
     setAuthSession(response, user.id, 'discord')
     response.redirect(buildClientRedirect('discord', redirectTarget, 'success'))

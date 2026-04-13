@@ -2,7 +2,7 @@
 
 ## Architecture
 
-- Treat the app as web-first. The PWA in `apps/web` is the source of truth, and the Android wrapper should remain thin.
+- Treat the app as web-first. The PWA in `apps/web` is the source of truth and the only client surface in this workspace.
 - Keep HTTP contracts in `packages/shared` and use them from both the API and the web app. Do not duplicate request or response shapes.
 - Keep discovery, friends, and play-intent behavior explicit in the API. Avoid hiding product rules in frontend-only logic.
 

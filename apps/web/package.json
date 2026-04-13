@@ -11,9 +11,6 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "@capacitor/app": "^7.1.2",
-    "@capacitor/browser": "^7.0.5",
-    "@capacitor/core": "^7.6.1",
     "@discord/embedded-app-sdk": "^2.4.1",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.0",

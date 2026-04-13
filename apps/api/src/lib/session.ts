@@ -8,7 +8,6 @@ const SESSION_COOKIE_NAME = 'giu_session'
 const DISCORD_STATE_COOKIE_NAME = 'giu_discord_state'
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 30
 const DISCORD_STATE_TTL_SECONDS = 60 * 10
-const MOBILE_AUTH_HANDOFF_TTL_SECONDS = 60
 const STEAM_LINK_STATE_TTL_SECONDS = 60 * 10
 
 type SessionPayload = {
@@ -23,12 +22,6 @@ type DiscordStatePayload = {
   redirectTo: string;
 };
 
-type MobileAuthHandoffPayload = {
-  userId: string;
-  authProvider: AuthProvider;
-  issuedAt: string;
-};
-
 type SteamLinkStatePayload = {
   userId: string;
   redirectTo: string;
@@ -39,7 +32,7 @@ function signValue(encodedPayload: string): string {
   return createHmac('sha256', env.SESSION_SECRET).update(encodedPayload).digest('base64url')
 }
 
-function encodeSignedPayload(payload: SessionPayload | DiscordStatePayload | MobileAuthHandoffPayload | SteamLinkStatePayload): string {
+function encodeSignedPayload(payload: SessionPayload | DiscordStatePayload | SteamLinkStatePayload): string {
   const encodedPayload = Buffer.from(JSON.stringify(payload), 'utf8').toString('base64url')
   const signature = signValue(encodedPayload)
   return `${encodedPayload}.${signature}`
@@ -108,26 +101,6 @@ export function setAuthSession(response: Response, userId: string, authProvider:
 
 export function clearAuthSession(response: Response): void {
   response.append('Set-Cookie', serializeCookie(SESSION_COOKIE_NAME, '', defaultCookieOptions(0)))
-}
-
-export function createMobileAuthHandoff(userId: string, authProvider: AuthProvider): string {
-  const payload: MobileAuthHandoffPayload = {
-    userId,
-    authProvider,
-    issuedAt: new Date().toISOString()
-  }
-
-  return encodeSignedPayload(payload)
-}
-
-export function consumeMobileAuthHandoff(value: string | undefined): MobileAuthHandoffPayload | null {
-  const payload = decodeSignedPayload<MobileAuthHandoffPayload>(value)
-
-  if (!payload || !isFreshPayload(payload.issuedAt, MOBILE_AUTH_HANDOFF_TTL_SECONDS)) {
-    return null
-  }
-
-  return payload
 }
 
 export function createSteamLinkState(userId: string, redirectTo: string): string {

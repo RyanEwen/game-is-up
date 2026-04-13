@@ -1,10 +1,9 @@
 # Game's Up
 
-Game's Up is a monorepo for a game-discovery PWA and Android wrapper. The initial scaffold includes:
+Game's Up is a monorepo for a game-discovery PWA. The initial scaffold includes:
 
 - a Vite + React + Joy UI web app
 - an Express + TypeScript API
-- a Capacitor-based Android wrapper scaffold
 - a shared package for contracts and schemas
 - a Prisma schema targeting PostgreSQL
 - a devcontainer with PostgreSQL and VS Code linting support
@@ -14,7 +13,6 @@ Game's Up is a monorepo for a game-discovery PWA and Android wrapper. The initia
 
 ```text
 apps/
-  android/    Capacitor wrapper package for the shared web app
   api/        Express API, Prisma schema, route modules
   web/        Vite React app, Joy UI shell, PWA config
 packages/
@@ -65,7 +63,7 @@ compose.yml
    npm run dev
    ```
 
-Optional: set `VITE_PUBLIC_APP_URL` when you want in-app invites to point at a public web URL, especially from the Android wrapper or any staging environment that is not directly shareable.
+Optional: set `VITE_PUBLIC_APP_URL` when you want in-app invites to point at a public web URL, especially from any staging environment that is not directly shareable.
 
 Optional: set `VITE_API_BASE_URL` to an explicit origin if the web app should call an API on a different host. Leave it empty when the app is served behind a reverse proxy on the same origin.
 
@@ -137,7 +135,7 @@ For a host-Nginx setup, the important production values are:
 - `VITE_API_BASE_URL=` so the frontend uses same-origin `/api`
 - `PORT=8080` as the default host port behind Nginx
 
-When the web app is built for same-origin production hosting with `VITE_API_BASE_URL=` empty, native Android login flows should still construct absolute OAuth entry URLs before calling the Capacitor browser plugin. Keep that behavior intact if the auth shell changes later.
+When the web app is built for same-origin production hosting with `VITE_API_BASE_URL=` empty, client auth flows should still construct absolute OAuth entry URLs so redirects remain stable behind reverse proxies and alternate origins.
 
 For Cloudflare-backed deployments, the repo now includes a purge helper that reads the same root `.env` file used by Docker Compose. Set `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ZONE_ID`, then run `npm run cache:purge:cloudflare` after deployment. By default it purges the app shell URLs most likely to stay stale at the edge: `/`, `/index.html`, `/sw.js`, `/registerSW.js`, and `/manifest.webmanifest`.
 
@@ -178,7 +176,7 @@ This repo now treats Prisma migrations as the source of truth for schema changes
 15. Discovery remains based on opted-in shared Discord servers plus explicit in-app friendships. The Discord friend-list import path has been removed.
 16. Discord is still the only sign-in path in this scaffold.
 17. Steam can now be linked as a secondary account for library import only. It does not replace Discord auth or discovery.
-18. On Android, linked-account flows like Discord sign-in and Steam linking open in the system browser and return to the app through the `gameisup://auth` deep link. For local development, keep `adb reverse` active so the installed app can still reach the local API while completing those flows.
+18. Linked-account flows like Discord sign-in and Steam linking return directly to the current web URL after the provider callback completes.
 
 ## Steam import setup
 
@@ -211,24 +209,6 @@ Users can also set one profile-level "when do you usually play" note and let ind
 - `.github/instructions/` scopes additional guidance by area.
 - `.github/prompts/` adds reusable prompts for vertical-slice work, provider adapters, commit workflow, and documentation audits.
 - `.github/hooks/` adds Copilot hooks for session guidance, destructive-command protection, post-edit reminders, and targeted validation routing.
-
-## Android devcontainer flow
-
-The devcontainer now provisions Java 21 plus the Android SDK needed by the Capacitor wrapper.
-
-- `npm run ensure --workspace @game-is-up/android` builds the web app, generates or syncs the local Android project, and writes `local.properties`.
-- `npm run assemble:debug --workspace @game-is-up/android` builds a debug APK.
-- `npm run assemble:debug:prod --workspace @game-is-up/android` builds a debug APK that loads the hosted production app at `https://app.example.com`.
-- `npm run adb:reverse --workspace @game-is-up/android` maps Android `localhost:4000` back to the adb host for local API testing.
-- `npm run install:debug --workspace @game-is-up/android` installs the debug build with `adb`.
-
-For local USB testing against the devcontainer API, use `npm run install:debug:usb --workspace @game-is-up/android`.
-
-Android external account flows use the system browser plus the app deep link instead of trying to finish account linking inside the WebView. The browser returns to `gameisup://auth`; Discord then exchanges a short-lived mobile auth handoff with the API to establish the in-app session, while Steam just returns to the app after the link is written on the server.
-
-The generated `apps/android/android` project remains local and is not checked into git.
-
-On ARM hosts, the devcontainer image also installs the `amd64` runtime libraries required for the Android toolchain's x86_64 binaries.
 
 ## Play intent model
 

@@ -87,66 +87,6 @@
         "cwd": "${workspaceFolder}"
       },
       "problemMatcher": []
-    },
-    {
-      "label": "Android: sync",
-      "type": "shell",
-      "command": "npm",
-      "args": ["run", "sync", "--workspace", "@game-is-up/android"],
-      "options": {
-        "cwd": "${workspaceFolder}"
-      },
-      "problemMatcher": []
-    },
-    {
-      "label": "Android: ensure",
-      "type": "shell",
-      "command": "npm",
-      "args": ["run", "ensure", "--workspace", "@game-is-up/android"],
-      "options": {
-        "cwd": "${workspaceFolder}"
-      },
-      "problemMatcher": []
-    },
-    {
-      "label": "Android: adb reverse",
-      "type": "shell",
-      "command": "npm",
-      "args": ["run", "adb:reverse", "--workspace", "@game-is-up/android"],
-      "options": {
-        "cwd": "${workspaceFolder}"
-      },
-      "problemMatcher": []
-    },
-    {
-      "label": "Android: assemble debug",
-      "type": "shell",
-      "command": "npm",
-      "args": ["run", "assemble:debug", "--workspace", "@game-is-up/android"],
-      "options": {
-        "cwd": "${workspaceFolder}"
-      },
-      "problemMatcher": []
-    },
-    {
-      "label": "Android: assemble debug (prod)",
-      "type": "shell",
-      "command": "npm",
-      "args": ["run", "assemble:debug:prod", "--workspace", "@game-is-up/android"],
-      "options": {
-        "cwd": "${workspaceFolder}"
-      },
-      "problemMatcher": []
-    },
-    {
-      "label": "Android: install debug (USB)",
-      "type": "shell",
-      "command": "npm",
-      "args": ["run", "install:debug:usb", "--workspace", "@game-is-up/android"],
-      "options": {
-        "cwd": "${workspaceFolder}"
-      },
-      "problemMatcher": []
     }
   ]
 }

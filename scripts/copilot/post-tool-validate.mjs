@@ -21,7 +21,6 @@ const areaFlags = {
   api: hasPathPrefix('apps/api/src'),
   web: hasPathPrefix('apps/web/src'),
   shared: hasPathPrefix('packages/shared/src'),
-  android: hasPathPrefix('apps/android'),
   rootConfig: filePaths.some((filePath) => ['package.json', 'eslint.config.mjs', 'tsconfig.base.json'].includes(filePath))
 }
 
@@ -47,10 +46,6 @@ if (areaFlags.prisma) {
 if (areaFlags.web) {
   suggestions.push('npm run typecheck --workspace @game-is-up/web')
 }
-if (areaFlags.android) {
-  suggestions.push('npm run typecheck --workspace @game-is-up/android')
-}
-
 let commandLabel = null
 let commandArgs = null
 
@@ -66,9 +61,6 @@ if (areaFlags.prisma && activeAreas.length === 1) {
 } else if (areaFlags.shared && activeAreas.length === 1) {
   commandLabel = 'npm run typecheck --workspace @game-is-up/shared'
   commandArgs = ['run', 'typecheck', '--workspace', '@game-is-up/shared']
-} else if (areaFlags.android && activeAreas.length === 1) {
-  commandLabel = 'npm run typecheck --workspace @game-is-up/android'
-  commandArgs = ['run', 'typecheck', '--workspace', '@game-is-up/android']
 }
 
 if (!commandLabel || !commandArgs) {

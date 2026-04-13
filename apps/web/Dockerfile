@@ -7,7 +7,6 @@ ENV VITE_PUBLIC_APP_URL=$VITE_PUBLIC_APP_URL
 COPY package.json package-lock.json ./
 COPY apps/api/package.json apps/api/package.json
 COPY apps/web/package.json apps/web/package.json
-COPY apps/android/package.json apps/android/package.json
 COPY packages/shared/package.json packages/shared/package.json
 RUN npm ci
 COPY . .

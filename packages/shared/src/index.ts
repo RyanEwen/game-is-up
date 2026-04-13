@@ -487,7 +487,6 @@ export const clientBootstrapSchema = z.object({
   apiBaseUrl: z.string().url(),
   features: z.object({
     pushNotifications: z.boolean(),
-    androidWrapper: z.boolean(),
     multiGamePlayIntent: z.boolean()
   })
 })

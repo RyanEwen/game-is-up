@@ -42,7 +42,6 @@ app.get('/api/bootstrap', (_request, response) => {
       apiBaseUrl: getApiOrigin(),
       features: {
         pushNotifications: true,
-        androidWrapper: true,
         multiGamePlayIntent: true
       }
     })

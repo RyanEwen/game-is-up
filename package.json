@@ -15,7 +15,7 @@
     "dev": "npm run db:wait && npm run build --workspace @game-is-up/shared && concurrently -n shared,api,web -c magenta,green,blue \"npm run dev --workspace @game-is-up/shared\" \"npm run dev --workspace @game-is-up/api\" \"npm run dev --workspace @game-is-up/web\"",
     "dev:fresh": "npm run db:wait && npm run db:push && npm run db:seed && npm run dev",
     "lint": "eslint .",
-    "typecheck": "npm run typecheck --workspace @game-is-up/shared && npm run build --workspace @game-is-up/shared && npm run typecheck --workspace @game-is-up/api && npm run typecheck --workspace @game-is-up/web && npm run typecheck --workspace @game-is-up/android",
+    "typecheck": "npm run typecheck --workspace @game-is-up/shared && npm run build --workspace @game-is-up/shared && npm run typecheck --workspace @game-is-up/api && npm run typecheck --workspace @game-is-up/web",
     "validate": "npm run lint && npm run typecheck && npm run prisma:validate --workspace @game-is-up/api",
     "db:generate": "npm run prisma:generate --workspace @game-is-up/api",
     "db:push": "npm run prisma:db:push --workspace @game-is-up/api",

@@ -29,5 +29,5 @@ const promptCount = countFiles('.github/prompts', '.prompt.md')
 const hookCount = countFiles('.github/hooks', '.json')
 
 emitSessionMessage(
-  `Project context: branch=${branch}, worktree=${worktreeState}, Node=${nodeVersion}, npm=${npmVersion}, instructions=${instructionCount}, prompts=${promptCount}, hooks=${hookCount}. Core rules: treat the app as web-first, keep contracts in packages/shared, and keep discovery friends-first. Validation routing: shared -> npm run typecheck --workspace @game-is-up/shared. api -> npm run typecheck --workspace @game-is-up/api. prisma -> npm run prisma:validate --workspace @game-is-up/api. web -> npm run typecheck --workspace @game-is-up/web. android -> npm run typecheck --workspace @game-is-up/android. finish -> npm run validate.`
+  `Project context: branch=${branch}, worktree=${worktreeState}, Node=${nodeVersion}, npm=${npmVersion}, instructions=${instructionCount}, prompts=${promptCount}, hooks=${hookCount}. Core rules: treat the app as web-first, keep contracts in packages/shared, and keep discovery friends-first. Validation routing: shared -> npm run typecheck --workspace @game-is-up/shared. api -> npm run typecheck --workspace @game-is-up/api. prisma -> npm run prisma:validate --workspace @game-is-up/api. web -> npm run typecheck --workspace @game-is-up/web. finish -> npm run validate.`
 )

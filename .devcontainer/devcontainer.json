@@ -15,10 +15,7 @@
     "API_PORT": "4000",
     "CLIENT_ORIGIN": "http://localhost:5173",
     "SESSION_SECRET": "devcontainer-session-secret",
-    "DISCORD_CALLBACK_URL": "http://localhost:4000/api/auth/discord/callback",
-    "JAVA_HOME": "/opt/java/openjdk",
-    "ANDROID_HOME": "/opt/android-sdk",
-    "ANDROID_SDK_ROOT": "/opt/android-sdk"
+    "DISCORD_CALLBACK_URL": "http://localhost:4000/api/auth/discord/callback"
   },
   "customizations": {
     "vscode": {
@@ -35,6 +32,6 @@
       }
     }
   },
-  "postCreateCommand": "git config --global --add safe.directory /workspace/game-is-up && npm install && npm run db:generate && npm run ensure --workspace @game-is-up/android",
+  "postCreateCommand": "git config --global --add safe.directory /workspace/game-is-up && npm install && npm run db:generate",
   "postStartCommand": "npm run db:wait"
 }
