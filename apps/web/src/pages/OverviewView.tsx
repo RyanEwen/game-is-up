@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Avatar, Box, Button, Card, Chip, DialogContent, DialogTitle, Input, Sheet, Stack, Typography } from '@mui/joy'
+import { Autocomplete, Avatar, Box, Button, Card, Chip, DialogContent, DialogTitle, Input, Sheet, Stack, Typography } from '@mui/joy'
 import type {
   AuthSessionResponse,
   DiscordServerMembersResponse,
@@ -14,6 +14,69 @@ import type { Notice } from '../components/dashboard/types'
 
 type DiscoveryServer = DiscordServerPreferencesResponse['servers'][number]
 type InviteMember = DiscordServerMembersResponse['members'][number]
+
+function ServerAvatar({
+  server,
+  size = 'md'
+}: {
+  server: DiscoveryServer;
+  size?: 'sm' | 'md' | 'lg';
+}) {
+  return (
+    <Avatar
+      src={server.iconUrl ?? undefined}
+      alt={server.name}
+      size={size}
+      variant="soft"
+      sx={{
+        bgcolor: server.iconUrl ? undefined : 'neutral.softBg',
+        color: 'neutral.200',
+        fontWeight: 700
+      }}
+    >
+      {server.name.slice(0, 1).toUpperCase()}
+    </Avatar>
+  )
+}
+
+function normalizeInviteMemberName(value: string | null | undefined) {
+  return value?.trim().toLowerCase() ?? ''
+}
+
+function hasDistinctInviteMemberName(left: string | null | undefined, right: string | null | undefined) {
+  const normalizedLeft = normalizeInviteMemberName(left)
+  const normalizedRight = normalizeInviteMemberName(right)
+
+  return normalizedLeft.length > 0 && normalizedRight.length > 0 && normalizedLeft !== normalizedRight
+}
+
+function buildInviteMemberDetail(member: InviteMember) {
+  const details: string[] = []
+
+  if (hasDistinctInviteMemberName(member.displayName, member.profileDisplayName)) {
+    details.push(`Discord profile: ${member.profileDisplayName}`)
+  }
+
+  if (
+    member.isAppUser
+    && member.appDisplayName
+    && hasDistinctInviteMemberName(member.displayName, member.appDisplayName)
+    && !hasDistinctInviteMemberName(member.profileDisplayName, member.appDisplayName)
+  ) {
+    return details.join(' • ')
+  }
+
+  if (
+    member.isAppUser
+    && member.appDisplayName
+    && hasDistinctInviteMemberName(member.displayName, member.appDisplayName)
+    && hasDistinctInviteMemberName(member.profileDisplayName, member.appDisplayName)
+  ) {
+    details.push(`Game's Up: ${member.appDisplayName}`)
+  }
+
+  return details.join(' • ')
+}
 
 function AccountCard({
   session,
@@ -138,7 +201,9 @@ function DiscoveryServersSection({
           {availableDiscoveryServers.map((server) => (
             <Card key={server.id} variant="soft" sx={{ p: 2.5 }}>
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }}>
-                <Stack spacing={0.5}>
+                <Stack direction="row" spacing={1.25} alignItems="center">
+                  <ServerAvatar server={server} />
+                  <Stack spacing={0.5}>
                   <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }} alignItems="center">
                     <Typography level="title-md">{server.name}</Typography>
                     <Chip size="sm" color="success" variant="soft">
@@ -150,6 +215,7 @@ function DiscoveryServersSection({
                       ? `${server.knownUserCount} other member${server.knownUserCount === 1 ? '' : 's'} are in your network via this server.`
                       : 'No other members from this server are in your network yet.'}
                   </Typography>
+                  </Stack>
                 </Stack>
                 <Button
                   size="sm"
@@ -161,8 +227,8 @@ function DiscoveryServersSection({
                   {serverPreferencePendingId === server.id
                     ? 'Saving...'
                     : server.selected
-                      ? 'Remove from your network'
-                      : 'Select for your network'}
+                      ? 'Deselect server'
+                      : 'Select server'}
                 </Button>
               </Stack>
             </Card>
@@ -255,28 +321,43 @@ function InviteUsersCard({
               <Typography level="body-sm" sx={{ color: 'neutral.300', mb: 0.75 }}>
                 Pick a server
               </Typography>
-              <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-                {selectedDiscoveryServers.map((server) => (
-                  <Button
-                    key={server.id}
-                    size="sm"
-                    variant={activeInviteServer?.id === server.id ? 'solid' : 'outlined'}
-                    color={activeInviteServer?.id === server.id ? 'primary' : 'neutral'}
-                    onClick={() => onSelectInviteServer(server.id)}
-                  >
-                    {server.name}
-                  </Button>
-                ))}
-              </Stack>
+              <Autocomplete
+                autoHighlight
+                placeholder="Search selected servers"
+                options={selectedDiscoveryServers}
+                value={activeInviteServer}
+                startDecorator={activeInviteServer ? <ServerAvatar server={activeInviteServer} size="sm" /> : null}
+                isOptionEqualToValue={(option, value) => option.id === value.id}
+                getOptionLabel={(option) => option.name}
+                onChange={(_event, value) => {
+                  if (value) {
+                    onSelectInviteServer(value.id)
+                  }
+                }}
+                slotProps={{
+                  input: {
+                    autoComplete: 'off'
+                  }
+                }}
+                renderOption={(optionProps, option) => (
+                  <li {...optionProps}>
+                    <Stack direction="row" spacing={1.25} alignItems="center" sx={{ minWidth: 0 }}>
+                      <ServerAvatar server={option} size="sm" />
+                      <Stack spacing={0.25} sx={{ minWidth: 0 }}>
+                        <Typography level="title-sm">{option.name}</Typography>
+                        <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
+                          {option.knownUserCount > 0
+                            ? `${option.knownUserCount} other member${option.knownUserCount === 1 ? '' : 's'} in your network`
+                            : 'No other members in your network yet'}
+                        </Typography>
+                      </Stack>
+                    </Stack>
+                  </li>
+                )}
+              />
             </Box>
             {activeInviteServer ? (
               <Stack spacing={1.25}>
-                <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
-                  Browse members in {activeInviteServer.name}
-                </Typography>
-                <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
-                  People who already joined Game's Up are shown for context, but only members who have not joined yet can be invited.
-                </Typography>
                 <Input
                   placeholder="Search Discord members"
                   value={inviteMemberQuery}
@@ -300,6 +381,7 @@ function InviteUsersCard({
                     {filteredInviteMembers.map((member) => {
                       const isSelected = selectedInviteUserIds.includes(member.id)
                       const canInviteMember = !member.isAppUser
+                      const memberDetail = buildInviteMemberDetail(member)
 
                       return (
                         <Sheet
@@ -316,10 +398,11 @@ function InviteUsersCard({
                               <Avatar src={member.avatarUrl ?? undefined} alt={member.displayName} size="md" variant="soft" />
                               <Box>
                                 <Typography level="title-sm">{member.displayName}</Typography>
-                                <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
-                                  @{member.username}
-                                  {member.isAppUser && member.appHandle ? ` • Game's Up: @${member.appHandle}` : ''}
-                                </Typography>
+                                {memberDetail ? (
+                                  <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
+                                    {memberDetail}
+                                  </Typography>
+                                ) : null}
                               </Box>
                             </Stack>
                             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'center' }}>

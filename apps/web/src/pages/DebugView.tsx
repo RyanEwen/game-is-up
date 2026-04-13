@@ -25,8 +25,14 @@ function BotStateCard({ debugAdmin }: { debugAdmin: DebugAdminResponse }) {
           <Chip color={debugAdmin.bot.configured ? 'success' : 'neutral'} variant={debugAdmin.bot.configured ? 'soft' : 'outlined'}>
             {debugAdmin.bot.configured ? 'Configured' : 'Missing bot token'}
           </Chip>
-          <Chip color={debugAdmin.bot.connected ? 'success' : 'warning'} variant={debugAdmin.bot.connected ? 'soft' : 'outlined'}>
-            {debugAdmin.bot.connected ? 'Connected' : 'Disconnected'}
+          <Chip variant="outlined">
+            Mode: {debugAdmin.bot.mode}
+          </Chip>
+          <Chip
+            color={debugAdmin.bot.connected ? 'success' : debugAdmin.bot.mode === 'gateway' ? 'warning' : 'neutral'}
+            variant={debugAdmin.bot.connected ? 'soft' : 'outlined'}
+          >
+            {debugAdmin.bot.connected ? 'Gateway connected' : debugAdmin.bot.mode === 'gateway' ? 'Gateway disconnected' : 'Gateway disabled'}
           </Chip>
           <Chip variant="outlined">{debugAdmin.bot.guildCount} guilds</Chip>
         </Stack>

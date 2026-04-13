@@ -1,6 +1,7 @@
 import { z } from 'zod'
 
 export const authProviderSchema = z.enum(['discord', 'steam'])
+export const discordBotModeSchema = z.enum(['off', 'rest', 'gateway'])
 export const platformLabelSchema = z.string().trim().min(1).max(32)
 export const catalogProviderSchema = z.string().trim().min(1).max(32)
 export const availabilitySourceSchema = z.enum(['profile-default', 'game-specific'])
@@ -120,6 +121,7 @@ export const discordServerMemberSchema = z.object({
   id: z.string().min(1),
   username: z.string().min(1),
   displayName: z.string().min(1),
+  profileDisplayName: z.string().min(1),
   avatarUrl: z.string().url().nullable(),
   isAppUser: z.boolean(),
   appUserId: z.string().uuid().nullable(),
@@ -411,6 +413,7 @@ export const authSessionResponseSchema = z.object({
 })
 
 export const debugDiscordBotStateSchema = z.object({
+  mode: discordBotModeSchema,
   configured: z.boolean(),
   connected: z.boolean(),
   guildIds: z.array(z.string().min(1)),
@@ -501,12 +504,10 @@ export const serverEnvSchema = z.object({
   DISCORD_CLIENT_SECRET: z.string().optional(),
   DISCORD_CALLBACK_URL: z.string().url().optional(),
   DISCORD_BOT_TOKEN: z.string().optional(),
+  DISCORD_BOT_MODE: discordBotModeSchema.optional(),
   STEAM_CALLBACK_URL: z.string().url().optional(),
   STEAM_WEB_API_KEY: z.string().optional(),
-  RAWG_API_KEY: z.string().optional(),
-  FCM_PROJECT_ID: z.string().optional(),
-  FCM_CLIENT_EMAIL: z.string().optional(),
-  FCM_PRIVATE_KEY: z.string().optional()
+  RAWG_API_KEY: z.string().optional()
 })
 
 export type AuthProvider = z.infer<typeof authProviderSchema>;

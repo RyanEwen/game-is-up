@@ -10,7 +10,7 @@ import {
   NotificationResponseChoice,
   NotificationType
 } from '@prisma/client'
-import { editDiscordDirectMessage, sendDiscordDirectMessages } from './discord-bot-runtime.js'
+import { editDiscordDirectMessage, sendDiscordDirectMessages, supportsDiscordInteractiveMessages } from './discord-bot-runtime.js'
 import { env } from './env.js'
 import { prisma } from './prisma.js'
 
@@ -55,13 +55,19 @@ export function buildPlayIntentDirectMessage(title: string, body: string) {
   return [
     `**${title}**`,
     body,
-    'Are you planning to join this call to play?',
-    "Use the buttons below to answer. You can still open Game's Up afterward and post your own call if you want to widen the group."
+    supportsDiscordInteractiveMessages()
+      ? 'Are you planning to join this call to play?'
+      : 'Open Game\'s Up to answer this call to play.',
+    supportsDiscordInteractiveMessages()
+      ? "Use the buttons below to answer. You can still open Game's Up afterward and post your own call if you want to widen the group."
+      : "You can still open Game's Up afterward and post your own call if you want to widen the group."
   ].join('\n\n')
 }
 
 export function buildPlayIntentNotificationComponents(notificationId: string) {
-  return [buildResponseRow(notificationId), buildLinkRow()]
+  return supportsDiscordInteractiveMessages()
+    ? [buildResponseRow(notificationId), buildLinkRow()]
+    : [buildLinkRow()]
 }
 
 function buildExpiredMessage(reason: string) {

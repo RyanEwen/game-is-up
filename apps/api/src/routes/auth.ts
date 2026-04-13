@@ -22,7 +22,7 @@ import {
 } from '../lib/discord-auth.js'
 import { getDiscordPresenceBotState } from '../lib/discord-bot-runtime.js'
 import { ensureDevelopmentSampleFriends } from '../lib/dev-sample-network.js'
-import { syncDiscordServersForUser } from '../lib/discord-servers.js'
+import { countBotVisibleDiscordServersForUser, syncDiscordServersForUser } from '../lib/discord-servers.js'
 import { env } from '../lib/env.js'
 import { resolveAuthRedirectTarget } from '../lib/origin.js'
 import { buildSteamAuthorizationUrl, isSteamImportConfigured, upsertSteamIdentity, verifySteamOpenIdResponse } from '../lib/steam-auth.js'
@@ -39,6 +39,18 @@ import {
 } from '../lib/session.js'
 
 export const authRouter = Router()
+
+function buildDiscordActivityTrackingNote(botState: ReturnType<typeof getDiscordPresenceBotState>) {
+  if (botState.mode === 'gateway') {
+    return 'Discord activity tracking is bot-based and lossy. It only records game activity seen in servers where the bot is installed.'
+  }
+
+  if (botState.mode === 'rest') {
+    return 'Discord bot DMs and read-only server/member browsing are enabled in REST-only mode, but presence tracking and interactive bot flows stay disabled so production can own the live gateway connection.'
+  }
+
+  return 'Set DISCORD_BOT_TOKEN, install the bot into shared servers, and enable the Presence Intent to record lossy Discord game activity.'
+}
 
 async function buildDiscordGraphCapabilities(userId: string | null) {
   if (!userId) {
@@ -75,25 +87,14 @@ async function buildDiscordGraphCapabilities(userId: string | null) {
         sharesServerWithBot: false,
         lastObservedAt: null,
         currentActivity: null,
-        note: botState.configured
-          ? 'Discord activity tracking is bot-based and lossy. It only records game activity seen in servers where the bot is installed.'
-          : 'Set DISCORD_BOT_TOKEN, install the bot into shared servers, and enable the Presence Intent to record lossy Discord game activity.'
+        note: buildDiscordActivityTrackingNote(botState)
       }
     }
   }
 
   const [{ currentActivity, lastObservedAt }, sharedServerCount] = await Promise.all([
     getLatestDiscordActivityForUser(userId),
-    botState.guildIds.length > 0
-      ? prisma.discordServerMembership.count({
-          where: {
-            userId,
-            serverId: {
-              in: botState.guildIds
-            }
-          }
-        })
-      : Promise.resolve(0)
+    countBotVisibleDiscordServersForUser(userId)
   ])
 
   return {
@@ -112,13 +113,10 @@ async function buildDiscordGraphCapabilities(userId: string | null) {
       sharesServerWithBot: sharedServerCount > 0,
       lastObservedAt,
       currentActivity,
-      note: botState.configured
-        ? 'Discord activity tracking is bot-based and lossy. It only records game activity seen in servers where the bot is installed.'
-        : 'Set DISCORD_BOT_TOKEN, install the bot into shared servers, and enable the Presence Intent to record lossy Discord game activity.'
+      note: buildDiscordActivityTrackingNote(botState)
     }
   }
 }
-
 const steamLinkIntentRequestSchema = z.object({
   returnTo: z.string().optional()
 })
@@ -363,29 +361,6 @@ authRouter.delete('/steam/link', async (request, response, next) => {
   } catch (error) {
     next(error)
   }
-})
-
-authRouter.post('/mobile-complete', (request, response) => {
-  const parsedBody = mobileAuthCompleteRequestSchema.safeParse(request.body)
-
-  if (!parsedBody.success) {
-    response.status(400).json({
-      error: 'Invalid mobile auth handoff.'
-    })
-    return
-  }
-
-  const handoff = consumeMobileAuthHandoff(parsedBody.data.handoff)
-
-  if (!handoff) {
-    response.status(400).json({
-      error: 'This mobile auth handoff has expired.'
-    })
-    return
-  }
-
-  setAuthSession(response, handoff.userId, handoff.authProvider)
-  response.status(204).send()
 })
 
 authRouter.post('/logout', (_request, response) => {

@@ -32,12 +32,10 @@ services:
       DISCORD_CLIENT_SECRET: ${DISCORD_CLIENT_SECRET:-}
       DISCORD_CALLBACK_URL: ${DISCORD_CALLBACK_URL:-http://localhost:8080/api/auth/discord/callback}
       DISCORD_BOT_TOKEN: ${DISCORD_BOT_TOKEN:-}
+      DISCORD_BOT_MODE: ${DISCORD_BOT_MODE:-gateway}
       STEAM_CALLBACK_URL: ${STEAM_CALLBACK_URL:-}
       STEAM_WEB_API_KEY: ${STEAM_WEB_API_KEY:-}
       RAWG_API_KEY: ${RAWG_API_KEY:-}
-      FCM_PROJECT_ID: ${FCM_PROJECT_ID:-}
-      FCM_CLIENT_EMAIL: ${FCM_CLIENT_EMAIL:-}
-      FCM_PRIVATE_KEY: ${FCM_PRIVATE_KEY:-}
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4000/api/health').then((response) => { if (!response.ok) process.exit(1) }).catch(() => process.exit(1))"]
       interval: 15s

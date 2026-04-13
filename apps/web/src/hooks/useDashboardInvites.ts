@@ -164,7 +164,7 @@ export function useDashboardInvites({
     ? inviteMembers
     : inviteMembers.filter((member) => {
         const normalizedQuery = inviteMemberQuery.trim().toLowerCase()
-        return [member.displayName, member.username, member.appDisplayName, member.appHandle]
+        return [member.displayName, member.profileDisplayName, member.username, member.appDisplayName, member.appHandle]
           .filter(Boolean)
           .some((value) => value?.toLowerCase().includes(normalizedQuery))
       })

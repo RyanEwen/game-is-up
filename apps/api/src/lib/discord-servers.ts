@@ -2,8 +2,7 @@ import type { DiscordServerMembersResponse, DiscordServerPreferencesResponse } f
 import { AuthProvider as PrismaAuthProvider } from '@prisma/client'
 import { prisma } from './prisma.js'
 import type { DiscordGuildSummary } from './discord-auth.js'
-import { getDiscordPresenceBotState } from './discord-bot-runtime.js'
-import { listDiscordGuildMembers, sendDiscordGuildInvites } from './discord-presence-bot.js'
+import { getDiscordBotPresentServerIds, isDiscordBotPresentInGuild, listDiscordGuildMembers, sendDiscordGuildInvites } from './discord-presence-bot.js'
 
 function buildDiscordServerIconUrl(serverId: string, iconHash: string | null): string | null {
   if (!iconHash) {
@@ -11,10 +10,6 @@ function buildDiscordServerIconUrl(serverId: string, iconHash: string | null): s
   }
 
   return `https://cdn.discordapp.com/icons/${serverId}/${iconHash}.png?size=128`
-}
-
-function getBotPresentServerIds(): Set<string> {
-  return new Set(getDiscordPresenceBotState().guildIds)
 }
 
 function formatDiscordInviteSender(displayName: string | null | undefined, handle: string | null | undefined): string {
@@ -120,7 +115,7 @@ export async function buildDiscordServerPreferences(userId: string): Promise<Dis
   })
 
   const preferenceMap = new Map(preferences.map((preference) => [preference.serverId, preference.includeInDiscovery]))
-  const botPresentServerIds = getBotPresentServerIds()
+  const botPresentServerIds = await getDiscordBotPresentServerIds(memberships.map((membership) => membership.server.id))
 
   return {
     servers: memberships.map((membership) => ({
@@ -151,7 +146,7 @@ export async function updateDiscordServerPreference(userId: string, serverId: st
     return 'not-found'
   }
 
-  if (selected && !getBotPresentServerIds().has(serverId)) {
+  if (selected && !(await isDiscordBotPresentInGuild(serverId))) {
     return 'bot-required'
   }
 
@@ -262,6 +257,7 @@ export async function buildDiscordServerMembers(
             id: member.id,
             username: member.username,
             displayName: member.displayName,
+            profileDisplayName: member.profileDisplayName,
             avatarUrl: member.avatarUrl,
             isAppUser: Boolean(appUser),
             appUserId: appUser?.id ?? null,
@@ -343,7 +339,7 @@ export async function sendDiscordServerInvites(options: {
     return { status: 'not-found' }
   }
 
-  if (!preference?.includeInDiscovery || !getBotPresentServerIds().has(options.serverId)) {
+  if (!preference?.includeInDiscovery || !(await isDiscordBotPresentInGuild(options.serverId))) {
     return { status: 'not-selected' }
   }
 
@@ -417,19 +413,10 @@ export async function sendDiscordServerInvites(options: {
 }
 
 export async function getSelectedDiscordServerIds(userId: string): Promise<string[]> {
-  const botPresentServerIds = getBotPresentServerIds()
-
-  if (botPresentServerIds.size === 0) {
-    return []
-  }
-
   const preferences = await prisma.discordServerPreference.findMany({
     where: {
       userId,
       includeInDiscovery: true,
-      serverId: {
-        in: [...botPresentServerIds]
-      },
       server: {
         memberships: {
           some: {
@@ -443,7 +430,28 @@ export async function getSelectedDiscordServerIds(userId: string): Promise<strin
     }
   })
 
-  return preferences.map((preference) => preference.serverId)
+  const botPresentServerIds = await getDiscordBotPresentServerIds(preferences.map((preference) => preference.serverId))
+
+  if (botPresentServerIds.size === 0) {
+    return []
+  }
+
+  return preferences
+    .map((preference) => preference.serverId)
+    .filter((serverId) => botPresentServerIds.has(serverId))
+}
+
+export async function countBotVisibleDiscordServersForUser(userId: string): Promise<number> {
+  const memberships = await prisma.discordServerMembership.findMany({
+    where: {
+      userId
+    },
+    select: {
+      serverId: true
+    }
+  })
+
+  return (await getDiscordBotPresentServerIds(memberships.map((membership) => membership.serverId))).size
 }
 
 export async function getMutualDiscordServerNames(viewerId: string, candidateUserId: string): Promise<string[]> {

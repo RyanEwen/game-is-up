@@ -12,7 +12,7 @@ import {
   PlayIntentScope,
   Prisma
 } from '@prisma/client'
-import { editDiscordDirectMessage, sendDiscordDirectMessages } from './discord-bot-runtime.js'
+import { editDiscordDirectMessage, sendDiscordDirectMessages, supportsDiscordInteractiveMessages } from './discord-bot-runtime.js'
 import { env } from './env.js'
 import { prisma } from './prisma.js'
 import { getCurrentPlayIntent, getPlayIntentRecipientUserIds, upsertCurrentPlayIntent } from './play-intents.js'
@@ -315,6 +315,17 @@ export async function maybeSendDiscordAutoPlayPromptForObservation(observationId
   })
 
   if (!observation?.gameId || !observation.game) {
+    return
+  }
+
+  if (!supportsDiscordInteractiveMessages()) {
+    await createSkippedPrompt({
+      observationId,
+      userId: observation.userId,
+      gameId: observation.gameId,
+      sourceServerId: observation.sourceServerId,
+      detail: 'Skipped because Discord auto-play prompts require the gateway-owning bot environment.'
+    })
     return
   }
 
