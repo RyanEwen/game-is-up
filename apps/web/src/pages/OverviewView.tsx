@@ -100,15 +100,15 @@ function QuickStartCard() {
             </Typography>
           </Sheet>
           <Sheet variant="outlined" sx={{ p: 1.5, borderRadius: 'md', backgroundColor: 'rgba(255, 255, 255, 0.02)' }}>
-            <Typography level="title-sm">3. Build your library</Typography>
+            <Typography level="title-sm">3. Add friends</Typography>
             <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
-              Add games to your library so that you can be matched with other players in your network.
+              Browse the people in your network, then add the friends you want to keep track of most.
             </Typography>
           </Sheet>
           <Sheet variant="outlined" sx={{ p: 1.5, borderRadius: 'md', backgroundColor: 'rgba(255, 255, 255, 0.02)' }}>
-            <Typography level="title-sm">4. Add friends</Typography>
+            <Typography level="title-sm">4. Build your library</Typography>
             <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
-              Browse the people in your network, then add the friends you want to keep track of most.
+              Add games to your library so that you can be matched with other players in your network.
             </Typography>
           </Sheet>
           <Sheet variant="outlined" sx={{ p: 1.5, borderRadius: 'md', backgroundColor: 'rgba(255, 255, 255, 0.02)' }}>
