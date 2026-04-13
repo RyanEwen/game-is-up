@@ -17,7 +17,8 @@ import { sendDiscordDirectMessages } from './discord-bot-runtime.js'
 import { toClientGameCoverUrl } from './game-media.js'
 import {
   buildPlayIntentDirectMessage,
-  buildPlayIntentNotificationComponents
+  buildPlayIntentNotificationComponents,
+  expirePendingPlayIntentNotifications
 } from './play-intent-notification-responses.js'
 import { prisma } from './prisma.js'
 
@@ -364,11 +365,32 @@ async function getPlayableLibraryEntries(userId: string) {
 }
 
 export async function getCurrentPlayIntent(userId: string) {
+  const now = new Date()
+  const expiredIntentIds = (await prisma.playIntent.findMany({
+    where: {
+      userId,
+      expiresAt: {
+        lte: now
+      },
+      notifications: {
+        some: {
+          type: NotificationType.FRIEND_PLAYING,
+          respondedAt: null
+        }
+      }
+    },
+    select: {
+      id: true
+    }
+  })).map((intent) => intent.id)
+
+  await expirePendingPlayIntentNotifications(expiredIntentIds)
+
   const activeIntent = await prisma.playIntent.findFirst({
     where: {
       userId,
       expiresAt: {
-        gt: new Date()
+        gt: now
       }
     },
     include: activePlayIntentInclude,
@@ -387,6 +409,17 @@ export async function getCurrentPlayIntent(userId: string) {
 
 export async function clearCurrentPlayIntent(userId: string) {
   const now = new Date()
+  const activeIntentIds = (await prisma.playIntent.findMany({
+    where: {
+      userId,
+      expiresAt: {
+        gt: now
+      }
+    },
+    select: {
+      id: true
+    }
+  })).map((intent) => intent.id)
 
   await prisma.playIntent.updateMany({
     where: {
@@ -400,6 +433,8 @@ export async function clearCurrentPlayIntent(userId: string) {
       windowEndsAt: now
     }
   })
+
+  await expirePendingPlayIntentNotifications(activeIntentIds)
 }
 
 export async function upsertCurrentPlayIntent(
@@ -491,6 +526,17 @@ export async function upsertCurrentPlayIntent(
     targetedFriends.map((friend) => friend.id)
   )
   const now = new Date()
+  const supersededIntentIds = (await prisma.playIntent.findMany({
+    where: {
+      userId,
+      expiresAt: {
+        gt: now
+      }
+    },
+    select: {
+      id: true
+    }
+  })).map((intent) => intent.id)
   const { startsAt, durationMinutes, endsAt } = resolvePlayIntentWindow(payload, now)
   const headline = buildHeadline(payload.selectionMode, selectedTitles)
   const { title, body } = buildNotificationCopy(sender.displayName, payload.selectionMode, selectedTitles, durationMinutes, startsAt, now)
@@ -571,6 +617,8 @@ export async function upsertCurrentPlayIntent(
     activeIntent = serializeActivePlayIntent(createdIntent)
   })
 
+  await expirePendingPlayIntentNotifications(supersededIntentIds)
+
   let deliveredNotificationCount = 0
 
   if (createdNotifications.length > 0) {
@@ -611,24 +659,32 @@ export async function upsertCurrentPlayIntent(
           components: buildPlayIntentNotificationComponents(target.notificationId)
         }))
       )
-      const deliveredNotificationIds = directMessageTargets
-        .filter((target) => dmResults.some((result) => result.discordUserId === target.discordUserId && result.status === 'sent'))
-        .map((target) => target.notificationId)
+      const deliveredTargets = directMessageTargets
+        .map((target) => {
+          const result = dmResults.find((candidate) => candidate.discordUserId === target.discordUserId && candidate.status === 'sent')
 
-      deliveredNotificationCount = deliveredNotificationIds.length
-
-      if (deliveredNotificationIds.length > 0) {
-        await prisma.notification.updateMany({
-          where: {
-            id: {
-              in: deliveredNotificationIds
-            }
-          },
-          data: {
-            deliveredAt: new Date()
-          }
+          return result
+            ? {
+                notificationId: target.notificationId,
+                channelId: result.channelId,
+                messageId: result.messageId
+              }
+            : null
         })
-      }
+        .filter((target): target is { notificationId: string; channelId: string | null; messageId: string | null } => target != null)
+
+      deliveredNotificationCount = deliveredTargets.length
+
+      await Promise.all(deliveredTargets.map((target) => prisma.notification.update({
+        where: {
+          id: target.notificationId
+        },
+        data: {
+          deliveredAt: new Date(),
+          discordDmChannelId: target.channelId,
+          discordDmMessageId: target.messageId
+        }
+      })))
     }
   }
 

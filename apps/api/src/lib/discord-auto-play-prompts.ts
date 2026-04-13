@@ -12,7 +12,7 @@ import {
   PlayIntentScope,
   Prisma
 } from '@prisma/client'
-import { sendDiscordDirectMessages } from './discord-bot-runtime.js'
+import { editDiscordDirectMessage, sendDiscordDirectMessages } from './discord-bot-runtime.js'
 import { env } from './env.js'
 import { prisma } from './prisma.js'
 import { getCurrentPlayIntent, getPlayIntentRecipientUserIds, upsertCurrentPlayIntent } from './play-intents.js'
@@ -122,6 +122,53 @@ function buildExpiredMessage(reason: string) {
     reason,
     "Open Game's Up if you still want to create or edit a call to play."
   ].join('\n\n')
+}
+
+export async function expireDiscordAutoPlayPromptsForInactiveObservations(observationIds: string[]) {
+  if (observationIds.length === 0) {
+    return
+  }
+
+  const prompts = await prisma.discordAutoPlayPrompt.findMany({
+    where: {
+      observationId: {
+        in: observationIds
+      },
+      status: DiscordAutoPlayPromptStatus.SENT,
+      respondedAt: null
+    },
+    select: {
+      id: true,
+      discordDmChannelId: true,
+      discordDmMessageId: true
+    }
+  })
+
+  await Promise.all(prompts.map(async (prompt) => {
+    const result = await prisma.discordAutoPlayPrompt.updateMany({
+      where: {
+        id: prompt.id,
+        status: DiscordAutoPlayPromptStatus.SENT,
+        respondedAt: null
+      },
+      data: {
+        status: DiscordAutoPlayPromptStatus.EXPIRED,
+        respondedAt: new Date(),
+        statusDetail: 'The observed Discord activity ended before the prompt was answered.'
+      }
+    })
+
+    if (result.count === 0 || !prompt.discordDmChannelId || !prompt.discordDmMessageId) {
+      return
+    }
+
+    await editDiscordDirectMessage({
+      channelId: prompt.discordDmChannelId,
+      messageId: prompt.discordDmMessageId,
+      content: buildExpiredMessage('That Discord activity ended before you answered.'),
+      components: [buildLinkRow()]
+    })
+  }))
 }
 
 function buildAcceptedMessage(gameTitle: string, durationMinutes: number, notifyScope: 'friends-only' | 'network', deliveredCount: number) {
@@ -466,7 +513,9 @@ export async function maybeSendDiscordAutoPlayPromptForObservation(observationId
     },
     data: {
       deliveredAt: new Date(),
-      statusDetail: `Prompt DM sent for ${observation.game.title}.`
+      statusDetail: `Prompt DM sent for ${observation.game.title}.`,
+      discordDmChannelId: dmResult.channelId,
+      discordDmMessageId: dmResult.messageId
     }
   })
 }

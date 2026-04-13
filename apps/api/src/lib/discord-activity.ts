@@ -1,6 +1,9 @@
 import type { DiscoveryPerson } from '@game-is-up/shared'
 import { AuthProvider, DiscordActivityType, type Prisma } from '@prisma/client'
-import { maybeSendDiscordAutoPlayPromptForObservation } from './discord-auto-play-prompts.js'
+import {
+  expireDiscordAutoPlayPromptsForInactiveObservations,
+  maybeSendDiscordAutoPlayPromptForObservation
+} from './discord-auto-play-prompts.js'
 import { findOrCreateGameByTitle } from './game-catalog.js'
 import { prisma } from './prisma.js'
 
@@ -226,6 +229,8 @@ export async function recordDiscordPresence(
         lastObservedAt: now
       }
     })
+
+    await expireDiscordAutoPlayPromptsForInactiveObservations(staleObservationIds)
   }
 
   return true

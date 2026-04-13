@@ -10,7 +10,7 @@ import {
   NotificationResponseChoice,
   NotificationType
 } from '@prisma/client'
-import { sendDiscordDirectMessages } from './discord-bot-runtime.js'
+import { editDiscordDirectMessage, sendDiscordDirectMessages } from './discord-bot-runtime.js'
 import { env } from './env.js'
 import { prisma } from './prisma.js'
 
@@ -86,6 +86,12 @@ function buildDeclineAcceptedMessage() {
   ].join('\n\n')
 }
 
+function buildSessionEndedReason(creatorDisplayName: string, gameTitle: string | null) {
+  return gameTitle
+    ? `${creatorDisplayName}'s ${gameTitle} session ended before you answered.`
+    : `${creatorDisplayName}'s call to play ended before you answered.`
+}
+
 function buildAlreadyHandledMessage(responseChoice: NotificationResponseChoice | null) {
   if (responseChoice === NotificationResponseChoice.JOIN) {
     return buildExpiredMessage('You already said that you are joining this call to play.')
@@ -93,6 +99,10 @@ function buildAlreadyHandledMessage(responseChoice: NotificationResponseChoice |
 
   if (responseChoice === NotificationResponseChoice.DECLINE) {
     return buildExpiredMessage('You already said that you are not joining this call to play.')
+  }
+
+  if (responseChoice === NotificationResponseChoice.EXPIRED) {
+    return buildExpiredMessage('That call to play ended before you answered.')
   }
 
   return buildExpiredMessage('It was already handled earlier.')
@@ -142,6 +152,67 @@ function buildCreatorJoinNotification(notification: {
 
 export function isPlayIntentNotificationCustomId(customId: string) {
   return customId.startsWith(`${playIntentNotificationPrefix}:`)
+}
+
+export async function expirePendingPlayIntentNotifications(playIntentIds: string[]) {
+  if (playIntentIds.length === 0) {
+    return
+  }
+
+  const notifications = await prisma.notification.findMany({
+    where: {
+      playIntentId: {
+        in: playIntentIds
+      },
+      type: NotificationType.FRIEND_PLAYING,
+      respondedAt: null
+    },
+    select: {
+      id: true,
+      discordDmChannelId: true,
+      discordDmMessageId: true,
+      game: {
+        select: {
+          title: true
+        }
+      },
+      playIntent: {
+        select: {
+          user: {
+            select: {
+              displayName: true
+            }
+          }
+        }
+      }
+    }
+  })
+
+  await Promise.all(notifications.map(async (notification) => {
+    const result = await prisma.notification.updateMany({
+      where: {
+        id: notification.id,
+        respondedAt: null
+      },
+      data: {
+        respondedAt: new Date(),
+        responseChoice: NotificationResponseChoice.EXPIRED
+      }
+    })
+
+    if (result.count === 0 || !notification.discordDmChannelId || !notification.discordDmMessageId) {
+      return
+    }
+
+    await editDiscordDirectMessage({
+      channelId: notification.discordDmChannelId,
+      messageId: notification.discordDmMessageId,
+      content: buildExpiredMessage(
+        buildSessionEndedReason(notification.playIntent?.user.displayName ?? 'This player', notification.game?.title ?? null)
+      ),
+      components: [buildLinkRow()]
+    })
+  }))
 }
 
 export async function handlePlayIntentNotificationInteraction(interaction: ButtonInteraction) {

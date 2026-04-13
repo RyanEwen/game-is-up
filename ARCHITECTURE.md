@@ -44,7 +44,11 @@ The scheduling model uses an explicit start and end window so the same aggregate
 
 Notification rows can now also track whether a recipient explicitly said they would join from a Discord DM prompt. That keeps the response flow attached to the original play intent instead of introducing a second RSVP-specific entity.
 
+Notification and auto-play prompt rows also store the Discord DM message reference when the bot delivers an interactive DM. That allows the API to edit stale bot prompts in place when a play intent expires or an observed Discord activity ends, rather than leaving outdated buttons behind in the user's DM history.
+
 Discord activity observations can also drive a secondary auto-prompt flow: when the presence bot sees a user start a game, the API can persist a prompt record, DM that user through the bot, and create a normal play intent if the user accepts.
+
+The API now runs a lightweight cleanup sweep for expired play intents so unanswered Discord invite prompts can be marked expired and rewritten even if the affected users do not immediately reopen the app.
 
 Discord presence tracking now also maintains a lossy observed-game history keyed by Discord identity rather than only by app user. That lets the library API return suggested games based on titles the bot has seen the user playing, while still allowing non-members to contribute to the raw observation set.
 

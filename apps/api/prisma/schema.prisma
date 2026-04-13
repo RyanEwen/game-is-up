@@ -50,6 +50,7 @@ enum NotificationType {
 enum NotificationResponseChoice {
   JOIN
   DECLINE
+  EXPIRED
 }
 
 enum DiscordAutoPlayPromptStatus {
@@ -325,6 +326,8 @@ model Notification {
   responseChoice    NotificationResponseChoice?
   respondedAt       DateTime?
   deliveredAt       DateTime?
+  discordDmChannelId String?
+  discordDmMessageId String?
   createdAt         DateTime         @default(now())
   user              User             @relation("notification_recipient", fields: [userId], references: [id], onDelete: Cascade)
   playIntent        PlayIntent?      @relation(fields: [playIntentId], references: [id], onDelete: SetNull)
@@ -390,6 +393,8 @@ model DiscordAutoPlayPrompt {
   notifyScope            PlayIntentScope?
   deliveredAt            DateTime?
   respondedAt            DateTime?
+  discordDmChannelId     String?
+  discordDmMessageId     String?
   createdPlayIntentId    String?
   createdAt              DateTime                    @default(now())
   updatedAt              DateTime                    @updatedAt

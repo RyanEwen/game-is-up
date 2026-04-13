@@ -173,11 +173,12 @@ This repo now treats Prisma migrations as the source of truth for schema changes
 10. When a call to play matches someone who should be notified and that user has a linked Discord account, the bot can DM them directly with quick join-response buttons.
 11. If a notified recipient says they are joining from Discord, the creator gets a follow-up DM confirmation. Recipients who already have an overlapping active call to play are filtered out before those call notifications are sent.
 12. Users can leave a Play page setting on by default so the bot can DM them after it sees them start a game and offer to create a call to play straight from Discord. Those prompts only go out when there is no active call already, at least one visible overlap could receive it, and the same game has not already prompted that user in the last 10 minutes.
-13. Discovery-based play-intent visibility can now include both explicit friends and users from the Discord servers you opted into discovery.
-14. Discovery remains based on opted-in shared Discord servers plus explicit in-app friendships. The Discord friend-list import path has been removed.
-15. Discord is still the only sign-in path in this scaffold.
-16. Steam can now be linked as a secondary account for library import only. It does not replace Discord auth or discovery.
-17. On Android, linked-account flows like Discord sign-in and Steam linking open in the system browser and return to the app through the `gameisup://auth` deep link. For local development, keep `adb reverse` active so the installed app can still reach the local API while completing those flows.
+13. Unanswered Discord call-to-play invites and auto-play prompts are now edited in place when they go stale, so users see that the session ended or the observed game activity stopped instead of keeping an outdated call to action.
+14. Discovery-based play-intent visibility can now include both explicit friends and users from the Discord servers you opted into discovery.
+15. Discovery remains based on opted-in shared Discord servers plus explicit in-app friendships. The Discord friend-list import path has been removed.
+16. Discord is still the only sign-in path in this scaffold.
+17. Steam can now be linked as a secondary account for library import only. It does not replace Discord auth or discovery.
+18. On Android, linked-account flows like Discord sign-in and Steam linking open in the system browser and return to the app through the `gameisup://auth` deep link. For local development, keep `adb reverse` active so the installed app can still reach the local API while completing those flows.
 
 ## Steam import setup
 
