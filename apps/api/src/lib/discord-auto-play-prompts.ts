@@ -9,7 +9,8 @@ import {
   AuthProvider,
   DiscordAutoPlayPromptStatus,
   GameIntentType,
-  PlayIntentScope
+  PlayIntentScope,
+  Prisma
 } from '@prisma/client'
 import { sendDiscordDirectMessages } from './discord-bot-runtime.js'
 import { env } from './env.js'
@@ -199,6 +200,36 @@ async function createSkippedPrompt(options: {
   })
 }
 
+async function createSkippedPromptInTransaction(
+  transaction: Prisma.TransactionClient,
+  options: {
+    observationId: string;
+    userId: string;
+    gameId: string;
+    sourceServerId: string | null;
+    detail: string;
+    friendRecipientCount?: number;
+    networkRecipientCount?: number;
+  }
+) {
+  await transaction.discordAutoPlayPrompt.create({
+    data: {
+      observationId: options.observationId,
+      userId: options.userId,
+      gameId: options.gameId,
+      sourceServerId: options.sourceServerId,
+      status: DiscordAutoPlayPromptStatus.SKIPPED,
+      statusDetail: options.detail,
+      friendRecipientCount: options.friendRecipientCount ?? 0,
+      networkRecipientCount: options.networkRecipientCount ?? 0
+    }
+  })
+}
+
+async function lockAutoPlayPromptWindow(transaction: Prisma.TransactionClient, userId: string, gameId: string) {
+  await transaction.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${`discord-auto-play:${userId}:${gameId}`}))`
+}
+
 export async function maybeSendDiscordAutoPlayPromptForObservation(observationId: string) {
   const existingPrompt = await prisma.discordAutoPlayPrompt.findUnique({
     where: {
@@ -240,11 +271,14 @@ export async function maybeSendDiscordAutoPlayPromptForObservation(observationId
     return
   }
 
+  const gameId = observation.gameId
+  const gameTitle = observation.game.title
+
   if (!observation.user.discordAutoPromptPlayIntent) {
     await createSkippedPrompt({
       observationId,
       userId: observation.userId,
-      gameId: observation.gameId,
+      gameId,
       sourceServerId: observation.sourceServerId,
       detail: 'Skipped because this user turned off automatic Discord prompts.'
     })
@@ -295,7 +329,7 @@ export async function maybeSendDiscordAutoPlayPromptForObservation(observationId
     await createSkippedPrompt({
       observationId,
       userId: observation.userId,
-      gameId: observation.gameId,
+      gameId,
       sourceServerId: observation.sourceServerId,
       detail: 'Skipped because the user already has an active call to play.'
     })
@@ -306,7 +340,7 @@ export async function maybeSendDiscordAutoPlayPromptForObservation(observationId
     await createSkippedPrompt({
       observationId,
       userId: observation.userId,
-      gameId: observation.gameId,
+      gameId,
       sourceServerId: observation.sourceServerId,
       detail: 'Skipped because the observed game is not in the user library with playable platforms.'
     })
@@ -317,84 +351,92 @@ export async function maybeSendDiscordAutoPlayPromptForObservation(observationId
     await createSkippedPrompt({
       observationId,
       userId: observation.userId,
-      gameId: observation.gameId,
+      gameId,
       sourceServerId: observation.sourceServerId,
       detail: 'Skipped because the user does not have a linked Discord identity.'
     })
     return
   }
 
-  const cooldownCutoff = getAutoPlayPromptCooldownCutoff(new Date())
-  const recentPrompt = await prisma.discordAutoPlayPrompt.findFirst({
-    where: {
-      userId: observation.userId,
-      gameId: observation.gameId,
-      createdAt: {
-        gte: cooldownCutoff
-      },
-      OR: [
-        {
-          deliveredAt: {
-            not: null
-          }
-        },
-        {
-          status: DiscordAutoPlayPromptStatus.SENT
-        }
-      ]
-    },
-    orderBy: {
-      createdAt: 'desc'
-    },
-    select: {
-      createdAt: true
-    }
-  })
-
-  if (recentPrompt) {
-    await createSkippedPrompt({
-      observationId,
-      userId: observation.userId,
-      gameId: observation.gameId,
-      sourceServerId: observation.sourceServerId,
-      detail: `Skipped because ${observation.game.title} was already prompted within the last ${formatDurationLabel(autoPlayPromptCooldownMinutes)}.`
-    })
-    return
-  }
-
   const [friendRecipients, networkRecipients] = await Promise.all([
-    getPlayIntentRecipientUserIds(observation.userId, 'friends-only', [observation.gameId]),
-    getPlayIntentRecipientUserIds(observation.userId, 'network', [observation.gameId])
+    getPlayIntentRecipientUserIds(observation.userId, 'friends-only', [gameId]),
+    getPlayIntentRecipientUserIds(observation.userId, 'network', [gameId])
   ])
 
-  if (networkRecipients.length === 0) {
-    await createSkippedPrompt({
-      observationId,
-      userId: observation.userId,
-      gameId: observation.gameId,
-      sourceServerId: observation.sourceServerId,
-      detail: 'Skipped because nobody in your network or friends currently overlaps on this game.',
-      friendRecipientCount: friendRecipients.length,
-      networkRecipientCount: networkRecipients.length
+  const prompt = await prisma.$transaction(async (transaction) => {
+    await lockAutoPlayPromptWindow(transaction, observation.userId, gameId)
+
+    const cooldownCutoff = getAutoPlayPromptCooldownCutoff(new Date())
+    const recentPrompt = await transaction.discordAutoPlayPrompt.findFirst({
+      where: {
+        userId: observation.userId,
+        gameId,
+        createdAt: {
+          gte: cooldownCutoff
+        },
+        OR: [
+          {
+            deliveredAt: {
+              not: null
+            }
+          },
+          {
+            status: DiscordAutoPlayPromptStatus.SENT
+          }
+        ]
+      },
+      orderBy: {
+        createdAt: 'desc'
+      },
+      select: {
+        createdAt: true
+      }
     })
+
+    if (recentPrompt) {
+      await createSkippedPromptInTransaction(transaction, {
+        observationId,
+        userId: observation.userId,
+        gameId,
+        sourceServerId: observation.sourceServerId,
+        detail: `Skipped because ${gameTitle} was already prompted within the last ${formatDurationLabel(autoPlayPromptCooldownMinutes)}.`
+      })
+      return null
+    }
+
+    if (networkRecipients.length === 0) {
+      await createSkippedPromptInTransaction(transaction, {
+        observationId,
+        userId: observation.userId,
+        gameId,
+        sourceServerId: observation.sourceServerId,
+        detail: 'Skipped because nobody in your network or friends currently overlaps on this game.',
+        friendRecipientCount: friendRecipients.length,
+        networkRecipientCount: networkRecipients.length
+      })
+      return null
+    }
+
+    return transaction.discordAutoPlayPrompt.create({
+      data: {
+        observationId,
+        userId: observation.userId,
+        gameId,
+        sourceServerId: observation.sourceServerId,
+        status: DiscordAutoPlayPromptStatus.SENT,
+        statusDetail: `Prompt DM queued for ${gameTitle}.`,
+        friendRecipientCount: friendRecipients.length,
+        networkRecipientCount: networkRecipients.length
+      },
+      select: {
+        id: true
+      }
+    })
+  })
+
+  if (!prompt) {
     return
   }
-
-  const prompt = await prisma.discordAutoPlayPrompt.create({
-    data: {
-      observationId,
-      userId: observation.userId,
-      gameId: observation.gameId,
-      sourceServerId: observation.sourceServerId,
-      status: DiscordAutoPlayPromptStatus.SENT,
-      statusDetail: `Prompt DM queued for ${observation.game.title}.`,
-      friendRecipientCount: friendRecipients.length,
-      networkRecipientCount: networkRecipients.length
-    },
-    select: {
-      id: true
-    }
-  })
 
   const dmResult = (await sendDiscordDirectMessages([
     {
