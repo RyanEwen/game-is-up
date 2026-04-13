@@ -210,10 +210,10 @@ export function useDashboardApp() {
   const playIntentDefaultAudienceCount = discoveryPeople.filter((person) => person.games.some((game) => libraryGameIds.has(game.id))).length
   const playIntentUnavailableAudienceMessage = hasLoadedAudienceContext && isSignedIn && !state.activePlayIntent && hasLibraryEntries && playIntentDefaultAudienceCount === 0
     ? noDiscoveryServersSelected
-      ? 'You do not have any Discord servers in your network right now, so nobody can receive a call to play. Add a Discord server back to your network or add friends first.'
+      ? 'You do not have any Discord servers in your network right now, so nobody can receive a call to play. Select at least one Discord server to form your network first.'
       : discoveryPeople.length === 0
-        ? 'You do not have any friends or people in your network who can receive a call to play yet. Add a Discord server to your network or add friends first.'
-        : 'Nobody in your friends list or network currently overlaps with your library, so nobody can receive a call to play yet. Add more games to your library or wait for more overlap.'
+        ? 'You do not have anyone in your network who can receive a call to play yet. Select at least one Discord server to form your network first.'
+        : 'Nobody in your network has games in their library that match yours, so nobody can receive a call to play yet. Add more games to your library or wait for others to add more that match yours.'
     : null
   const discordProvider = state.auth?.providers.find((provider) => provider.id === 'discord') ?? null
   const steamProvider = state.auth?.providers.find((provider) => provider.id === 'steam') ?? null
@@ -964,7 +964,7 @@ export function useDashboardApp() {
       discordServerPreferencesResponseSchema.parse(responseBody)
       setActionNotice({
         tone: 'success',
-        message: nextSelected ? 'That Discord server was added to your network.' : 'That Discord server was removed from your network.'
+        message: nextSelected ? 'Discord server added to your network.' : 'Discord server removed from your network.'
       })
       await loadDashboard()
     } catch (error) {
@@ -995,7 +995,7 @@ export function useDashboardApp() {
       onboarding: showSignedInOnboarding ? (
         <EmptyStateCard
           title="Your account is live, but it does not have any game data yet"
-          body="The discovery and play sections are driven by the overlap between your library and the libraries of your friends and others in your network. Since your freshly created account has not added games, friends, or availability yet, those sections will be empty until you start filling out your profile."
+          body="The discovery and play sections are driven by matching games between your library and the libraries of your friends and others in your network. Since your freshly created account has not added games, friends, or availability yet, those sections will be empty until you start filling out your profile."
         />
       ) : undefined
     },
@@ -1003,7 +1003,6 @@ export function useDashboardApp() {
       session: state.session,
       discordEnabled: Boolean(discordProvider?.enabled),
       discordBotInstallUrl: discordProvider?.serverInstallUrl ?? discordProvider?.installUrl ?? null,
-      hasDiscordScopeWarning: Boolean(discordProvider?.gatedScopes.length),
       isSignedIn,
       availableDiscoveryServers,
       addedFriendCount,

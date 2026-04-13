@@ -116,7 +116,7 @@ function OwnActivePlayIntentCard({
           </Stack>
         ) : (
           <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
-            Recipient matching compares this call to play against your library and each recipient&apos;s overlap.
+            Recipient matching compares this call to play against your library and each recipient&apos;s library to find matching games.
           </Typography>
         )}
       </Stack>
@@ -241,10 +241,6 @@ function PlayViewContent({
   const playIntentUnavailableCardTitle = !activePlayIntent && !canPostPlayIntent
     ? 'Your library is still empty'
     : 'Nobody can receive a call to play yet'
-  const playIntentUnavailableChips = !activePlayIntent && !canPostPlayIntent
-    ? ['Add a game', 'Import from Steam', 'Try again after that']
-    : ['Add Discord server', 'Add friends', 'Try again later']
-
   const handleOpenPlayIntent = () => {
     if (!activePlayIntent && playIntentUnavailableMessage) {
       setIsUnavailableAudienceModalOpen(true)
@@ -298,7 +294,6 @@ function PlayViewContent({
             <EmptyStateCard
               title={playIntentUnavailableCardTitle}
               body={playIntentUnavailableMessage ?? 'There is nobody available to receive a call to play right now.'}
-              chips={playIntentUnavailableChips}
             />
           </DialogContent>
           <DashboardModalActionBar
@@ -375,7 +370,7 @@ function PlayViewContent({
             isSignedIn
               ? activePlayIntent
                 ? 'Your call to play is live above. When someone else in your network posts a matching call to play, it will show up here too.'
-                : 'When someone in your network posts a call to play that overlaps with your library, it will show up here.'
+                : 'When someone in your network posts a call to play for games that match your library, it will show up here.'
               : 'Once the API responds, this section shows current and scheduled calls to play from people in your friends list or network.'
           }
         />

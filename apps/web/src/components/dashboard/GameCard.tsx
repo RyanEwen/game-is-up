@@ -99,7 +99,7 @@ export function GameCard({
                 isAddingToLibrary={isAddingToLibrary}
                 supportingText={`${game.playerCount} player${game.playerCount === 1 ? '' : 's'}`}
                 detailLines={[
-                  game.sharedWithViewer ? 'This already overlaps with your library.' : 'This title is visible to you even if it is not in your library yet.'
+                  game.sharedWithViewer ? 'This game is already in your library.' : 'This game is not in your library yet.'
                 ]}
                 large={!compact}
                 onAddToLibrary={onAddToLibrary}

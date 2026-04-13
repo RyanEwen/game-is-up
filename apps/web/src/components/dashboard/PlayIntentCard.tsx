@@ -76,7 +76,7 @@ export function PlayIntentCard({
             ))}
           </Stack>
           <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
-            Recipient matching will compare this call to play against the sender&apos;s library and the recipient&apos;s overlap instead of a single chosen title.
+            Recipient matching will compare this call to play against the sender&apos;s library and the recipient&apos;s library to find matching games instead of a single chosen title.
           </Typography>
         </>
       ) : (

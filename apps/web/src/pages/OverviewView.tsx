@@ -18,13 +18,11 @@ type InviteMember = DiscordServerMembersResponse['members'][number]
 function AccountCard({
   session,
   discordEnabled,
-  hasGatedScopeWarning,
   onLogout,
   onDiscordLogin
 }: {
   session: AuthSessionResponse | null;
   discordEnabled: boolean;
-  hasGatedScopeWarning: boolean;
   onLogout: () => Promise<void>;
   onDiscordLogin: () => Promise<void>;
 }) {
@@ -63,16 +61,11 @@ function AccountCard({
       ) : (
         <Stack spacing={1.5}>
           <Typography level="body-md">
-            Sign in with Discord to build your network from shared servers and keep it current.
+            Sign in with Discord to form your network from shared servers and keep it current.
           </Typography>
           <Button color="primary" disabled={!discordEnabled} onClick={() => void onDiscordLogin()}>
             Sign in with Discord
           </Button>
-          {hasGatedScopeWarning ? (
-            <Typography level="body-sm" sx={{ color: 'warning.300' }}>
-              Game's Up builds your network from the Discord servers you choose here. After that, add the friends you want to keep track of in the app.
-            </Typography>
-          ) : null}
         </Stack>
       )}
     </Card>
@@ -94,15 +87,15 @@ function QuickStartCard() {
             </Typography>
           </Sheet>
           <Sheet variant="outlined" sx={{ p: 1.5, borderRadius: 'md', backgroundColor: 'rgba(255, 255, 255, 0.02)' }}>
-            <Typography level="title-sm">2. Build your network</Typography>
+            <Typography level="title-sm">2. Form your network</Typography>
             <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
-              Add the Discord servers where your wider group is active. If one isn't shown, invite the bot there first.
+              Select the Discord servers where your friends and other players are active. If one isn't shown, invite the bot there first.
             </Typography>
           </Sheet>
           <Sheet variant="outlined" sx={{ p: 1.5, borderRadius: 'md', backgroundColor: 'rgba(255, 255, 255, 0.02)' }}>
             <Typography level="title-sm">3. Add friends</Typography>
             <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
-              Browse the people in your network, then add the friends you want to keep track of most.
+              Add the friends you want to keep track of most from your network.
             </Typography>
           </Sheet>
           <Sheet variant="outlined" sx={{ p: 1.5, borderRadius: 'md', backgroundColor: 'rgba(255, 255, 255, 0.02)' }}>
@@ -114,7 +107,7 @@ function QuickStartCard() {
           <Sheet variant="outlined" sx={{ p: 1.5, borderRadius: 'md', backgroundColor: 'rgba(255, 255, 255, 0.02)' }}>
             <Typography level="title-sm">5. Send a call to play</Typography>
             <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
-              Let others know you're ready to play and invite them to join.
+              Choose what you want to play and let matching friends or other players in your network know when you're ready, and invite them to join.
             </Typography>
           </Sheet>
         </Stack>
@@ -138,7 +131,7 @@ function DiscoveryServersSection({
     <Stack spacing={2}>
       <Typography level="h2">Your network</Typography>
       <Typography level="body-md" sx={{ color: 'neutral.300' }}>
-        Use Discord servers where your friends and other players are active to widen your network.
+        Select the Discord servers where your friends and other players are active to form your network.
       </Typography>
       {availableDiscoveryServers.length > 0 ? (
         <Stack spacing={1.5}>
@@ -154,7 +147,7 @@ function DiscoveryServersSection({
                   </Stack>
                   <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
                     {server.knownUserCount > 0
-                      ? `${server.knownUserCount} other members${server.knownUserCount === 1 ? '' : 's'} currently in your network via this server.`
+                      ? `${server.knownUserCount} other member${server.knownUserCount === 1 ? '' : 's'} are in your network via this server.`
                       : 'No other members from this server are in your network yet.'}
                   </Typography>
                 </Stack>
@@ -169,7 +162,7 @@ function DiscoveryServersSection({
                     ? 'Saving...'
                     : server.selected
                       ? 'Remove from your network'
-                      : 'Add to your network'}
+                      : 'Select for your network'}
                 </Button>
               </Stack>
             </Card>
@@ -178,12 +171,12 @@ function DiscoveryServersSection({
       ) : hasSyncedServers ? (
         <EmptyStateCard
           title="No servers with the Game's Up bot available"
-          body="You have Discord servers added to your network, but the bot is not running or is not installed on any of them."
+          body="You have selected Discord servers to form your network, but the bot is not running or is not installed on any of them."
         />
       ) : (
         <EmptyStateCard
-          title="No Discord servers added yet"
-          body="You have not added any Discord servers yet."
+          title="No Discord servers selected yet"
+          body="You have not selected any Discord servers to form your network yet."
         />
       )}
     </Stack>
@@ -363,7 +356,7 @@ function InviteUsersCard({
         ) : (
           <Sheet variant="soft" sx={{ p: 1.5, borderRadius: 'md' }}>
             <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
-              Add at least one server where the bot is present to browse and target specific members.
+              Select at least one server where the bot is present to browse and target specific members.
             </Typography>
           </Sheet>
         )}
@@ -487,7 +480,6 @@ function InviteUsersLauncherCard({
 function OverviewViewContent({
   session,
   discordEnabled,
-  hasDiscordScopeWarning,
   isSignedIn,
   discordBotInstallUrl,
   availableDiscoveryServers,
@@ -518,7 +510,6 @@ function OverviewViewContent({
 }: {
   session: AuthSessionResponse | null;
   discordEnabled: boolean;
-  hasDiscordScopeWarning: boolean;
   isSignedIn: boolean;
   discordBotInstallUrl: string | null;
   availableDiscoveryServers: DiscoveryServer[];
@@ -555,7 +546,6 @@ function OverviewViewContent({
         <AccountCard
           session={session}
           discordEnabled={discordEnabled}
-          hasGatedScopeWarning={hasDiscordScopeWarning}
           onLogout={onLogout}
           onDiscordLogin={onDiscordLogin}
         />

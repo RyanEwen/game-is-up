@@ -84,10 +84,10 @@ function FriendsViewContent({
           title={isSignedIn ? 'No friends added yet' : 'Friends will appear here'}
           body={
             noDiscoveryServersSelected
-              ? 'Add at least one Discord server to your network so you can discover people and add friends.'
+              ? 'Select at least one Discord server to form your network so you can discover people and add friends.'
               : isSignedIn
-                ? 'Add friends from people already visible in your network, and they will show up here.'
-                : 'Sign in to build your network and start adding friends.'
+                ? 'Add friends from your network and they will show up here.'
+                : 'Sign in to form your network and start adding friends.'
           }
         />
       )}
@@ -106,7 +106,7 @@ function FriendsViewContent({
             }}
           >
             <Typography level="body-md" sx={{ color: 'neutral.300' }}>
-              Add people who are already visible in your network.
+              Add people who are already in your network.
             </Typography>
 
             {addableFriends.length > 0 ? (
@@ -133,8 +133,8 @@ function FriendsViewContent({
               <EmptyStateCard
                 title="No one new to add right now"
                 body={noDiscoveryServersSelected
-                  ? 'Add a Discord server to your network first so more people appear here.'
-                  : 'Everyone currently visible in your network is already on your friends list.'}
+                  ? 'Select at least one Discord server to form your network first so people appear here.'
+                  : 'Everyone in your network is already on your friends list.'}
               />
             )}
           </DialogContent>

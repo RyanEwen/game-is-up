@@ -11,7 +11,6 @@ const DISCORD_BOT_SCOPES = ['bot', 'applications.commands'] as const
 const DISCORD_BOT_PERMISSIONS = '0'
 
 export const DISCORD_REQUESTED_SCOPES = ['identify', 'email', 'guilds'] as const
-export const DISCORD_APPROVAL_GATED_SCOPES: readonly string[] = []
 
 type DiscordTokenResponse = {
   access_token: string;

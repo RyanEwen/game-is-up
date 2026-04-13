@@ -156,11 +156,11 @@ export function useDashboardPlay({
         : currentRecipients.length > 0
           ? null
           : playIntentSelectionMode === 'subset' && currentScopeLibraryRecipients.length > 0
-            ? 'With these game choices, nobody matches right now. Pick different games or switch back to any game in your library.'
+            ? 'With these game choices, nobody in your network matches right now. Pick different games or switch back to any game in your library.'
             : playIntentNotifyScope === 'specific-friends' && friendRecipientsForCurrentSelection.length > 0
               ? 'The friends you selected are not a match for this call to play right now. Pick different friends or widen the audience.'
               : playIntentNotifyScope === 'friends-only' && networkRecipientsForCurrentSelection.length > 0
-                ? 'With friends-only selected, nobody is a match right now. Switch back to your network or add overlapping friends.'
+                ? 'With friends-only selected, nobody in your network is a match right now. Switch back to your network or add friends who have games in their library that match yours.'
                 : `No one in ${currentAudienceLabel} can currently receive this call to play.`
   const now = Date.now()
   const parsedPlayIntentStartAt = parseLocalDateTimeInput(playIntentStartAtInput)
@@ -401,10 +401,10 @@ export function useDashboardPlay({
         tone: 'success',
         message: isScheduledIntent
           ? parsedResponse.notifiedFriendCount > 0
-            ? `Your call to play is scheduled. ${parsedResponse.notifiedFriendCount} overlapping friend${parsedResponse.notifiedFriendCount === 1 ? '' : 's'} were notified.`
+            ? `Your call to play is scheduled. ${parsedResponse.notifiedFriendCount} ${parsedResponse.notifiedFriendCount === 1 ? 'friend in your network who has' : 'friends in your network who have'} games in their library that match yours were notified.`
             : 'Your call to play is scheduled. No Discord DMs were delivered yet.'
           : parsedResponse.notifiedFriendCount > 0
-            ? `Your call to play is live. ${parsedResponse.notifiedFriendCount} overlapping friend${parsedResponse.notifiedFriendCount === 1 ? '' : 's'} were notified.`
+            ? `Your call to play is live. ${parsedResponse.notifiedFriendCount} ${parsedResponse.notifiedFriendCount === 1 ? 'friend in your network who has' : 'friends in your network who have'} games in their library that match yours were notified.`
             : 'Your call to play is live. No Discord DMs were delivered yet.'
       })
       void loadDashboard()

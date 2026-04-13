@@ -103,11 +103,11 @@ export function formatNotifyScopeLabel(scope: PlayIntentPreview['notifyScope']):
 export function formatNotifyScopeDescription(scope: PlayIntentPreview['notifyScope']): string {
   switch (scope) {
     case 'network':
-      return 'Anyone in your network, plus people you added as friends, where there is matching game overlap.'
+      return 'Anyone in your network, plus people you added as friends, where there are matching games.'
     case 'specific-friends':
-      return 'Only the specific friends you choose, where there is matching game overlap.'
+      return 'Only the specific friends you choose, where there are matching games.'
     default:
-      return 'Only people you added as friends, where there is matching game overlap.'
+      return 'Only people you added as friends, where there are matching games.'
   }
 }
 

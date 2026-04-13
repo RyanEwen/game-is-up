@@ -342,7 +342,6 @@ export const authProvidersResponseSchema = z.object({
     primary: z.boolean(),
     clientId: z.string().min(1).nullable().optional(),
     requestedScopes: z.array(z.string().min(1)),
-    gatedScopes: z.array(z.string().min(1)),
     installUrl: z.string().url().nullable().optional(),
     serverInstallUrl: z.string().url().nullable().optional()
   }))

@@ -115,10 +115,10 @@ function DiscoveryViewContent({
               noDiscoveryServersSelected
                 ? 'You do not have any Discord servers in your network, so the app has no network members to compare against.'
                 : isSignedIn
-                  ? "Add games to your library and add at least one Discord server to your network so Game's Up can find people with overlapping libraries."
+                  ? "Add games to your library and select at least one Discord server to form your network so Game's Up can find people with matching games."
                   : showsDemoDiscoveryCopy
                     ? 'This section shows games that the seeded demo viewer and other users both have in their playlists.'
-                    : 'Sign in to compare your library with friends and people in your network.'
+                    : 'Sign in to compare your library with friends and other people in your network.'
             }
           />
         )}
@@ -153,14 +153,14 @@ function DiscoveryViewContent({
             title={isSignedIn ? 'No other games yet' : 'No other games yet'}
             body={
               noDiscoveryServersSelected
-                ? 'Add at least one Discord server to your network to browse games from network members.'
+                ? 'Select at least one Discord server to form your network so that you can browse other games played by network members.'
                 : isSignedIn
                   ? overlapGames.length > 0
                     ? 'Everything is already shown above because it also matches your library.'
                     : 'No one in your network has games in their playlist yet.'
                   : overlapGames.length > 0
                     ? 'All titles are already covered in the shared games section above.'
-                    : 'Sign in to see other games played by friends and people in your network.'
+                    : 'Sign in to see other games played by friends and other people in your network.'
             }
           />
         )}
@@ -168,7 +168,7 @@ function DiscoveryViewContent({
 
       <DiscoverySection
         title="Network members"
-        description="People you can see through your network who are not already on your friends list."
+        description="People in your network who are not already on your friends list."
       >
         {networkPeople.length > 0 ? (
           <Stack spacing={2}>
@@ -196,7 +196,7 @@ function DiscoveryViewContent({
               noDiscoveryServersSelected
                 ? 'You do not have any Discord servers in your network to find others on.'
                 : isSignedIn
-                  ? 'No additional people in your network are available yet. Friends appear in the Friends view.'
+                  ? 'No other people in your network are available yet. Friends appear in the Friends view.'
                   : showsDemoDiscoveryCopy
                     ? 'This section shows the seeded network-member view. Friends are listed separately in the Friends view.'
                     : 'Sign in to browse people in your network here.'

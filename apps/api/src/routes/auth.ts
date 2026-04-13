@@ -10,7 +10,6 @@ import { z } from 'zod'
 import { prisma } from '../lib/prisma.js'
 import { getLatestDiscordActivityForUser } from '../lib/discord-activity.js'
 import {
-  DISCORD_APPROVAL_GATED_SCOPES,
   DISCORD_REQUESTED_SCOPES,
   buildDiscordAuthorizationUrl,
   buildDiscordBotInstallUrl,
@@ -161,7 +160,6 @@ authRouter.get('/providers', (_request, response) => {
           primary: true,
           clientId: env.DISCORD_CLIENT_ID ?? null,
           requestedScopes: [...DISCORD_REQUESTED_SCOPES],
-          gatedScopes: [...DISCORD_APPROVAL_GATED_SCOPES],
           installUrl: buildDiscordBotInstallUrl(),
           serverInstallUrl: buildDiscordBotInstallUrl()
         },
@@ -172,7 +170,6 @@ authRouter.get('/providers', (_request, response) => {
           primary: false,
           clientId: null,
           requestedScopes: ['library-read'],
-          gatedScopes: [],
           installUrl: null,
           serverInstallUrl: null
         }
