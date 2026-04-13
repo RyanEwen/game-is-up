@@ -1,6 +1,6 @@
 ---
 name: "Implement Vertical Slice"
-description: "Implement one end-to-end Game Is Up feature slice across shared contracts, API, UI, and validation."
+description: "Implement one end-to-end Game's Up feature slice across shared contracts, API, UI, and validation."
 argument-hint: "Describe the feature slice to implement"
 agent: "agent"
 model: "GPT-5 (copilot)"

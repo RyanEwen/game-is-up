@@ -293,7 +293,7 @@ export function PersonCard({
           >
             <Typography level="title-sm">No games shared yet</Typography>
             <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
-              Game Is Up found this person through your friends list or network, but they have not added any games yet. You can still add them as a friend now.
+              Game's Up found this person through your friends list or network, but they have not added any games yet. You can still add them as a friend now.
             </Typography>
           </Sheet>
         )}

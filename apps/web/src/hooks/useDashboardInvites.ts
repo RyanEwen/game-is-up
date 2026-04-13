@@ -91,11 +91,11 @@ function buildInviteText(
   const inviterLabel = formatInviterLabel(displayName, handle)
   const intro = targetedNames.length > 0
     ? inviterLabel
-      ? `Hey ${formatNameList(targetedNames)}, ${inviterLabel} invited you to Game Is Up${options?.serverName ? ` through ${options.serverName}` : ''}.`
-      : `Hey ${formatNameList(targetedNames)}, someone invited you to Game Is Up${options?.serverName ? ` through ${options.serverName}` : ''}.`
+      ? `Hey ${formatNameList(targetedNames)}, ${inviterLabel} invited you to Game's Up${options?.serverName ? ` through ${options.serverName}` : ''}.`
+      : `Hey ${formatNameList(targetedNames)}, someone invited you to Game's Up${options?.serverName ? ` through ${options.serverName}` : ''}.`
     : inviterLabel
-      ? `${inviterLabel} invited you to Game Is Up.`
-      : 'Join me on Game Is Up.'
+      ? `${inviterLabel} invited you to Game's Up.`
+      : "Join me on Game's Up."
 
   const body = targetedNames.length > 0
     ? 'Open the app to compare libraries, add each other as friends, and post when you want to play.'
@@ -303,7 +303,7 @@ export function useDashboardInvites({
 
     try {
       await navigator.share({
-        title: 'Join me on Game Is Up',
+        title: "Join me on Game's Up",
         text: inviteText,
         url: inviteUrl
       })

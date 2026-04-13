@@ -15,8 +15,8 @@ export default defineConfig({
         skipWaiting: true
       },
       manifest: {
-        name: 'Game Is Up',
-        short_name: 'Game Is Up',
+        name: "Game's Up",
+        short_name: "Game's Up",
         description: 'Find players who want to queue the same games as you.',
         theme_color: '#070b14',
         background_color: '#070b14',

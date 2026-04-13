@@ -50,7 +50,7 @@ function getAutoPlayPromptCooldownCutoff(referenceTime: Date) {
 function buildLinkRow() {
   return new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
     new ButtonBuilder()
-      .setLabel('Open in Game Is Up')
+      .setLabel("Open in Game's Up")
       .setStyle(ButtonStyle.Link)
       .setURL(buildPlayUrl())
   )
@@ -112,7 +112,7 @@ function buildAudienceMessage(gameTitle: string, durationMinutes: number, friend
 function buildDeclinedMessage(gameTitle: string) {
   return [
     `No problem. I will leave ${gameTitle} alone for now.`,
-    'You can still open Game Is Up any time to create a call to play manually.'
+    "You can still open Game's Up any time to create a call to play manually."
   ].join('\n\n')
 }
 
@@ -120,7 +120,7 @@ function buildExpiredMessage(reason: string) {
   return [
     'This prompt is no longer available.',
     reason,
-    'Open Game Is Up if you still want to create or edit a call to play.'
+    "Open Game's Up if you still want to create or edit a call to play."
   ].join('\n\n')
 }
 
@@ -132,7 +132,7 @@ function buildAcceptedMessage(gameTitle: string, durationMinutes: number, notify
       : 'Audience: your network plus friends.',
     deliveredCount > 0
       ? `${deliveredCount} Discord DM${deliveredCount === 1 ? ' was' : 's were'} delivered right away.`
-      : 'No Discord DMs were delivered right away, but the call is active in Game Is Up.'
+      : "No Discord DMs were delivered right away, but the call is active in Game's Up."
   ].join('\n\n')
 }
 

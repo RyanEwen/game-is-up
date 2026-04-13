@@ -32,7 +32,7 @@ function buildPlayUrl(): string {
 function buildLinkRow() {
   return new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
     new ButtonBuilder()
-      .setLabel('Open in Game Is Up')
+      .setLabel("Open in Game's Up")
       .setStyle(ButtonStyle.Link)
       .setURL(buildPlayUrl())
   )
@@ -56,7 +56,7 @@ export function buildPlayIntentDirectMessage(title: string, body: string) {
     `**${title}**`,
     body,
     'Are you planning to join this call to play?',
-    'Use the buttons below to answer. You can still open Game Is Up afterward and post your own call if you want to widen the group.'
+    "Use the buttons below to answer. You can still open Game's Up afterward and post your own call if you want to widen the group."
   ].join('\n\n')
 }
 
@@ -68,21 +68,21 @@ function buildExpiredMessage(reason: string) {
   return [
     'This call-to-play prompt is no longer available.',
     reason,
-    'Open Game Is Up if you still want to coordinate or post your own call to play.'
+    "Open Game's Up if you still want to coordinate or post your own call to play."
   ].join('\n\n')
 }
 
 function buildJoinAcceptedMessage(creatorDisplayName: string) {
   return [
     `I recorded that you are joining ${creatorDisplayName}'s call to play.`,
-    'If you want to widen the group, you can still open Game Is Up and post your own call too.'
+    "If you want to widen the group, you can still open Game's Up and post your own call too."
   ].join('\n\n')
 }
 
 function buildDeclineAcceptedMessage() {
   return [
     'No problem. I will leave it there.',
-    'If you change your mind later, open Game Is Up to see any active calls to play.'
+    "If you change your mind later, open Game's Up to see any active calls to play."
   ].join('\n\n')
 }
 
@@ -136,7 +136,7 @@ function buildCreatorJoinNotification(notification: {
   return {
     title,
     body,
-    dm: `**${title}**\n${body}\n\nOpen Game Is Up: ${buildPlayUrl()}`
+    dm: `**${title}**\n${body}\n\nOpen Game's Up: ${buildPlayUrl()}`
   }
 }
 

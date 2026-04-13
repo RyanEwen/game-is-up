@@ -70,7 +70,7 @@ function AccountCard({
           </Button>
           {hasGatedScopeWarning ? (
             <Typography level="body-sm" sx={{ color: 'warning.300' }}>
-              Game Is Up builds your network from the Discord servers you choose here. After that, add the friends you want to keep track of in the app.
+              Game's Up builds your network from the Discord servers you choose here. After that, add the friends you want to keep track of in the app.
             </Typography>
           ) : null}
         </Stack>
@@ -177,7 +177,7 @@ function DiscoveryServersSection({
         </Stack>
       ) : hasSyncedServers ? (
         <EmptyStateCard
-          title="No servers with the Game Is Up bot available"
+          title="No servers with the Game's Up bot available"
           body="You have Discord servers added to your network, but the bot is not running or is not installed on any of them."
         />
       ) : (
@@ -282,7 +282,7 @@ function InviteUsersCard({
                   Browse members in {activeInviteServer.name}
                 </Typography>
                 <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
-                  People who already joined Game Is Up are shown for context, but only members who have not joined yet can be invited.
+                  People who already joined Game's Up are shown for context, but only members who have not joined yet can be invited.
                 </Typography>
                 <Input
                   placeholder="Search Discord members"
@@ -325,13 +325,13 @@ function InviteUsersCard({
                                 <Typography level="title-sm">{member.displayName}</Typography>
                                 <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
                                   @{member.username}
-                                  {member.isAppUser && member.appHandle ? ` • Game Is Up: @${member.appHandle}` : ''}
+                                  {member.isAppUser && member.appHandle ? ` • Game's Up: @${member.appHandle}` : ''}
                                 </Typography>
                               </Box>
                             </Stack>
                             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'center' }}>
                               <Chip size="sm" color={member.isAppUser ? 'success' : 'neutral'} variant={member.isAppUser ? 'soft' : 'outlined'}>
-                                {member.isAppUser ? 'On Game Is Up' : 'Not on Game Is Up'}
+                                {member.isAppUser ? "On Game's Up" : "Not on Game's Up"}
                               </Chip>
                               <Button
                                 size="sm"

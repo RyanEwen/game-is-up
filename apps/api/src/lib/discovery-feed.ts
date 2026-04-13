@@ -263,7 +263,7 @@ export async function buildDiscoveryFeed(viewerId?: string | null): Promise<Disc
         friendEligible: !isFriend,
         contactHint: isFriend
           ? 'Already in your friends list.'
-          : 'Add them as a friend to keep track of them in Game Is Up.'
+          : "Add them as a friend to keep track of them in Game's Up."
       }
     })
     .sort((left, right) => {

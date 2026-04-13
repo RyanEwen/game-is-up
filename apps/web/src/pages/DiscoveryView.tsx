@@ -115,7 +115,7 @@ function DiscoveryViewContent({
               noDiscoveryServersSelected
                 ? 'You do not have any Discord servers in your network, so the app has no network members to compare against.'
                 : isSignedIn
-                  ? 'Add games to your library and add at least one Discord server to your network so Game Is Up can find people with overlapping libraries.'
+                  ? "Add games to your library and add at least one Discord server to your network so Game's Up can find people with overlapping libraries."
                   : showsDemoDiscoveryCopy
                     ? 'This section shows games that the seeded demo viewer and other users both have in their playlists.'
                     : 'Sign in to compare your library with friends and people in your network.'

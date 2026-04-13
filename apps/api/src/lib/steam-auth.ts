@@ -238,7 +238,7 @@ export async function upsertSteamIdentity(userId: string, steamId: string) {
   ])
 
   if (identityForSteamId && identityForSteamId.userId !== userId) {
-    throw new Error('That Steam account is already linked to another Game Is Up user.')
+    throw new Error("That Steam account is already linked to another Game's Up user.")
   }
 
   if (identityForUser) {

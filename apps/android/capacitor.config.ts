@@ -14,7 +14,7 @@ const serverUrl = normalizeServerUrl(process.env.CAPACITOR_SERVER_URL)
 
 const config: CapacitorConfig = {
   appId: 'com.gameisup.app',
-  appName: 'Game Is Up',
+  appName: "Game's Up",
   webDir: '../web/dist',
   server: serverUrl
     ? {

@@ -33,7 +33,7 @@ function formatDiscordInviteSender(displayName: string | null | undefined, handl
     return `@${normalizedHandle}`
   }
 
-  return 'A Game Is Up player'
+  return "A Game's Up player"
 }
 
 export async function syncDiscordServersForUser(userId: string, guilds: DiscordGuildSummary[]) {
@@ -373,7 +373,7 @@ export async function sendDiscordServerInvites(options: {
           username: member?.username ?? 'unknown-user',
           displayName: member?.displayName ?? member?.username ?? 'Unknown member',
           status: 'failed' as const,
-          error: 'Already on Game Is Up.'
+          error: "Already on Game's Up."
         }
       })
     const inviteResults = inviteableMemberIds.length > 0

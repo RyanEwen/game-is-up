@@ -1,4 +1,4 @@
-# Architecture — Game Is Up
+# Architecture — Game's Up
 
 ## High-level flow
 

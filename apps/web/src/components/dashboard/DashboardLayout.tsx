@@ -260,7 +260,7 @@ export const DashboardLayout = ({
                     sx={{ alignItems: 'center' }}
                   >
                     <Typography level="h1" sx={{ fontSize: { xs: '2.4rem', md: '4rem' } }}>
-                      Game Is Up
+                      Game's Up
                     </Typography>
                   </Stack>
                   <Typography level="body-lg" sx={{ color: 'neutral.200', maxWidth: 'none' }}>
@@ -292,7 +292,7 @@ export const DashboardLayout = ({
               >
                 <Box>
                   <Typography level="title-md" sx={{ color: 'primary.100', mb: 0.5 }}>
-                    Keep Game Is Up on your home screen.
+                    Keep Game's Up on your home screen.
                   </Typography>
                   <Typography level="body-sm" sx={{ color: 'neutral.200' }}>
                     Install it for faster launches and an app-like shell in supported browsers.

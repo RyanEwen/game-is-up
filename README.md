@@ -1,6 +1,6 @@
-# Game Is Up
+# Game's Up
 
-Game Is Up is a monorepo for a game-discovery PWA and Android wrapper. The initial scaffold includes:
+Game's Up is a monorepo for a game-discovery PWA and Android wrapper. The initial scaffold includes:
 
 - a Vite + React + Joy UI web app
 - an Express + TypeScript API

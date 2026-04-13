@@ -1,4 +1,4 @@
-# Game Is Up Workspace Instructions
+# Game's Up Workspace Instructions
 
 ## Architecture
 

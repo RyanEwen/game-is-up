@@ -38,7 +38,7 @@ app.use(express.json())
 app.get('/api/bootstrap', (_request, response) => {
   response.json(
     clientBootstrapSchema.parse({
-      appName: 'Game Is Up',
+      appName: "Game's Up",
       apiBaseUrl: getApiOrigin(),
       features: {
         pushNotifications: true,

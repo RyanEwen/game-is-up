@@ -247,7 +247,7 @@ export async function sendDiscordGuildInvites(options: {
   const memberList = await listDiscordGuildMembers(serverId)
   const memberById = new Map(memberList.members.map((member) => [member.id, member]))
   const results: DiscordGuildInviteSendResult[] = []
-  const inviteMessage = `${inviterLabel} invited you to Game Is Up from ${memberList.serverName}.\n\nJoin here: ${inviteUrl}`
+  const inviteMessage = `${inviterLabel} invited you to Game's Up from ${memberList.serverName}.\n\nJoin here: ${inviteUrl}`
 
   for (const memberId of [...new Set(memberIds)]) {
     const knownMember = memberById.get(memberId)

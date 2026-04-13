@@ -264,7 +264,7 @@ export function useDashboardApp() {
     if (reason === 'access_denied') {
       setAuthNotice({
         tone: 'danger',
-        message: 'Discord sign-in was canceled. Game Is Up needs your Discord connection to sync servers and keep your network current.'
+        message: "Discord sign-in was canceled. Game's Up needs your Discord connection to sync servers and keep your network current."
       })
       return
     }
