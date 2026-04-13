@@ -8,7 +8,7 @@
 
 | Layer | Description |
 |---|---|
-| `apps/web` | Web-first client shell, discovery UI, auth entry points, installable PWA behavior, and the embedded Discord Activity surface used for SDK-only flows like relationship sync. |
+| `apps/web` | Web-first client shell, discovery UI, auth entry points, and installable PWA behavior. |
 | `apps/api` | Express API, auth integration, discovery ranking, notification fan-out, and persistence orchestration around Prisma. |
 | `packages/shared` | Zod schemas, DTOs, and shared runtime validation used by both the web app and API. |
 | `apps/api/prisma` | Core relational model for users, friends, game interests, play intents, moderation, and notifications. |
@@ -23,8 +23,6 @@ The product loop is intentionally narrow:
 3. Users add people they want to keep track of as friends.
 4. A play intent can target either the full library or a chosen subset.
 5. Notifications trigger when a friend or opted-in shared-server user expresses intent that overlaps with the recipient.
-
-Imported Discord relationships are a separate acquisition flow rather than a direct discovery audience. A user installs Game Is Up on their Discord account, launches the app as a Discord Activity, grants `relationships.read`, and the embedded web client posts normalized relationship data back to the API. The normal web app later surfaces those imported Discord friends as invite targets or addable explicit friends.
 
 Game catalog search is provider-backed rather than store-specific. The current implementation targets a broad catalog source and normalizes platform labels so the product can treat a title as one canonical game with multiple supported platforms.
 
@@ -47,7 +45,7 @@ Discord activity observations can also drive a secondary auto-prompt flow: when 
 
 Discord presence tracking now also maintains a lossy observed-game history keyed by Discord identity rather than only by app user. That lets the library API return suggested games based on titles the bot has seen the user playing, while still allowing non-members to contribute to the raw observation set.
 
-Discord account installs are tracked independently from guild installs. Signed Discord webhooks update account authorized and deauthorized state, which lets the web app distinguish between installing the bot in a server and installing Game Is Up on a user account for Activity-driven friend sync.
+Discovery currently depends on explicit app friendships plus opted-in shared Discord servers. The Discord Activity-based friend import path has been removed.
 
 ## Repository guidance
 

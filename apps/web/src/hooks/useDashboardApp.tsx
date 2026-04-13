@@ -8,7 +8,6 @@ import type {
   AuthProvidersResponse,
   AuthSessionResponse,
   DebugAdminResponse,
-  DiscordFriendsResponse,
   DiscordServerPreferencesResponse,
   DiscoveryFeed,
   HealthResponse,
@@ -22,7 +21,6 @@ import {
   authProvidersResponseSchema,
   authSessionResponseSchema,
   debugAdminResponseSchema,
-  discordFriendsResponseSchema,
   discordServerPreferencesResponseSchema,
   discoveryFeedSchema,
   healthResponseSchema,
@@ -33,7 +31,6 @@ import {
   userProfileResponseSchema
 } from '@game-is-up/shared'
 import { EmptyStateCard } from '../components/dashboard/EmptyStateCard'
-import { isDiscordEmbeddedActivity, signInWithDiscordFromEmbeddedSdk, syncDiscordFriendsFromEmbeddedSdk } from '../lib/discord-embedded'
 import type { DashboardLibraryQuickAddGame, FriendTarget, Notice } from '../components/dashboard/types'
 import { useDashboardInvites } from './useDashboardInvites'
 import { useDashboardLibrary } from './useDashboardLibrary'
@@ -53,14 +50,12 @@ const apiBaseUrl = configuredApiBaseUrl != null ? configuredApiBaseUrl.replace(/
 const apiReconnectPollMs = 5000
 const mobileAuthRedirectUrl = 'gameisup://auth'
 const emptyLibraryEntries: LibraryResponse['entries'] = []
-const discordFriendBetaHandles = new Set(['technicallyreal'])
 
 type LoadState = {
   activePlayIntent: ActivePlayIntent | null;
   session: AuthSessionResponse | null;
   auth: AuthProvidersResponse | null;
   debugAdmin: DebugAdminResponse | null;
-  discordFriends: DiscordFriendsResponse | null;
   discordServers: DiscordServerPreferencesResponse | null;
   discovery: DiscoveryFeed | null;
   health: HealthResponse | null;
@@ -74,19 +69,12 @@ const initialState: LoadState = {
   session: null,
   auth: null,
   debugAdmin: null,
-  discordFriends: null,
   discordServers: null,
   discovery: null,
   health: null,
   library: null,
   playIntents: null,
   error: null
-}
-
-function canAccessDiscordFriendBeta(handle: string | null | undefined): boolean {
-  const normalizedHandle = handle?.trim().toLowerCase()
-
-  return normalizedHandle != null && discordFriendBetaHandles.has(normalizedHandle)
 }
 
 function useTimedNotice(notice: Notice | null, setNotice: Dispatch<SetStateAction<Notice | null>>) {
@@ -179,7 +167,6 @@ export function useDashboardApp() {
   const [steamLinkPending, setSteamLinkPending] = useState(false)
   const [installPromptEvent, setInstallPromptEvent] = useState<BeforeInstallPromptEvent | null>(null)
   const [installPromptPending, setInstallPromptPending] = useState(false)
-  const [discordFriendSyncing, setDiscordFriendSyncing] = useState(false)
   const [friendPendingId, setFriendPendingId] = useState<string | null>(null)
   const [addingLibraryGameId, setAddingLibraryGameId] = useState<string | null>(null)
   const [serverPreferencePendingId, setServerPreferencePendingId] = useState<string | null>(null)
@@ -215,7 +202,6 @@ export function useDashboardApp() {
   const hasPlayIntentPreviews = Boolean(state.playIntents && state.playIntents.intents.length > 0)
   const showSignedInOnboarding = isSignedIn && !hasLibraryEntries && !hasDiscoveryContent && !hasPlayIntentPreviews
   const availableDiscoveryServers = (state.discordServers?.servers ?? []).filter((server) => server.botPresent)
-  const showDiscordFriendBeta = canAccessDiscordFriendBeta(state.session?.user?.handle)
   const selectedDiscoveryServerCount = availableDiscoveryServers.filter((server) => server.selected).length
   const noDiscoveryServersSelected = isSignedIn && availableDiscoveryServers.length > 0 && selectedDiscoveryServerCount === 0
   const libraryGameIds = new Set<string>(libraryEntries.map((entry) => entry.gameId))
@@ -230,17 +216,11 @@ export function useDashboardApp() {
         : 'Nobody in your friends list or network currently overlaps with your library, so nobody can receive a call to play yet. Add more games to your library or wait for more overlap.'
     : null
   const discordProvider = state.auth?.providers.find((provider) => provider.id === 'discord') ?? null
-  const discordFriendConnections = state.discordFriends?.friends ?? []
   const steamProvider = state.auth?.providers.find((provider) => provider.id === 'steam') ?? null
   const steamConnected = Boolean(state.session?.connectedProviders.includes('steam'))
   const currentUsualAvailability = state.library?.usualAvailability ?? state.session?.user?.usualAvailability ?? null
   const friendPeople = [...discoveryPeople].filter((person) => person.isFriend).sort((left, right) => left.displayName.localeCompare(right.displayName))
   const addableFriendPeople = [...discoveryPeople].filter((person) => person.friendEligible).sort((left, right) => left.displayName.localeCompare(right.displayName))
-  const addableDiscordFriends = [...discordFriendConnections]
-    .filter((friend) => friend.appUser != null && !friend.alreadyFriend)
-    .sort((left, right) => left.displayName.localeCompare(right.displayName))
-  const discordAccountInstall = state.session?.discordGraph?.accountInstall ?? null
-
   const toastNotices = [
     actionNotice
       ? { id: 'action', notice: actionNotice, dismiss: () => setActionNotice(null) }
@@ -343,15 +323,13 @@ export function useDashboardApp() {
       ])
 
       const parsedSession = authSessionResponseSchema.parse(sessionJson)
-      const shouldLoadDiscordFriends = parsedSession.authenticated && canAccessDiscordFriendBeta(parsedSession.user?.handle)
 
-      const [discoveryResponse, playIntentsResponse, libraryResponse, currentPlayIntentResponse, debugResponse, discordFriendsResponse] = await Promise.all([
+      const [discoveryResponse, playIntentsResponse, libraryResponse, currentPlayIntentResponse, debugResponse] = await Promise.all([
         fetch(buildApiUrl('/api/discovery/feed'), requestInit),
         fetch(buildApiUrl('/api/play-intents/feed'), requestInit),
         parsedSession.authenticated ? fetch(buildApiUrl('/api/library/me'), requestInit) : Promise.resolve(null),
         parsedSession.authenticated ? fetch(buildApiUrl('/api/play-intents/me'), requestInit) : Promise.resolve(null),
-        parsedSession.authenticated && showDebugView ? fetch(buildApiUrl('/api/debug/admin'), requestInit) : Promise.resolve(null),
-        shouldLoadDiscordFriends ? fetch(buildApiUrl('/api/discord-friends/me'), requestInit) : Promise.resolve(null)
+        parsedSession.authenticated && showDebugView ? fetch(buildApiUrl('/api/debug/admin'), requestInit) : Promise.resolve(null)
       ])
 
       const [discoveryJson, playIntentsJson] = await Promise.all([
@@ -364,7 +342,6 @@ export function useDashboardApp() {
       let library: LibraryResponse | null = null
       let activePlayIntentState: ActivePlayIntent | null = null
       let debugAdmin: DebugAdminResponse | null = null
-      let discordFriends: DiscordFriendsResponse | null = null
       let discordServers: DiscordServerPreferencesResponse | null = null
 
       if (libraryResponse) {
@@ -387,18 +364,12 @@ export function useDashboardApp() {
         debugAdmin = debugAdminResponseSchema.parse(debugJson)
       }
 
-      if (discordFriendsResponse) {
-        const discordFriendsJson = await discordFriendsResponse.json()
-        discordFriends = discordFriendsResponseSchema.parse(discordFriendsJson)
-      }
-
       setState({
         activePlayIntent: activePlayIntentState,
         session: parsedSession,
         health: healthResponseSchema.parse(healthJson),
         auth: authProvidersResponseSchema.parse(authJson),
         debugAdmin,
-        discordFriends,
         discordServers,
         discovery: discoveryFeedSchema.parse(discoveryJson),
         playIntents: playIntentFeedSchema.parse(playIntentsJson),
@@ -874,40 +845,6 @@ export function useDashboardApp() {
   }, [])
 
   const handleDiscordLogin = useCallback(async () => {
-    if (isDiscordEmbeddedActivity()) {
-      const clientId = discordProvider?.clientId ?? null
-      const scopes = [...new Set(['applications.commands', ...(discordProvider?.requestedScopes ?? [])])]
-
-      if (!clientId) {
-        setAuthNotice({
-          tone: 'danger',
-          message: 'Discord sign-in is unavailable because the Discord client ID is not configured.'
-        })
-        return
-      }
-
-      try {
-        setAuthNotice(null)
-        await signInWithDiscordFromEmbeddedSdk({
-          clientId,
-          apiBaseUrl: buildAbsoluteApiUrl(''),
-          scopes
-        })
-        await loadDashboard()
-        setAuthNotice({
-          tone: 'success',
-          message: 'Signed in with Discord.'
-        })
-      } catch (error) {
-        setAuthNotice({
-          tone: 'danger',
-          message: error instanceof Error ? error.message : 'Unable to sign in with Discord right now.'
-        })
-      }
-
-      return
-    }
-
     const loginUrl = buildAbsoluteApiUrl(`/api/auth/discord/login?returnTo=${encodeURIComponent(isNativeApp ? mobileAuthRedirectUrl : window.location.href)}`)
 
     if (isNativeApp) {
@@ -918,69 +855,7 @@ export function useDashboardApp() {
     }
 
     window.location.assign(loginUrl)
-  }, [discordProvider?.clientId, discordProvider?.requestedScopes, isNativeApp, loadDashboard])
-
-  const openExternalUrl = useCallback(async (url: string) => {
-    if (isNativeApp) {
-      await Browser.open({
-        url
-      })
-      return
-    }
-
-    window.open(url, '_blank', 'noopener,noreferrer')
   }, [isNativeApp])
-
-  const handleOpenDiscordAccountInstall = useCallback(async () => {
-    const installUrl = discordProvider?.accountInstallUrl ?? discordAccountInstall?.installUrl ?? null
-
-    if (!installUrl) {
-      return
-    }
-
-    await openExternalUrl(installUrl)
-  }, [discordAccountInstall?.installUrl, discordProvider?.accountInstallUrl, openExternalUrl])
-
-  const handleSyncDiscordFriends = useCallback(async () => {
-    if (discordFriendSyncing) {
-      return
-    }
-
-    const clientId = discordProvider?.clientId ?? null
-
-    if (!clientId) {
-      setActionNotice({
-        tone: 'danger',
-        message: 'Discord friend sync is unavailable because the Discord client ID is not configured.'
-      })
-      return
-    }
-
-    setDiscordFriendSyncing(true)
-    setActionNotice(null)
-
-    try {
-      const imported = await syncDiscordFriendsFromEmbeddedSdk({
-        clientId,
-        apiBaseUrl: buildAbsoluteApiUrl('')
-      })
-
-      setActionNotice({
-        tone: 'success',
-        message: imported.importedCount > 0
-          ? `Imported ${imported.importedCount} Discord friend relationships.`
-          : 'Discord friends were synced, but Discord did not return any relationships to import.'
-      })
-      await loadDashboard()
-    } catch (error) {
-      setActionNotice({
-        tone: 'danger',
-        message: error instanceof Error ? error.message : 'Unable to sync Discord friends right now.'
-      })
-    } finally {
-      setDiscordFriendSyncing(false)
-    }
-  }, [discordFriendSyncing, discordProvider?.clientId, loadDashboard])
 
   const handleInstallApp = useCallback(async () => {
     if (installPromptPending) {
@@ -1126,12 +1001,8 @@ export function useDashboardApp() {
     },
     overviewViewProps: {
       session: state.session,
-      showDiscordFriendBeta,
       discordEnabled: Boolean(discordProvider?.enabled),
       discordBotInstallUrl: discordProvider?.serverInstallUrl ?? discordProvider?.installUrl ?? null,
-      discordAccountInstall,
-      discordFriends: state.discordFriends,
-      discordFriendSyncing,
       hasDiscordScopeWarning: Boolean(discordProvider?.gatedScopes.length),
       isSignedIn,
       availableDiscoveryServers,
@@ -1140,8 +1011,6 @@ export function useDashboardApp() {
       serverPreferencePendingId,
       onLogout: handleLogout,
       onDiscordLogin: handleDiscordLogin,
-      onOpenDiscordAccountInstall: handleOpenDiscordAccountInstall,
-      onSyncDiscordFriends: handleSyncDiscordFriends,
       onToggleDiscordServer: handleToggleDiscordServer,
       ...inviteOverviewProps
     },
@@ -1149,12 +1018,7 @@ export function useDashboardApp() {
     friendsViewProps: {
       error: state.error,
       isSignedIn,
-      showDiscordFriendBeta,
       friends: friendPeople,
-      discordFriends: state.discordFriends,
-      addableDiscordFriends,
-      discordAccountInstall,
-      discordFriendSyncing,
       addableFriends: addableFriendPeople,
       noDiscoveryServersSelected,
       libraryGameIds,
@@ -1162,8 +1026,6 @@ export function useDashboardApp() {
       addingLibraryGameId,
       removingLibraryEntryId: libraryViewProps.removingLibraryEntryId,
       friendPendingId,
-      onOpenDiscordAccountInstall: handleOpenDiscordAccountInstall,
-      onSyncDiscordFriends: handleSyncDiscordFriends,
       onToggleFriend: handleToggleFriend,
       onAddGameToLibrary: openLibraryEditorForGame,
       onRemoveLibraryEntry: libraryViewProps.onRemoveLibraryEntry

@@ -334,16 +334,6 @@ export const healthResponseSchema = z.object({
   version: z.string()
 })
 
-export const discordAccountInstallStatusSchema = z.enum(['installed', 'missing', 'removed', 'unknown'])
-
-export const discordAccountInstallSchema = z.object({
-  installUrl: z.string().url().nullable(),
-  status: discordAccountInstallStatusSchema,
-  lastAuthorizedAt: z.string().datetime().nullable(),
-  lastDeauthorizedAt: z.string().datetime().nullable(),
-  note: z.string()
-})
-
 export const authProvidersResponseSchema = z.object({
   providers: z.array(z.object({
     id: authProviderSchema,
@@ -354,8 +344,7 @@ export const authProvidersResponseSchema = z.object({
     requestedScopes: z.array(z.string().min(1)),
     gatedScopes: z.array(z.string().min(1)),
     installUrl: z.string().url().nullable().optional(),
-    serverInstallUrl: z.string().url().nullable().optional(),
-    accountInstallUrl: z.string().url().nullable().optional()
+    serverInstallUrl: z.string().url().nullable().optional()
   }))
 })
 
@@ -363,17 +352,9 @@ export const discordGraphCapabilitiesSchema = z.object({
   requestedScopes: z.array(z.string().min(1)),
   grantedScopes: z.array(z.string().min(1)),
   fallbackSources: z.array(z.enum(['mutual-servers', 'app-friends'])),
-  accountInstall: discordAccountInstallSchema,
   guildSync: z.object({
     active: z.boolean(),
     lastSyncedAt: z.string().datetime().nullable()
-  }),
-  relationshipSync: z.object({
-    available: z.boolean(),
-    requiresApproval: z.boolean(),
-    status: z.enum(['approval-required', 'scope-missing', 'ready', 'synced', 'error']),
-    lastSyncedAt: z.string().datetime().nullable(),
-    error: z.string().nullable()
   }),
   activityTracking: z.object({
     mode: z.literal('bot-presence-lossy'),
@@ -395,60 +376,6 @@ export const discordGraphCapabilitiesSchema = z.object({
     }).nullable(),
     note: z.string()
   })
-})
-
-export const discordRelationshipTypeSchema = z.enum(['friend', 'blocked', 'pending-incoming', 'pending-outgoing'])
-
-export const discordFriendConnectionSchema = z.object({
-  discordUserId: z.string().min(1),
-  username: z.string().min(1),
-  displayName: z.string().min(1),
-  avatarUrl: z.string().url().nullable(),
-  relationshipType: discordRelationshipTypeSchema,
-  installStatus: discordAccountInstallStatusSchema,
-  appUser: z.object({
-    id: z.string().uuid(),
-    handle: z.string().min(2).max(32),
-    displayName: z.string().min(2).max(60),
-    avatarUrl: z.string().url().nullable()
-  }).nullable(),
-  alreadyFriend: z.boolean()
-})
-
-export const discordFriendsResponseSchema = z.object({
-  counts: z.object({
-    total: z.number().int().nonnegative(),
-    installed: z.number().int().nonnegative(),
-    appUsers: z.number().int().nonnegative(),
-    addableAppUsers: z.number().int().nonnegative()
-  }),
-  friends: z.array(discordFriendConnectionSchema),
-  note: z.string().nullable()
-})
-
-export const importDiscordFriendsRequestSchema = z.object({
-  friends: z.array(z.object({
-    discordUserId: z.string().min(1),
-    username: z.string().min(1),
-    displayName: z.string().min(1),
-    avatarUrl: z.string().url().nullable(),
-    relationshipType: discordRelationshipTypeSchema
-  })).max(2000)
-})
-
-export const importDiscordFriendsResponseSchema = z.object({
-  importedCount: z.number().int().nonnegative(),
-  syncedAt: z.string().datetime()
-})
-
-export const exchangeDiscordEmbeddedCodeRequestSchema = z.object({
-  code: z.string().min(1)
-})
-
-export const exchangeDiscordEmbeddedCodeResponseSchema = z.object({
-  accessToken: z.string().min(1),
-  scopes: z.array(z.string().min(1)),
-  expiresInSeconds: z.number().int().positive()
 })
 
 export const authenticatedUserSchema = z.object({
@@ -575,7 +502,6 @@ export const serverEnvSchema = z.object({
   DISCORD_CLIENT_ID: z.string().optional(),
   DISCORD_CLIENT_SECRET: z.string().optional(),
   DISCORD_CALLBACK_URL: z.string().url().optional(),
-  DISCORD_APPLICATION_PUBLIC_KEY: z.string().optional(),
   DISCORD_BOT_TOKEN: z.string().optional(),
   STEAM_CALLBACK_URL: z.string().url().optional(),
   STEAM_WEB_API_KEY: z.string().optional(),
@@ -626,17 +552,8 @@ export type PlayIntentCurrentResponse = z.infer<typeof playIntentCurrentResponse
 export type UpsertPlayIntentRequest = z.infer<typeof upsertPlayIntentRequestSchema>;
 export type UpsertPlayIntentResponse = z.infer<typeof upsertPlayIntentResponseSchema>;
 export type HealthResponse = z.infer<typeof healthResponseSchema>;
-export type DiscordAccountInstallStatus = z.infer<typeof discordAccountInstallStatusSchema>;
-export type DiscordAccountInstall = z.infer<typeof discordAccountInstallSchema>;
 export type AuthProvidersResponse = z.infer<typeof authProvidersResponseSchema>;
 export type DiscordGraphCapabilities = z.infer<typeof discordGraphCapabilitiesSchema>;
-export type DiscordRelationshipType = z.infer<typeof discordRelationshipTypeSchema>;
-export type DiscordFriendConnection = z.infer<typeof discordFriendConnectionSchema>;
-export type DiscordFriendsResponse = z.infer<typeof discordFriendsResponseSchema>;
-export type ImportDiscordFriendsRequest = z.infer<typeof importDiscordFriendsRequestSchema>;
-export type ImportDiscordFriendsResponse = z.infer<typeof importDiscordFriendsResponseSchema>;
-export type ExchangeDiscordEmbeddedCodeRequest = z.infer<typeof exchangeDiscordEmbeddedCodeRequestSchema>;
-export type ExchangeDiscordEmbeddedCodeResponse = z.infer<typeof exchangeDiscordEmbeddedCodeResponseSchema>;
 export type AuthenticatedUser = z.infer<typeof authenticatedUserSchema>;
 export type UserProfile = z.infer<typeof userProfileSchema>;
 export type UserProfileResponse = z.infer<typeof userProfileResponseSchema>;

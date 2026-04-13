@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { Avatar, Box, Button, Chip, DialogContent, DialogTitle, Sheet, Stack, Typography } from '@mui/joy'
-import type { DiscordAccountInstall, DiscordFriendConnection, DiscordFriendsResponse, DiscoveryPerson } from '@game-is-up/shared'
+import { Box, Button, DialogContent, DialogTitle, Stack, Typography } from '@mui/joy'
+import type { DiscoveryPerson } from '@game-is-up/shared'
 import { DashboardModal } from '../components/dashboard/DashboardModal'
 import { EmptyStateCard } from '../components/dashboard/EmptyStateCard'
 import { LibraryEditorCard } from '../components/dashboard/LibraryEditorCard'
@@ -8,65 +8,10 @@ import { PersonCard } from '../components/dashboard/PersonCard'
 import { useDashboardContext } from '../contexts/useDashboardContext'
 import type { DashboardLibraryQuickAddGame, FriendTarget } from '../components/dashboard/types'
 
-function AddableDiscordFriendCard({
-  friend,
-  friendPendingId,
-  onToggleFriend
-}: {
-  friend: DiscordFriendConnection;
-  friendPendingId: string | null;
-  onToggleFriend: (target: FriendTarget) => Promise<void>;
-}) {
-  if (!friend.appUser) {
-    return null
-  }
-
-  const pending = friendPendingId === friend.appUser.id
-
-  return (
-    <Sheet variant="outlined" sx={{ p: 1.5, borderRadius: 'md', backgroundColor: 'rgba(255, 255, 255, 0.02)' }}>
-      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }}>
-        <Stack direction="row" spacing={1.25} alignItems="center">
-          <Avatar src={friend.appUser.avatarUrl ?? friend.avatarUrl ?? undefined} alt={friend.appUser.displayName} size="md" variant="soft" />
-          <Box>
-            <Typography level="title-sm">{friend.appUser.displayName}</Typography>
-            <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
-              Game Is Up: @{friend.appUser.handle} • Discord: @{friend.username}
-            </Typography>
-          </Box>
-        </Stack>
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'center' }}>
-          <Chip size="sm" color={friend.installStatus === 'installed' ? 'success' : 'neutral'} variant={friend.installStatus === 'installed' ? 'soft' : 'outlined'}>
-            Discord app {friend.installStatus}
-          </Chip>
-          <Button
-            size="sm"
-            color="primary"
-            disabled={pending}
-            onClick={() => void onToggleFriend({
-              id: friend.appUser!.id,
-              displayName: friend.appUser!.displayName,
-              avatarUrl: friend.appUser!.avatarUrl,
-              friendEligible: true
-            })}
-          >
-            {pending ? 'Adding...' : 'Add friend'}
-          </Button>
-        </Stack>
-      </Stack>
-    </Sheet>
-  )
-}
-
 function FriendsViewContent({
   error,
   isSignedIn,
-  showDiscordFriendBeta,
   friends,
-  discordFriends,
-  addableDiscordFriends,
-  discordAccountInstall,
-  discordFriendSyncing,
   addableFriends,
   noDiscoveryServersSelected,
   libraryGameIds,
@@ -74,20 +19,13 @@ function FriendsViewContent({
   addingLibraryGameId,
   removingLibraryEntryId,
   friendPendingId,
-  onOpenDiscordAccountInstall,
-  onSyncDiscordFriends,
   onToggleFriend,
   onAddGameToLibrary,
   onRemoveLibraryEntry
 }: {
   error: string | null;
   isSignedIn: boolean;
-  showDiscordFriendBeta: boolean;
   friends: DiscoveryPerson[];
-  discordFriends: DiscordFriendsResponse | null;
-  addableDiscordFriends: DiscordFriendConnection[];
-  discordAccountInstall: DiscordAccountInstall | null;
-  discordFriendSyncing: boolean;
   addableFriends: DiscoveryPerson[];
   noDiscoveryServersSelected: boolean;
   libraryGameIds: ReadonlySet<string>;
@@ -95,8 +33,6 @@ function FriendsViewContent({
   addingLibraryGameId: string | null;
   removingLibraryEntryId: string | null;
   friendPendingId: string | null;
-  onOpenDiscordAccountInstall: () => Promise<void>;
-  onSyncDiscordFriends: () => Promise<void>;
   onToggleFriend: (target: FriendTarget) => Promise<void>;
   onAddGameToLibrary: (game: DashboardLibraryQuickAddGame) => Promise<void>;
   onRemoveLibraryEntry: (entryId: string) => Promise<void>;
@@ -170,57 +106,8 @@ function FriendsViewContent({
             }}
           >
             <Typography level="body-md" sx={{ color: 'neutral.300' }}>
-              {showDiscordFriendBeta
-                ? 'Add people from your imported Discord friends first, then use the rest of your network for everyone else.'
-                : 'Add people who are already visible in your network.'}
+              Add people who are already visible in your network.
             </Typography>
-
-            {showDiscordFriendBeta ? (
-              <>
-                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'center' }}>
-                  <Button color="primary" disabled={discordFriendSyncing} onClick={() => void onSyncDiscordFriends()}>
-                    {discordFriendSyncing ? 'Syncing Discord friends...' : 'Sync Discord friends'}
-                  </Button>
-                  <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
-                    Run this from the Game Is Up activity inside Discord to refresh imported Discord relationships.
-                  </Typography>
-                </Stack>
-
-                {discordAccountInstall?.status !== 'installed' ? (
-                  <Sheet variant="soft" sx={{ p: 1.5, borderRadius: 'md' }}>
-                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.25} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }}>
-                      <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
-                        {discordAccountInstall?.note ?? 'Add Game Is Up to your Discord account so Discord installs and removals can be tracked.'}
-                      </Typography>
-                      <Button size="sm" color="primary" onClick={() => void onOpenDiscordAccountInstall()}>
-                        {discordAccountInstall?.status === 'removed' ? 'Reinstall on Discord' : 'Add app to your account'}
-                      </Button>
-                    </Stack>
-                  </Sheet>
-                ) : null}
-
-                {addableDiscordFriends.length > 0 ? (
-                  <Stack spacing={1.25}>
-                    <Typography level="title-sm">Discord friends on Game Is Up</Typography>
-                    {addableDiscordFriends.map((friend) => (
-                      <AddableDiscordFriendCard
-                        key={friend.discordUserId}
-                        friend={friend}
-                        friendPendingId={friendPendingId}
-                        onToggleFriend={onToggleFriend}
-                      />
-                    ))}
-                  </Stack>
-                ) : (
-                  <Sheet variant="outlined" sx={{ p: 1.5, borderRadius: 'md', backgroundColor: 'rgba(255, 255, 255, 0.02)' }}>
-                    <Typography level="title-sm">Discord friends</Typography>
-                    <Typography level="body-sm" sx={{ color: 'neutral.400', mt: 0.5 }}>
-                      {discordFriends?.note ?? 'No imported Discord friends are ready to add yet.'} Imported Discord friends who already signed into Game Is Up will appear here.
-                    </Typography>
-                  </Sheet>
-                )}
-              </>
-            ) : null}
 
             {addableFriends.length > 0 ? (
               <Stack spacing={2}>
@@ -245,13 +132,9 @@ function FriendsViewContent({
             ) : (
               <EmptyStateCard
                 title="No one new to add right now"
-                body={
-                  showDiscordFriendBeta && addableDiscordFriends.length > 0
-                    ? 'Your imported Discord friends are the only people ready to add right now.'
-                    : noDiscoveryServersSelected
-                    ? 'Add a Discord server to your network first so more people appear here.'
-                    : 'Everyone currently visible in your network is already on your friends list.'
-                }
+                body={noDiscoveryServersSelected
+                  ? 'Add a Discord server to your network first so more people appear here.'
+                  : 'Everyone currently visible in your network is already on your friends list.'}
               />
             )}
           </DialogContent>
