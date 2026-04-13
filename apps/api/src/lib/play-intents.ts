@@ -14,8 +14,11 @@ import {
 } from '@prisma/client'
 import { getMutualDiscoveryAudienceUserIds } from './discord-servers.js'
 import { sendDiscordDirectMessages } from './discord-bot-runtime.js'
-import { env } from './env.js'
 import { toClientGameCoverUrl } from './game-media.js'
+import {
+  buildPlayIntentDirectMessage,
+  buildPlayIntentNotificationComponents
+} from './play-intent-notification-responses.js'
 import { prisma } from './prisma.js'
 
 export class PlayIntentValidationError extends Error {}
@@ -153,18 +156,6 @@ function dedupePlatformLabels(platformLabels: string[]) {
     .sort((left, right) => left.localeCompare(right))
 }
 
-function buildPlayIntentNotificationUrl(): string {
-  try {
-    return new URL('/play', env.CLIENT_ORIGIN).toString()
-  } catch {
-    return env.CLIENT_ORIGIN
-  }
-}
-
-function buildPlayIntentDirectMessage(title: string, body: string): string {
-  return `**${title}**\n${body}\n\nOpen Game Is Up: ${buildPlayIntentNotificationUrl()}`
-}
-
 function resolvePlayIntentWindow(payload: UpsertPlayIntentRequest, now: Date) {
   const startsAt = payload.startAt ? new Date(payload.startAt) : now
 
@@ -295,7 +286,41 @@ async function getRecipientUserIds(
     }
   })
 
-  return overlappingRecipients.map((entry) => entry.userId)
+  const overlappingRecipientUserIds = overlappingRecipients.map((entry) => entry.userId)
+
+  if (overlappingRecipientUserIds.length === 0) {
+    return []
+  }
+
+  const activeRecipientIntents = await prisma.playIntent.findMany({
+    where: {
+      userId: {
+        in: overlappingRecipientUserIds
+      },
+      expiresAt: {
+        gt: new Date()
+      }
+    },
+    select: {
+      userId: true,
+      selectionMode: true,
+      games: {
+        select: {
+          gameId: true
+        }
+      }
+    }
+  })
+
+  const overlappingGameIdSet = new Set(overlappingGameIds)
+  const excludedUserIds = new Set(
+    activeRecipientIntents
+      .filter((intent) => intent.selectionMode === PrismaPlayIntentSelectionMode.ENTIRE_LIBRARY
+        || intent.games.some((game) => overlappingGameIdSet.has(game.gameId)))
+      .map((intent) => intent.userId)
+  )
+
+  return overlappingRecipientUserIds.filter((recipientUserId) => !excludedUserIds.has(recipientUserId))
 }
 
 export async function getPlayIntentRecipientUserIds(
@@ -527,6 +552,7 @@ export async function upsertCurrentPlayIntent(
           data: {
             userId: recipientUserId,
             triggeredByUserId: userId,
+            playIntentId: createdIntent.id,
             gameId: payload.selectionMode === 'subset' ? selectedGameIds[0] : null,
             type: NotificationType.FRIEND_PLAYING,
             title,
@@ -581,7 +607,8 @@ export async function upsertCurrentPlayIntent(
       const dmResults = await sendDiscordDirectMessages(
         directMessageTargets.map((target) => ({
           discordUserId: target.discordUserId,
-          content: target.content
+          content: target.content,
+          components: buildPlayIntentNotificationComponents(target.notificationId)
         }))
       )
       const deliveredNotificationIds = directMessageTargets

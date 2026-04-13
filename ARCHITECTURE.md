@@ -23,6 +23,7 @@ The product loop is intentionally narrow:
 3. Users add people they want to keep track of as friends.
 4. A play intent can target either the full library or a chosen subset.
 5. Notifications trigger when a friend or opted-in shared-server user expresses intent that overlaps with the recipient.
+6. Discord-delivered call-to-play notifications can capture an explicit join response from the recipient and fan a confirmation back to the original creator.
 
 Game catalog search is provider-backed rather than store-specific. The current implementation targets a broad catalog source and normalizes platform labels so the product can treat a title as one canonical game with multiple supported platforms.
 
@@ -40,6 +41,8 @@ This keeps the schema aligned with the product requirement that users can say â€
 Play intents can notify either explicit friends only, a specific hand-picked set of friends, or the broader discovery audience formed by opted-in shared Discord servers plus explicit friends.
 
 The scheduling model uses an explicit start and end window so the same aggregate supports both live-now calls to play and scheduled future sessions without a second entity type.
+
+Notification rows can now also track whether a recipient explicitly said they would join from a Discord DM prompt. That keeps the response flow attached to the original play intent instead of introducing a second RSVP-specific entity.
 
 Discord activity observations can also drive a secondary auto-prompt flow: when the presence bot sees a user start a game, the API can persist a prompt record, DM that user through the bot, and create a normal play intent if the user accepts.
 

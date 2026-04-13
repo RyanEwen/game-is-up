@@ -9,6 +9,10 @@ import {
 import { handleDiscordAutoPlayPromptInteraction } from './discord-auto-play-prompts.js'
 import { recordDiscordPresence } from './discord-activity.js'
 import { env } from './env.js'
+import {
+  handlePlayIntentNotificationInteraction,
+  isPlayIntentNotificationCustomId
+} from './play-intent-notification-responses.js'
 
 type DiscordGuildMemberSummary = {
   id: string;
@@ -338,11 +342,18 @@ export async function startDiscordPresenceBot() {
   })
 
   client.on(Events.InteractionCreate, (interaction) => {
-    if (!interaction.isButton() || !interaction.customId.startsWith('auto-play:')) {
+    if (!interaction.isButton()) {
       return
     }
 
-    void handleDiscordAutoPlayPromptInteraction(interaction)
+    if (interaction.customId.startsWith('auto-play:')) {
+      void handleDiscordAutoPlayPromptInteraction(interaction)
+      return
+    }
+
+    if (isPlayIntentNotificationCustomId(interaction.customId)) {
+      void handlePlayIntentNotificationInteraction(interaction)
+    }
   })
 
   client.on('shardDisconnect', () => {

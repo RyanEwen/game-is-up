@@ -170,13 +170,14 @@ This repo now treats Prisma migrations as the source of truth for schema changes
 7. Optional: set `DISCORD_BOT_TOKEN`, install the bot in shared Discord servers, and enable the Presence Intent in the Discord developer portal if you want lossy recording of currently played Discord games.
 8. Bot-based activity tracking only records activity while the bot is online and present in a shared server, so it should be treated as opportunistic rather than authoritative history.
 9. If you want the app to browse every member in a selected Discord server for invite targeting, the bot also needs the Server Members intent enabled in the Discord developer portal.
-10. When a call to play matches someone who should be notified and that user has a linked Discord account, the bot can DM them directly.
-11. Users can leave a Play page setting on by default so the bot can DM them after it sees them start a game and offer to create a call to play straight from Discord. Those prompts only go out when there is no active call already, at least one visible overlap could receive it, and the same game has not already prompted that user in the last 10 minutes.
-12. Discovery-based play-intent visibility can now include both explicit friends and users from the Discord servers you opted into discovery.
-13. Discovery remains based on opted-in shared Discord servers plus explicit in-app friendships. The Discord friend-list import path has been removed.
-14. Discord is still the only sign-in path in this scaffold.
-15. Steam can now be linked as a secondary account for library import only. It does not replace Discord auth or discovery.
-16. On Android, linked-account flows like Discord sign-in and Steam linking open in the system browser and return to the app through the `gameisup://auth` deep link. For local development, keep `adb reverse` active so the installed app can still reach the local API while completing those flows.
+10. When a call to play matches someone who should be notified and that user has a linked Discord account, the bot can DM them directly with quick join-response buttons.
+11. If a notified recipient says they are joining from Discord, the creator gets a follow-up DM confirmation. Recipients who already have an overlapping active call to play are filtered out before those call notifications are sent.
+12. Users can leave a Play page setting on by default so the bot can DM them after it sees them start a game and offer to create a call to play straight from Discord. Those prompts only go out when there is no active call already, at least one visible overlap could receive it, and the same game has not already prompted that user in the last 10 minutes.
+13. Discovery-based play-intent visibility can now include both explicit friends and users from the Discord servers you opted into discovery.
+14. Discovery remains based on opted-in shared Discord servers plus explicit in-app friendships. The Discord friend-list import path has been removed.
+15. Discord is still the only sign-in path in this scaffold.
+16. Steam can now be linked as a secondary account for library import only. It does not replace Discord auth or discovery.
+17. On Android, linked-account flows like Discord sign-in and Steam linking open in the system browser and return to the app through the `gameisup://auth` deep link. For local development, keep `adb reverse` active so the installed app can still reach the local API while completing those flows.
 
 ## Steam import setup
 

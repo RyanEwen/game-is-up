@@ -47,6 +47,11 @@ enum NotificationType {
   SYSTEM
 }
 
+enum NotificationResponseChoice {
+  JOIN
+  DECLINE
+}
+
 enum DiscordAutoPlayPromptStatus {
   SENT
   SKIPPED
@@ -266,6 +271,7 @@ model PlayIntent {
   platforms      PlayIntentPlatform[]
   targetFriends  PlayIntentTargetFriend[]
   autoPrompts    DiscordAutoPlayPrompt[] @relation("auto_prompt_play_intent")
+  notifications  Notification[]
 
   @@index([userId, expiresAt])
   @@index([selectionMode, expiresAt])
@@ -310,17 +316,22 @@ model Notification {
   id                String           @id @default(uuid())
   userId            String
   triggeredByUserId String?
+  playIntentId      String?
   gameId            String?
   type              NotificationType
   title             String
   body              String
   readAt            DateTime?
+  responseChoice    NotificationResponseChoice?
+  respondedAt       DateTime?
   deliveredAt       DateTime?
   createdAt         DateTime         @default(now())
   user              User             @relation("notification_recipient", fields: [userId], references: [id], onDelete: Cascade)
+  playIntent        PlayIntent?      @relation(fields: [playIntentId], references: [id], onDelete: SetNull)
   game              Game?            @relation(fields: [gameId], references: [id], onDelete: SetNull)
 
   @@index([userId, readAt, createdAt])
+  @@index([playIntentId])
 }
 
 model Report {
