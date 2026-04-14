@@ -14,6 +14,17 @@ import { LibraryView } from './pages/LibraryView'
 import { OverviewView } from './pages/OverviewView'
 import { PlayView } from './pages/PlayView'
 
+const appTitle = "Game's Up"
+
+const dashboardTabTitles: Record<Exclude<ReturnType<typeof getDashboardTabFromPathname>, null>, string> = {
+  overview: `${appTitle} • Overview`,
+  library: `${appTitle} • Library`,
+  friends: `${appTitle} • Friends`,
+  play: `${appTitle} • Play`,
+  discovery: `${appTitle} • Discovery`,
+  debug: `${appTitle} • Admin and Debug`
+}
+
 export default function App() {
   return (
     <DashboardProvider>
@@ -29,6 +40,10 @@ function DashboardAppShell() {
   const requestedTab = getDashboardTabFromPathname(location.pathname)
   const activeTab = requestedTab === 'debug' && !layoutProps.showDebugView ? 'overview' : (requestedTab ?? 'overview')
   const tabsAnchorRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    document.title = dashboardTabTitles[activeTab]
+  }, [activeTab])
 
   return (
     <DashboardLayout
