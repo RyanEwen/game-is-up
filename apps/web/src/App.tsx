@@ -18,8 +18,8 @@ const appTitle = "Game's Up"
 
 const dashboardTabTitles: Record<Exclude<ReturnType<typeof getDashboardTabFromPathname>, null>, string> = {
   overview: `${appTitle} • Overview`,
-  library: `${appTitle} • Library`,
   friends: `${appTitle} • Friends`,
+  library: `${appTitle} • Library`,
   play: `${appTitle} • Play`,
   discovery: `${appTitle} • Discovery`,
   debug: `${appTitle} • Admin and Debug`

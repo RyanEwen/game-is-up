@@ -18,8 +18,8 @@ import type { DashboardTab, DashboardToast } from './types'
 
 const dashboardTabs: Array<{ value: DashboardTab; label: string }> = [
   { value: 'overview', label: 'Overview' },
-  { value: 'library', label: 'Library' },
   { value: 'friends', label: 'Friends' },
+  { value: 'library', label: 'Library' },
   { value: 'discovery', label: 'Discover' },
   { value: 'play', label: 'Play' },
   { value: 'debug', label: 'Debug' }
