@@ -532,6 +532,11 @@ function BotStateCard({ debugAdmin, formatDateTime }: { debugAdmin: DebugAdminRe
 }
 
 function PromptLogCard({ debugAdmin, formatDateTime }: { debugAdmin: DebugAdminResponse; formatDateTime: (value: string | null) => string }) {
+  const [page, setPage] = useState(1)
+  const pageCount = Math.max(1, Math.ceil(debugAdmin.recentAutoPlayPrompts.length / tablePageSize))
+  const currentPage = Math.min(page, pageCount)
+  const pagedRows = paginateRows(debugAdmin.recentAutoPlayPrompts, currentPage, tablePageSize)
+
   return (
     <Card variant="soft" sx={{ p: 3 }}>
       <Stack spacing={1.5}>
@@ -542,27 +547,87 @@ function PromptLogCard({ debugAdmin, formatDateTime }: { debugAdmin: DebugAdminR
           </Typography>
         </Box>
         {debugAdmin.recentAutoPlayPrompts.length > 0 ? (
-          <Stack spacing={1.25}>
-            {debugAdmin.recentAutoPlayPrompts.map((prompt) => (
-              <Card key={prompt.id} variant="outlined" sx={{ p: 2 }}>
-                <Stack spacing={1}>
-                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} justifyContent="space-between">
-                    <Typography level="title-sm">{prompt.user.displayName} · {prompt.game.title}</Typography>
-                    <Chip size="sm" variant="soft">{prompt.status}</Chip>
-                  </Stack>
-                  <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
-                    {prompt.statusDetail ?? 'No detail recorded.'}
-                  </Typography>
-                  <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
-                    Created {formatDateTime(prompt.createdAt)} · Delivered {formatDateTime(prompt.deliveredAt)} · Responded {formatDateTime(prompt.respondedAt)}
-                  </Typography>
-                  {prompt.dmError ? (
-                    <Typography level="body-xs" sx={{ color: 'warning.300' }}>DM error: {prompt.dmError}</Typography>
-                  ) : null}
-                </Stack>
-              </Card>
-            ))}
-          </Stack>
+          <>
+            <Box sx={{ overflowX: 'auto' }}>
+              <Table hoverRow borderAxis="bothBetween" stickyHeader>
+                <thead>
+                  <tr>
+                    <th>Created</th>
+                    <th>User</th>
+                    <th>Game</th>
+                    <th>Status</th>
+                    <th>Detail</th>
+                    <th>Delivery timeline</th>
+                    <th>CTP</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pagedRows.map((prompt) => (
+                    <tr key={prompt.id}>
+                      <td>{formatDateTime(prompt.createdAt)}</td>
+                      <td>
+                        <Stack spacing={0.25}>
+                          <Typography level="body-sm">{prompt.user.displayName}</Typography>
+                          <Typography level="body-xs" sx={{ color: 'neutral.400' }}>@{prompt.user.handle}</Typography>
+                        </Stack>
+                      </td>
+                      <td>{prompt.game.title}</td>
+                      <td>
+                        <Chip
+                          size="sm"
+                          variant="soft"
+                          color={prompt.status === 'accepted' ? 'success' : prompt.status === 'declined' || prompt.status === 'failed' ? 'danger' : prompt.status === 'expired' ? 'warning' : 'neutral'}
+                        >
+                          {prompt.status}
+                        </Chip>
+                      </td>
+                      <td>
+                        <Stack spacing={0.25}>
+                          <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
+                            {prompt.statusDetail ?? 'No detail recorded.'}
+                          </Typography>
+                          {prompt.dmError ? (
+                            <Typography level="body-xs" sx={{ color: 'warning.300' }}>
+                              DM error: {prompt.dmError}
+                            </Typography>
+                          ) : null}
+                        </Stack>
+                      </td>
+                      <td>
+                        <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
+                          Delivered {formatDateTime(prompt.deliveredAt)}
+                        </Typography>
+                        <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
+                          Responded {formatDateTime(prompt.respondedAt)}
+                        </Typography>
+                      </td>
+                      <td>
+                        <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
+                          {prompt.createdPlayIntentId ?? 'Not created'}
+                        </Typography>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            </Box>
+            <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1}>
+              <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
+                Showing {pagedRows.length} of {debugAdmin.recentAutoPlayPrompts.length} prompt rows
+              </Typography>
+              <Stack direction="row" spacing={1} alignItems="center">
+                <Button size="sm" variant="outlined" color="neutral" disabled={currentPage <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>
+                  Previous
+                </Button>
+                <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
+                  Page {currentPage} of {pageCount}
+                </Typography>
+                <Button size="sm" variant="outlined" color="neutral" disabled={currentPage >= pageCount} onClick={() => setPage((current) => Math.min(pageCount, current + 1))}>
+                  Next
+                </Button>
+              </Stack>
+            </Stack>
+          </>
         ) : (
           <EmptyStateCard
             title="No auto-play prompt history yet"
@@ -576,6 +641,11 @@ function PromptLogCard({ debugAdmin, formatDateTime }: { debugAdmin: DebugAdminR
 }
 
 function NotificationLogCard({ debugAdmin, formatDateTime }: { debugAdmin: DebugAdminResponse; formatDateTime: (value: string | null) => string }) {
+  const [page, setPage] = useState(1)
+  const pageCount = Math.max(1, Math.ceil(debugAdmin.recentNotifications.length / tablePageSize))
+  const currentPage = Math.min(page, pageCount)
+  const pagedRows = paginateRows(debugAdmin.recentNotifications, currentPage, tablePageSize)
+
   return (
     <Card variant="soft" sx={{ p: 3 }}>
       <Stack spacing={1.5}>
@@ -586,30 +656,69 @@ function NotificationLogCard({ debugAdmin, formatDateTime }: { debugAdmin: Debug
           </Typography>
         </Box>
         {debugAdmin.recentNotifications.length > 0 ? (
-          <Stack spacing={1.25}>
-            {debugAdmin.recentNotifications.map((notification) => (
-              <Card key={notification.id} variant="outlined" sx={{ p: 2 }}>
-                <Stack spacing={1}>
-                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} justifyContent="space-between">
-                    <Typography level="title-sm">{notification.title}</Typography>
-                    <Chip size="sm" color={notification.deliveredAt ? 'success' : 'neutral'} variant={notification.deliveredAt ? 'soft' : 'outlined'}>
-                      {notification.deliveredAt ? 'DM delivered' : 'Stored only'}
-                    </Chip>
-                  </Stack>
-                  <Typography level="body-sm" sx={{ color: 'neutral.300' }}>{notification.body}</Typography>
-                  <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
-                    Recipient: {notification.recipient.displayName} @{notification.recipient.handle}
-                  </Typography>
-                  <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
-                    Triggered by: {notification.triggeredBy ? `${notification.triggeredBy.displayName} @${notification.triggeredBy.handle}` : 'System'}
-                  </Typography>
-                  <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
-                    Game: {notification.gameTitle ?? 'None'} · Created {formatDateTime(notification.createdAt)} · Delivered {formatDateTime(notification.deliveredAt)}
-                  </Typography>
-                </Stack>
-              </Card>
-            ))}
-          </Stack>
+          <>
+            <Box sx={{ overflowX: 'auto' }}>
+              <Table hoverRow borderAxis="bothBetween" stickyHeader>
+                <thead>
+                  <tr>
+                    <th>Created</th>
+                    <th>Recipient</th>
+                    <th>Title</th>
+                    <th>Game</th>
+                    <th>Triggered by</th>
+                    <th>Delivery</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pagedRows.map((notification) => (
+                    <tr key={notification.id}>
+                      <td>{formatDateTime(notification.createdAt)}</td>
+                      <td>
+                        <Typography level="body-sm">{notification.recipient.displayName}</Typography>
+                        <Typography level="body-xs" sx={{ color: 'neutral.400' }}>@{notification.recipient.handle}</Typography>
+                      </td>
+                      <td>
+                        <Stack spacing={0.25}>
+                          <Typography level="body-sm">{notification.title}</Typography>
+                          <Typography level="body-xs" sx={{ color: 'neutral.400' }}>{notification.body}</Typography>
+                        </Stack>
+                      </td>
+                      <td>{notification.gameTitle ?? 'None'}</td>
+                      <td>
+                        <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
+                          {notification.triggeredBy ? `${notification.triggeredBy.displayName} @${notification.triggeredBy.handle}` : 'System'}
+                        </Typography>
+                      </td>
+                      <td>
+                        <Chip size="sm" color={notification.deliveredAt ? 'success' : 'neutral'} variant={notification.deliveredAt ? 'soft' : 'outlined'}>
+                          {notification.deliveredAt ? 'DM delivered' : 'Stored only'}
+                        </Chip>
+                        <Typography level="body-xs" sx={{ color: 'neutral.400', mt: 0.5 }}>
+                          Delivered {formatDateTime(notification.deliveredAt)}
+                        </Typography>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            </Box>
+            <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1}>
+              <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
+                Showing {pagedRows.length} of {debugAdmin.recentNotifications.length} notification rows
+              </Typography>
+              <Stack direction="row" spacing={1} alignItems="center">
+                <Button size="sm" variant="outlined" color="neutral" disabled={currentPage <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>
+                  Previous
+                </Button>
+                <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
+                  Page {currentPage} of {pageCount}
+                </Typography>
+                <Button size="sm" variant="outlined" color="neutral" disabled={currentPage >= pageCount} onClick={() => setPage((current) => Math.min(pageCount, current + 1))}>
+                  Next
+                </Button>
+              </Stack>
+            </Stack>
+          </>
         ) : (
           <EmptyStateCard
             title="No notification rows yet"
