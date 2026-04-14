@@ -127,7 +127,6 @@ function CtpLifecycleDialog({
           <EmptyStateCard
             title="No lifecycle events found"
             body="No additional rows were recorded for this call-to-play timeline yet."
-            chips={['CTP lifecycle', 'Chronological order']}
           />
         )}
       </DialogContent>
@@ -346,7 +345,6 @@ function CtpTableSection({
           <EmptyStateCard
             title="No CTP rows match these filters"
             body="Try clearing filters or create a new call to play to populate this table."
-            chips={['CTP table', 'Filters', 'Pagination']}
           />
         )}
       </Stack>
@@ -489,7 +487,6 @@ function ErrorTableSection({
           <EmptyStateCard
             title="No error logs in this snapshot"
             body="When prompt, bot, or notification-path errors are captured, they will appear here."
-            chips={['Error table', 'Filters', 'Pagination']}
           />
         )}
       </Stack>
@@ -632,7 +629,6 @@ function PromptLogCard({ debugAdmin, formatDateTime }: { debugAdmin: DebugAdminR
           <EmptyStateCard
             title="No auto-play prompt history yet"
             body="Once the bot sees activity and evaluates prompt rules, entries will appear here."
-            chips={['Discord presence', 'Prompt log']}
           />
         )}
       </Stack>
@@ -723,7 +719,6 @@ function NotificationLogCard({ debugAdmin, formatDateTime }: { debugAdmin: Debug
           <EmptyStateCard
             title="No notification rows yet"
             body="Play-intent notifications will show up here after a call to play matches someone and a notification row is created."
-            chips={['Notification rows', 'Delivery timestamp', 'Discord DM path']}
           />
         )}
       </Stack>
@@ -750,7 +745,6 @@ function DebugViewContent({
       <EmptyStateCard
         title="Sign in to inspect debug data"
         body="The debug view is only populated for authenticated sessions so it can reuse the same backend access checks as the rest of the dashboard."
-        chips={['Development only', 'Signed-in route', 'Bot and prompt logs']}
       />
     )
   }
@@ -816,7 +810,6 @@ function DebugViewContent({
           <EmptyStateCard
             title={debugLoading ? 'Loading debug data' : 'Debug data unavailable'}
             body={debugLoading ? 'Fetching the latest bot, prompt, notification, and lifecycle state from the API.' : 'No debug snapshot has been loaded yet.'}
-            chips={['Bot state', 'CTP table', 'Lifecycle events', 'Error logs']}
           />
         )}
       </Stack>
