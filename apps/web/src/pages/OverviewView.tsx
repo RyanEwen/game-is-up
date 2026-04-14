@@ -640,7 +640,7 @@ function OverviewViewContent({
           mb={0}
           sections={[
             { id: 'account', label: 'Account' },
-            { id: 'quick-start', label: 'Quick', ariaLabel: 'Quick start' },
+            { id: 'quick-start', label: 'Quick start', ariaLabel: 'Quick start' },
             ...(isSignedIn ? [{ id: 'your-network', label: 'Network', ariaLabel: 'Your network' }] : [])
           ]}
         />
