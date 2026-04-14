@@ -7,7 +7,11 @@ import type {
   DebugAdminResponse,
   DiscordServerPreferencesResponse,
   DiscoveryFeed,
+  DiscoveryGame,
+  DiscoveryPerson,
+  DiscoveryPersonGame,
   HealthResponse,
+  LibraryEntry,
   LibraryResponse,
   PlayIntentCurrentResponse,
   PlayIntentFeed,
@@ -178,30 +182,30 @@ export function useDashboardApp() {
   const discoveryGames = state.discovery?.games ?? []
   const discoveryPeople = state.discovery?.people ?? []
   const playIntentFriendOptions = discoveryPeople
-    .filter((person) => person.isFriend)
-    .map((person) => ({
+    .filter((person: DiscoveryPerson) => person.isFriend)
+    .map((person: DiscoveryPerson) => ({
       id: person.id,
       handle: person.handle,
       displayName: person.displayName,
       avatarUrl: person.avatarUrl
     }))
-    .sort((left, right) => left.displayName.localeCompare(right.displayName))
+    .sort((left: { id: string; handle: string; displayName: string; avatarUrl: string | null }, right: { id: string; handle: string; displayName: string; avatarUrl: string | null }) => left.displayName.localeCompare(right.displayName))
   const addedFriendCount = playIntentFriendOptions.length
-  const overlapGames = discoveryGames.filter((game) => game.sharedWithViewer)
-  const browseGames = discoveryGames.filter((game) => !game.sharedWithViewer)
+  const overlapGames = discoveryGames.filter((game: DiscoveryGame) => game.sharedWithViewer)
+  const browseGames = discoveryGames.filter((game: DiscoveryGame) => !game.sharedWithViewer)
   const hasLibraryEntries = libraryEntries.length > 0
   const hasDiscoveryGames = discoveryGames.length > 0
   const hasDiscoveryPeople = discoveryPeople.length > 0
   const hasDiscoveryContent = hasDiscoveryGames || hasDiscoveryPeople
   const hasPlayIntentPreviews = Boolean(state.playIntents && state.playIntents.intents.length > 0)
   const showSignedInOnboarding = isSignedIn && !hasLibraryEntries && !hasDiscoveryContent && !hasPlayIntentPreviews
-  const availableDiscoveryServers = (state.discordServers?.servers ?? []).filter((server) => server.botPresent)
-  const selectedDiscoveryServerCount = availableDiscoveryServers.filter((server) => server.selected).length
+  const availableDiscoveryServers = (state.discordServers?.servers ?? []).filter((server: DiscordServerPreferencesResponse['servers'][number]) => server.botPresent)
+  const selectedDiscoveryServerCount = availableDiscoveryServers.filter((server: DiscordServerPreferencesResponse['servers'][number]) => server.selected).length
   const noDiscoveryServersSelected = isSignedIn && availableDiscoveryServers.length > 0 && selectedDiscoveryServerCount === 0
-  const libraryGameIds = new Set<string>(libraryEntries.map((entry) => entry.gameId))
-  const libraryEntryIdsByGameId = new Map<string, string>(libraryEntries.map((entry) => [entry.gameId, entry.id]))
+  const libraryGameIds = new Set<string>(libraryEntries.map((entry: LibraryEntry) => entry.gameId))
+  const libraryEntryIdsByGameId = new Map<string, string>(libraryEntries.map((entry: LibraryEntry) => [entry.gameId, entry.id]))
   const hasLoadedAudienceContext = state.discovery != null
-  const playIntentDefaultAudienceCount = discoveryPeople.filter((person) => person.games.some((game) => libraryGameIds.has(game.id))).length
+  const playIntentDefaultAudienceCount = discoveryPeople.filter((person: DiscoveryPerson) => person.games.some((game: DiscoveryPersonGame) => libraryGameIds.has(game.id))).length
   const playIntentUnavailableAudienceMessage = hasLoadedAudienceContext && isSignedIn && !state.activePlayIntent && hasLibraryEntries && playIntentDefaultAudienceCount === 0
     ? noDiscoveryServersSelected
       ? 'You do not have any Discord servers in your network right now, so nobody can receive a call to play. Select at least one Discord server to form your network first.'
@@ -209,8 +213,8 @@ export function useDashboardApp() {
         ? 'You do not have anyone in your network who can receive a call to play yet. Select at least one Discord server to form your network first.'
         : 'Nobody in your network has games in their library that match yours, so nobody can receive a call to play yet. Add more games to your library or wait for others to add more that match yours.'
     : null
-  const discordProvider = state.auth?.providers.find((provider) => provider.id === 'discord') ?? null
-  const steamProvider = state.auth?.providers.find((provider) => provider.id === 'steam') ?? null
+  const discordProvider = state.auth?.providers.find((provider: AuthProvidersResponse['providers'][number]) => provider.id === 'discord') ?? null
+  const steamProvider = state.auth?.providers.find((provider: AuthProvidersResponse['providers'][number]) => provider.id === 'steam') ?? null
   const steamConnected = Boolean(state.session?.connectedProviders.includes('steam'))
   const currentUsualAvailability = state.library?.usualAvailability ?? state.session?.user?.usualAvailability ?? null
   const friendPeople = [...discoveryPeople].filter((person) => person.isFriend).sort((left, right) => left.displayName.localeCompare(right.displayName))
@@ -464,7 +468,7 @@ export function useDashboardApp() {
   }, [])
 
   const handleAddGameToLibrary = useCallback(async ({ gameId, title, coverUrl, platformLabels }: DashboardLibraryQuickAddGame) => {
-    const alreadyInLibrary = libraryEntries.some((entry) => entry.gameId === gameId)
+    const alreadyInLibrary = libraryEntries.some((entry: LibraryEntry) => entry.gameId === gameId)
 
     if (!isSignedIn) {
       setActionNotice({

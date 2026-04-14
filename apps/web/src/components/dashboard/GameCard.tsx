@@ -1,5 +1,5 @@
 import { Box, Button, Card, Chip, Sheet, Stack, Typography } from '@mui/joy'
-import type { DiscoveryGame } from '@game-is-up/shared'
+import type { DiscoveryGame, DiscoveryGamePlayer } from '@game-is-up/shared'
 import { DashboardDeferredImage } from './DashboardDeferredImage'
 import { FriendActionPopover } from './FriendActionPopover'
 import { GameActionPopover } from './GameActionPopover'
@@ -187,7 +187,7 @@ export function GameCard({
             <Chip color="primary" variant="outlined" size={compact ? 'sm' : 'md'}>
               {game.playerCount} player{game.playerCount === 1 ? '' : 's'}
             </Chip>
-            {visiblePlatformLabels.map((platform) => (
+            {visiblePlatformLabels.map((platform: string) => (
               <Chip key={platform} size="sm" variant="outlined" color="neutral">
                 {platform}
               </Chip>
@@ -210,7 +210,7 @@ export function GameCard({
               gap: 1.25
             }}
           >
-            {visiblePlayers.map((player) => (
+            {visiblePlayers.map((player: DiscoveryGamePlayer) => (
               <Sheet
                 key={player.id}
                 variant="soft"
@@ -284,7 +284,7 @@ export function GameCard({
                       <Chip size="sm" color={player.intent === 'playing-now' ? 'success' : 'primary'}>
                         {formatLibraryIntentLabel(player.intent)}
                       </Chip>
-                      {player.platformLabels.map((platform) => (
+                      {player.platformLabels.map((platform: string) => (
                         <Chip key={platform} size="sm" variant="outlined" color="neutral">
                           {platform}
                         </Chip>
@@ -297,7 +297,7 @@ export function GameCard({
                     ) : null}
                     {!compact && player.mutualServers.length > 0 ? (
                       <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-                        {player.mutualServers.map((serverName) => (
+                        {player.mutualServers.map((serverName: string) => (
                           <Chip key={serverName} size="sm" variant="soft" color="warning">
                             {serverName}
                           </Chip>
