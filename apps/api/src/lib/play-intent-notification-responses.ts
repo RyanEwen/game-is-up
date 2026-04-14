@@ -70,17 +70,18 @@ function buildScheduledCheckInResponseRow(notificationId: string) {
   )
 }
 
-export function buildPlayIntentDirectMessage(title: string, body: string) {
+export function buildPlayIntentDirectMessage(title: string, body: string, creatorDiscordUserId?: string | null) {
   return [
     `**${title}**`,
     body,
+    creatorDiscordUserId ? `Creator on Discord: <@${creatorDiscordUserId}>` : null,
     supportsDiscordInteractiveMessages()
       ? 'Are you planning to join this call to play?'
       : 'Open Game\'s Up to answer this call to play.',
     supportsDiscordInteractiveMessages()
       ? "Use the buttons below to answer. You can still open Game's Up afterward and post your own call if you want to widen the group."
       : "You can still open Game's Up afterward and post your own call if you want to widen the group."
-  ].join('\n\n')
+  ].filter((part): part is string => Boolean(part)).join('\n\n')
 }
 
 export function buildPlayIntentNotificationComponents(notificationId: string) {
@@ -121,22 +122,6 @@ function buildSessionEndedReason(creatorDisplayName: string, gameTitle: string |
   return gameTitle
     ? `${creatorDisplayName}'s ${gameTitle} session ended before you answered.`
     : `${creatorDisplayName}'s call to play ended before you answered.`
-}
-
-function buildAlreadyHandledMessage(responseChoice: NotificationResponseChoice | null) {
-  if (responseChoice === NotificationResponseChoice.JOIN) {
-    return buildExpiredMessage('You already said that you are joining this call to play.')
-  }
-
-  if (responseChoice === NotificationResponseChoice.DECLINE) {
-    return buildExpiredMessage('You already said that you are not joining this call to play.')
-  }
-
-  if (responseChoice === NotificationResponseChoice.EXPIRED) {
-    return buildExpiredMessage('That call to play ended before you answered.')
-  }
-
-  return buildExpiredMessage('It was already handled earlier.')
 }
 
 function buildCreatorCheckInPromptMessage(creatorDisplayName: string) {
@@ -246,6 +231,24 @@ function buildCreatorJoinNotification(notification: {
   const body = notification.gameTitle
     ? `${notification.recipientDisplayName} said yes to your ${notification.gameTitle} call to play.`
     : `${notification.recipientDisplayName} said yes to your call to play.`
+
+  return {
+    title,
+    body,
+    dm: `**${title}**\n${body}\n\nOpen Game's Up: ${buildPlayUrl()}`
+  }
+}
+
+function buildCreatorDeclineNotification(notification: {
+  recipientDisplayName: string;
+  gameTitle: string | null;
+}) {
+  const title = notification.gameTitle
+    ? `${notification.recipientDisplayName} is out for ${notification.gameTitle}`
+    : `${notification.recipientDisplayName} is no longer joining`
+  const body = notification.gameTitle
+    ? `${notification.recipientDisplayName} changed their mind and is no longer joining your ${notification.gameTitle} call to play.`
+    : `${notification.recipientDisplayName} changed their mind and is no longer joining your call to play.`
 
   return {
     title,
@@ -489,19 +492,50 @@ export async function handleScheduledPlayIntentCheckInInteraction(interaction: B
   }
 
   if (action.response === NotificationResponseChoice.CANCELED) {
-    const cancelResult = await prisma.notification.updateMany({
-      where: {
-        id: notification.id,
-        respondedAt: null
-      },
-      data: {
-        respondedAt: new Date(),
-        responseChoice: NotificationResponseChoice.CANCELED
+    const now = new Date()
+    const cancellation = await prisma.$transaction(async (transaction) => {
+      const cancelResult = await transaction.notification.updateMany({
+        where: {
+          id: notification.id,
+          respondedAt: null
+        },
+        data: {
+          respondedAt: now,
+          responseChoice: NotificationResponseChoice.CANCELED
+        }
+      })
+
+      if (cancelResult.count === 0 || !notification.playIntentId) {
+        return {
+          notificationCanceled: cancelResult.count > 0
+        }
+      }
+
+      await transaction.playIntent.updateMany({
+        where: {
+          id: notification.playIntentId,
+          userId: notification.userId,
+          expiresAt: {
+            gt: now
+          }
+        },
+        data: {
+          expiresAt: now,
+          windowEndsAt: now
+        }
+      })
+
+      return {
+        notificationCanceled: true
       }
     })
 
+    if (cancellation.notificationCanceled && notification.playIntentId) {
+      await expirePendingPlayIntentNotifications([notification.playIntentId])
+    }
+
     await interaction.update({
-      content: cancelResult.count > 0
+      content: cancellation.notificationCanceled
         ? buildCreatorCanceledMessage()
         : buildCreatorCheckInAlreadyHandledMessage(NotificationResponseChoice.CANCELED),
       components: [buildLinkRow()]
@@ -630,18 +664,30 @@ export async function handleScheduledPlayIntentCheckInInteraction(interaction: B
     return
   }
 
-  const recipientIdentities = await prisma.userIdentity.findMany({
-    where: {
-      provider: AuthProvider.DISCORD,
-      userId: {
-        in: result.createdNotifications.map((createdNotification) => createdNotification.userId)
+  const [recipientIdentities, creatorIdentity] = await Promise.all([
+    prisma.userIdentity.findMany({
+      where: {
+        provider: AuthProvider.DISCORD,
+        userId: {
+          in: result.createdNotifications.map((createdNotification) => createdNotification.userId)
+        }
+      },
+      select: {
+        userId: true,
+        providerUserId: true
       }
-    },
-    select: {
-      userId: true,
-      providerUserId: true
-    }
-  })
+    }),
+    prisma.userIdentity.findFirst({
+      where: {
+        provider: AuthProvider.DISCORD,
+        userId: playIntent.userId
+      },
+      select: {
+        providerUserId: true
+      }
+    })
+  ])
+  const creatorDiscordUserId = creatorIdentity?.providerUserId ?? null
   const discordUserIdByUserId = new Map(recipientIdentities.map((identityEntry) => [identityEntry.userId, identityEntry.providerUserId]))
 
   const dmTargets = result.createdNotifications
@@ -655,7 +701,7 @@ export async function handleScheduledPlayIntentCheckInInteraction(interaction: B
       return {
         notificationId: createdNotification.id,
         discordUserId,
-        content: buildPlayIntentDirectMessage(createdNotification.title, createdNotification.body),
+        content: buildPlayIntentDirectMessage(createdNotification.title, createdNotification.body, creatorDiscordUserId),
         components: createdNotification.type === NotificationType.SCHEDULED_PLAY_INTENT_REMINDER
           ? buildPlayIntentNotificationComponents(createdNotification.id)
           : [buildLinkRow()]
@@ -772,14 +818,6 @@ export async function handlePlayIntentNotificationInteraction(interaction: Butto
     return
   }
 
-  if (notification.respondedAt) {
-    await interaction.update({
-      content: buildAlreadyHandledMessage(notification.responseChoice),
-      components: [buildLinkRow()]
-    })
-    return
-  }
-
   if (!notification.playIntentId || !notification.playIntent || notification.playIntent.expiresAt <= new Date()) {
     await interaction.update({
       content: buildExpiredMessage('The original call to play is no longer active.'),
@@ -789,74 +827,7 @@ export async function handlePlayIntentNotificationInteraction(interaction: Butto
   }
 
   const playIntent = notification.playIntent
-
-  if (action.response === NotificationResponseChoice.DECLINE) {
-    const declineResult = await prisma.notification.updateMany({
-      where: {
-        id: notification.id,
-        respondedAt: null
-      },
-      data: {
-        respondedAt: new Date(),
-        responseChoice: NotificationResponseChoice.DECLINE
-      }
-    })
-
-    await interaction.update({
-      content: declineResult.count > 0
-        ? buildDeclineAcceptedMessage()
-        : buildAlreadyHandledMessage(NotificationResponseChoice.DECLINE),
-      components: [buildLinkRow()]
-    })
-    return
-  }
-
-  const creatorNotificationCopy = buildCreatorJoinNotification({
-    recipientDisplayName: notification.user.displayName,
-    gameTitle: notification.game?.title ?? null
-  })
-
-  const joinResult = await prisma.$transaction(async (transaction) => {
-    const updateResult = await transaction.notification.updateMany({
-      where: {
-        id: notification.id,
-        respondedAt: null
-      },
-      data: {
-        respondedAt: new Date(),
-        responseChoice: NotificationResponseChoice.JOIN
-      }
-    })
-
-    if (updateResult.count === 0) {
-      return null
-    }
-
-    const creatorNotification = await transaction.notification.create({
-      data: {
-        userId: playIntent.user.id,
-        triggeredByUserId: notification.userId,
-        playIntentId: playIntent.id,
-        gameId: notification.gameId,
-        type: NotificationType.SYSTEM,
-        title: creatorNotificationCopy.title,
-        body: creatorNotificationCopy.body
-      },
-      select: {
-        id: true
-      }
-    })
-
-    return creatorNotification
-  })
-
-  if (!joinResult) {
-    await interaction.update({
-      content: buildAlreadyHandledMessage(NotificationResponseChoice.JOIN),
-      components: [buildLinkRow()]
-    })
-    return
-  }
+  const previousChoice = notification.responseChoice
 
   const creatorIdentity = await prisma.userIdentity.findFirst({
     where: {
@@ -868,7 +839,129 @@ export async function handlePlayIntentNotificationInteraction(interaction: Butto
     }
   })
 
-  if (creatorIdentity?.providerUserId) {
+  if (action.response === NotificationResponseChoice.DECLINE) {
+    const creatorNotificationCopy = buildCreatorDeclineNotification({
+      recipientDisplayName: notification.user.displayName,
+      gameTitle: notification.game?.title ?? null
+    })
+
+    const creatorNotification = previousChoice === NotificationResponseChoice.JOIN
+      ? await prisma.$transaction(async (transaction) => {
+          await transaction.notification.update({
+            where: {
+              id: notification.id
+            },
+            data: {
+              respondedAt: new Date(),
+              responseChoice: NotificationResponseChoice.DECLINE
+            }
+          })
+
+          return transaction.notification.create({
+            data: {
+              userId: playIntent.user.id,
+              triggeredByUserId: notification.userId,
+              playIntentId: playIntent.id,
+              gameId: notification.gameId,
+              type: NotificationType.SYSTEM,
+              title: creatorNotificationCopy.title,
+              body: creatorNotificationCopy.body
+            },
+            select: {
+              id: true
+            }
+          })
+        })
+      : await prisma.notification.update({
+          where: {
+            id: notification.id
+          },
+          data: {
+            respondedAt: new Date(),
+            responseChoice: NotificationResponseChoice.DECLINE
+          },
+          select: {
+            id: true
+          }
+        })
+
+    if (previousChoice === NotificationResponseChoice.JOIN && creatorIdentity?.providerUserId) {
+      const dmResult = (await sendDiscordDirectMessages([
+        {
+          discordUserId: creatorIdentity.providerUserId,
+          content: creatorNotificationCopy.dm
+        }
+      ]))[0]
+
+      if (dmResult?.status === 'sent') {
+        await prisma.notification.update({
+          where: {
+            id: creatorNotification.id
+          },
+          data: {
+            deliveredAt: new Date()
+          }
+        })
+      }
+    }
+
+    await interaction.update({
+      content: previousChoice === NotificationResponseChoice.JOIN
+        ? `Understood. I marked you as not joining ${playIntent.user.displayName}'s call to play and let them know.`
+        : previousChoice === NotificationResponseChoice.DECLINE
+          ? 'You are still marked as not joining this call to play.'
+          : buildDeclineAcceptedMessage(),
+      components: [buildLinkRow()]
+    })
+    return
+  }
+
+  const creatorNotificationCopy = buildCreatorJoinNotification({
+    recipientDisplayName: notification.user.displayName,
+    gameTitle: notification.game?.title ?? null
+  })
+
+  const joinResult = previousChoice !== NotificationResponseChoice.JOIN
+    ? await prisma.$transaction(async (transaction) => {
+        await transaction.notification.update({
+          where: {
+            id: notification.id
+          },
+          data: {
+            respondedAt: new Date(),
+            responseChoice: NotificationResponseChoice.JOIN
+          }
+        })
+
+        return transaction.notification.create({
+          data: {
+            userId: playIntent.user.id,
+            triggeredByUserId: notification.userId,
+            playIntentId: playIntent.id,
+            gameId: notification.gameId,
+            type: NotificationType.SYSTEM,
+            title: creatorNotificationCopy.title,
+            body: creatorNotificationCopy.body
+          },
+          select: {
+            id: true
+          }
+        })
+      })
+    : await prisma.notification.update({
+        where: {
+          id: notification.id
+        },
+        data: {
+          respondedAt: new Date(),
+          responseChoice: NotificationResponseChoice.JOIN
+        },
+        select: {
+          id: true
+        }
+      })
+
+  if (previousChoice !== NotificationResponseChoice.JOIN && creatorIdentity?.providerUserId) {
     const dmResult = (await sendDiscordDirectMessages([
       {
         discordUserId: creatorIdentity.providerUserId,
@@ -889,7 +982,11 @@ export async function handlePlayIntentNotificationInteraction(interaction: Butto
   }
 
   await interaction.update({
-    content: buildJoinAcceptedMessage(playIntent.user.displayName),
+    content: previousChoice === NotificationResponseChoice.DECLINE
+      ? `Nice. I marked you as joining ${playIntent.user.displayName}'s call to play and let them know.`
+      : previousChoice === NotificationResponseChoice.JOIN
+        ? 'You are still marked as joining this call to play.'
+        : buildJoinAcceptedMessage(playIntent.user.displayName),
     components: [buildLinkRow()]
   })
 }

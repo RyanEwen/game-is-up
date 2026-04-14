@@ -479,11 +479,70 @@ export const debugNotificationDeliverySchema = z.object({
   }).nullable()
 })
 
+export const debugPlayIntentStatusSchema = z.enum(['active', 'ended'])
+
+export const debugPlayIntentSummarySchema = z.object({
+  id: z.string().uuid(),
+  createdAt: z.string().datetime(),
+  windowStartsAt: z.string().datetime(),
+  windowEndsAt: z.string().datetime(),
+  expiresAt: z.string().datetime(),
+  status: debugPlayIntentStatusSchema,
+  headline: z.string().min(1),
+  note: z.string(),
+  selectionMode: playIntentSelectionModeSchema,
+  notifyScope: playIntentNotifyScopeSchema,
+  gameTitles: z.array(z.string().min(1)),
+  platformLabels: z.array(platformLabelSchema),
+  targetedFriendCount: z.number().int().nonnegative(),
+  notificationCount: z.number().int().nonnegative(),
+  deliveredNotificationCount: z.number().int().nonnegative(),
+  respondedNotificationCount: z.number().int().nonnegative(),
+  errorCount: z.number().int().nonnegative(),
+  creator: z.object({
+    id: z.string().uuid(),
+    handle: z.string().min(2).max(32),
+    displayName: z.string().min(2).max(60),
+    timezoneId: timezoneIdSchema
+  })
+})
+
+export const debugPlayIntentLifecycleEventSourceSchema = z.enum(['play-intent', 'notification', 'auto-play-prompt', 'system'])
+
+export const debugPlayIntentLifecycleEventSchema = z.object({
+  id: z.string().min(1),
+  playIntentId: z.string().uuid(),
+  occurredAt: z.string().datetime(),
+  source: debugPlayIntentLifecycleEventSourceSchema,
+  eventType: z.string().min(1),
+  summary: z.string().min(1),
+  details: z.string().nullable(),
+  isError: z.boolean(),
+  notificationId: z.string().uuid().nullable(),
+  promptId: z.string().uuid().nullable(),
+  actorDisplayName: z.string().min(1).nullable(),
+  recipientDisplayName: z.string().min(1).nullable()
+})
+
+export const debugErrorLogSchema = z.object({
+  id: z.string().min(1),
+  occurredAt: z.string().datetime(),
+  source: debugPlayIntentLifecycleEventSourceSchema,
+  message: z.string().min(1),
+  detail: z.string().nullable(),
+  playIntentId: z.string().uuid().nullable(),
+  notificationId: z.string().uuid().nullable(),
+  promptId: z.string().uuid().nullable()
+})
+
 export const debugAdminResponseSchema = z.object({
   generatedAt: z.string().datetime(),
   bot: debugDiscordBotStateSchema,
   recentAutoPlayPrompts: z.array(debugAutoPlayPromptSchema),
-  recentNotifications: z.array(debugNotificationDeliverySchema)
+  recentNotifications: z.array(debugNotificationDeliverySchema),
+  recentPlayIntents: z.array(debugPlayIntentSummarySchema),
+  playIntentLifecycleEvents: z.array(debugPlayIntentLifecycleEventSchema),
+  recentErrors: z.array(debugErrorLogSchema)
 })
 
 export const clientBootstrapSchema = z.object({
@@ -564,6 +623,11 @@ export type DebugDiscordBotState = z.infer<typeof debugDiscordBotStateSchema>;
 export type DebugAutoPlayPromptStatus = z.infer<typeof debugAutoPlayPromptStatusSchema>;
 export type DebugAutoPlayPrompt = z.infer<typeof debugAutoPlayPromptSchema>;
 export type DebugNotificationDelivery = z.infer<typeof debugNotificationDeliverySchema>;
+export type DebugPlayIntentStatus = z.infer<typeof debugPlayIntentStatusSchema>;
+export type DebugPlayIntentSummary = z.infer<typeof debugPlayIntentSummarySchema>;
+export type DebugPlayIntentLifecycleEventSource = z.infer<typeof debugPlayIntentLifecycleEventSourceSchema>;
+export type DebugPlayIntentLifecycleEvent = z.infer<typeof debugPlayIntentLifecycleEventSchema>;
+export type DebugErrorLog = z.infer<typeof debugErrorLogSchema>;
 export type DebugAdminResponse = z.infer<typeof debugAdminResponseSchema>;
 export type ClientBootstrap = z.infer<typeof clientBootstrapSchema>;
 export type ServerEnv = z.infer<typeof serverEnvSchema>;

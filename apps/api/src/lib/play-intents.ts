@@ -21,6 +21,7 @@ import {
   expirePendingPlayIntentNotifications
 } from './play-intent-notification-responses.js'
 import { prisma } from './prisma.js'
+import { normalizeTimezoneId } from './timezone-label.js'
 
 export class PlayIntentValidationError extends Error {}
 
@@ -89,13 +90,17 @@ function formatDurationLabel(durationMinutes: number) {
   return `${durationMinutes} minutes`
 }
 
-function formatScheduleDateTime(date: Date) {
-  return date.toLocaleString([], {
+function formatScheduleDateTime(date: Date, timezoneId: string | null | undefined) {
+  const normalizedTimezoneId = normalizeTimezoneId(timezoneId) ?? 'Etc/UTC'
+
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone: normalizedTimezoneId,
     month: 'short',
     day: 'numeric',
     hour: 'numeric',
-    minute: '2-digit'
-  })
+    minute: '2-digit',
+    timeZoneName: 'short'
+  }).format(date)
 }
 
 function summarizeTitles(titles: string[]) {
@@ -108,10 +113,10 @@ function summarizeTitles(titles: string[]) {
   }
 
   if (titles.length === 2) {
-    return `${titles[0]} and ${titles[1]}`
+    return `${titles[0]} or ${titles[1]}`
   }
 
-  return `${titles[0]} and ${titles.length - 1} more`
+  return `${titles[0]} or ${titles.length - 1} other options`
 }
 
 function buildHeadline(selectionMode: PlayIntentSelectionMode, selectedTitles: string[]) {
@@ -126,11 +131,12 @@ function buildNotificationCopy(
   selectedTitles: string[],
   durationMinutes: number,
   startsAt: Date,
-  now: Date
+  now: Date,
+  recipientTimezoneId: string | null | undefined
 ) {
   const durationLabel = formatDurationLabel(durationMinutes)
   const isScheduled = startsAt.getTime() > now.getTime() + 60 * 1000
-  const startsAtLabel = formatScheduleDateTime(startsAt)
+  const startsAtLabel = formatScheduleDateTime(startsAt, recipientTimezoneId)
 
   if (selectionMode === 'library') {
     return {
@@ -447,7 +453,8 @@ export async function upsertCurrentPlayIntent(
         id: userId
       },
       select: {
-        displayName: true
+        displayName: true,
+        timezoneId: true
       }
     }),
     prisma.friend.findMany({
@@ -492,6 +499,21 @@ export async function upsertCurrentPlayIntent(
 
   const selectedGameIds = selectedEntries.map((entry) => entry.gameId)
   const selectedTitles = selectedEntries.map((entry) => entry.game.title)
+  const dmGameEmbeds = payload.selectionMode === 'subset'
+    ? selectedEntries
+      .map((entry) => ({
+        title: entry.game.title,
+        coverUrl: toClientGameCoverUrl(entry.game.coverUrl)
+      }))
+      .filter((entry): entry is { title: string; coverUrl: string } => Boolean(entry.coverUrl))
+      .slice(0, 3)
+      .map((entry, index, allEntries) => ({
+        title: allEntries.length > 1 ? `Possible game ${index + 1}: ${entry.title}` : `Possible game: ${entry.title}`,
+        image: {
+          url: entry.coverUrl
+        }
+      }))
+    : []
   const platformLabels = dedupePlatformLabels(
     selectedEntries.flatMap((entry) => entry.platforms.map((platform) => platform.platformLabel))
   )
@@ -539,7 +561,20 @@ export async function upsertCurrentPlayIntent(
   })).map((intent) => intent.id)
   const { startsAt, durationMinutes, endsAt } = resolvePlayIntentWindow(payload, now)
   const headline = buildHeadline(payload.selectionMode, selectedTitles)
-  const { title, body } = buildNotificationCopy(sender.displayName, payload.selectionMode, selectedTitles, durationMinutes, startsAt, now)
+  const recipientProfiles = recipientUserIds.length > 0
+    ? await prisma.user.findMany({
+        where: {
+          id: {
+            in: recipientUserIds
+          }
+        },
+        select: {
+          id: true,
+          timezoneId: true
+        }
+      })
+    : []
+  const recipientTimezoneByUserId = new Map(recipientProfiles.map((profile) => [profile.id, profile.timezoneId]))
   const note = payload.note?.trim() ?? ''
 
   let activeIntent: ActivePlayIntent | null = null
@@ -594,23 +629,36 @@ export async function upsertCurrentPlayIntent(
 
     if (recipientUserIds.length > 0) {
       createdNotifications = await Promise.all(
-        recipientUserIds.map((recipientUserId) => transaction.notification.create({
-          data: {
-            userId: recipientUserId,
-            triggeredByUserId: userId,
-            playIntentId: createdIntent.id,
-            gameId: payload.selectionMode === 'subset' ? selectedGameIds[0] : null,
-            type: NotificationType.FRIEND_PLAYING,
-            title,
-            body
-          },
-          select: {
-            id: true,
-            userId: true,
-            title: true,
-            body: true
-          }
-        }))
+        recipientUserIds.map((recipientUserId) => {
+          const timezoneId = recipientTimezoneByUserId.get(recipientUserId) ?? sender.timezoneId
+          const notificationCopy = buildNotificationCopy(
+            sender.displayName,
+            payload.selectionMode,
+            selectedTitles,
+            durationMinutes,
+            startsAt,
+            now,
+            timezoneId
+          )
+
+          return transaction.notification.create({
+            data: {
+              userId: recipientUserId,
+              triggeredByUserId: userId,
+              playIntentId: createdIntent.id,
+              gameId: payload.selectionMode === 'subset' ? selectedGameIds[0] : null,
+              type: NotificationType.FRIEND_PLAYING,
+              title: notificationCopy.title,
+              body: notificationCopy.body
+            },
+            select: {
+              id: true,
+              userId: true,
+              title: true,
+              body: true
+            }
+          })
+        })
       )
     }
 
@@ -622,19 +670,37 @@ export async function upsertCurrentPlayIntent(
   let deliveredNotificationCount = 0
 
   if (createdNotifications.length > 0) {
-    const recipientIdentities = await prisma.userIdentity.findMany({
-      where: {
-        provider: AuthProvider.DISCORD,
-        userId: {
-          in: createdNotifications.map((notification) => notification.userId)
+    const [recipientIdentities, creatorIdentity] = await Promise.all([
+      prisma.userIdentity.findMany({
+        where: {
+          provider: AuthProvider.DISCORD,
+          userId: {
+            in: createdNotifications.map((notification) => notification.userId)
+          }
+        },
+        select: {
+          userId: true,
+          providerUserId: true
         }
-      },
-      select: {
-        userId: true,
-        providerUserId: true
-      }
-    })
+      }),
+      prisma.userIdentity.findFirst({
+        where: {
+          provider: AuthProvider.DISCORD,
+          userId
+        },
+        select: {
+          providerUserId: true
+        }
+      })
+    ])
+    const creatorDiscordUserId = creatorIdentity?.providerUserId ?? null
     const discordUserIdByUserId = new Map(recipientIdentities.map((identity) => [identity.userId, identity.providerUserId]))
+    type DirectMessageTarget = {
+      notificationId: string;
+      discordUserId: string;
+      content: string;
+      embeds: { title: string; image: { url: string } }[] | undefined;
+    }
     const directMessageTargets = createdNotifications
       .map((notification) => {
         const discordUserId = discordUserIdByUserId.get(notification.userId)
@@ -646,16 +712,20 @@ export async function upsertCurrentPlayIntent(
         return {
           notificationId: notification.id,
           discordUserId,
-          content: buildPlayIntentDirectMessage(notification.title, notification.body)
+          content: buildPlayIntentDirectMessage(notification.title, notification.body, creatorDiscordUserId),
+          embeds: dmGameEmbeds.length > 0
+            ? dmGameEmbeds
+            : undefined
         }
       })
-      .filter((target): target is { notificationId: string; discordUserId: string; content: string } => target != null)
+          .filter((target): target is DirectMessageTarget => target != null)
 
     if (directMessageTargets.length > 0) {
       const dmResults = await sendDiscordDirectMessages(
         directMessageTargets.map((target) => ({
           discordUserId: target.discordUserId,
           content: target.content,
+          embeds: target.embeds,
           components: buildPlayIntentNotificationComponents(target.notificationId)
         }))
       )

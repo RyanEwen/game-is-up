@@ -1,17 +1,503 @@
-import { Box, Button, Card, Chip, Divider, Stack, Typography } from '@mui/joy'
-import type { DebugAdminResponse } from '@game-is-up/shared'
+import { useMemo, useState } from 'react'
+import {
+  Box,
+  Button,
+  Card,
+  Chip,
+  DialogContent,
+  DialogTitle,
+  Input,
+  Option,
+  Select,
+  Stack,
+  Table,
+  Typography
+} from '@mui/joy'
+import type { DebugAdminResponse, DebugErrorLog, DebugPlayIntentLifecycleEvent, DebugPlayIntentSummary } from '@game-is-up/shared'
+import { DashboardModal } from '../components/dashboard/DashboardModal'
 import { EmptyStateCard } from '../components/dashboard/EmptyStateCard'
+import { SectionNav, sectionScrollMarginTop } from '../components/dashboard/SectionNav'
 import { useDashboardContext } from '../contexts/useDashboardContext'
 
-function formatDateTime(value: string | null) {
-  if (!value) {
-    return 'Not available'
-  }
+type SortDirection = 'asc' | 'desc'
+type CtpSortKey = 'createdAt' | 'windowStartsAt' | 'creator' | 'status' | 'notificationCount' | 'errorCount'
+type ErrorSortKey = 'occurredAt' | 'source' | 'message'
 
-  return new Date(value).toLocaleString()
+const tablePageSize = 10
+
+function useLocalDateFormatter() {
+  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Etc/UTC'
+
+  const formatter = useMemo(() => new Intl.DateTimeFormat(undefined, {
+    timeZone,
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZoneName: 'short'
+  }), [timeZone])
+
+  return {
+    timeZone,
+    formatDateTime: (value: string | null) => {
+      if (!value) {
+        return 'Not available'
+      }
+
+      return formatter.format(new Date(value))
+    }
+  }
 }
 
-function BotStateCard({ debugAdmin }: { debugAdmin: DebugAdminResponse }) {
+function paginateRows<T>(rows: T[], page: number, pageSize: number) {
+  const start = (page - 1) * pageSize
+  return rows.slice(start, start + pageSize)
+}
+
+function CtpLifecycleDialog({
+  open,
+  onClose,
+  ctp,
+  events,
+  formatDateTime
+}: {
+  open: boolean;
+  onClose: () => void;
+  ctp: DebugPlayIntentSummary | null;
+  events: DebugPlayIntentLifecycleEvent[];
+  formatDateTime: (value: string | null) => string;
+}) {
+  if (!ctp) {
+    return null
+  }
+
+  return (
+    <DashboardModal open={open} onClose={onClose} width="min(96vw, 980px)">
+      <DialogTitle sx={{ pr: 6 }}>CTP lifecycle: {ctp.headline}</DialogTitle>
+      <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, minHeight: 0, overflow: 'auto' }}>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ flexWrap: 'wrap' }}>
+          <Chip variant="outlined">Creator: {ctp.creator.displayName}</Chip>
+          <Chip variant="outlined">Status: {ctp.status}</Chip>
+          <Chip variant="outlined">Scope: {ctp.notifyScope}</Chip>
+          <Chip variant="outlined">Selection: {ctp.selectionMode}</Chip>
+          <Chip variant="outlined">Notifications: {ctp.notificationCount}</Chip>
+        </Stack>
+
+        <Card variant="outlined" sx={{ p: 2 }}>
+          <Stack spacing={0.75}>
+            <Typography level="title-sm">Session window</Typography>
+            <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
+              Created {formatDateTime(ctp.createdAt)}
+            </Typography>
+            <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
+              Starts {formatDateTime(ctp.windowStartsAt)}
+            </Typography>
+            <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
+              Ends {formatDateTime(ctp.windowEndsAt)}
+            </Typography>
+          </Stack>
+        </Card>
+
+        {events.length > 0 ? (
+          <Stack spacing={1}>
+            {events.map((eventEntry) => (
+              <Card key={eventEntry.id} variant="outlined" sx={{ p: 1.5 }}>
+                <Stack spacing={0.5}>
+                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} justifyContent="space-between">
+                    <Typography level="title-sm">{eventEntry.summary}</Typography>
+                    <Chip size="sm" color={eventEntry.isError ? 'danger' : 'neutral'} variant={eventEntry.isError ? 'soft' : 'outlined'}>
+                      {eventEntry.source}
+                    </Chip>
+                  </Stack>
+                  <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
+                    {formatDateTime(eventEntry.occurredAt)}
+                  </Typography>
+                  <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
+                    {eventEntry.details ?? `Event type: ${eventEntry.eventType}`}
+                  </Typography>
+                  <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
+                    Actor: {eventEntry.actorDisplayName ?? 'System'} · Recipient: {eventEntry.recipientDisplayName ?? 'N/A'}
+                  </Typography>
+                </Stack>
+              </Card>
+            ))}
+          </Stack>
+        ) : (
+          <EmptyStateCard
+            title="No lifecycle events found"
+            body="No additional rows were recorded for this call-to-play timeline yet."
+            chips={['CTP lifecycle', 'Chronological order']}
+          />
+        )}
+      </DialogContent>
+    </DashboardModal>
+  )
+}
+
+function CtpTableSection({
+  debugAdmin,
+  formatDateTime,
+  onOpenLifecycle
+}: {
+  debugAdmin: DebugAdminResponse;
+  formatDateTime: (value: string | null) => string;
+  onOpenLifecycle: (playIntentId: string) => void;
+}) {
+  const [query, setQuery] = useState('')
+  const [scopeFilter, setScopeFilter] = useState<'all' | 'network' | 'friends-only' | 'specific-friends'>('all')
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'ended'>('all')
+  const [sortKey, setSortKey] = useState<CtpSortKey>('createdAt')
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
+  const [page, setPage] = useState(1)
+
+  const filteredRows = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase()
+
+    const rows = debugAdmin.recentPlayIntents.filter((intent) => {
+      if (statusFilter !== 'all' && intent.status !== statusFilter) {
+        return false
+      }
+
+      if (scopeFilter !== 'all' && intent.notifyScope !== scopeFilter) {
+        return false
+      }
+
+      if (!normalizedQuery) {
+        return true
+      }
+
+      return [
+        intent.headline,
+        intent.creator.displayName,
+        intent.creator.handle,
+        ...intent.gameTitles,
+        ...intent.platformLabels,
+        intent.id
+      ].join(' ').toLowerCase().includes(normalizedQuery)
+    })
+
+    rows.sort((left, right) => {
+      let result = 0
+
+      switch (sortKey) {
+        case 'creator':
+          result = left.creator.displayName.localeCompare(right.creator.displayName)
+          break
+        case 'status':
+          result = left.status.localeCompare(right.status)
+          break
+        case 'notificationCount':
+          result = left.notificationCount - right.notificationCount
+          break
+        case 'errorCount':
+          result = left.errorCount - right.errorCount
+          break
+        case 'windowStartsAt':
+          result = new Date(left.windowStartsAt).getTime() - new Date(right.windowStartsAt).getTime()
+          break
+        default:
+          result = new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime()
+      }
+
+      return sortDirection === 'asc' ? result : -result
+    })
+
+    return rows
+  }, [debugAdmin.recentPlayIntents, query, scopeFilter, statusFilter, sortKey, sortDirection])
+
+  const pageCount = Math.max(1, Math.ceil(filteredRows.length / tablePageSize))
+  const currentPage = Math.min(page, pageCount)
+  const pagedRows = paginateRows(filteredRows, currentPage, tablePageSize)
+
+  const setSort = (nextKey: CtpSortKey) => {
+    if (sortKey === nextKey) {
+      setSortDirection((current) => (current === 'asc' ? 'desc' : 'asc'))
+      return
+    }
+
+    setSortKey(nextKey)
+    setSortDirection('desc')
+  }
+
+  return (
+    <Card variant="soft" sx={{ p: 3 }}>
+      <Stack spacing={1.5}>
+        <Stack spacing={0.5}>
+          <Typography level="title-lg">Calls to play</Typography>
+          <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
+            Sort, filter, and page through CTP rows. Click any row to inspect the full lifecycle timeline in chronological order.
+          </Typography>
+        </Stack>
+
+        <Stack direction={{ xs: 'column', md: 'row' }} spacing={1}>
+          <Input
+            placeholder="Filter by creator, game, platform, headline, or ID"
+            value={query}
+            onChange={(event) => {
+              setQuery(event.target.value)
+              setPage(1)
+            }}
+            sx={{ flex: 1 }}
+          />
+          <Select
+            value={statusFilter}
+            onChange={(_event, value) => {
+              if (!value) {
+                return
+              }
+
+              setStatusFilter(value)
+              setPage(1)
+            }}
+            sx={{ minWidth: 170 }}
+          >
+            <Option value="all">All statuses</Option>
+            <Option value="active">Active</Option>
+            <Option value="ended">Ended</Option>
+          </Select>
+          <Select
+            value={scopeFilter}
+            onChange={(_event, value) => {
+              if (!value) {
+                return
+              }
+
+              setScopeFilter(value)
+              setPage(1)
+            }}
+            sx={{ minWidth: 210 }}
+          >
+            <Option value="all">All audiences</Option>
+            <Option value="network">Network</Option>
+            <Option value="friends-only">Friends only</Option>
+            <Option value="specific-friends">Specific friends</Option>
+          </Select>
+        </Stack>
+
+        {filteredRows.length > 0 ? (
+          <>
+            <Box sx={{ overflowX: 'auto' }}>
+              <Table hoverRow borderAxis="bothBetween" stickyHeader>
+                <thead>
+                  <tr>
+                    <th><Button size="sm" variant="plain" onClick={() => setSort('createdAt')}>Created</Button></th>
+                    <th><Button size="sm" variant="plain" onClick={() => setSort('creator')}>Creator</Button></th>
+                    <th>Headline</th>
+                    <th><Button size="sm" variant="plain" onClick={() => setSort('status')}>Status</Button></th>
+                    <th><Button size="sm" variant="plain" onClick={() => setSort('windowStartsAt')}>Starts</Button></th>
+                    <th><Button size="sm" variant="plain" onClick={() => setSort('notificationCount')}>Notifications</Button></th>
+                    <th><Button size="sm" variant="plain" onClick={() => setSort('errorCount')}>Errors</Button></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pagedRows.map((intent) => (
+                    <tr
+                      key={intent.id}
+                      onClick={() => onOpenLifecycle(intent.id)}
+                      style={{ cursor: 'pointer' }}
+                      aria-label={`Open lifecycle for ${intent.headline}`}
+                    >
+                      <td>{formatDateTime(intent.createdAt)}</td>
+                      <td>{intent.creator.displayName}</td>
+                      <td>
+                        <Stack spacing={0.25}>
+                          <Typography level="body-sm">{intent.headline}</Typography>
+                          <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
+                            Scope: {intent.notifyScope} · {intent.selectionMode}
+                          </Typography>
+                        </Stack>
+                      </td>
+                      <td>
+                        <Chip size="sm" color={intent.status === 'active' ? 'success' : 'neutral'} variant={intent.status === 'active' ? 'soft' : 'outlined'}>
+                          {intent.status}
+                        </Chip>
+                      </td>
+                      <td>{formatDateTime(intent.windowStartsAt)}</td>
+                      <td>{intent.notificationCount}</td>
+                      <td>
+                        <Chip size="sm" color={intent.errorCount > 0 ? 'danger' : 'neutral'} variant={intent.errorCount > 0 ? 'soft' : 'outlined'}>
+                          {intent.errorCount}
+                        </Chip>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            </Box>
+            <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1}>
+              <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
+                Showing {pagedRows.length} of {filteredRows.length} CTP rows
+              </Typography>
+              <Stack direction="row" spacing={1} alignItems="center">
+                <Button size="sm" variant="outlined" color="neutral" disabled={currentPage <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>
+                  Previous
+                </Button>
+                <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
+                  Page {currentPage} of {pageCount}
+                </Typography>
+                <Button size="sm" variant="outlined" color="neutral" disabled={currentPage >= pageCount} onClick={() => setPage((current) => Math.min(pageCount, current + 1))}>
+                  Next
+                </Button>
+              </Stack>
+            </Stack>
+          </>
+        ) : (
+          <EmptyStateCard
+            title="No CTP rows match these filters"
+            body="Try clearing filters or create a new call to play to populate this table."
+            chips={['CTP table', 'Filters', 'Pagination']}
+          />
+        )}
+      </Stack>
+    </Card>
+  )
+}
+
+function ErrorTableSection({
+  rows,
+  formatDateTime
+}: {
+  rows: DebugErrorLog[];
+  formatDateTime: (value: string | null) => string;
+}) {
+  const [query, setQuery] = useState('')
+  const [sortKey, setSortKey] = useState<ErrorSortKey>('occurredAt')
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
+  const [page, setPage] = useState(1)
+
+  const filteredRows = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase()
+
+    const nextRows = rows.filter((row) => {
+      if (!normalizedQuery) {
+        return true
+      }
+
+      return [row.source, row.message, row.detail ?? '', row.playIntentId ?? '', row.notificationId ?? '']
+        .join(' ')
+        .toLowerCase()
+        .includes(normalizedQuery)
+    })
+
+    nextRows.sort((left, right) => {
+      let result = 0
+
+      switch (sortKey) {
+        case 'source':
+          result = left.source.localeCompare(right.source)
+          break
+        case 'message':
+          result = left.message.localeCompare(right.message)
+          break
+        default:
+          result = new Date(left.occurredAt).getTime() - new Date(right.occurredAt).getTime()
+      }
+
+      return sortDirection === 'asc' ? result : -result
+    })
+
+    return nextRows
+  }, [rows, query, sortKey, sortDirection])
+
+  const pageCount = Math.max(1, Math.ceil(filteredRows.length / tablePageSize))
+  const currentPage = Math.min(page, pageCount)
+  const pagedRows = paginateRows(filteredRows, currentPage, tablePageSize)
+
+  const setSort = (nextKey: ErrorSortKey) => {
+    if (sortKey === nextKey) {
+      setSortDirection((current) => (current === 'asc' ? 'desc' : 'asc'))
+      return
+    }
+
+    setSortKey(nextKey)
+    setSortDirection('desc')
+  }
+
+  return (
+    <Card variant="soft" sx={{ p: 3 }}>
+      <Stack spacing={1.5}>
+        <Stack spacing={0.5}>
+          <Typography level="title-lg">Error log</Typography>
+          <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
+            Aggregated runtime and DM-path errors observed in recent debug data.
+          </Typography>
+        </Stack>
+
+        <Input
+          placeholder="Filter by source, message, detail, or IDs"
+          value={query}
+          onChange={(event) => {
+            setQuery(event.target.value)
+            setPage(1)
+          }}
+        />
+
+        {filteredRows.length > 0 ? (
+          <>
+            <Box sx={{ overflowX: 'auto' }}>
+              <Table hoverRow borderAxis="bothBetween" stickyHeader>
+                <thead>
+                  <tr>
+                    <th><Button size="sm" variant="plain" onClick={() => setSort('occurredAt')}>Occurred</Button></th>
+                    <th><Button size="sm" variant="plain" onClick={() => setSort('source')}>Source</Button></th>
+                    <th><Button size="sm" variant="plain" onClick={() => setSort('message')}>Message</Button></th>
+                    <th>Reference</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pagedRows.map((row) => (
+                    <tr key={row.id}>
+                      <td>{formatDateTime(row.occurredAt)}</td>
+                      <td>
+                        <Chip size="sm" color="danger" variant="soft">{row.source}</Chip>
+                      </td>
+                      <td>
+                        <Stack spacing={0.25}>
+                          <Typography level="body-sm">{row.message}</Typography>
+                          {row.detail ? <Typography level="body-xs" sx={{ color: 'neutral.400' }}>{row.detail}</Typography> : null}
+                        </Stack>
+                      </td>
+                      <td>
+                        <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
+                          CTP {row.playIntentId ?? 'N/A'}
+                        </Typography>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            </Box>
+            <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1}>
+              <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
+                Showing {pagedRows.length} of {filteredRows.length} errors
+              </Typography>
+              <Stack direction="row" spacing={1} alignItems="center">
+                <Button size="sm" variant="outlined" color="neutral" disabled={currentPage <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>
+                  Previous
+                </Button>
+                <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
+                  Page {currentPage} of {pageCount}
+                </Typography>
+                <Button size="sm" variant="outlined" color="neutral" disabled={currentPage >= pageCount} onClick={() => setPage((current) => Math.min(pageCount, current + 1))}>
+                  Next
+                </Button>
+              </Stack>
+            </Stack>
+          </>
+        ) : (
+          <EmptyStateCard
+            title="No error logs in this snapshot"
+            body="When prompt, bot, or notification-path errors are captured, they will appear here."
+            chips={['Error table', 'Filters', 'Pagination']}
+          />
+        )}
+      </Stack>
+    </Card>
+  )
+}
+
+function BotStateCard({ debugAdmin, formatDateTime }: { debugAdmin: DebugAdminResponse; formatDateTime: (value: string | null) => string }) {
   return (
     <Card variant="soft" sx={{ p: 3 }}>
       <Stack spacing={1.5}>
@@ -25,13 +511,8 @@ function BotStateCard({ debugAdmin }: { debugAdmin: DebugAdminResponse }) {
           <Chip color={debugAdmin.bot.configured ? 'success' : 'neutral'} variant={debugAdmin.bot.configured ? 'soft' : 'outlined'}>
             {debugAdmin.bot.configured ? 'Configured' : 'Missing bot token'}
           </Chip>
-          <Chip variant="outlined">
-            Mode: {debugAdmin.bot.mode}
-          </Chip>
-          <Chip
-            color={debugAdmin.bot.connected ? 'success' : debugAdmin.bot.mode === 'gateway' ? 'warning' : 'neutral'}
-            variant={debugAdmin.bot.connected ? 'soft' : 'outlined'}
-          >
+          <Chip variant="outlined">Mode: {debugAdmin.bot.mode}</Chip>
+          <Chip color={debugAdmin.bot.connected ? 'success' : debugAdmin.bot.mode === 'gateway' ? 'warning' : 'neutral'} variant={debugAdmin.bot.connected ? 'soft' : 'outlined'}>
             {debugAdmin.bot.connected ? 'Gateway connected' : debugAdmin.bot.mode === 'gateway' ? 'Gateway disconnected' : 'Gateway disabled'}
           </Chip>
           <Chip variant="outlined">{debugAdmin.bot.guildCount} guilds</Chip>
@@ -50,14 +531,14 @@ function BotStateCard({ debugAdmin }: { debugAdmin: DebugAdminResponse }) {
   )
 }
 
-function PromptLogCard({ debugAdmin }: { debugAdmin: DebugAdminResponse }) {
+function PromptLogCard({ debugAdmin, formatDateTime }: { debugAdmin: DebugAdminResponse; formatDateTime: (value: string | null) => string }) {
   return (
     <Card variant="soft" sx={{ p: 3 }}>
       <Stack spacing={1.5}>
         <Box>
           <Typography level="title-lg">Recent auto-play prompts</Typography>
           <Typography level="body-sm" sx={{ color: 'neutral.400', mt: 0.5 }}>
-            Recent prompt decisions from Discord activity starts, including skipped reasons, delivery failures, and Discord-created calls to play.
+            Prompt decisions from Discord activity starts, including skipped reasons, delivery failures, and Discord-created CTP attempts.
           </Typography>
         </Box>
         {debugAdmin.recentAutoPlayPrompts.length > 0 ? (
@@ -66,32 +547,17 @@ function PromptLogCard({ debugAdmin }: { debugAdmin: DebugAdminResponse }) {
               <Card key={prompt.id} variant="outlined" sx={{ p: 2 }}>
                 <Stack spacing={1}>
                   <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} justifyContent="space-between">
-                    <Typography level="title-sm">
-                      {prompt.user.displayName} · {prompt.game.title}
-                    </Typography>
-                    <Chip size="sm" variant="soft">
-                      {prompt.status}
-                    </Chip>
+                    <Typography level="title-sm">{prompt.user.displayName} · {prompt.game.title}</Typography>
+                    <Chip size="sm" variant="soft">{prompt.status}</Chip>
                   </Stack>
                   <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
                     {prompt.statusDetail ?? 'No detail recorded.'}
                   </Typography>
-                  <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-                    <Chip size="sm" variant="outlined">friends {prompt.friendRecipientCount}</Chip>
-                    <Chip size="sm" variant="outlined">network + friends {prompt.networkRecipientCount}</Chip>
-                    {prompt.durationMinutes ? <Chip size="sm" variant="outlined">{prompt.durationMinutes} min</Chip> : null}
-                    {prompt.notifyScope ? <Chip size="sm" variant="outlined">{prompt.notifyScope}</Chip> : null}
-                  </Stack>
                   <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
                     Created {formatDateTime(prompt.createdAt)} · Delivered {formatDateTime(prompt.deliveredAt)} · Responded {formatDateTime(prompt.respondedAt)}
                   </Typography>
-                  <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
-                    Source server: {prompt.sourceServerName ?? 'Unknown'} · Observation start: {formatDateTime(prompt.observationStartedAt)}
-                  </Typography>
                   {prompt.dmError ? (
-                    <Typography level="body-xs" sx={{ color: 'warning.300' }}>
-                      DM error: {prompt.dmError}
-                    </Typography>
+                    <Typography level="body-xs" sx={{ color: 'warning.300' }}>DM error: {prompt.dmError}</Typography>
                   ) : null}
                 </Stack>
               </Card>
@@ -100,8 +566,8 @@ function PromptLogCard({ debugAdmin }: { debugAdmin: DebugAdminResponse }) {
         ) : (
           <EmptyStateCard
             title="No auto-play prompt history yet"
-            body="Once the bot sees someone start playing a game and evaluates the prompt rules, entries will appear here."
-            chips={['Discord presence', 'Prompt log', 'Auto-play DM flow']}
+            body="Once the bot sees activity and evaluates prompt rules, entries will appear here."
+            chips={['Discord presence', 'Prompt log']}
           />
         )}
       </Stack>
@@ -109,7 +575,7 @@ function PromptLogCard({ debugAdmin }: { debugAdmin: DebugAdminResponse }) {
   )
 }
 
-function NotificationLogCard({ debugAdmin }: { debugAdmin: DebugAdminResponse }) {
+function NotificationLogCard({ debugAdmin, formatDateTime }: { debugAdmin: DebugAdminResponse; formatDateTime: (value: string | null) => string }) {
   return (
     <Card variant="soft" sx={{ p: 3 }}>
       <Stack spacing={1.5}>
@@ -167,6 +633,9 @@ function DebugViewContent({
   debugLoading: boolean;
   onRefreshDebug: () => Promise<void>;
 }) {
+  const { timeZone, formatDateTime } = useLocalDateFormatter()
+  const [selectedPlayIntentId, setSelectedPlayIntentId] = useState<string | null>(null)
+
   if (!isSignedIn) {
     return (
       <EmptyStateCard
@@ -177,35 +646,80 @@ function DebugViewContent({
     )
   }
 
+  const selectedPlayIntent = debugAdmin?.recentPlayIntents.find((intent) => intent.id === selectedPlayIntentId) ?? null
+  const selectedLifecycleEvents = debugAdmin?.playIntentLifecycleEvents
+    .filter((eventEntry) => eventEntry.playIntentId === selectedPlayIntentId)
+    .sort((left, right) => new Date(left.occurredAt).getTime() - new Date(right.occurredAt).getTime()) ?? []
+
   return (
-    <Stack spacing={2}>
-      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }}>
-        <Box>
-          <Typography level="h2">Admin and debug</Typography>
-          <Typography level="body-md" sx={{ color: 'neutral.300', mt: 0.5 }}>
-            Inspect Discord bot state, auto-play prompt decisions, and recent DM-backed notification deliveries.
-          </Typography>
-        </Box>
-        <Button variant="outlined" color="neutral" onClick={() => void onRefreshDebug()}>
-          {debugLoading ? 'Refreshing...' : 'Refresh'}
-        </Button>
+    <>
+      <Stack spacing={2}>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }}>
+          <Box>
+            <Typography level="h2">Admin and debug</Typography>
+            <Typography level="body-md" sx={{ color: 'neutral.300', mt: 0.5 }}>
+              Inspect bot state, CTP lifecycle timelines, prompt decisions, and delivery/error logs.
+            </Typography>
+            <Typography level="body-xs" sx={{ color: 'neutral.500', mt: 0.5 }}>
+              Times shown in your local timezone: {timeZone}
+            </Typography>
+          </Box>
+          <Button variant="outlined" color="neutral" onClick={() => void onRefreshDebug()}>
+            {debugLoading ? 'Refreshing...' : 'Refresh'}
+          </Button>
+        </Stack>
+
+        {debugAdmin ? (
+          <>
+            <SectionNav
+              aria-label="Debug sections"
+              mb={0}
+              sections={[
+                { id: 'bot-status', label: 'Bot' },
+                { id: 'ctps', label: 'CTPs', count: debugAdmin.recentPlayIntents.length },
+                { id: 'errors', label: 'Errors', count: debugAdmin.recentErrors.length },
+                { id: 'prompts', label: 'Prompts', count: debugAdmin.recentAutoPlayPrompts.length },
+                { id: 'notifications', label: 'Notifications', count: debugAdmin.recentNotifications.length }
+              ]}
+            />
+
+            <Box id="bot-status" sx={{ scrollMarginTop: sectionScrollMarginTop }}>
+              <BotStateCard debugAdmin={debugAdmin} formatDateTime={formatDateTime} />
+            </Box>
+
+            <Box id="ctps" sx={{ scrollMarginTop: sectionScrollMarginTop }}>
+              <CtpTableSection debugAdmin={debugAdmin} formatDateTime={formatDateTime} onOpenLifecycle={setSelectedPlayIntentId} />
+            </Box>
+
+            <Box id="errors" sx={{ scrollMarginTop: sectionScrollMarginTop }}>
+              <ErrorTableSection rows={debugAdmin.recentErrors} formatDateTime={formatDateTime} />
+            </Box>
+
+            <Box id="prompts" sx={{ scrollMarginTop: sectionScrollMarginTop }}>
+              <PromptLogCard debugAdmin={debugAdmin} formatDateTime={formatDateTime} />
+            </Box>
+
+            <Box id="notifications" sx={{ scrollMarginTop: sectionScrollMarginTop }}>
+              <NotificationLogCard debugAdmin={debugAdmin} formatDateTime={formatDateTime} />
+            </Box>
+          </>
+        ) : (
+          <EmptyStateCard
+            title={debugLoading ? 'Loading debug data' : 'Debug data unavailable'}
+            body={debugLoading ? 'Fetching the latest bot, prompt, notification, and lifecycle state from the API.' : 'No debug snapshot has been loaded yet.'}
+            chips={['Bot state', 'CTP table', 'Lifecycle events', 'Error logs']}
+          />
+        )}
       </Stack>
 
-      {debugAdmin ? (
-        <>
-          <BotStateCard debugAdmin={debugAdmin} />
-          <Divider />
-          <PromptLogCard debugAdmin={debugAdmin} />
-          <NotificationLogCard debugAdmin={debugAdmin} />
-        </>
-      ) : (
-        <EmptyStateCard
-          title={debugLoading ? 'Loading debug data' : 'Debug data unavailable'}
-          body={debugLoading ? 'Fetching the latest bot, prompt, and notification state from the API.' : 'No debug snapshot has been loaded yet.'}
-          chips={['Bot state', 'Prompt log', 'Notification deliveries']}
-        />
-      )}
-    </Stack>
+      <CtpLifecycleDialog
+        open={selectedPlayIntent != null}
+        onClose={() => setSelectedPlayIntentId(null)}
+        ctp={selectedPlayIntent}
+        events={selectedLifecycleEvents}
+        formatDateTime={formatDateTime}
+      />
+    </>
   )
 }
 

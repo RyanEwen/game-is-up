@@ -17,6 +17,7 @@ export type DiscordDirectMessagePayload = {
   discordUserId: string;
   content: string;
   components?: MessageCreateOptions['components'];
+  embeds?: MessageCreateOptions['embeds'];
 };
 
 export type DiscordDirectMessageSendResult = {
@@ -56,6 +57,16 @@ function toDiscordApiComponents(components?: MessageCreateOptions['components'])
     }
 
     return component
+  })
+}
+
+function toDiscordApiEmbeds(embeds?: MessageCreateOptions['embeds']) {
+  return embeds?.map((embed) => {
+    if (typeof embed === 'object' && embed != null && 'toJSON' in embed && typeof embed.toJSON === 'function') {
+      return embed.toJSON()
+    }
+
+    return embed
   })
 }
 
@@ -154,7 +165,8 @@ export async function sendDiscordDirectMessages(messages: DiscordDirectMessagePa
       const sentMessage = await discordBotRest.post(Routes.channelMessages(channel.id), {
         body: {
           content: message.content,
-          components: toDiscordApiComponents(message.components)
+          components: toDiscordApiComponents(message.components),
+          embeds: toDiscordApiEmbeds(message.embeds)
         }
       })
 
