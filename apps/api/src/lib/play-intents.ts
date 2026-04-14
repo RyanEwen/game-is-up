@@ -14,7 +14,7 @@ import {
 } from '@prisma/client'
 import { getMutualDiscoveryAudienceUserIds } from './discord-servers.js'
 import { sendDiscordDirectMessages } from './discord-bot-runtime.js'
-import { toClientGameCoverUrl } from './game-media.js'
+import { toClientGameCoverUrl, toClientAvatarUrl } from './game-media.js'
 import {
   buildPlayIntentDirectMessage,
   buildPlayIntentNotificationComponents,
@@ -230,7 +230,7 @@ function serializeActivePlayIntent(intent: {
     selectionMode: toClientSelectionMode(intent.selectionMode),
     notifyScope: toClientNotifyScope(intent.scope),
     targetedFriends: intent.targetFriends
-      .map((entry) => entry.friendUser)
+      .map((entry) => ({ ...entry.friendUser, avatarUrl: toClientAvatarUrl(entry.friendUser.avatarUrl) }))
       .sort((left, right) => left.displayName.localeCompare(right.displayName)),
     platforms: intent.platforms.map((platform) => platform.platformLabel).sort((left, right) => left.localeCompare(right)),
     games: intent.games

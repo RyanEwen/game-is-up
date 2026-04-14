@@ -3,7 +3,7 @@ import { useState } from 'react'
 import type { DiscoveryGame, DiscoveryPerson } from '@game-is-up/shared'
 import { DashboardModal } from '../components/dashboard/DashboardModal'
 import { EmptyStateCard } from '../components/dashboard/EmptyStateCard'
-import { GameCard } from '../components/dashboard/GameCard'
+import { GameCard, GameCardSkeleton } from '../components/dashboard/GameCard'
 import { LibraryEditorCard } from '../components/dashboard/LibraryEditorCard'
 import { PersonCard } from '../components/dashboard/PersonCard'
 import { SectionNav, sectionScrollMarginTop } from '../components/dashboard/SectionNav'
@@ -70,6 +70,7 @@ function sortPeople(people: DiscoveryPerson[], sort: MemberSort): DiscoveryPerso
 
 function DiscoveryViewContent({
   error,
+  discoveryLoading,
   overlapGames,
   browseGames,
   discoveryPeople,
@@ -85,6 +86,7 @@ function DiscoveryViewContent({
   onRemoveLibraryEntry
 }: {
   error: string | null;
+  discoveryLoading: boolean;
   overlapGames: DiscoveryGame[];
   browseGames: DiscoveryGame[];
   discoveryPeople: DiscoveryPerson[];
@@ -162,7 +164,11 @@ function DiscoveryViewContent({
             </Typography>
           </Card>
         ) : null}
-        {sortedOverlapGames.length > 0 ? (
+        {discoveryLoading ? (
+          <Box sx={discoveryGameGridSx}>
+            {Array.from({ length: 6 }, (_, i) => <GameCardSkeleton key={i} compact />)}
+          </Box>
+        ) : sortedOverlapGames.length > 0 ? (
           <Box sx={discoveryGameGridSx}>
             {sortedOverlapGames.map((game) => (
               <GameCard
@@ -203,7 +209,11 @@ function DiscoveryViewContent({
         title="Other games"
         description="Games you don't have in common with people in your network."
       >
-        {sortedBrowseGames.length > 0 ? (
+        {discoveryLoading ? (
+          <Box sx={discoveryGameGridSx}>
+            {Array.from({ length: 6 }, (_, i) => <GameCardSkeleton key={i} compact />)}
+          </Box>
+        ) : sortedBrowseGames.length > 0 ? (
           <Box sx={discoveryGameGridSx}>
             {sortedBrowseGames.map((game) => (
               <GameCard

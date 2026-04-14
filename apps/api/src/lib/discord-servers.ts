@@ -3,6 +3,7 @@ import { AuthProvider as PrismaAuthProvider } from '@prisma/client'
 import { prisma } from './prisma.js'
 import type { DiscordGuildSummary } from './discord-auth.js'
 import { getDiscordBotPresentServerIds, isDiscordBotPresentInGuild, listDiscordGuildMembers, sendDiscordGuildInvites } from './discord-presence-bot.js'
+import { toClientAvatarUrl } from './game-media.js'
 
 function buildDiscordServerIconUrl(serverId: string, iconHash: string | null): string | null {
   if (!iconHash) {
@@ -121,7 +122,7 @@ export async function buildDiscordServerPreferences(userId: string): Promise<Dis
     servers: memberships.map((membership) => ({
       id: membership.server.id,
       name: membership.server.name,
-      iconUrl: buildDiscordServerIconUrl(membership.server.id, membership.server.iconHash),
+      iconUrl: toClientAvatarUrl(buildDiscordServerIconUrl(membership.server.id, membership.server.iconHash)),
       botPresent: botPresentServerIds.has(membership.server.id),
       selected: botPresentServerIds.has(membership.server.id) && (preferenceMap.get(membership.server.id) ?? false),
       knownUserCount: Math.max(0, membership.server.memberships.filter((serverMembership) => serverMembership.userId !== userId).length)
@@ -258,7 +259,7 @@ export async function buildDiscordServerMembers(
             username: member.username,
             displayName: member.displayName,
             profileDisplayName: member.profileDisplayName,
-            avatarUrl: member.avatarUrl,
+            avatarUrl: toClientAvatarUrl(member.avatarUrl),
             isAppUser: Boolean(appUser),
             appUserId: appUser?.id ?? null,
             appDisplayName: appUser?.displayName ?? null,

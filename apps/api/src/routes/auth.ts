@@ -37,6 +37,7 @@ import {
   setAuthSession,
   setDiscordState,
 } from '../lib/session.js'
+import { toClientAvatarUrl } from '../lib/game-media.js'
 
 export const authRouter = Router()
 
@@ -229,6 +230,7 @@ authRouter.get('/me', async (request, response) => {
       authenticated: true,
       user: {
         ...user,
+        avatarUrl: toClientAvatarUrl(user.avatarUrl),
         authProvider: session.authProvider
       },
       discordGraph,

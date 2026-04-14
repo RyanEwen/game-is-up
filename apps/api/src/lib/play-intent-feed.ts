@@ -1,7 +1,7 @@
 import type { PlayIntentFeed, PlayIntentPreview } from '@game-is-up/shared'
 import { GameIntentType, PlayIntentSelectionMode, PlayIntentScope } from '@prisma/client'
 import { getMutualDiscoveryAudienceUserIds } from './discord-servers.js'
-import { toClientGameCoverUrl } from './game-media.js'
+import { toClientGameCoverUrl, toClientAvatarUrl } from './game-media.js'
 import { prisma } from './prisma.js'
 import { getViewer } from './demo-viewer.js'
 
@@ -164,7 +164,7 @@ export async function buildPlayIntentFeed(viewerId?: string | null): Promise<Pla
           id: intent.user.id,
           handle: intent.user.handle,
           displayName: intent.user.displayName,
-          avatarUrl: intent.user.avatarUrl
+          avatarUrl: toClientAvatarUrl(intent.user.avatarUrl)
         },
         selectionMode: toSelectionMode(intent.selectionMode),
         notifyScope: toNotifyScope(intent.scope),

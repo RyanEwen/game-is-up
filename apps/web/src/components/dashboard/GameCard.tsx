@@ -1,4 +1,4 @@
-import { Box, Button, Card, Chip, Sheet, Stack, Typography } from '@mui/joy'
+import { Box, Button, Card, Chip, Sheet, Skeleton, Stack, Typography } from '@mui/joy'
 import type { DiscoveryGame, DiscoveryGamePlayer } from '@game-is-up/shared'
 import { DashboardDeferredImage } from './DashboardDeferredImage'
 import { FriendActionPopover } from './FriendActionPopover'
@@ -320,6 +320,29 @@ export function GameCard({
             </Typography>
           ) : null}
         </Stack>
+      </Stack>
+    </Card>
+  )
+}
+
+export function GameCardSkeleton({ compact = false }: { compact?: boolean }) {
+  return (
+    <Card
+      variant="outlined"
+      sx={{
+        p: compact ? 2 : 3,
+        borderColor: 'rgba(255, 255, 255, 0.08)',
+        backgroundColor: 'rgba(13, 18, 30, 0.82)',
+        height: '100%'
+      }}
+    >
+      <Stack spacing={compact ? 1.5 : 2} sx={{ height: '100%' }}>
+        <Skeleton
+          variant="rectangular"
+          sx={{ width: '100%', height: compact ? 196 : 160, borderRadius: 'md', flexShrink: 0 }}
+        />
+        <Skeleton variant="text" level="title-md" width="70%" />
+        <Skeleton variant="text" level="body-sm" width="45%" />
       </Stack>
     </Card>
   )

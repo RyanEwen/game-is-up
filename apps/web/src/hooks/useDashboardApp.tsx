@@ -950,6 +950,7 @@ export function useDashboardApp() {
     },
     discoveryViewProps: {
       error: state.error,
+      discoveryLoading: state.discovery === null && !state.error,
       overlapGames,
       browseGames,
       discoveryPeople,

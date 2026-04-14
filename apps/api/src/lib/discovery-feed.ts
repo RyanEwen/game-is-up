@@ -4,7 +4,7 @@ import { getLatestActiveDiscordActivitiesForUsers } from './discord-activity.js'
 import { prisma } from './prisma.js'
 import { getViewer } from './demo-viewer.js'
 import { getSelectedDiscordServerIds } from './discord-servers.js'
-import { toClientGameCoverUrl } from './game-media.js'
+import { toClientGameCoverUrl, toClientAvatarUrl } from './game-media.js'
 import { formatRelativeTime } from './relative-time.js'
 import { resolveAvailability } from './availability.js'
 import { formatTimezoneLabel } from './timezone-label.js'
@@ -249,7 +249,7 @@ export async function buildDiscoveryFeed(viewerId?: string | null): Promise<Disc
         id: candidate.id,
         handle: candidate.handle,
         displayName: candidate.displayName,
-        avatarUrl: candidate.avatarUrl,
+        avatarUrl: toClientAvatarUrl(candidate.avatarUrl),
         bio: candidate.bio,
         timezoneId: candidate.timezoneId,
         timezoneLabel: formatTimezoneLabel(candidate.timezoneId),
@@ -288,7 +288,7 @@ export async function buildDiscoveryFeed(viewerId?: string | null): Promise<Disc
         id: person.id,
         handle: person.handle,
         displayName: person.displayName,
-        avatarUrl: person.avatarUrl,
+        avatarUrl: toClientAvatarUrl(person.avatarUrl),
         platformLabels: game.platformLabels,
         intent: game.intent,
         availability: game.availability,

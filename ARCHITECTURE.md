@@ -26,6 +26,16 @@ The product loop is intentionally narrow:
 
 Game catalog search is provider-backed rather than store-specific. The current implementation targets a broad catalog source and normalizes platform labels so the product can treat a title as one canonical game with multiple supported platforms.
 
+## Media proxy and caching
+
+External media (RAWG game covers, Steam CDN game headers, Discord CDN avatars, and Steam avatar CDN images) is never surfaced to the client as raw third-party URLs. All external image URLs are rewritten by the API to `/api/media/<type>/<token>` before being sent in any response. The API routes handle:
+
+- Server-side disk cache in `$TMPDIR/game-is-up/game-media-cache/` to avoid redundant fetches.
+- Per-type TTL: game covers are treated as immutable once cached; avatars are re-fetched after 7 days.
+- Proper `Cache-Control` / `ETag` headers so browsers and CDN layers can cache aggressively.
+
+The PWA service worker adds a second caching layer on top: all `/api/media/` responses are stored client-side via a Workbox `CacheFirst` strategy with a 30-day TTL and a cap of 500 entries, so media loads instantly on repeat visits even when offline.
+
 Prisma migrations are now the source of truth for schema changes. Development uses checked-in migration history, and deployment bootstraps existing pre-migrate databases to the baseline before applying pending migrations.
 
 ## Play intent model

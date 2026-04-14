@@ -12,7 +12,23 @@ export default defineConfig({
         cleanupOutdatedCaches: true,
         clientsClaim: true,
         navigateFallbackDenylist: [/^\/api(?:\/|$)/],
-        skipWaiting: true
+        skipWaiting: true,
+        runtimeCaching: [
+          {
+            urlPattern: /^\/api\/media\//,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'game-media-v1',
+              expiration: {
+                maxEntries: 500,
+                maxAgeSeconds: 30 * 24 * 60 * 60
+              },
+              cacheableResponse: {
+                statuses: [0, 200]
+              }
+            }
+          }
+        ]
       },
       manifest: {
         name: "Game's Up",

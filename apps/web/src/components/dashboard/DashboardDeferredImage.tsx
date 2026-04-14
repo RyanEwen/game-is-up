@@ -1,4 +1,4 @@
-import { Box } from '@mui/joy'
+import { Box, Skeleton } from '@mui/joy'
 import { useEffect, useRef, useState } from 'react'
 
 export function DashboardDeferredImage({
@@ -54,7 +54,13 @@ export function DashboardDeferredImage({
   }, [rootMargin, shouldLoad, src])
 
   return (
-    <Box ref={containerRef} sx={{ width: '100%', height: '100%' }}>
+    <Box ref={containerRef} sx={{ width: '100%', height: '100%', position: 'relative' }}>
+      {!loaded ? (
+        <Skeleton
+          variant="overlay"
+          sx={{ position: 'absolute', inset: 0, borderRadius: 0 }}
+        />
+      ) : null}
       {shouldLoad ? (
         <Box
           component="img"
