@@ -332,7 +332,7 @@ export function useDashboardInvites({
     if (!activeInviteServerId || inviteableSelectedInviteUserIds.length === 0 || !inviteUrl) {
       setActionNotice({
         tone: 'danger',
-        message: 'Choose a bot-enabled server, select at least one Discord member, and make sure the invite link is available first.'
+        message: 'Choose a server, select at least one Discord member, and make sure the invite link is available first.'
       })
       return
     }
@@ -357,7 +357,7 @@ export function useDashboardInvites({
       if (!response.ok) {
         throw new Error(typeof responseJson === 'object' && responseJson && 'error' in responseJson && typeof responseJson.error === 'string'
           ? responseJson.error
-          : 'Unable to send bot invites right now.')
+          : 'Unable to send invites right now.')
       }
 
       const parsed = sendDiscordServerInvitesResponseSchema.parse(responseJson)
@@ -367,13 +367,13 @@ export function useDashboardInvites({
       setActionNotice({
         tone: failedRecipients.length === 0 ? 'success' : 'neutral',
         message: failedRecipients.length === 0
-          ? `Bot sent ${parsed.sentCount} invite${parsed.sentCount === 1 ? '' : 's'} from ${parsed.serverName}.`
-          : `Bot sent ${parsed.sentCount} invite${parsed.sentCount === 1 ? '' : 's'} from ${parsed.serverName}. ${parsed.failedCount} failed${failedRecipients[0]?.error ? `: ${failedRecipients[0].displayName} (${failedRecipients[0].error})` : '.'}`
+          ? `Sent ${parsed.sentCount} invite${parsed.sentCount === 1 ? '' : 's'} from ${parsed.serverName}.`
+          : `Sent ${parsed.sentCount} invite${parsed.sentCount === 1 ? '' : 's'} from ${parsed.serverName}. ${parsed.failedCount} failed${failedRecipients[0]?.error ? `: ${failedRecipients[0].displayName} (${failedRecipients[0].error})` : '.'}`
       })
     } catch (error) {
       setActionNotice({
         tone: 'danger',
-        message: error instanceof Error ? error.message : 'Unable to send bot invites right now.'
+        message: error instanceof Error ? error.message : 'Unable to send invites right now.'
       })
       setInviteSendSummary(null)
     } finally {

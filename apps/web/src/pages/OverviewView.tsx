@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Autocomplete, Avatar, Box, Button, Card, Chip, DialogContent, DialogTitle, Input, Sheet, Stack, Typography } from '@mui/joy'
+import { Autocomplete, Avatar, Box, Button, Card, Chip, DialogContent, DialogTitle, Input, Sheet, Stack, Switch, Typography } from '@mui/joy'
 import type {
   AuthSessionResponse,
   DiscordServerMembersResponse,
@@ -54,7 +54,7 @@ function buildInviteMemberDetail(member: InviteMember) {
   const details: string[] = []
 
   if (hasDistinctInviteMemberName(member.displayName, member.profileDisplayName)) {
-    details.push(`Discord profile: ${member.profileDisplayName}`)
+    details.push(`AKA ${member.profileDisplayName}`)
   }
 
   if (
@@ -180,15 +180,19 @@ function QuickStartCard() {
 }
 
 function DiscoveryServersSection({
+  discordBotInstallUrl,
   availableDiscoveryServers,
   hasSyncedServers,
   serverPreferencePendingId,
-  onToggleDiscordServer
+  onToggleDiscordServer,
+  onOpenInviteServer
 }: {
+  discordBotInstallUrl: string | null;
   availableDiscoveryServers: DiscoveryServer[];
   hasSyncedServers: boolean;
   serverPreferencePendingId: string | null;
   onToggleDiscordServer: (serverId: string, nextSelected: boolean) => Promise<void>;
+  onOpenInviteServer: (serverId: string) => void;
 }) {
   return (
     <Stack spacing={2}>
@@ -198,41 +202,82 @@ function DiscoveryServersSection({
       </Typography>
       {availableDiscoveryServers.length > 0 ? (
         <Stack spacing={1.5}>
-          {availableDiscoveryServers.map((server) => (
-            <Card key={server.id} variant="soft" sx={{ p: 2.5 }}>
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }}>
-                <Stack direction="row" spacing={1.25} alignItems="center">
-                  <ServerAvatar server={server} />
-                  <Stack spacing={0.5}>
-                  <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }} alignItems="center">
-                    <Typography level="title-md">{server.name}</Typography>
-                    <Chip size="sm" color="success" variant="soft">
-                      Bot present
-                    </Chip>
-                  </Stack>
-                  <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
-                    {server.knownUserCount > 0
-                      ? `${server.knownUserCount} other member${server.knownUserCount === 1 ? '' : 's'} are in your network via this server.`
-                      : 'No other members from this server are in your network yet.'}
-                  </Typography>
-                  </Stack>
-                </Stack>
-                <Button
-                  size="sm"
-                  variant={server.selected ? 'outlined' : 'solid'}
-                  color={server.selected ? 'neutral' : 'primary'}
-                  disabled={serverPreferencePendingId === server.id}
-                  onClick={() => void onToggleDiscordServer(server.id, !server.selected)}
+          {availableDiscoveryServers.map((server) => {
+            const toggleSwitch = (
+              <Switch
+                checked={server.selected}
+                disabled={serverPreferencePendingId === server.id}
+                onChange={(event) => void onToggleDiscordServer(server.id, event.target.checked)}
+                slotProps={{
+                  input: {
+                    'aria-label': `${server.selected ? 'Deselect' : 'Select'} ${server.name} for your network`
+                  }
+                }}
+                sx={{ flexShrink: 0, mt: { xs: 0.25, sm: 0 } }}
+              />
+            )
+
+            const inviteButton = server.selected ? (
+              <Button
+                size="sm"
+                color="primary"
+                onClick={() => onOpenInviteServer(server.id)}
+                sx={{ width: { xs: '100%', sm: 'auto' } }}
+              >
+                Invite members
+              </Button>
+            ) : null
+
+            return (
+              <Card key={server.id} variant="soft" sx={{ p: 2.5 }}>
+                <Stack
+                  direction={{ xs: 'column', sm: 'row' }}
+                  spacing={{ xs: 1.5, sm: 2 }}
+                  justifyContent="space-between"
+                  alignItems={{ xs: 'stretch', sm: 'center' }}
                 >
-                  {serverPreferencePendingId === server.id
-                    ? 'Saving...'
-                    : server.selected
-                      ? 'Deselect server'
-                      : 'Select server'}
-                </Button>
-              </Stack>
-            </Card>
-          ))}
+                  <Stack direction="row" spacing={2} justifyContent="space-between" alignItems="flex-start" sx={{ flex: 1, minWidth: 0 }}>
+                    <Stack direction="row" spacing={1.25} alignItems="center" sx={{ flex: 1, minWidth: 0 }}>
+                      <ServerAvatar server={server} />
+                      <Stack spacing={0.5} sx={{ minWidth: 0, flex: 1 }}>
+                        <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }} alignItems="center">
+                          <Typography level="title-md">{server.name}</Typography>
+                          <Chip size="sm" color="success" variant="soft">
+                            Bot present
+                          </Chip>
+                        </Stack>
+                        <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
+                          {server.knownUserCount > 0
+                            ? `${server.knownUserCount} member${server.knownUserCount === 1 ? '' : 's'} on Game's Up.`
+                            : "No members on Game's Up yet."}
+                        </Typography>
+                      </Stack>
+                    </Stack>
+                    <Box sx={{ display: { xs: 'flex', sm: 'none' }, flexShrink: 0 }}>
+                      {toggleSwitch}
+                    </Box>
+                  </Stack>
+
+                  <Stack
+                    direction="row"
+                    spacing={1}
+                    alignItems="center"
+                    justifyContent="flex-end"
+                    sx={{ display: { xs: 'none', sm: 'flex' }, flexShrink: 0 }}
+                  >
+                    {inviteButton}
+                    {toggleSwitch}
+                  </Stack>
+
+                  {server.selected ? (
+                    <Box sx={{ display: { xs: 'block', sm: 'none' } }}>
+                      {inviteButton}
+                    </Box>
+                  ) : null}
+                </Stack>
+              </Card>
+            )
+          })}
         </Stack>
       ) : hasSyncedServers ? (
         <EmptyStateCard
@@ -245,6 +290,29 @@ function DiscoveryServersSection({
           body="You have not selected any Discord servers to form your network yet."
         />
       )}
+      {discordBotInstallUrl ? (
+        <Card variant="soft" sx={{ p: 2.5 }}>
+          <Stack spacing={1.25}>
+            <Typography level="title-sm">Not seeing a server?</Typography>
+            <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
+              The Game's Up bot must be on the Discord servers you want to use for network discovery, member browsing, and invites.
+            </Typography>
+            <Box>
+              <Button
+                component="a"
+                href={discordBotInstallUrl}
+                target="_blank"
+                rel="noreferrer"
+                variant="outlined"
+                color="neutral"
+                sx={{ width: { xs: '100%', sm: 'auto' } }}
+              >
+                Invite the bot to your server
+              </Button>
+            </Box>
+          </Stack>
+        </Card>
+      ) : null}
     </Stack>
   )
 }
@@ -266,9 +334,6 @@ function InviteUsersCard({
   onRetryInviteMembers,
   inviteSending,
   onSendBotInvites,
-  onCopyInvite,
-  canShareInvite,
-  onShareInvite,
   inviteSendSummary
 }: {
   onClose: () => void;
@@ -287,16 +352,13 @@ function InviteUsersCard({
   onRetryInviteMembers: () => void;
   inviteSending: boolean;
   onSendBotInvites: () => Promise<void>;
-  onCopyInvite: () => Promise<void>;
-  canShareInvite: boolean;
-  onShareInvite: () => Promise<void>;
   inviteSendSummary: SendDiscordServerInvitesResponse | null;
 }) {
   const inviteMemberAvatarById = new Map(inviteMembers.map((member) => [member.id, member.avatarUrl]))
 
   return (
     <>
-      <DialogTitle sx={{ pr: 6 }}>Invite people from selected servers</DialogTitle>
+      <DialogTitle sx={{ pr: 6 }}>Invite people to Game's Up</DialogTitle>
       <DialogContent
         sx={{
           display: 'flex',
@@ -309,18 +371,14 @@ function InviteUsersCard({
           WebkitOverflowScrolling: 'touch'
         }}
       >
-        <Stack spacing={1.5}>
+         <Stack spacing={1.5}>
           <Typography level="body-md" sx={{ color: 'neutral.300' }}>
-            Choose a server, then pick members for the bot to send an invite message to.
+            Choose a server, then pick members to send an invite message to.
           </Typography>
         </Stack>
-
         {selectedDiscoveryServers.length > 0 ? (
           <Stack spacing={1.5}>
             <Box>
-              <Typography level="body-sm" sx={{ color: 'neutral.300', mb: 0.75 }}>
-                Pick a server
-              </Typography>
               <Autocomplete
                 autoHighlight
                 placeholder="Search selected servers"
@@ -339,21 +397,31 @@ function InviteUsersCard({
                     autoComplete: 'off'
                   }
                 }}
-                renderOption={(optionProps, option) => (
-                  <li {...optionProps}>
-                    <Stack direction="row" spacing={1.25} alignItems="center" sx={{ minWidth: 0 }}>
-                      <ServerAvatar server={option} size="sm" />
-                      <Stack spacing={0.25} sx={{ minWidth: 0 }}>
-                        <Typography level="title-sm">{option.name}</Typography>
-                        <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
-                          {option.knownUserCount > 0
-                            ? `${option.knownUserCount} other member${option.knownUserCount === 1 ? '' : 's'} in your network`
-                            : 'No other members in your network yet'}
-                        </Typography>
+                renderOption={(optionProps, option) => {
+                  const listItemProps = {
+                    ...(optionProps as typeof optionProps & { key?: string; ownerState?: unknown })
+                  }
+                  const optionKey = listItemProps.key
+
+                  delete listItemProps.key
+                  delete listItemProps.ownerState
+
+                  return (
+                    <li key={optionKey} {...listItemProps}>
+                      <Stack direction="row" spacing={1.25} alignItems="center" sx={{ minWidth: 0 }}>
+                        <ServerAvatar server={option} size="sm" />
+                        <Stack spacing={0.25} sx={{ minWidth: 0 }}>
+                          <Typography level="title-sm">{option.name}</Typography>
+                          <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
+                            {option.knownUserCount > 0
+                              ? `${option.knownUserCount} other member${option.knownUserCount === 1 ? '' : 's'} in your network`
+                              : 'No other members in your network yet'}
+                          </Typography>
+                        </Stack>
                       </Stack>
-                    </Stack>
-                  </li>
-                )}
+                    </li>
+                  )
+                }}
               />
             </Box>
             {activeInviteServer ? (
@@ -388,37 +456,35 @@ function InviteUsersCard({
                           key={member.id}
                           variant="outlined"
                           sx={{
-                            p: 1.25,
+                            p: { xs: 1, sm: 1.25 },
                             borderRadius: 'md',
                             backgroundColor: isSelected ? 'rgba(20, 136, 106, 0.14)' : 'transparent'
                           }}
                         >
-                          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.25} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }}>
-                            <Stack direction="row" spacing={1.25} alignItems="center">
-                              <Avatar src={member.avatarUrl ?? undefined} alt={member.displayName} size="md" variant="soft" />
-                              <Box>
+                          <Stack direction="row" spacing={{ xs: 1, sm: 1.25 }} justifyContent="space-between" alignItems="center">
+                            <Stack direction="row" spacing={{ xs: 1, sm: 1.25 }} alignItems="center" sx={{ minWidth: 0, flex: 1 }}>
+                              <Avatar src={member.avatarUrl ?? undefined} alt={member.displayName} size="sm" variant="soft" />
+                              <Box sx={{ minWidth: 0, flex: 1 }}>
                                 <Typography level="title-sm">{member.displayName}</Typography>
                                 {memberDetail ? (
-                                  <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
+                                  <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
                                     {memberDetail}
                                   </Typography>
                                 ) : null}
                               </Box>
                             </Stack>
-                            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'center' }}>
-                              <Chip size="sm" color={member.isAppUser ? 'success' : 'neutral'} variant={member.isAppUser ? 'soft' : 'outlined'}>
-                                {member.isAppUser ? "On Game's Up" : "Not on Game's Up"}
-                              </Chip>
+                            <Box sx={{ flexShrink: 0, alignSelf: 'center' }}>
                               <Button
                                 size="sm"
                                 variant={canInviteMember && isSelected ? 'solid' : 'outlined'}
                                 color={canInviteMember && isSelected ? 'primary' : 'neutral'}
                                 disabled={!canInviteMember}
                                 onClick={() => onToggleInviteUser(member.id)}
+                                sx={{ minHeight: 32, px: 1.25 }}
                               >
-                                {member.isAppUser ? 'Already joined' : isSelected ? 'Selected' : 'Select'}
+                                {member.isAppUser ? "Already on Game's Up" : isSelected ? 'Selected' : 'Select'}
                               </Button>
-                            </Stack>
+                            </Box>
                           </Stack>
                         </Sheet>
                       )
@@ -443,17 +509,6 @@ function InviteUsersCard({
             </Typography>
           </Sheet>
         )}
-
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.25}>
-          <Button variant="outlined" color="neutral" disabled={!inviteUrl} onClick={() => void onCopyInvite()}>
-            Copy fallback message
-          </Button>
-          {canShareInvite ? (
-            <Button variant="outlined" color="neutral" disabled={!inviteUrl} onClick={() => void onShareInvite()}>
-              Share fallback message
-            </Button>
-          ) : null}
-        </Stack>
 
         {inviteSendSummary ? (
           <Card color={inviteSendSummary.failedCount > 0 ? 'warning' : 'success'} variant="soft">
@@ -517,46 +572,11 @@ function InviteUsersCard({
             onClick={() => void onSendBotInvites()}
             sx={{ flex: 1, minHeight: 52, fontWeight: 700 }}
           >
-            {inviteSending ? 'Sending bot invites...' : 'Send bot invites'}
+            {inviteSending ? 'Sending invites...' : 'Send invites'}
           </Button>
         )}
       />
     </>
-  )
-}
-
-function InviteUsersLauncherCard({
-  discordBotInstallUrl,
-  onOpen
-}: {
-  discordBotInstallUrl: string | null;
-  onOpen: () => void;
-}) {
-  return (
-    <Card variant="soft" sx={{ p: 3 }}>
-      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.25}>
-        <Box sx={{ width: { xs: '100%', sm: 'auto' } }}>
-          <Button color="primary" onClick={onOpen} sx={{ width: { xs: '100%', sm: 'auto' } }}>
-            Invite from selected servers
-          </Button>
-        </Box>
-        {discordBotInstallUrl ? (
-          <Box sx={{ width: { xs: '100%', sm: 'auto' } }}>
-            <Button
-              component="a"
-              href={discordBotInstallUrl}
-              target="_blank"
-              rel="noreferrer"
-              variant="outlined"
-              color="neutral"
-              sx={{ width: { xs: '100%', sm: 'auto' } }}
-            >
-              Invite bot to a server
-            </Button>
-          </Box>
-        ) : null}
-      </Stack>
-    </Card>
   )
 }
 
@@ -586,9 +606,6 @@ function OverviewViewContent({
   onRetryInviteMembers,
   inviteSending,
   onSendBotInvites,
-  onCopyInvite,
-  canShareInvite,
-  onShareInvite,
   inviteSendSummary
 }: {
   session: AuthSessionResponse | null;
@@ -616,12 +633,13 @@ function OverviewViewContent({
   onRetryInviteMembers: () => void;
   inviteSending: boolean;
   onSendBotInvites: () => Promise<void>;
-  onCopyInvite: () => Promise<void>;
-  canShareInvite: boolean;
-  onShareInvite: () => Promise<void>;
   inviteSendSummary: SendDiscordServerInvitesResponse | null;
 }) {
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false)
+  const handleOpenInviteServer = (serverId: string) => {
+    onSelectInviteServer(serverId)
+    setIsInviteModalOpen(true)
+  }
 
   return (
     <>
@@ -636,17 +654,12 @@ function OverviewViewContent({
 
         {isSignedIn ? (
           <DiscoveryServersSection
+            discordBotInstallUrl={discordBotInstallUrl}
             availableDiscoveryServers={availableDiscoveryServers}
             hasSyncedServers={hasSyncedDiscordServers}
             serverPreferencePendingId={serverPreferencePendingId}
             onToggleDiscordServer={onToggleDiscordServer}
-          />
-        ) : null}
-
-        {isSignedIn ? (
-          <InviteUsersLauncherCard
-            discordBotInstallUrl={discordBotInstallUrl}
-            onOpen={() => setIsInviteModalOpen(true)}
+            onOpenInviteServer={handleOpenInviteServer}
           />
         ) : null}
       </Stack>
@@ -670,9 +683,6 @@ function OverviewViewContent({
             onRetryInviteMembers={onRetryInviteMembers}
             inviteSending={inviteSending}
             onSendBotInvites={onSendBotInvites}
-            onCopyInvite={onCopyInvite}
-            canShareInvite={canShareInvite}
-            onShareInvite={onShareInvite}
             inviteSendSummary={inviteSendSummary}
           />
         </DashboardModal>
