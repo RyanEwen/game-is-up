@@ -22,6 +22,8 @@ import { useDashboardContext } from '../contexts/useDashboardContext'
 type SortDirection = 'asc' | 'desc'
 type CtpSortKey = 'createdAt' | 'windowStartsAt' | 'creator' | 'status' | 'notificationCount' | 'errorCount'
 type ErrorSortKey = 'occurredAt' | 'source' | 'message'
+type PromptSortKey = 'createdAt' | 'user' | 'game' | 'status' | 'deliveredAt' | 'respondedAt'
+type NotificationSortKey = 'createdAt' | 'recipient' | 'game' | 'triggeredBy' | 'deliveredAt'
 
 const tablePageSize = 10
 
@@ -127,6 +129,7 @@ function CtpLifecycleDialog({
           <EmptyStateCard
             title="No lifecycle events found"
             body="No additional rows were recorded for this call-to-play timeline yet."
+            chips={['CTP lifecycle', 'Chronological order']}
           />
         )}
       </DialogContent>
@@ -345,6 +348,7 @@ function CtpTableSection({
           <EmptyStateCard
             title="No CTP rows match these filters"
             body="Try clearing filters or create a new call to play to populate this table."
+            chips={['CTP table', 'Filters', 'Pagination']}
           />
         )}
       </Stack>
@@ -487,6 +491,7 @@ function ErrorTableSection({
           <EmptyStateCard
             title="No error logs in this snapshot"
             body="When prompt, bot, or notification-path errors are captured, they will appear here."
+            chips={['Error table', 'Filters', 'Pagination']}
           />
         )}
       </Stack>
@@ -529,32 +534,132 @@ function BotStateCard({ debugAdmin, formatDateTime }: { debugAdmin: DebugAdminRe
 }
 
 function PromptLogCard({ debugAdmin, formatDateTime }: { debugAdmin: DebugAdminResponse; formatDateTime: (value: string | null) => string }) {
+  const [query, setQuery] = useState('')
+  const [statusFilter, setStatusFilter] = useState<'all' | 'sent' | 'skipped' | 'failed' | 'accepted' | 'declined' | 'expired'>('all')
+  const [sortKey, setSortKey] = useState<PromptSortKey>('createdAt')
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
   const [page, setPage] = useState(1)
-  const pageCount = Math.max(1, Math.ceil(debugAdmin.recentAutoPlayPrompts.length / tablePageSize))
+
+  const filteredRows = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase()
+
+    const rows = debugAdmin.recentAutoPlayPrompts.filter((prompt) => {
+      if (statusFilter !== 'all' && prompt.status !== statusFilter) {
+        return false
+      }
+
+      if (!normalizedQuery) {
+        return true
+      }
+
+      return [
+        prompt.user.displayName,
+        prompt.user.handle,
+        prompt.game.title,
+        prompt.statusDetail ?? '',
+        prompt.dmError ?? '',
+        prompt.id
+      ].join(' ').toLowerCase().includes(normalizedQuery)
+    })
+
+    rows.sort((left, right) => {
+      let result = 0
+
+      switch (sortKey) {
+        case 'user':
+          result = left.user.displayName.localeCompare(right.user.displayName)
+          break
+        case 'game':
+          result = left.game.title.localeCompare(right.game.title)
+          break
+        case 'status':
+          result = left.status.localeCompare(right.status)
+          break
+        case 'deliveredAt':
+          result = (left.deliveredAt ?? '').localeCompare(right.deliveredAt ?? '')
+          break
+        case 'respondedAt':
+          result = (left.respondedAt ?? '').localeCompare(right.respondedAt ?? '')
+          break
+        default:
+          result = new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime()
+      }
+
+      return sortDirection === 'asc' ? result : -result
+    })
+
+    return rows
+  }, [debugAdmin.recentAutoPlayPrompts, query, statusFilter, sortKey, sortDirection])
+
+  const pageCount = Math.max(1, Math.ceil(filteredRows.length / tablePageSize))
   const currentPage = Math.min(page, pageCount)
-  const pagedRows = paginateRows(debugAdmin.recentAutoPlayPrompts, currentPage, tablePageSize)
+  const pagedRows = paginateRows(filteredRows, currentPage, tablePageSize)
+
+  const setSort = (nextKey: PromptSortKey) => {
+    if (sortKey === nextKey) {
+      setSortDirection((current) => (current === 'asc' ? 'desc' : 'asc'))
+      return
+    }
+
+    setSortKey(nextKey)
+    setSortDirection('desc')
+  }
 
   return (
     <Card variant="soft" sx={{ p: 3 }}>
       <Stack spacing={1.5}>
-        <Box>
+        <Stack spacing={0.5}>
           <Typography level="title-lg">Recent auto-play prompts</Typography>
-          <Typography level="body-sm" sx={{ color: 'neutral.400', mt: 0.5 }}>
-            Prompt decisions from Discord activity starts, including skipped reasons, delivery failures, and Discord-created CTP attempts.
+          <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
+            Sort, filter, and page through prompt decisions from Discord activity starts, including skipped reasons, delivery failures, and Discord-created CTP attempts.
           </Typography>
-        </Box>
-        {debugAdmin.recentAutoPlayPrompts.length > 0 ? (
+        </Stack>
+
+        <Stack direction={{ xs: 'column', md: 'row' }} spacing={1}>
+          <Input
+            placeholder="Filter by user, game, detail, or ID"
+            value={query}
+            onChange={(event) => {
+              setQuery(event.target.value)
+              setPage(1)
+            }}
+            sx={{ flex: 1 }}
+          />
+          <Select
+            value={statusFilter}
+            onChange={(_event, value) => {
+              if (!value) {
+                return
+              }
+
+              setStatusFilter(value)
+              setPage(1)
+            }}
+            sx={{ minWidth: 170 }}
+          >
+            <Option value="all">All statuses</Option>
+            <Option value="sent">Sent</Option>
+            <Option value="skipped">Skipped</Option>
+            <Option value="accepted">Accepted</Option>
+            <Option value="declined">Declined</Option>
+            <Option value="expired">Expired</Option>
+            <Option value="failed">Failed</Option>
+          </Select>
+        </Stack>
+
+        {filteredRows.length > 0 ? (
           <>
             <Box sx={{ overflowX: 'auto' }}>
               <Table hoverRow borderAxis="bothBetween" stickyHeader>
                 <thead>
                   <tr>
-                    <th>Created</th>
-                    <th>User</th>
-                    <th>Game</th>
-                    <th>Status</th>
+                    <th><Button size="sm" variant="plain" onClick={() => setSort('createdAt')}>Created</Button></th>
+                    <th><Button size="sm" variant="plain" onClick={() => setSort('user')}>User</Button></th>
+                    <th><Button size="sm" variant="plain" onClick={() => setSort('game')}>Game</Button></th>
+                    <th><Button size="sm" variant="plain" onClick={() => setSort('status')}>Status</Button></th>
                     <th>Detail</th>
-                    <th>Delivery timeline</th>
+                    <th><Button size="sm" variant="plain" onClick={() => setSort('deliveredAt')}>Delivered</Button></th>
+                    <th><Button size="sm" variant="plain" onClick={() => setSort('respondedAt')}>Responded</Button></th>
                     <th>CTP</th>
                   </tr>
                 </thead>
@@ -592,10 +697,12 @@ function PromptLogCard({ debugAdmin, formatDateTime }: { debugAdmin: DebugAdminR
                       </td>
                       <td>
                         <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
-                          Delivered {formatDateTime(prompt.deliveredAt)}
+                          {formatDateTime(prompt.deliveredAt)}
                         </Typography>
+                      </td>
+                      <td>
                         <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
-                          Responded {formatDateTime(prompt.respondedAt)}
+                          {formatDateTime(prompt.respondedAt)}
                         </Typography>
                       </td>
                       <td>
@@ -610,7 +717,7 @@ function PromptLogCard({ debugAdmin, formatDateTime }: { debugAdmin: DebugAdminR
             </Box>
             <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1}>
               <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
-                Showing {pagedRows.length} of {debugAdmin.recentAutoPlayPrompts.length} prompt rows
+                Showing {pagedRows.length} of {filteredRows.length} prompt rows
               </Typography>
               <Stack direction="row" spacing={1} alignItems="center">
                 <Button size="sm" variant="outlined" color="neutral" disabled={currentPage <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>
@@ -627,8 +734,9 @@ function PromptLogCard({ debugAdmin, formatDateTime }: { debugAdmin: DebugAdminR
           </>
         ) : (
           <EmptyStateCard
-            title="No auto-play prompt history yet"
-            body="Once the bot sees activity and evaluates prompt rules, entries will appear here."
+            title="No prompt rows match these filters"
+            body="Try clearing filters or wait for the bot to observe Discord activity."
+            chips={['Discord presence', 'Prompt log']}
           />
         )}
       </Stack>
@@ -637,32 +745,130 @@ function PromptLogCard({ debugAdmin, formatDateTime }: { debugAdmin: DebugAdminR
 }
 
 function NotificationLogCard({ debugAdmin, formatDateTime }: { debugAdmin: DebugAdminResponse; formatDateTime: (value: string | null) => string }) {
+  const [query, setQuery] = useState('')
+  const [deliveryFilter, setDeliveryFilter] = useState<'all' | 'delivered' | 'stored'>('all')
+  const [sortKey, setSortKey] = useState<NotificationSortKey>('createdAt')
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
   const [page, setPage] = useState(1)
-  const pageCount = Math.max(1, Math.ceil(debugAdmin.recentNotifications.length / tablePageSize))
+
+  const filteredRows = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase()
+
+    const rows = debugAdmin.recentNotifications.filter((notification) => {
+      if (deliveryFilter === 'delivered' && !notification.deliveredAt) {
+        return false
+      }
+
+      if (deliveryFilter === 'stored' && notification.deliveredAt) {
+        return false
+      }
+
+      if (!normalizedQuery) {
+        return true
+      }
+
+      return [
+        notification.recipient.displayName,
+        notification.recipient.handle,
+        notification.title,
+        notification.body,
+        notification.gameTitle ?? '',
+        notification.triggeredBy?.displayName ?? '',
+        notification.triggeredBy?.handle ?? '',
+        notification.id
+      ].join(' ').toLowerCase().includes(normalizedQuery)
+    })
+
+    rows.sort((left, right) => {
+      let result = 0
+
+      switch (sortKey) {
+        case 'recipient':
+          result = left.recipient.displayName.localeCompare(right.recipient.displayName)
+          break
+        case 'game':
+          result = (left.gameTitle ?? '').localeCompare(right.gameTitle ?? '')
+          break
+        case 'triggeredBy':
+          result = (left.triggeredBy?.displayName ?? '').localeCompare(right.triggeredBy?.displayName ?? '')
+          break
+        case 'deliveredAt':
+          result = (left.deliveredAt ?? '').localeCompare(right.deliveredAt ?? '')
+          break
+        default:
+          result = new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime()
+      }
+
+      return sortDirection === 'asc' ? result : -result
+    })
+
+    return rows
+  }, [debugAdmin.recentNotifications, query, deliveryFilter, sortKey, sortDirection])
+
+  const pageCount = Math.max(1, Math.ceil(filteredRows.length / tablePageSize))
   const currentPage = Math.min(page, pageCount)
-  const pagedRows = paginateRows(debugAdmin.recentNotifications, currentPage, tablePageSize)
+  const pagedRows = paginateRows(filteredRows, currentPage, tablePageSize)
+
+  const setSort = (nextKey: NotificationSortKey) => {
+    if (sortKey === nextKey) {
+      setSortDirection((current) => (current === 'asc' ? 'desc' : 'asc'))
+      return
+    }
+
+    setSortKey(nextKey)
+    setSortDirection('desc')
+  }
 
   return (
     <Card variant="soft" sx={{ p: 3 }}>
       <Stack spacing={1.5}>
-        <Box>
+        <Stack spacing={0.5}>
           <Typography level="title-lg">Recent notification deliveries</Typography>
-          <Typography level="body-sm" sx={{ color: 'neutral.400', mt: 0.5 }}>
-            Latest call-to-play notification rows, with delivery timestamps for the Discord DM path.
+          <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
+            Sort, filter, and page through call-to-play notification rows, with delivery timestamps for the Discord DM path.
           </Typography>
-        </Box>
-        {debugAdmin.recentNotifications.length > 0 ? (
+        </Stack>
+
+        <Stack direction={{ xs: 'column', md: 'row' }} spacing={1}>
+          <Input
+            placeholder="Filter by recipient, game, title, triggered by, or ID"
+            value={query}
+            onChange={(event) => {
+              setQuery(event.target.value)
+              setPage(1)
+            }}
+            sx={{ flex: 1 }}
+          />
+          <Select
+            value={deliveryFilter}
+            onChange={(_event, value) => {
+              if (!value) {
+                return
+              }
+
+              setDeliveryFilter(value)
+              setPage(1)
+            }}
+            sx={{ minWidth: 170 }}
+          >
+            <Option value="all">All deliveries</Option>
+            <Option value="delivered">DM delivered</Option>
+            <Option value="stored">Stored only</Option>
+          </Select>
+        </Stack>
+
+        {filteredRows.length > 0 ? (
           <>
             <Box sx={{ overflowX: 'auto' }}>
               <Table hoverRow borderAxis="bothBetween" stickyHeader>
                 <thead>
                   <tr>
-                    <th>Created</th>
-                    <th>Recipient</th>
+                    <th><Button size="sm" variant="plain" onClick={() => setSort('createdAt')}>Created</Button></th>
+                    <th><Button size="sm" variant="plain" onClick={() => setSort('recipient')}>Recipient</Button></th>
                     <th>Title</th>
-                    <th>Game</th>
-                    <th>Triggered by</th>
-                    <th>Delivery</th>
+                    <th><Button size="sm" variant="plain" onClick={() => setSort('game')}>Game</Button></th>
+                    <th><Button size="sm" variant="plain" onClick={() => setSort('triggeredBy')}>Triggered by</Button></th>
+                    <th><Button size="sm" variant="plain" onClick={() => setSort('deliveredAt')}>Delivery</Button></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -690,7 +896,7 @@ function NotificationLogCard({ debugAdmin, formatDateTime }: { debugAdmin: Debug
                           {notification.deliveredAt ? 'DM delivered' : 'Stored only'}
                         </Chip>
                         <Typography level="body-xs" sx={{ color: 'neutral.400', mt: 0.5 }}>
-                          Delivered {formatDateTime(notification.deliveredAt)}
+                          {formatDateTime(notification.deliveredAt)}
                         </Typography>
                       </td>
                     </tr>
@@ -700,7 +906,7 @@ function NotificationLogCard({ debugAdmin, formatDateTime }: { debugAdmin: Debug
             </Box>
             <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1}>
               <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
-                Showing {pagedRows.length} of {debugAdmin.recentNotifications.length} notification rows
+                Showing {pagedRows.length} of {filteredRows.length} notification rows
               </Typography>
               <Stack direction="row" spacing={1} alignItems="center">
                 <Button size="sm" variant="outlined" color="neutral" disabled={currentPage <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>
@@ -717,8 +923,9 @@ function NotificationLogCard({ debugAdmin, formatDateTime }: { debugAdmin: Debug
           </>
         ) : (
           <EmptyStateCard
-            title="No notification rows yet"
-            body="Play-intent notifications will show up here after a call to play matches someone and a notification row is created."
+            title="No notification rows match these filters"
+            body="Try clearing filters or wait for a call to play to match someone and create a notification row."
+            chips={['Notification rows', 'Delivery timestamp', 'Discord DM path']}
           />
         )}
       </Stack>
@@ -745,6 +952,7 @@ function DebugViewContent({
       <EmptyStateCard
         title="Sign in to inspect debug data"
         body="The debug view is only populated for authenticated sessions so it can reuse the same backend access checks as the rest of the dashboard."
+        chips={['Development only', 'Signed-in route', 'Bot and prompt logs']}
       />
     )
   }
@@ -780,9 +988,9 @@ function DebugViewContent({
               sections={[
                 { id: 'bot-status', label: 'Bot' },
                 { id: 'ctps', label: 'CTPs', count: debugAdmin.recentPlayIntents.length },
-                { id: 'errors', label: 'Errors', count: debugAdmin.recentErrors.length },
                 { id: 'prompts', label: 'Prompts', count: debugAdmin.recentAutoPlayPrompts.length },
-                { id: 'notifications', label: 'Notifications', count: debugAdmin.recentNotifications.length }
+                { id: 'notifications', label: 'Notifications', count: debugAdmin.recentNotifications.length },
+                { id: 'errors', label: 'Errors', count: debugAdmin.recentErrors.length }
               ]}
             />
 
@@ -794,10 +1002,6 @@ function DebugViewContent({
               <CtpTableSection debugAdmin={debugAdmin} formatDateTime={formatDateTime} onOpenLifecycle={setSelectedPlayIntentId} />
             </Box>
 
-            <Box id="errors" sx={{ scrollMarginTop: sectionScrollMarginTop }}>
-              <ErrorTableSection rows={debugAdmin.recentErrors} formatDateTime={formatDateTime} />
-            </Box>
-
             <Box id="prompts" sx={{ scrollMarginTop: sectionScrollMarginTop }}>
               <PromptLogCard debugAdmin={debugAdmin} formatDateTime={formatDateTime} />
             </Box>
@@ -805,11 +1009,16 @@ function DebugViewContent({
             <Box id="notifications" sx={{ scrollMarginTop: sectionScrollMarginTop }}>
               <NotificationLogCard debugAdmin={debugAdmin} formatDateTime={formatDateTime} />
             </Box>
+
+            <Box id="errors" sx={{ scrollMarginTop: sectionScrollMarginTop }}>
+              <ErrorTableSection rows={debugAdmin.recentErrors} formatDateTime={formatDateTime} />
+            </Box>
           </>
         ) : (
           <EmptyStateCard
             title={debugLoading ? 'Loading debug data' : 'Debug data unavailable'}
             body={debugLoading ? 'Fetching the latest bot, prompt, notification, and lifecycle state from the API.' : 'No debug snapshot has been loaded yet.'}
+            chips={['Bot state', 'CTP table', 'Lifecycle events', 'Error logs']}
           />
         )}
       </Stack>
