@@ -5,8 +5,8 @@ import { useEffect, useRef, useState } from 'react'
 // xs: 12 + 4 + 1 + 6 + 44 + 6 + 1 = 74px
 // md: 16 + 4 + 1 + 8 + 52 + 8 + 1 = 90px
 export const sectionNavTop = {
-  xs: 'calc(var(--app-top-inset, 0px) + 74px)',
-  md: 'calc(var(--app-top-inset, 0px) + 90px)'
+  xs: 'calc(var(--app-top-inset, 0px) + 73px)',
+  md: 'calc(var(--app-top-inset, 0px) + 89px)'
 } as const
 
 // scroll-margin-top = nav top + nav height (~48px) + 8px gap
@@ -22,6 +22,7 @@ export function scrollToSection(id: string) {
 export type SectionNavEntry = {
   id: string
   label: string
+  ariaLabel?: string
   count?: number
 }
 
@@ -73,10 +74,19 @@ export function SectionNav({
       <Box
         sx={{
           display: 'inline-flex',
+          width: 'fit-content',
+          maxWidth: 'calc(100% - 8px)',
+          minWidth: 0,
           flexDirection: 'row',
           alignItems: 'center',
-          flexWrap: 'wrap',
+          flexWrap: 'nowrap',
           justifyContent: 'center',
+          overflowX: 'auto',
+          overflowY: 'hidden',
+          scrollbarWidth: 'none',
+          '&::-webkit-scrollbar': {
+            display: 'none'
+          },
           gap: 0,
           px: { xs: 2, sm: 2.5 },
           py: { xs: 0.75, sm: 1 },
@@ -99,7 +109,7 @@ export function SectionNav({
           ].join(', ')
         }}
       >
-        {sections.map(({ id, label, count }, i) => (
+        {sections.map(({ id, label, ariaLabel, count }, i) => (
           <Box key={id} sx={{ display: 'flex', alignItems: 'center' }}>
             {i > 0 && (
               <Box
@@ -112,6 +122,7 @@ export function SectionNav({
             )}
             <Box
               component="button"
+              aria-label={ariaLabel ?? label}
               onClick={() => scrollToSection(id)}
               sx={{
                 display: 'inline-flex',
@@ -124,6 +135,7 @@ export function SectionNav({
                 fontSize: { xs: 'var(--joy-fontSize-sm)', sm: 'var(--joy-fontSize-md)' },
                 fontWeight: 'var(--joy-fontWeight-md)',
                 fontFamily: 'var(--joy-fontFamily-body)',
+                whiteSpace: 'nowrap',
                 cursor: 'pointer',
                 transition: 'color 150ms ease',
                 '&:hover': { color: 'var(--joy-palette-neutral-100)' },

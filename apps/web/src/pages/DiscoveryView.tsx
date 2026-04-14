@@ -142,9 +142,9 @@ function DiscoveryViewContent({
       <SectionNav
         aria-label="Discovery sections"
         sections={[
-          { id: 'matching-games', label: 'Matching games', count: sortedOverlapGames.length },
-          { id: 'other-games', label: 'Other games', count: sortedBrowseGames.length },
-          { id: 'network-members', label: 'Network members', count: sortedNetworkPeople.length }
+          { id: 'matching-games', label: 'Matching', ariaLabel: 'Matching games', count: sortedOverlapGames.length },
+          { id: 'other-games', label: 'Other', ariaLabel: 'Other games', count: sortedBrowseGames.length },
+          { id: 'network-members', label: 'Members', ariaLabel: 'Network members', count: sortedNetworkPeople.length }
         ]}
       />
       <DiscoverySection

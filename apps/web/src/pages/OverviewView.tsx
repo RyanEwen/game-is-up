@@ -644,8 +644,8 @@ function OverviewViewContent({
           mb={0}
           sections={[
             { id: 'account', label: 'Account' },
-            { id: 'quick-start', label: 'Quick start' },
-            ...(isSignedIn ? [{ id: 'your-network', label: 'Your network' }] : [])
+            { id: 'quick-start', label: 'Quick', ariaLabel: 'Quick start' },
+            ...(isSignedIn ? [{ id: 'your-network', label: 'Network', ariaLabel: 'Your network' }] : [])
           ]}
         />
         <Box id="account" sx={{ scrollMarginTop: sectionScrollMarginTop }}>
