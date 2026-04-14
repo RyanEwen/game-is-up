@@ -174,11 +174,13 @@ This repo now treats Prisma migrations as the source of truth for schema changes
 13. If a notified recipient says they are joining from Discord, the creator gets a follow-up DM confirmation. Recipients who already have an overlapping active call to play are filtered out before those call notifications are sent.
 14. Users can leave a Play page setting on by default so the gateway-owning bot can DM them after it sees them start a game and offer to create a call to play straight from Discord. Those prompts only go out when there is no active call already, at least one visible overlap could receive it, and the same game has not already prompted that user in the last 10 minutes.
 15. Unanswered Discord call-to-play invites and auto-play prompts are now edited in place when they go stale, so users see that the session ended or the observed game activity stopped instead of keeping an outdated call to action.
-16. Discovery-based play-intent visibility can now include both explicit friends and users from the Discord servers you opted into discovery.
-17. Discovery remains based on opted-in shared Discord servers plus explicit in-app friendships. The Discord friend-list import path has been removed.
-18. Discord is still the only sign-in path in this scaffold.
-19. Steam can now be linked as a secondary account for library import only. It does not replace Discord auth or discovery.
-20. Linked-account flows like Discord sign-in and Steam linking return directly to the current web URL after the provider callback completes.
+16. Scheduled calls to play still notify the target audience immediately when created. At start time, the creator now gets a check-in prompt to confirm whether the plan is still on.
+17. If the creator confirms, users who already accepted get a go-time update and users who never answered get one follow-up reminder. Users who declined are not reminded again.
+18. Discovery-based play-intent visibility can now include both explicit friends and users from the Discord servers you opted into discovery.
+19. Discovery remains based on opted-in shared Discord servers plus explicit in-app friendships. The Discord friend-list import path has been removed.
+20. Discord is still the only sign-in path in this scaffold.
+21. Steam can now be linked as a secondary account for library import only. It does not replace Discord auth or discovery.
+22. Linked-account flows like Discord sign-in and Steam linking return directly to the current web URL after the provider callback completes.
 
 ## Steam import setup
 

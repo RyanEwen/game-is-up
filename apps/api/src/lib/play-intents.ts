@@ -134,7 +134,7 @@ function buildNotificationCopy(
 
   if (selectionMode === 'library') {
     return {
-      title: isScheduled ? `${senderDisplayName} scheduled a play session` : `${senderDisplayName} is looking to play`,
+      title: isScheduled ? `${senderDisplayName} scheduled a call to play` : `${senderDisplayName} is looking to play`,
       body: isScheduled
         ? `${senderDisplayName} opened up their full library starting ${startsAtLabel} for ${durationLabel}.`
         : `${senderDisplayName} opened up their full library for the next ${durationLabel}.`

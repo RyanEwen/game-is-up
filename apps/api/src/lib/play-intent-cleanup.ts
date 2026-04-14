@@ -1,5 +1,8 @@
 import { NotificationType } from '@prisma/client'
-import { expirePendingPlayIntentNotifications } from './play-intent-notification-responses.js'
+import {
+  expirePendingPlayIntentNotifications,
+  sweepScheduledPlayIntentCreatorCheckIns
+} from './play-intent-notification-responses.js'
 import { prisma } from './prisma.js'
 
 const playIntentCleanupIntervalMs = 60 * 1000
@@ -36,9 +39,10 @@ async function runCleanupSweep() {
   cleanupInFlight = true
 
   try {
+    await sweepScheduledPlayIntentCreatorCheckIns()
     await sweepExpiredPlayIntentNotifications()
   } catch (error) {
-    console.error('Failed to sweep expired play-intent notifications', error)
+    console.error('Failed to sweep play-intent notification jobs', error)
   } finally {
     cleanupInFlight = false
   }

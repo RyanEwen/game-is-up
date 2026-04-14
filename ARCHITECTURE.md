@@ -53,6 +53,8 @@ The scheduling model uses an explicit start and end window so the same aggregate
 
 Notification rows can now also track whether a recipient explicitly said they would join from a Discord DM prompt. That keeps the response flow attached to the original play intent instead of introducing a second RSVP-specific entity.
 
+Scheduled calls to play now add a second-stage check-in flow. The audience is still notified immediately at creation time, but the creator receives an explicit confirmation prompt when the scheduled start time arrives. If confirmed, accepted recipients receive a go-time update, unanswered recipients receive one follow-up reminder, and prior decliners remain opted out.
+
 Notification and auto-play prompt rows also store the Discord DM message reference when the bot delivers an interactive DM. That allows the API to edit stale bot prompts in place when a play intent expires or an observed Discord activity ends, rather than leaving outdated buttons behind in the user's DM history.
 
 The Discord bot runtime is now intentionally split by environment. Exactly one environment should run the live Discord gateway connection for presence tracking and interactive Discord buttons, while other environments can reuse the same bot token in a REST-only mode for DM send/edit plus read-only server-member browsing without competing for gateway ownership.

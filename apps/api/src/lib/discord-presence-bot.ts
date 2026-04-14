@@ -13,7 +13,9 @@ import { handleDiscordAutoPlayPromptInteraction } from './discord-auto-play-prom
 import { recordDiscordPresence } from './discord-activity.js'
 import { env } from './env.js'
 import {
+  handleScheduledPlayIntentCheckInInteraction,
   handlePlayIntentNotificationInteraction,
+  isScheduledPlayIntentCheckInCustomId,
   isPlayIntentNotificationCustomId
 } from './play-intent-notification-responses.js'
 
@@ -633,6 +635,11 @@ export async function startDiscordPresenceBot() {
 
     if (isPlayIntentNotificationCustomId(interaction.customId)) {
       void handlePlayIntentNotificationInteraction(interaction)
+      return
+    }
+
+    if (isScheduledPlayIntentCheckInCustomId(interaction.customId)) {
+      void handleScheduledPlayIntentCheckInInteraction(interaction)
     }
   })
 
