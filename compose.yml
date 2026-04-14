@@ -36,6 +36,7 @@ services:
       STEAM_CALLBACK_URL: ${STEAM_CALLBACK_URL:-}
       STEAM_WEB_API_KEY: ${STEAM_WEB_API_KEY:-}
       RAWG_API_KEY: ${RAWG_API_KEY:-}
+      ADMIN_HANDLES: ${ADMIN_HANDLES:-}
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4000/api/health').then((response) => { if (!response.ok) process.exit(1) }).catch(() => process.exit(1))"]
       interval: 15s
