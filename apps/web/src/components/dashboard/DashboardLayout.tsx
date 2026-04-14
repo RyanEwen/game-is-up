@@ -1,4 +1,4 @@
-import type { ReactNode, RefObject } from 'react'
+import { type ReactNode, type RefObject } from 'react'
 import {
   Alert,
   Box,
@@ -325,31 +325,46 @@ export const DashboardLayout = ({
               backgroundColor: 'transparent'
             }}
           >
-            <TabList
-              disableUnderline
+            <Box
               sx={{
-                p: { xs: 0.75, sm: 1 },
-                gap: { xs: 0.5, sm: 1 },
                 position: 'sticky',
                 top: {
                   xs: 'calc(var(--app-top-inset, 0px) + 12px)',
                   md: 'calc(var(--app-top-inset, 0px) + 16px)'
                 },
-                zIndex: 20,
-                borderRadius: 'xl',
-                flexWrap: 'nowrap',
-                backgroundColor: 'rgba(11, 16, 32, 0.82)',
-                border: '1px solid rgba(255, 255, 255, 0.08)',
-                backdropFilter: 'blur(18px)',
-                boxShadow: 'lg'
+                zIndex: 20
               }}
             >
-              {visibleTabs.map((tab) => (
-                <Tab key={tab.value} value={tab.value} sx={dashboardTabSx}>
-                  {tab.label}
-                </Tab>
-              ))}
-            </TabList>
+              <TabList
+                disableUnderline
+                sx={{
+                  m: 0.5,
+                  p: { xs: 0.75, sm: 1 },
+                  gap: { xs: 0.5, sm: 1 },
+                  position: 'relative',
+                  borderRadius: 'xl',
+                  flexWrap: 'nowrap',
+                  backgroundColor: 'rgba(7, 12, 24, 0.86)',
+                  border: '1px solid rgba(129, 166, 214, 0.22)',
+                  backdropFilter: 'blur(10px) saturate(1.04)',
+                  WebkitBackdropFilter: 'blur(10px) saturate(1.04)',
+                  boxShadow: [
+                    '0 14px 26px -18px rgba(0, 0, 0, 0.92)',
+                    '0 1px 0 rgba(160, 202, 255, 0.24)',
+                    'inset 0 1px 0 rgba(255, 255, 255, 0.05)',
+                    '0 0 0 1px rgba(94, 144, 206, 0.18)',
+                    // '0 0 34px rgba(42, 112, 189, 0.16)'
+                  ].join(', '),
+                }}
+              >
+                {visibleTabs.map((tab) => (
+                  <Tab key={tab.value} value={tab.value} sx={dashboardTabSx}>
+                    {tab.label}
+                  </Tab>
+                ))}
+              </TabList>
+
+            </Box>
 
             <Box sx={{ pt: 3 }}>{children}</Box>
           </Tabs>
