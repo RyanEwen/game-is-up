@@ -1,152 +1,19 @@
 import { Box, Card, Option, Select, Stack, Typography } from '@mui/joy'
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import type { DiscoveryGame, DiscoveryPerson } from '@game-is-up/shared'
 import { DashboardModal } from '../components/dashboard/DashboardModal'
 import { EmptyStateCard } from '../components/dashboard/EmptyStateCard'
 import { GameCard } from '../components/dashboard/GameCard'
 import { LibraryEditorCard } from '../components/dashboard/LibraryEditorCard'
 import { PersonCard } from '../components/dashboard/PersonCard'
+import { SectionNav, sectionScrollMarginTop } from '../components/dashboard/SectionNav'
 import { discoveryGameGridSx } from '../components/dashboard/dashboardUtils'
 import { useDashboardContext } from '../contexts/useDashboardContext'
 import type { DashboardLibraryQuickAddGame, FriendTarget } from '../components/dashboard/types'
 
 const showsDemoDiscoveryCopy = import.meta.env.DEV
 
-// Tab bar pill bottom = sticky-top + margin(4) + border(1) + padding + tab-minHeight + padding + border(1)
-// xs: 12 + 4 + 1 + 6 + 44 + 6 + 1 = 74px
-// md: 16 + 4 + 1 + 8 + 52 + 8 + 1 = 90px
-const sectionNavTop = {
-  xs: 'calc(var(--app-top-inset, 0px) + 74px)',
-  md: 'calc(var(--app-top-inset, 0px) + 90px)'
-} as const
-
-// scroll-margin-top = nav top + nav height (~48px) + 8px gap
-const sectionScrollMarginTop = {
-  xs: 'calc(var(--app-top-inset, 0px) + 132px)',
-  md: 'calc(var(--app-top-inset, 0px) + 152px)'
-} as const
-
 type SectionId = 'matching-games' | 'other-games' | 'network-members'
-
-function scrollToSection(id: SectionId) {
-  document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-}
-
-function DiscoverySectionNav({ sections }: { sections: Array<{ id: SectionId; label: string; count: number }> }) {
-  const navRef = useRef<HTMLDivElement>(null)
-  const [isStuck, setIsStuck] = useState(false)
-
-  useEffect(() => {
-    const nav = navRef.current
-    if (!nav) return
-    const check = () => {
-      const rect = nav.getBoundingClientRect()
-      const stickyTop = parseFloat(getComputedStyle(nav).top) || 0
-      setIsStuck(rect.top <= stickyTop + 1)
-    }
-    window.addEventListener('scroll', check, { passive: true })
-    window.addEventListener('resize', check, { passive: true })
-    check()
-    return () => {
-      window.removeEventListener('scroll', check)
-      window.removeEventListener('resize', check)
-    }
-  }, [])
-
-  const topRadius = isStuck ? 0 : 'var(--joy-radius-xl, 16px)'
-
-  return (
-    <Box
-      ref={navRef}
-      component="nav"
-      aria-label="Discovery sections"
-      sx={{
-        position: 'sticky',
-        top: sectionNavTop,
-        zIndex: 19,
-        mb: 3,
-        display: 'flex',
-        justifyContent: 'center'
-      }}
-    >
-      <Box
-        sx={{
-          display: 'inline-flex',
-          flexDirection: 'row',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          justifyContent: 'center',
-          gap: 0,
-          px: { xs: 2, sm: 2.5 },
-          py: { xs: 0.75, sm: 1 },
-          borderTop: 'none',
-          borderLeft: '1px solid rgba(129, 166, 214, 0.22)',
-          borderRight: '1px solid rgba(129, 166, 214, 0.22)',
-          borderBottom: '1px solid rgba(129, 166, 214, 0.22)',
-          borderTopLeftRadius: topRadius,
-          borderTopRightRadius: topRadius,
-          borderBottomLeftRadius: 'var(--joy-radius-xl, 16px)',
-          borderBottomRightRadius: 'var(--joy-radius-xl, 16px)',
-          transition: 'border-top-left-radius 120ms ease, border-top-right-radius 120ms ease',
-          backgroundColor: 'rgba(7, 12, 24, 0.86)',
-          backdropFilter: 'blur(10px) saturate(1.04)',
-          WebkitBackdropFilter: 'blur(10px) saturate(1.04)',
-          boxShadow: [
-            '0 14px 26px -18px rgba(0, 0, 0, 0.92)',
-            'inset 0 -1px 0 rgba(255, 255, 255, 0.04)',
-            '0 0 0 1px rgba(94, 144, 206, 0.14)'
-          ].join(', ')
-        }}
-      >
-        {sections.map(({ id, label, count }, i) => (
-          <Box key={id} sx={{ display: 'flex', alignItems: 'center' }}>
-            {i > 0 && (
-              <Box component="span" aria-hidden sx={{ mx: 1.5, color: 'rgba(255,255,255,0.18)', userSelect: 'none', fontSize: 'sm' }}>·</Box>
-            )}
-            <Box
-              component="button"
-              onClick={() => scrollToSection(id)}
-              sx={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 0.75,
-                border: 'none',
-                background: 'none',
-                padding: 0,
-                color: 'var(--joy-palette-neutral-400)',
-                fontSize: { xs: 'var(--joy-fontSize-sm)', sm: 'var(--joy-fontSize-md)' },
-                fontWeight: 'var(--joy-fontWeight-md)',
-                fontFamily: 'var(--joy-fontFamily-body)',
-                cursor: 'pointer',
-                transition: 'color 150ms ease',
-                '&:hover': { color: 'var(--joy-palette-neutral-100)' },
-                '&:focus-visible': {
-                  outline: '2px solid rgba(129, 166, 214, 0.6)',
-                  outlineOffset: 3,
-                  borderRadius: 2
-                }
-              }}
-            >
-              {label}
-              {count > 0 && (
-                <Box
-                  component="span"
-                  sx={{
-                    color: 'var(--joy-palette-neutral-500)',
-                    fontSize: { xs: 'var(--joy-fontSize-xs)', sm: 'var(--joy-fontSize-sm)' },
-                    fontWeight: 'var(--joy-fontWeight-md)'
-                  }}
-                >
-                  {count}
-                </Box>
-              )}
-            </Box>
-          </Box>
-        ))}
-      </Box>
-    </Box>
-  )
-}
 
 function DiscoverySection({
   isFirst = false,
@@ -272,7 +139,8 @@ function DiscoveryViewContent({
 
   return (
     <Stack spacing={0}>
-      <DiscoverySectionNav
+      <SectionNav
+        aria-label="Discovery sections"
         sections={[
           { id: 'matching-games', label: 'Matching games', count: sortedOverlapGames.length },
           { id: 'other-games', label: 'Other games', count: sortedBrowseGames.length },

@@ -9,6 +9,7 @@ import type {
 import { DashboardModal } from '../components/dashboard/DashboardModal'
 import { DashboardModalActionBar } from '../components/dashboard/DashboardModalActionBar'
 import { EmptyStateCard } from '../components/dashboard/EmptyStateCard'
+import { SectionNav, sectionScrollMarginTop } from '../components/dashboard/SectionNav'
 import { useDashboardContext } from '../contexts/useDashboardContext'
 import type { Notice } from '../components/dashboard/types'
 
@@ -93,9 +94,6 @@ function AccountCard({
 
   return (
     <Card variant="soft" sx={{ p: 3 }}>
-      <Typography level="title-lg" sx={{ mb: 1 }}>
-        Account
-      </Typography>
       {signedInUser ? (
         <Stack spacing={1.5}>
           <Stack direction="row" spacing={1.5} alignItems="center">
@@ -139,9 +137,6 @@ function QuickStartCard() {
   return (
     <Card variant="soft" sx={{ p: 3 }}>
       <Stack spacing={1.5}>
-        <Box>
-          <Typography level="title-lg">Quick start</Typography>
-        </Box>
         <Stack spacing={1}>
           <Sheet variant="outlined" sx={{ p: 1.5, borderRadius: 'md', backgroundColor: 'rgba(255, 255, 255, 0.02)' }}>
             <Typography level="title-sm">1. Sign in</Typography>
@@ -644,23 +639,44 @@ function OverviewViewContent({
   return (
     <>
       <Stack spacing={3}>
-        <AccountCard
-          session={session}
-          discordEnabled={discordEnabled}
-          onLogout={onLogout}
-          onDiscordLogin={onDiscordLogin}
+        <SectionNav
+          aria-label="Overview sections"
+          mb={0}
+          sections={[
+            { id: 'account', label: 'Account' },
+            { id: 'quick-start', label: 'Quick start' },
+            ...(isSignedIn ? [{ id: 'your-network', label: 'Your network' }] : [])
+          ]}
         />
-        <QuickStartCard />
+        <Box id="account" sx={{ scrollMarginTop: sectionScrollMarginTop }}>
+          <Stack spacing={1.5}>
+            <Typography level="h2">Account</Typography>
+            <AccountCard
+              session={session}
+              discordEnabled={discordEnabled}
+              onLogout={onLogout}
+              onDiscordLogin={onDiscordLogin}
+            />
+          </Stack>
+        </Box>
+        <Box id="quick-start" sx={{ scrollMarginTop: sectionScrollMarginTop }}>
+          <Stack spacing={1.5}>
+            <Typography level="h2">Quick start</Typography>
+            <QuickStartCard />
+          </Stack>
+        </Box>
 
         {isSignedIn ? (
-          <DiscoveryServersSection
-            discordBotInstallUrl={discordBotInstallUrl}
-            availableDiscoveryServers={availableDiscoveryServers}
-            hasSyncedServers={hasSyncedDiscordServers}
-            serverPreferencePendingId={serverPreferencePendingId}
-            onToggleDiscordServer={onToggleDiscordServer}
-            onOpenInviteServer={handleOpenInviteServer}
-          />
+          <Box id="your-network" sx={{ scrollMarginTop: sectionScrollMarginTop }}>
+            <DiscoveryServersSection
+              discordBotInstallUrl={discordBotInstallUrl}
+              availableDiscoveryServers={availableDiscoveryServers}
+              hasSyncedServers={hasSyncedDiscordServers}
+              serverPreferencePendingId={serverPreferencePendingId}
+              onToggleDiscordServer={onToggleDiscordServer}
+              onOpenInviteServer={handleOpenInviteServer}
+            />
+          </Box>
         ) : null}
       </Stack>
 
