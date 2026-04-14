@@ -52,7 +52,7 @@ function DashboardAppShell() {
       installPrompt={layoutProps.installPrompt}
       toastNotices={layoutProps.toastNotices}
       onboarding={layoutProps.onboarding}
-      showDebugTab={layoutProps.showDebugView}
+      showDebugLink={layoutProps.showDebugView}
       tabsAnchorRef={tabsAnchorRef}
     >
       <ScrollReset tabsAnchorRef={tabsAnchorRef} />

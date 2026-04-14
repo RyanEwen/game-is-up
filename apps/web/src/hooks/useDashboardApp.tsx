@@ -171,7 +171,7 @@ export function useDashboardApp() {
   const [addingLibraryGameId, setAddingLibraryGameId] = useState<string | null>(null)
   const [serverPreferencePendingId, setServerPreferencePendingId] = useState<string | null>(null)
   const timezoneSyncPendingIdRef = useRef<string | null>(null)
-  const showDebugView = import.meta.env.DEV
+  const showDebugView = Boolean(state.session?.user?.isAdmin)
   const browserTimeZoneId = getBrowserTimeZoneId()
   const isInstalledBrowserApp = getIsInstalledBrowserApp()
   const installSupport = !isInstalledBrowserApp ? getInstallSupport(installPromptEvent) : null
@@ -327,7 +327,7 @@ export function useDashboardApp() {
         fetch(buildApiUrl('/api/play-intents/feed'), requestInit),
         parsedSession.authenticated ? fetch(buildApiUrl('/api/library/me'), requestInit) : Promise.resolve(null),
         parsedSession.authenticated ? fetch(buildApiUrl('/api/play-intents/me'), requestInit) : Promise.resolve(null),
-        parsedSession.authenticated && showDebugView ? fetch(buildApiUrl('/api/debug/admin'), requestInit) : Promise.resolve(null)
+        parsedSession.authenticated && parsedSession.user?.isAdmin ? fetch(buildApiUrl('/api/debug/admin'), requestInit) : Promise.resolve(null)
       ])
 
       const [discoveryJson, playIntentsJson] = await Promise.all([
@@ -380,7 +380,7 @@ export function useDashboardApp() {
         error: error instanceof Error ? error.message : 'Unknown error'
       }))
     }
-  }, [showDebugView])
+  }, [])
 
   const updateProfile = useCallback(async (profilePatch: { usualAvailability?: string; timezoneId?: string; discordAutoPromptPlayIntent?: boolean }) => {
     const response = await fetch(buildApiUrl('/api/profile/me'), {

@@ -388,6 +388,7 @@ export const authenticatedUserSchema = z.object({
   timezoneId: timezoneIdSchema,
   usualAvailability: z.string().nullable(),
   discordAutoPromptPlayIntent: z.boolean(),
+  isAdmin: z.boolean(),
   authProvider: authProviderSchema
 })
 
@@ -507,7 +508,8 @@ export const serverEnvSchema = z.object({
   DISCORD_BOT_MODE: discordBotModeSchema.optional(),
   STEAM_CALLBACK_URL: z.string().url().optional(),
   STEAM_WEB_API_KEY: z.string().optional(),
-  RAWG_API_KEY: z.string().optional()
+  RAWG_API_KEY: z.string().optional(),
+  ADMIN_HANDLES: z.string().optional()
 })
 
 export type AuthProvider = z.infer<typeof authProviderSchema>;

@@ -78,6 +78,7 @@ model User {
   timezoneId        String             @default("Etc/UTC") @map("timezoneLabel")
   usualAvailability String?
   discordAutoPromptPlayIntent Boolean   @default(true)
+  isAdmin           Boolean            @default(false)
   visibility        ProfileVisibility  @default(FRIENDS_ONLY)
   lastSeenAt        DateTime           @default(now())
   createdAt         DateTime           @default(now())

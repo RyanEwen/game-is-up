@@ -199,6 +199,7 @@ authRouter.get('/me', async (request, response) => {
       timezoneId: true,
       usualAvailability: true,
       discordAutoPromptPlayIntent: true,
+      isAdmin: true,
       identities: {
         select: {
           provider: true
@@ -221,6 +222,15 @@ authRouter.get('/me', async (request, response) => {
   }
 
   await ensureDevelopmentSampleFriends(user)
+
+  const adminHandles = env.ADMIN_HANDLES
+    ? env.ADMIN_HANDLES.split(',').map((h) => h.trim().toLowerCase()).filter(Boolean)
+    : []
+  const shouldBeAdmin = adminHandles.includes(user.handle.toLowerCase())
+  if (shouldBeAdmin !== user.isAdmin) {
+    await prisma.user.update({ where: { id: user.id }, data: { isAdmin: shouldBeAdmin } })
+    user.isAdmin = shouldBeAdmin
+  }
 
   const discordGraph = await buildDiscordGraphCapabilities(user.id)
   const connectedProviders = [...new Set(user.identities.map((identity) => toSharedAuthProvider(identity.provider)).sort((left, right) => left.localeCompare(right)))]

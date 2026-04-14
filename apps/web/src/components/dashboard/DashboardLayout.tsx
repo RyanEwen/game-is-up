@@ -1,4 +1,5 @@
 import { type ReactNode, type RefObject } from 'react'
+import { Link } from 'react-router-dom'
 import {
   Alert,
   Box,
@@ -13,7 +14,7 @@ import {
 } from '@mui/joy'
 import { CssVarsProvider } from '@mui/joy/styles'
 import { theme } from '../../theme/theme'
-import { dashboardTabSx } from './dashboardUtils'
+import { dashboardTabPaths, dashboardTabSx } from './dashboardUtils'
 import type { DashboardTab, DashboardToast } from './types'
 
 const dashboardTabs: Array<{ value: DashboardTab; label: string }> = [
@@ -21,8 +22,7 @@ const dashboardTabs: Array<{ value: DashboardTab; label: string }> = [
   { value: 'friends', label: 'Friends' },
   { value: 'library', label: 'Library' },
   { value: 'discovery', label: 'Discover' },
-  { value: 'play', label: 'Play' },
-  { value: 'debug', label: 'Debug' }
+  { value: 'play', label: 'Play' }
 ]
 
 const ambientSpectrumGradient = 'linear-gradient(115deg, #49ff66 0%, #1dff8f 18%, #14ffd6 40%, #20d8ff 62%, #4d93ff 82%, #49ff66 100%)'
@@ -39,7 +39,7 @@ export const DashboardLayout = ({
   installPrompt,
   toastNotices,
   onboarding,
-  showDebugTab,
+  showDebugLink,
   tabsAnchorRef,
   children
 }: {
@@ -52,12 +52,10 @@ export const DashboardLayout = ({
   };
   toastNotices: DashboardToast[];
   onboarding?: ReactNode;
-  showDebugTab: boolean;
+  showDebugLink: boolean;
   tabsAnchorRef: RefObject<HTMLDivElement>;
   children: ReactNode;
 }) => {
-  const visibleTabs = showDebugTab ? dashboardTabs : dashboardTabs.filter((tab) => tab.value !== 'debug')
-
   return (
     <CssVarsProvider theme={theme} defaultMode="dark">
       <CssBaseline />
@@ -357,7 +355,7 @@ export const DashboardLayout = ({
                   ].join(', '),
                 }}
               >
-                {visibleTabs.map((tab) => (
+                {dashboardTabs.map((tab) => (
                   <Tab key={tab.value} value={tab.value} sx={dashboardTabSx}>
                     {tab.label}
                   </Tab>
@@ -368,6 +366,26 @@ export const DashboardLayout = ({
 
             <Box sx={{ pt: 3 }}>{children}</Box>
           </Tabs>
+
+          {showDebugLink ? (
+            <Box
+              component="footer"
+              sx={{ textAlign: 'center', pb: 1 }}
+            >
+              <Typography
+                component={Link}
+                to={dashboardTabPaths.debug}
+                level="body-xs"
+                sx={{
+                  color: 'neutral.500',
+                  textDecoration: 'none',
+                  '&:hover': { color: 'neutral.300' }
+                }}
+              >
+                Debug
+              </Typography>
+            </Box>
+          ) : null}
         </Stack>
       </Box>
     </CssVarsProvider>
