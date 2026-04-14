@@ -8,6 +8,7 @@ import type {
 import {
   AuthProvider,
   GameIntentType,
+  NotificationResponseChoice,
   NotificationType,
   PlayIntentScope,
   PlayIntentSelectionMode as PrismaPlayIntentSelectionMode
@@ -132,30 +133,113 @@ function buildNotificationCopy(
   durationMinutes: number,
   startsAt: Date,
   now: Date,
-  recipientTimezoneId: string | null | undefined
+  recipientTimezoneId: string | null | undefined,
+  updatedFields: string[] = []
 ) {
   const durationLabel = formatDurationLabel(durationMinutes)
   const isScheduled = startsAt.getTime() > now.getTime() + 60 * 1000
   const startsAtLabel = formatScheduleDateTime(startsAt, recipientTimezoneId)
+  const updatedReason = updatedFields.length > 0
+    ? `Update: ${updatedFields.join(', ')} changed.`
+    : null
 
   if (selectionMode === 'library') {
+    const title = isScheduled ? `${senderDisplayName} scheduled a call to play` : `${senderDisplayName} is looking to play`
+    const body = isScheduled
+      ? `${senderDisplayName} opened up their full library starting ${startsAtLabel} for ${durationLabel}.`
+      : `${senderDisplayName} opened up their full library for the next ${durationLabel}.`
+
     return {
-      title: isScheduled ? `${senderDisplayName} scheduled a call to play` : `${senderDisplayName} is looking to play`,
-      body: isScheduled
-        ? `${senderDisplayName} opened up their full library starting ${startsAtLabel} for ${durationLabel}.`
-        : `${senderDisplayName} opened up their full library for the next ${durationLabel}.`
+      title: updatedReason ? `Updated: ${title}` : title,
+      body: updatedReason ? `${updatedReason} ${body}` : body
     }
   }
 
   const summarizedTitles = summarizeTitles(selectedTitles)
+  const title = isScheduled
+    ? `${senderDisplayName} scheduled ${summarizedTitles}`
+    : `${senderDisplayName} wants to play ${summarizedTitles}`
+  const body = isScheduled
+    ? `${senderDisplayName} is planning ${summarizedTitles} starting ${startsAtLabel} for ${durationLabel}.`
+    : `${senderDisplayName} is looking for ${summarizedTitles} in the next ${durationLabel}.`
+
   return {
-    title: isScheduled
-      ? `${senderDisplayName} scheduled ${summarizedTitles}`
-      : `${senderDisplayName} wants to play ${summarizedTitles}`,
-    body: isScheduled
-      ? `${senderDisplayName} is planning ${summarizedTitles} starting ${startsAtLabel} for ${durationLabel}.`
-      : `${senderDisplayName} is looking for ${summarizedTitles} in the next ${durationLabel}.`
+    title: updatedReason ? `Updated: ${title}` : title,
+    body: updatedReason ? `${updatedReason} ${body}` : body
   }
+}
+
+function normalizePlayIntentNote(note: string | null | undefined) {
+  return note?.trim() ?? ''
+}
+
+function areSameStringSets(left: string[], right: string[]) {
+  if (left.length !== right.length) {
+    return false
+  }
+
+  const leftSet = new Set(left)
+
+  for (const value of right) {
+    if (!leftSet.has(value)) {
+      return false
+    }
+  }
+
+  return true
+}
+
+function getUpdatedPlayIntentFields(options: {
+  previousIntent: {
+    selectionMode: PrismaPlayIntentSelectionMode;
+    windowStartsAt: Date;
+    windowEndsAt: Date;
+    note: string;
+    games: { gameId: string }[];
+  };
+  nextSelectionMode: PlayIntentSelectionMode;
+  nextStartsAt: Date;
+  nextEndsAt: Date;
+  nextNote: string;
+  nextSelectedGameIds: string[];
+}) {
+  const updatedFields: string[] = []
+
+  if (
+    options.previousIntent.windowStartsAt.getTime() !== options.nextStartsAt.getTime()
+    || options.previousIntent.windowEndsAt.getTime() !== options.nextEndsAt.getTime()
+  ) {
+    updatedFields.push('time')
+  }
+
+  if (
+    toClientSelectionMode(options.previousIntent.selectionMode) !== options.nextSelectionMode
+    || !areSameStringSets(
+      options.previousIntent.games.map((entry) => entry.gameId),
+      options.nextSelectedGameIds
+    )
+  ) {
+    updatedFields.push('game selection')
+  }
+
+  if (normalizePlayIntentNote(options.previousIntent.note) !== normalizePlayIntentNote(options.nextNote)) {
+    updatedFields.push('note')
+  }
+
+  return updatedFields
+}
+
+function shouldRenotifyPriorDecliner(options: {
+  updatedFields: string[];
+  notifyScope: PlayIntentNotifyScope;
+  targetedFriendUserIds: string[];
+  recipientUserId: string;
+}) {
+  if (options.updatedFields.includes('time') || options.updatedFields.includes('game selection')) {
+    return true
+  }
+
+  return options.notifyScope === 'specific-friends' && options.targetedFriendUserIds.includes(options.recipientUserId)
 }
 
 function dedupePlatformLabels(platformLabels: string[]) {
@@ -561,11 +645,101 @@ export async function upsertCurrentPlayIntent(
   })).map((intent) => intent.id)
   const { startsAt, durationMinutes, endsAt } = resolvePlayIntentWindow(payload, now)
   const headline = buildHeadline(payload.selectionMode, selectedTitles)
-  const recipientProfiles = recipientUserIds.length > 0
+  const note = payload.note?.trim() ?? ''
+  const [latestSupersededIntent, priorRecipientNotifications] = supersededIntentIds.length > 0
+    ? await Promise.all([
+      prisma.playIntent.findFirst({
+        where: {
+          id: {
+            in: supersededIntentIds
+          }
+        },
+        orderBy: [
+          {
+            expiresAt: 'desc'
+          },
+          {
+            createdAt: 'desc'
+          }
+        ],
+        select: {
+          selectionMode: true,
+          windowStartsAt: true,
+          windowEndsAt: true,
+          note: true,
+          games: {
+            select: {
+              gameId: true
+            }
+          }
+        }
+      }),
+      prisma.notification.findMany({
+        where: {
+          playIntentId: {
+            in: supersededIntentIds
+          },
+          type: NotificationType.FRIEND_PLAYING
+        },
+        select: {
+          userId: true,
+          respondedAt: true,
+          responseChoice: true,
+          createdAt: true
+        },
+        orderBy: {
+          createdAt: 'desc'
+        },
+      })
+    ])
+    : [null, []]
+  const priorRecipientStatusByUserId = new Map<string, {
+    respondedAt: Date | null;
+    responseChoice: NotificationResponseChoice | null;
+  }>()
+  for (const notification of priorRecipientNotifications) {
+    if (!priorRecipientStatusByUserId.has(notification.userId)) {
+      priorRecipientStatusByUserId.set(notification.userId, {
+        respondedAt: notification.respondedAt,
+        responseChoice: notification.responseChoice
+      })
+    }
+  }
+  const priorNotifiedRecipientUserIds = new Set(priorRecipientStatusByUserId.keys())
+  const updatedFields = latestSupersededIntent
+    ? getUpdatedPlayIntentFields({
+      previousIntent: latestSupersededIntent,
+      nextSelectionMode: payload.selectionMode,
+      nextStartsAt: startsAt,
+      nextEndsAt: endsAt,
+      nextNote: note,
+      nextSelectedGameIds: selectedGameIds
+    })
+    : []
+  const isMeaningfulUpdate = updatedFields.length > 0 && priorNotifiedRecipientUserIds.size > 0
+  const recipientUserIdsForNotifications = recipientUserIds.filter((recipientUserId) => {
+    if (!isMeaningfulUpdate) {
+      return true
+    }
+
+    const priorStatus = priorRecipientStatusByUserId.get(recipientUserId)
+
+    if (!priorStatus || priorStatus.responseChoice !== NotificationResponseChoice.DECLINE) {
+      return true
+    }
+
+    return shouldRenotifyPriorDecliner({
+      updatedFields,
+      notifyScope: payload.notifyScope,
+      targetedFriendUserIds: targetedFriends.map((friend) => friend.id),
+      recipientUserId
+    })
+  })
+  const recipientProfiles = recipientUserIdsForNotifications.length > 0
     ? await prisma.user.findMany({
         where: {
           id: {
-            in: recipientUserIds
+            in: recipientUserIdsForNotifications
           }
         },
         select: {
@@ -575,7 +749,6 @@ export async function upsertCurrentPlayIntent(
       })
     : []
   const recipientTimezoneByUserId = new Map(recipientProfiles.map((profile) => [profile.id, profile.timezoneId]))
-  const note = payload.note?.trim() ?? ''
 
   let activeIntent: ActivePlayIntent | null = null
   let createdNotifications: Array<{ id: string; userId: string; title: string; body: string }> = []
@@ -627,10 +800,13 @@ export async function upsertCurrentPlayIntent(
       include: activePlayIntentInclude
     })
 
-    if (recipientUserIds.length > 0) {
+    if (recipientUserIdsForNotifications.length > 0) {
       createdNotifications = await Promise.all(
-        recipientUserIds.map((recipientUserId) => {
+        recipientUserIdsForNotifications.map((recipientUserId) => {
           const timezoneId = recipientTimezoneByUserId.get(recipientUserId) ?? sender.timezoneId
+          const recipientUpdatedFields = isMeaningfulUpdate && priorNotifiedRecipientUserIds.has(recipientUserId)
+            ? updatedFields
+            : []
           const notificationCopy = buildNotificationCopy(
             sender.displayName,
             payload.selectionMode,
@@ -638,7 +814,8 @@ export async function upsertCurrentPlayIntent(
             durationMinutes,
             startsAt,
             now,
-            timezoneId
+            timezoneId,
+            recipientUpdatedFields
           )
 
           return transaction.notification.create({
