@@ -136,31 +136,31 @@ function AccountCard({
 function QuickStartCard() {
   return (
     <Stack spacing={1}>
-      <Card variant="soft" sx={{ p: 1.5 }}>
+      <Card variant="soft" sx={{ p: 3 }}>
         <Typography level="title-sm">1. Sign in</Typography>
         <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
           Sign in using your Discord account.
         </Typography>
       </Card>
-      <Card variant="soft" sx={{ p: 1.5 }}>
+      <Card variant="soft" sx={{ p: 3 }}>
         <Typography level="title-sm">2. Form your network</Typography>
         <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
           Select the Discord servers where your friends and other players are active. If one isn't shown, invite the bot there first.
         </Typography>
       </Card>
-      <Card variant="soft" sx={{ p: 1.5 }}>
+      <Card variant="soft" sx={{ p: 3 }}>
         <Typography level="title-sm">3. Add friends</Typography>
         <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
           Add the friends you want to keep track of most from your network.
         </Typography>
       </Card>
-      <Card variant="soft" sx={{ p: 1.5 }}>
+      <Card variant="soft" sx={{ p: 3 }}>
         <Typography level="title-sm">4. Build your library</Typography>
         <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
           Add games to your library so that you can be matched with other players in your network.
         </Typography>
       </Card>
-      <Card variant="soft" sx={{ p: 1.5 }}>
+      <Card variant="soft" sx={{ p: 3 }}>
         <Typography level="title-sm">5. Send a call to play</Typography>
         <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
           Choose what you want to play and let matching friends or other players in your network know when you're ready, and invite them to join.
