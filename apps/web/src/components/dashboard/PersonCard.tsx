@@ -1,5 +1,6 @@
 import { Box, Button, Card, Chip, Sheet, Stack, Typography } from '@mui/joy'
 import type { DiscoveryPerson } from '@game-is-up/shared'
+import { DashboardDeferredImage } from './DashboardDeferredImage'
 import { FriendActionPopover } from './FriendActionPopover'
 import { GameActionPopover } from './GameActionPopover'
 import { formatDiscordActivityTypeLabel, formatLibraryIntentLabel, memberGameGridSx } from './dashboardUtils'
@@ -49,7 +50,9 @@ export function PersonCard({
         backdropFilter: 'blur(16px)',
         backgroundColor: 'rgba(17, 24, 38, 0.74)',
         borderColor: 'rgba(255, 255, 255, 0.08)',
-        boxShadow: 'lg'
+        boxShadow: 'lg',
+        contentVisibility: 'auto',
+        containIntrinsicSize: '780px'
       }}
     >
       <Stack
@@ -193,7 +196,7 @@ export function PersonCard({
                         }}
                       >
                         {game.coverUrl ? (
-                          <Box component="img" src={game.coverUrl} alt={game.title} sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          <DashboardDeferredImage src={game.coverUrl} alt={game.title} rootMargin="240px 0px" />
                         ) : null}
                       </Box>
                       <Stack spacing={0.75} sx={{ minWidth: 0, flex: 1 }}>

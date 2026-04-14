@@ -1,5 +1,6 @@
 import { Box, Button, Card, Chip, Sheet, Stack, Typography } from '@mui/joy'
 import type { DiscoveryGame } from '@game-is-up/shared'
+import { DashboardDeferredImage } from './DashboardDeferredImage'
 import { FriendActionPopover } from './FriendActionPopover'
 import { GameActionPopover } from './GameActionPopover'
 import { formatLibraryIntentLabel } from './dashboardUtils'
@@ -65,7 +66,9 @@ export function GameCard({
         p: compact ? 2 : 3,
         borderColor: 'rgba(255, 255, 255, 0.08)',
         backgroundColor: 'rgba(13, 18, 30, 0.82)',
-        height: '100%'
+        height: '100%',
+        contentVisibility: 'auto',
+        containIntrinsicSize: compact ? '560px' : '760px'
       }}
     >
       <Stack spacing={compact ? 1.5 : 2} sx={{ height: '100%' }}>
@@ -80,7 +83,7 @@ export function GameCard({
           }}
         >
           {game.coverUrl ? (
-            <Box component="img" src={game.coverUrl} alt={game.title} sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            <DashboardDeferredImage src={game.coverUrl} alt={game.title} />
           ) : (
             <Stack sx={{ width: '100%', height: '100%', p: 2 }} justifyContent="center" alignItems="center">
               <Typography level="title-sm" sx={{ textAlign: 'center', color: 'neutral.300' }}>

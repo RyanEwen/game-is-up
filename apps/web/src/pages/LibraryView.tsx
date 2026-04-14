@@ -4,6 +4,7 @@ import { Box, Button, Card, Checkbox, Chip, DialogContent, DialogTitle, Input, S
 import type { GameSearchResponse, GameSearchResult, ImportSteamLibrarySelectionRequest, LibraryEntry, LibraryEntryIntent, LibrarySuggestedGame, SteamLibraryImportGame, SteamLibraryImportPreviewResponse } from '@game-is-up/shared'
 import { DashboardModal } from '../components/dashboard/DashboardModal'
 import { DashboardModalActionBar } from '../components/dashboard/DashboardModalActionBar'
+import { DashboardDeferredImage } from '../components/dashboard/DashboardDeferredImage'
 import { EmptyStateCard } from '../components/dashboard/EmptyStateCard'
 import { LibraryEditorCard } from '../components/dashboard/LibraryEditorCard'
 import { LibraryEntryCard } from '../components/dashboard/LibraryEntryCard'
@@ -707,7 +708,7 @@ function SteamImportVirtualizedRow({
           }}
         >
           {game.coverUrl ? (
-            <Box component="img" src={game.coverUrl} alt={game.title} sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            <DashboardDeferredImage src={game.coverUrl} alt={game.title} rootMargin="240px 0px" />
           ) : null}
         </Box>
         <Stack spacing={0.5} sx={{ minWidth: 0, flex: 1 }}>

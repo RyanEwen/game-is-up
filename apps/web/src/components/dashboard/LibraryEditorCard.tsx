@@ -1,5 +1,6 @@
 import { Box, Button, DialogContent, DialogTitle, Input, Link, Sheet, Stack, Typography } from '@mui/joy'
 import type { GameSearchResponse, GameSearchResult, LibraryEntry, LibraryEntryIntent } from '@game-is-up/shared'
+import { DashboardDeferredImage } from './DashboardDeferredImage'
 import { formatLibraryIntentLabel } from './dashboardUtils'
 import { DashboardModalActionBar } from './DashboardModalActionBar'
 
@@ -118,7 +119,7 @@ export function LibraryEditorCard({
                           }}
                         >
                           {result.coverUrl ? (
-                            <Box component="img" src={result.coverUrl} alt={result.title} sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            <DashboardDeferredImage src={result.coverUrl} alt={result.title} rootMargin="160px 0px" />
                           ) : null}
                         </Box>
                         <Box sx={{ textAlign: 'left', minWidth: 0 }}>
@@ -152,7 +153,7 @@ export function LibraryEditorCard({
                   }}
                 >
                   {selectedCatalogResult.coverUrl ? (
-                    <Box component="img" src={selectedCatalogResult.coverUrl} alt={selectedCatalogResult.title} sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <DashboardDeferredImage src={selectedCatalogResult.coverUrl} alt={selectedCatalogResult.title} eager />
                   ) : null}
                 </Box>
                 <Box>

@@ -1,6 +1,7 @@
 import { Box, Button, Card, Chip, Stack, Typography } from '@mui/joy'
 import type { LibraryEntry } from '@game-is-up/shared'
 import { AvailabilityChip } from './AvailabilityChip'
+import { DashboardDeferredImage } from './DashboardDeferredImage'
 import { formatLibraryIntentLabel } from './dashboardUtils'
 
 export function LibraryEntryCard({
@@ -27,7 +28,9 @@ export function LibraryEntryCard({
         borderColor: 'rgba(255, 255, 255, 0.08)',
         backgroundColor: 'rgba(13, 18, 30, 0.82)',
         backdropFilter: 'blur(12px)',
-        height: '100%'
+        height: '100%',
+        contentVisibility: 'auto',
+        containIntrinsicSize: '420px'
       }}
     >
       <Box
@@ -39,7 +42,7 @@ export function LibraryEntryCard({
         }}
       >
         {entry.coverUrl ? (
-          <Box component="img" src={entry.coverUrl} alt={entry.title} sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          <DashboardDeferredImage src={entry.coverUrl} alt={entry.title} />
         ) : (
           <Stack
             justifyContent="flex-end"

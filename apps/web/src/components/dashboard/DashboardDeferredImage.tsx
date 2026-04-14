@@ -1,0 +1,79 @@
+import { Box } from '@mui/joy'
+import { useEffect, useRef, useState } from 'react'
+
+export function DashboardDeferredImage({
+  src,
+  alt,
+  rootMargin = '400px 0px',
+  eager = false
+}: {
+  src: string;
+  alt: string;
+  rootMargin?: string;
+  eager?: boolean;
+}) {
+  const containerRef = useRef<HTMLDivElement | null>(null)
+  const [shouldLoad, setShouldLoad] = useState(eager)
+  const [loaded, setLoaded] = useState(false)
+
+  useEffect(() => {
+    setLoaded(false)
+  }, [src])
+
+  useEffect(() => {
+    if (eager) {
+      setShouldLoad(true)
+    }
+  }, [eager, src])
+
+  useEffect(() => {
+    if (shouldLoad) {
+      return
+    }
+
+    const node = containerRef.current
+
+    if (!node || typeof IntersectionObserver === 'undefined') {
+      setShouldLoad(true)
+      return
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting || entry.intersectionRatio > 0)) {
+          setShouldLoad(true)
+          observer.disconnect()
+        }
+      },
+      { rootMargin }
+    )
+
+    observer.observe(node)
+
+    return () => observer.disconnect()
+  }, [rootMargin, shouldLoad, src])
+
+  return (
+    <Box ref={containerRef} sx={{ width: '100%', height: '100%' }}>
+      {shouldLoad ? (
+        <Box
+          component="img"
+          src={src}
+          alt={alt}
+          loading={eager ? 'eager' : 'lazy'}
+          decoding="async"
+          fetchPriority={eager ? 'high' : 'low'}
+          onLoad={() => setLoaded(true)}
+          sx={{
+            display: 'block',
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            opacity: loaded ? 1 : 0,
+            transition: 'opacity 180ms ease-out'
+          }}
+        />
+      ) : null}
+    </Box>
+  )
+}

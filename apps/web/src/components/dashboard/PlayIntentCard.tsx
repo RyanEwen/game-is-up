@@ -1,5 +1,6 @@
 import { Avatar, Box, Button, Card, Chip, Sheet, Stack, Typography } from '@mui/joy'
 import type { PlayIntentPreview } from '@game-is-up/shared'
+import { DashboardDeferredImage } from './DashboardDeferredImage'
 import { formatNotifyScopeLabel } from './dashboardUtils'
 import type { DashboardLibraryQuickAddGame } from './types'
 
@@ -118,7 +119,7 @@ export function PlayIntentCard({
                       }}
                     >
                       {game.coverUrl ? (
-                        <Box component="img" src={game.coverUrl} alt={game.title} sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        <DashboardDeferredImage src={game.coverUrl} alt={game.title} rootMargin="220px 0px" />
                       ) : (
                         <Box
                           sx={{
