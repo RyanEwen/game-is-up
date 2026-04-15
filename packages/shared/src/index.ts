@@ -157,6 +157,12 @@ export const discordVoiceChannelsResponseSchema = z.object({
   channels: z.array(discordVoiceChannelSchema)
 })
 
+export const playIntentTargetDiscordServerSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  iconUrl: z.string().url().nullable()
+})
+
 export const sendDiscordServerInvitesRequestSchema = z.object({
   inviteUrl: z.string().url(),
   memberIds: z.array(z.string().min(1)).min(1).max(25)
@@ -191,7 +197,7 @@ export const upsertLibraryEntryRequestSchema = z.object({
 })
 
 export const playIntentSelectionModeSchema = z.enum(['library', 'subset'])
-export const playIntentNotifyScopeSchema = z.enum(['network', 'friends-only', 'specific-friends'])
+export const playIntentNotifyScopeSchema = z.enum(['network', 'friends-only', 'specific-friends', 'specific-discord-server'])
 
 export const playIntentGameSchema = z.object({
   id: z.string().uuid(),
@@ -213,6 +219,7 @@ export const playIntentPreviewSchema = z.object({
   user: playIntentPreviewUserSchema,
   selectionMode: playIntentSelectionModeSchema,
   notifyScope: playIntentNotifyScopeSchema,
+  targetServer: playIntentTargetDiscordServerSchema.nullable().default(null),
   platforms: z.array(z.string()).min(1),
   games: z.array(playIntentGameSchema),
   note: z.string().max(140),
@@ -233,6 +240,7 @@ export const activePlayIntentSchema = z.object({
   title: z.string().min(1),
   selectionMode: playIntentSelectionModeSchema,
   notifyScope: playIntentNotifyScopeSchema,
+  targetServer: playIntentTargetDiscordServerSchema.nullable().default(null),
   targetedFriends: z.array(playIntentPreviewUserSchema),
   platforms: z.array(platformLabelSchema).min(1),
   games: z.array(playIntentGameSchema),
@@ -270,7 +278,8 @@ export const upsertPlayIntentRequestSchema = z.object({
   durationMinutes: z.number().int().min(15).max(1440).optional(),
   endAt: z.string().datetime().optional(),
   gameIds: z.array(z.string().uuid()).default([]),
-  targetUserIds: z.array(z.string().uuid()).max(25).default([])
+  targetUserIds: z.array(z.string().uuid()).max(25).default([]),
+  targetDiscordServerId: z.string().trim().min(1).max(64).optional()
 }).superRefine((value, context) => {
   if ((value.durationMinutes == null) === (value.endAt == null)) {
     context.addIssue({
@@ -293,6 +302,22 @@ export const upsertPlayIntentRequestSchema = z.object({
       code: z.ZodIssueCode.custom,
       message: 'Specific target friends are only valid for the specific-friends audience.',
       path: ['targetUserIds']
+    })
+  }
+
+  if (value.notifyScope === 'specific-discord-server' && !value.targetDiscordServerId) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Choose a Discord server for a specific Discord server call to play.',
+      path: ['targetDiscordServerId']
+    })
+  }
+
+  if (value.notifyScope !== 'specific-discord-server' && value.targetDiscordServerId) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'A target Discord server is only valid for the specific Discord server audience.',
+      path: ['targetDiscordServerId']
     })
   }
 })
@@ -681,6 +706,7 @@ export type DiscordServerMember = z.infer<typeof discordServerMemberSchema>;
 export type DiscordServerMembersResponse = z.infer<typeof discordServerMembersResponseSchema>;
 export type DiscordVoiceChannel = z.infer<typeof discordVoiceChannelSchema>;
 export type DiscordVoiceChannelsResponse = z.infer<typeof discordVoiceChannelsResponseSchema>;
+export type PlayIntentTargetDiscordServer = z.infer<typeof playIntentTargetDiscordServerSchema>;
 export type SendDiscordServerInvitesRequest = z.infer<typeof sendDiscordServerInvitesRequestSchema>;
 export type SendDiscordServerInvitesResult = z.infer<typeof sendDiscordServerInvitesResultSchema>;
 export type SendDiscordServerInvitesResponse = z.infer<typeof sendDiscordServerInvitesResponseSchema>;

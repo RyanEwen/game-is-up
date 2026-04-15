@@ -147,7 +147,7 @@ function CtpTableSection({
   onOpenLifecycle: (playIntentId: string) => void;
 }) {
   const [query, setQuery] = useState('')
-  const [scopeFilter, setScopeFilter] = useState<'all' | 'network' | 'friends-only' | 'specific-friends'>('all')
+  const [scopeFilter, setScopeFilter] = useState<'all' | 'network' | 'friends-only' | 'specific-friends' | 'specific-discord-server'>('all')
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'ended'>('all')
   const [sortKey, setSortKey] = useState<CtpSortKey>('createdAt')
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
@@ -274,6 +274,7 @@ function CtpTableSection({
             <Option value="network">Network</Option>
             <Option value="friends-only">Friends only</Option>
             <Option value="specific-friends">Specific friends</Option>
+            <Option value="specific-discord-server">Specific Discord server</Option>
           </Select>
         </Stack>
 

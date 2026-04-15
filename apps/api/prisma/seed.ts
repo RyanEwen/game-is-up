@@ -2,6 +2,8 @@ import {
   AuthProvider,
   DiscordActivityType,
   GameIntentType,
+  NotificationResponseChoice,
+  NotificationType,
   PlayIntentScope,
   PlayIntentSelectionMode,
   PrismaClient,
@@ -9,6 +11,44 @@ import {
 } from '@prisma/client'
 
 const prisma = new PrismaClient()
+
+function minutesAgo(minutes: number) {
+  return new Date(Date.now() - minutes * 60 * 1000)
+}
+
+function hoursAgo(hours: number) {
+  return new Date(Date.now() - hours * 60 * 60 * 1000)
+}
+
+function hoursFromNow(hours: number) {
+  return new Date(Date.now() + hours * 60 * 60 * 1000)
+}
+
+function daysAgo(days: number) {
+  return new Date(Date.now() - days * 24 * 60 * 60 * 1000)
+}
+
+async function createInterest(options: {
+  userId: string;
+  gameId: string;
+  intentType: GameIntentType;
+  platformLabels: string[];
+  availability?: string;
+}) {
+  return prisma.userGameInterest.create({
+    data: {
+      userId: options.userId,
+      gameId: options.gameId,
+      intentType: options.intentType,
+      availability: options.availability,
+      platforms: {
+        create: options.platformLabels.map((platformLabel) => ({
+          platformLabel
+        }))
+      }
+    }
+  })
+}
 
 async function main() {
   await prisma.$transaction([
@@ -35,17 +75,17 @@ async function main() {
     prisma.user.deleteMany()
   ])
 
-  const [viewer, mira, jordan] = await Promise.all([
+  const [viewer, mira, jordan, kelsey, noa] = await Promise.all([
     prisma.user.create({
       data: {
-        handle: 'partyfinder',
+        handle: 'technicallyreal',
         displayName: 'Alex Mercer',
         email: 'alex@example.com',
         bio: 'Usually looking for co-op runs, flexible on genre, happy to fill support roles.',
         timezoneId: 'America/New_York',
         usualAvailability: 'Weeknights after 8pm',
         visibility: ProfileVisibility.FRIENDS_ONLY,
-        lastSeenAt: new Date(Date.now() - 5 * 60 * 1000),
+        lastSeenAt: minutesAgo(5),
         identities: {
           create: {
             provider: AuthProvider.DISCORD,
@@ -66,7 +106,7 @@ async function main() {
         timezoneId: 'America/New_York',
         usualAvailability: 'Weekend afternoons',
         visibility: ProfileVisibility.FRIENDS_ONLY,
-        lastSeenAt: new Date(Date.now() - 12 * 60 * 1000),
+        lastSeenAt: minutesAgo(12),
         identities: {
           create: {
             provider: AuthProvider.DISCORD,
@@ -87,12 +127,54 @@ async function main() {
         timezoneId: 'Europe/Paris',
         usualAvailability: 'Late nights',
         visibility: ProfileVisibility.FRIENDS_ONLY,
-        lastSeenAt: new Date(Date.now() - 20 * 60 * 60 * 1000),
+        lastSeenAt: hoursAgo(20),
         identities: {
           create: {
             provider: AuthProvider.DISCORD,
             providerUserId: 'discord-jordan',
             email: 'jordan@example.com',
+            grantedScopes: ['email', 'guilds', 'identify'],
+            lastDiscordGuildsSyncAt: new Date()
+          }
+        }
+      }
+    }),
+    prisma.user.create({
+      data: {
+        handle: 'supportmain',
+        displayName: 'Kelsey Tran',
+        email: 'kelsey@example.com',
+        bio: 'Usually tanking or healing, always up for one more mission if the vibes are good.',
+        timezoneId: 'America/Chicago',
+        usualAvailability: 'Most nights after 7pm',
+        visibility: ProfileVisibility.FRIENDS_ONLY,
+        lastSeenAt: minutesAgo(18),
+        identities: {
+          create: {
+            provider: AuthProvider.DISCORD,
+            providerUserId: 'discord-kelsey',
+            email: 'kelsey@example.com',
+            grantedScopes: ['email', 'guilds', 'identify'],
+            lastDiscordGuildsSyncAt: new Date()
+          }
+        }
+      }
+    }),
+    prisma.user.create({
+      data: {
+        handle: 'weekendwizard',
+        displayName: 'Noa Kim',
+        email: 'noa@example.com',
+        bio: 'Likes small-group co-op, long session games, and scheduling plans a little ahead of time.',
+        timezoneId: 'America/New_York',
+        usualAvailability: 'Weekend mornings and nights',
+        visibility: ProfileVisibility.FRIENDS_ONLY,
+        lastSeenAt: minutesAgo(8),
+        identities: {
+          create: {
+            provider: AuthProvider.DISCORD,
+            providerUserId: 'discord-noa',
+            email: 'noa@example.com',
             grantedScopes: ['email', 'guilds', 'identify'],
             lastDiscordGuildsSyncAt: new Date()
           }
@@ -109,9 +191,7 @@ async function main() {
         coverUrl: 'https://media.rawg.io/media/games/5f6/5f61441e6338e9221f96a8f4c64c7bb8.jpg',
         description: 'Shared-world pirate co-op sandbox.',
         sources: { create: { source: 'rawg', externalId: '50781', canonical: true } },
-        platforms: {
-          create: [{ platformLabel: 'Xbox' }, { platformLabel: 'PC' }]
-        }
+        platforms: { create: [{ platformLabel: 'Xbox' }, { platformLabel: 'PC' }] }
       }
     }),
     prisma.game.create({
@@ -121,9 +201,7 @@ async function main() {
         coverUrl: 'https://media.rawg.io/media/games/91b/91b4edd8fecf88b2b5ca0752321382ee.jpg',
         description: 'Co-op hunts with long progression arcs.',
         sources: { create: { source: 'rawg', externalId: '973391', canonical: true } },
-        platforms: {
-          create: [{ platformLabel: 'PC' }, { platformLabel: 'PlayStation' }, { platformLabel: 'Xbox' }]
-        }
+        platforms: { create: [{ platformLabel: 'PC' }, { platformLabel: 'PlayStation' }, { platformLabel: 'Xbox' }] }
       }
     }),
     prisma.game.create({
@@ -133,9 +211,7 @@ async function main() {
         coverUrl: 'https://media.rawg.io/media/screenshots/d58/d58b2e611e69b02757ffc4fccda8ee74.jpg',
         description: 'Co-op extraction and chaos.',
         sources: { create: { source: 'rawg', externalId: '976564', canonical: true } },
-        platforms: {
-          create: [{ platformLabel: 'PC' }, { platformLabel: 'PlayStation' }]
-        }
+        platforms: { create: [{ platformLabel: 'PC' }, { platformLabel: 'PlayStation' }] }
       }
     }),
     prisma.game.create({
@@ -145,9 +221,7 @@ async function main() {
         coverUrl: 'https://media.rawg.io/media/games/737/737ea5662211d2e0bbd6f5989189e4f1.jpg',
         description: 'Hero shooter battle royale.',
         sources: { create: { source: 'rawg', externalId: '290856', canonical: true } },
-        platforms: {
-          create: [{ platformLabel: 'PC' }, { platformLabel: 'Xbox' }, { platformLabel: 'PlayStation' }, { platformLabel: 'Switch' }]
-        }
+        platforms: { create: [{ platformLabel: 'PC' }, { platformLabel: 'Xbox' }, { platformLabel: 'PlayStation' }, { platformLabel: 'Switch' }] }
       }
     }),
     prisma.game.create({
@@ -157,216 +231,104 @@ async function main() {
         coverUrl: 'https://media.rawg.io/media/games/c92/c9207a31f0eeb9904a840fc26eae6afb.jpg',
         description: 'Co-op mining and horde shooter.',
         sources: { create: { source: 'rawg', externalId: '9551', canonical: true } },
-        platforms: {
-          create: [{ platformLabel: 'PC' }, { platformLabel: 'Xbox' }, { platformLabel: 'PlayStation' }]
-        }
+        platforms: { create: [{ platformLabel: 'PC' }, { platformLabel: 'Xbox' }, { platformLabel: 'PlayStation' }] }
+      }
+    }),
+    prisma.game.create({
+      data: {
+        slug: 'destiny-2',
+        title: 'Destiny 2',
+        coverUrl: 'https://media.rawg.io/media/games/2bf/2bf1d6e1b9b9f87dd50f2f3f5dba2d9f.jpg',
+        description: 'Shared-world looter shooter with raids and ritual playlists.',
+        sources: { create: { source: 'rawg', externalId: '10213', canonical: true } },
+        platforms: { create: [{ platformLabel: 'PC' }, { platformLabel: 'Xbox' }, { platformLabel: 'PlayStation' }] }
+      }
+    }),
+    prisma.game.create({
+      data: {
+        slug: 'lethal-company',
+        title: 'Lethal Company',
+        coverUrl: 'https://media.rawg.io/media/games/c0e/c0e6cb9a44c7cf611f795882ec58c2c8.jpg',
+        description: 'Scrappy co-op salvage runs where every plan gets worse in voice chat.',
+        sources: { create: { source: 'rawg', externalId: '269228', canonical: true } },
+        platforms: { create: [{ platformLabel: 'PC' }] }
       }
     })
   ])
 
   const bySlug = Object.fromEntries(games.map((game) => [game.slug, game]))
 
-  await prisma.userGameInterest.create({
-    data: {
-      userId: viewer.id,
-      gameId: bySlug['sea-of-thieves'].id,
-      intentType: GameIntentType.INTERESTED,
-      platforms: {
-        create: [{ platformLabel: 'Xbox' }]
-      }
-    }
-  })
+  await Promise.all([
+    createInterest({ userId: viewer.id, gameId: bySlug['sea-of-thieves'].id, intentType: GameIntentType.INTERESTED, platformLabels: ['Xbox'] }),
+    createInterest({ userId: viewer.id, gameId: bySlug['monster-hunter-wilds'].id, intentType: GameIntentType.INTERESTED, platformLabels: ['PC'] }),
+    createInterest({ userId: viewer.id, gameId: bySlug['helldivers-2'].id, intentType: GameIntentType.WISHLIST, availability: 'Friday nights', platformLabels: ['PC', 'PlayStation'] }),
+    createInterest({ userId: viewer.id, gameId: bySlug['deep-rock-galactic'].id, intentType: GameIntentType.INTERESTED, availability: 'Most weeknights', platformLabels: ['PC'] }),
+    createInterest({ userId: viewer.id, gameId: bySlug['destiny-2'].id, intentType: GameIntentType.PLAYING_NOW, availability: 'Tonight', platformLabels: ['PC'] }),
 
-  await prisma.userGameInterest.create({
-    data: {
-      userId: viewer.id,
-      gameId: bySlug['monster-hunter-wilds'].id,
-      intentType: GameIntentType.INTERESTED,
-      platforms: {
-        create: [{ platformLabel: 'PC' }]
-      }
-    }
-  })
+    createInterest({ userId: mira.id, gameId: bySlug['sea-of-thieves'].id, intentType: GameIntentType.PLAYING_NOW, availability: 'Tonight', platformLabels: ['Xbox'] }),
+    createInterest({ userId: mira.id, gameId: bySlug['monster-hunter-wilds'].id, intentType: GameIntentType.INTERESTED, platformLabels: ['PC', 'PlayStation'] }),
+    createInterest({ userId: mira.id, gameId: bySlug['helldivers-2'].id, intentType: GameIntentType.INTERESTED, availability: 'Friday after 9pm', platformLabels: ['PC', 'PlayStation'] }),
+    createInterest({ userId: mira.id, gameId: bySlug['deep-rock-galactic'].id, intentType: GameIntentType.INTERESTED, platformLabels: ['PC'] }),
 
-  await prisma.userGameInterest.create({
-    data: {
-      userId: viewer.id,
-      gameId: bySlug['helldivers-2'].id,
-      intentType: GameIntentType.WISHLIST,
-      availability: 'Friday nights',
-      platforms: {
-        create: [{ platformLabel: 'PC' }, { platformLabel: 'PlayStation' }]
-      }
-    }
-  })
+    createInterest({ userId: jordan.id, gameId: bySlug['sea-of-thieves'].id, intentType: GameIntentType.INTERESTED, availability: 'Saturday nights', platformLabels: ['PC', 'Xbox'] }),
+    createInterest({ userId: jordan.id, gameId: bySlug['monster-hunter-wilds'].id, intentType: GameIntentType.WISHLIST, platformLabels: ['PC'] }),
+    createInterest({ userId: jordan.id, gameId: bySlug['helldivers-2'].id, intentType: GameIntentType.INTERESTED, platformLabels: ['PC'] }),
+    createInterest({ userId: jordan.id, gameId: bySlug['apex-legends'].id, intentType: GameIntentType.PLAYING_NOW, availability: 'Late-night stacks', platformLabels: ['PC', 'Xbox'] }),
+    createInterest({ userId: jordan.id, gameId: bySlug['deep-rock-galactic'].id, intentType: GameIntentType.INTERESTED, availability: 'Weekend evenings', platformLabels: ['PC', 'Xbox'] }),
 
-  await prisma.userGameInterest.create({
-    data: {
-      userId: mira.id,
-      gameId: bySlug['sea-of-thieves'].id,
-      intentType: GameIntentType.PLAYING_NOW,
-      availability: 'Tonight',
-      platforms: {
-        create: [{ platformLabel: 'Xbox' }]
-      }
-    }
-  })
+    createInterest({ userId: kelsey.id, gameId: bySlug['helldivers-2'].id, intentType: GameIntentType.INTERESTED, availability: 'After dinner', platformLabels: ['PC'] }),
+    createInterest({ userId: kelsey.id, gameId: bySlug['deep-rock-galactic'].id, intentType: GameIntentType.PLAYING_NOW, availability: 'Right now', platformLabels: ['PC'] }),
+    createInterest({ userId: kelsey.id, gameId: bySlug['destiny-2'].id, intentType: GameIntentType.INTERESTED, platformLabels: ['Xbox'] }),
+    createInterest({ userId: kelsey.id, gameId: bySlug['lethal-company'].id, intentType: GameIntentType.INTERESTED, platformLabels: ['PC'] }),
 
-  await prisma.userGameInterest.create({
-    data: {
-      userId: mira.id,
-      gameId: bySlug['monster-hunter-wilds'].id,
-      intentType: GameIntentType.INTERESTED,
-      platforms: {
-        create: [{ platformLabel: 'PC' }, { platformLabel: 'PlayStation' }]
-      }
-    }
-  })
-
-  await prisma.userGameInterest.create({
-    data: {
-      userId: mira.id,
-      gameId: bySlug['helldivers-2'].id,
-      intentType: GameIntentType.INTERESTED,
-      availability: 'Friday after 9pm',
-      platforms: {
-        create: [{ platformLabel: 'PC' }, { platformLabel: 'PlayStation' }]
-      }
-    }
-  })
-
-  await prisma.userGameInterest.create({
-    data: {
-      userId: jordan.id,
-      gameId: bySlug['sea-of-thieves'].id,
-      intentType: GameIntentType.INTERESTED,
-      availability: 'Saturday nights',
-      platforms: {
-        create: [{ platformLabel: 'PC' }, { platformLabel: 'Xbox' }]
-      }
-    }
-  })
-
-  await prisma.userGameInterest.create({
-    data: {
-      userId: jordan.id,
-      gameId: bySlug['monster-hunter-wilds'].id,
-      intentType: GameIntentType.WISHLIST,
-      platforms: {
-        create: [{ platformLabel: 'PC' }]
-      }
-    }
-  })
-
-  await prisma.userGameInterest.create({
-    data: {
-      userId: jordan.id,
-      gameId: bySlug['helldivers-2'].id,
-      intentType: GameIntentType.INTERESTED,
-      platforms: {
-        create: [{ platformLabel: 'PC' }]
-      }
-    }
-  })
-
-  await prisma.userGameInterest.create({
-    data: {
-      userId: jordan.id,
-      gameId: bySlug['apex-legends'].id,
-      intentType: GameIntentType.WISHLIST,
-      platforms: {
-        create: [{ platformLabel: 'PC' }, { platformLabel: 'Xbox' }]
-      }
-    }
-  })
-
-  await prisma.userGameInterest.create({
-    data: {
-      userId: jordan.id,
-      gameId: bySlug['deep-rock-galactic'].id,
-      intentType: GameIntentType.INTERESTED,
-      availability: 'Weekend evenings',
-      platforms: {
-        create: [{ platformLabel: 'PC' }, { platformLabel: 'Xbox' }]
-      }
-    }
-  })
+    createInterest({ userId: noa.id, gameId: bySlug['sea-of-thieves'].id, intentType: GameIntentType.INTERESTED, platformLabels: ['Xbox'] }),
+    createInterest({ userId: noa.id, gameId: bySlug['deep-rock-galactic'].id, intentType: GameIntentType.INTERESTED, platformLabels: ['PC'] }),
+    createInterest({ userId: noa.id, gameId: bySlug['destiny-2'].id, intentType: GameIntentType.INTERESTED, platformLabels: ['PC', 'Xbox'] }),
+    createInterest({ userId: noa.id, gameId: bySlug['lethal-company'].id, intentType: GameIntentType.WISHLIST, platformLabels: ['PC'] })
+  ])
 
   await prisma.friend.createMany({
     data: [
-      {
-        userId: viewer.id,
-        friendedUserId: mira.id
-      },
-      {
-        userId: viewer.id,
-        friendedUserId: jordan.id
-      },
-      {
-        userId: jordan.id,
-        friendedUserId: viewer.id
-      }
+      { userId: viewer.id, friendedUserId: mira.id },
+      { userId: viewer.id, friendedUserId: jordan.id },
+      { userId: viewer.id, friendedUserId: noa.id },
+      { userId: mira.id, friendedUserId: viewer.id },
+      { userId: jordan.id, friendedUserId: viewer.id },
+      { userId: noa.id, friendedUserId: viewer.id }
     ]
   })
 
-  const [coopCorner, lateQueue] = await Promise.all([
-    prisma.discordServer.create({
-      data: {
-        id: 'discord-server-coop-corner',
-        name: 'Co-op Corner'
-      }
-    }),
-    prisma.discordServer.create({
-      data: {
-        id: 'discord-server-late-queue',
-        name: 'Late Queue'
-      }
-    })
+  const [coopCorner, lateQueue, weekendRaid] = await Promise.all([
+    prisma.discordServer.create({ data: { id: 'discord-server-coop-corner', name: 'Co-op Corner' } }),
+    prisma.discordServer.create({ data: { id: 'discord-server-late-queue', name: 'Late Queue' } }),
+    prisma.discordServer.create({ data: { id: 'discord-server-weekend-raid', name: 'Weekend Raid Club' } })
   ])
 
   await prisma.discordServerMembership.createMany({
     data: [
-      {
-        userId: viewer.id,
-        serverId: coopCorner.id
-      },
-      {
-        userId: viewer.id,
-        serverId: lateQueue.id
-      },
-      {
-        userId: mira.id,
-        serverId: coopCorner.id
-      },
-      {
-        userId: jordan.id,
-        serverId: lateQueue.id
-      }
+      { userId: viewer.id, serverId: coopCorner.id },
+      { userId: viewer.id, serverId: lateQueue.id },
+      { userId: viewer.id, serverId: weekendRaid.id },
+      { userId: mira.id, serverId: coopCorner.id },
+      { userId: mira.id, serverId: weekendRaid.id },
+      { userId: jordan.id, serverId: lateQueue.id },
+      { userId: kelsey.id, serverId: coopCorner.id },
+      { userId: noa.id, serverId: coopCorner.id },
+      { userId: noa.id, serverId: lateQueue.id }
     ]
   })
 
   await prisma.discordServerPreference.createMany({
     data: [
-      {
-        userId: viewer.id,
-        serverId: coopCorner.id,
-        includeInDiscovery: true
-      },
-      {
-        userId: viewer.id,
-        serverId: lateQueue.id,
-        includeInDiscovery: true
-      },
-      {
-        userId: mira.id,
-        serverId: coopCorner.id,
-        includeInDiscovery: true
-      },
-      {
-        userId: jordan.id,
-        serverId: lateQueue.id,
-        includeInDiscovery: true
-      }
+      { userId: viewer.id, serverId: coopCorner.id, includeInDiscovery: true },
+      { userId: viewer.id, serverId: lateQueue.id, includeInDiscovery: true },
+      { userId: viewer.id, serverId: weekendRaid.id, includeInDiscovery: true },
+      { userId: mira.id, serverId: coopCorner.id, includeInDiscovery: true },
+      { userId: mira.id, serverId: weekendRaid.id, includeInDiscovery: true },
+      { userId: jordan.id, serverId: lateQueue.id, includeInDiscovery: true },
+      { userId: kelsey.id, serverId: coopCorner.id, includeInDiscovery: true },
+      { userId: noa.id, serverId: coopCorner.id, includeInDiscovery: true },
+      { userId: noa.id, serverId: lateQueue.id, includeInDiscovery: true }
     ]
   })
 
@@ -377,44 +339,186 @@ async function main() {
       headline: 'Open to anything in my library tonight',
       note: 'Prefer co-op or survival games after 8pm.',
       scope: PlayIntentScope.FRIENDS_ONLY,
-      windowStartsAt: new Date(Date.now() + 60 * 60 * 1000),
-      windowEndsAt: new Date(Date.now() + 5 * 60 * 60 * 1000),
-      expiresAt: new Date(Date.now() + 5 * 60 * 60 * 1000),
-      platforms: {
-        create: [{ platformLabel: 'PC' }, { platformLabel: 'Xbox' }]
-      }
+      windowStartsAt: hoursFromNow(1),
+      windowEndsAt: hoursFromNow(5),
+      expiresAt: hoursFromNow(5),
+      platforms: { create: [{ platformLabel: 'PC' }, { platformLabel: 'Xbox' }] }
     }
   })
 
-  const subsetIntent = await prisma.playIntent.create({
+  const networkSubsetIntent = await prisma.playIntent.create({
     data: {
       userId: jordan.id,
       selectionMode: PlayIntentSelectionMode.SELECTED_GAMES,
       headline: 'Picked a shorter list for the weekend',
       note: 'Looking for 2-3 people who are fine with voice chat.',
       scope: PlayIntentScope.MUTUAL_FRIENDS,
-      windowStartsAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
-      windowEndsAt: new Date(Date.now() + 30 * 60 * 60 * 1000),
-      expiresAt: new Date(Date.now() + 30 * 60 * 60 * 1000),
-      platforms: {
-        create: [{ platformLabel: 'PC' }]
+      windowStartsAt: hoursFromNow(24),
+      windowEndsAt: hoursFromNow(30),
+      expiresAt: hoursFromNow(30),
+      platforms: { create: [{ platformLabel: 'PC' }] },
+      games: {
+        create: [
+          { gameId: bySlug['helldivers-2'].id },
+          { gameId: bySlug['monster-hunter-wilds'].id },
+          { gameId: bySlug['deep-rock-galactic'].id }
+        ]
       }
     }
   })
 
-  await prisma.playIntentGame.createMany({
+  const serverScopedIntent = await prisma.playIntent.create({
+    data: {
+      userId: kelsey.id,
+      selectionMode: PlayIntentSelectionMode.SELECTED_GAMES,
+      headline: 'Co-op Corner only tonight',
+      note: 'Keeping this one to the Co-op Corner regulars.',
+      scope: PlayIntentScope.SPECIFIC_DISCORD_SERVER,
+      targetDiscordServerId: coopCorner.id,
+      windowStartsAt: hoursFromNow(2),
+      windowEndsAt: hoursFromNow(6),
+      expiresAt: hoursFromNow(6),
+      platforms: { create: [{ platformLabel: 'PC' }] },
+      games: {
+        create: [
+          { gameId: bySlug['deep-rock-galactic'].id },
+          { gameId: bySlug['helldivers-2'].id }
+        ]
+      }
+    }
+  })
+
+  const specificFriendsIntent = await prisma.playIntent.create({
+    data: {
+      userId: noa.id,
+      selectionMode: PlayIntentSelectionMode.SELECTED_GAMES,
+      headline: 'Saving this one for a smaller group',
+      note: 'Mostly looking for Alex and Mira if either is around.',
+      scope: PlayIntentScope.SPECIFIC_FRIENDS,
+      windowStartsAt: hoursFromNow(4),
+      windowEndsAt: hoursFromNow(8),
+      expiresAt: hoursFromNow(8),
+      platforms: { create: [{ platformLabel: 'PC' }, { platformLabel: 'Xbox' }] },
+      games: {
+        create: [
+          { gameId: bySlug['sea-of-thieves'].id },
+          { gameId: bySlug['deep-rock-galactic'].id }
+        ]
+      },
+      targetFriends: {
+        create: [
+          { friendUserId: viewer.id },
+          { friendUserId: mira.id }
+        ]
+      }
+    }
+  })
+
+  await prisma.notification.createMany({
     data: [
       {
-        playIntentId: subsetIntent.id,
-        gameId: bySlug['helldivers-2'].id
+        userId: viewer.id,
+        triggeredByUserId: mira.id,
+        playIntentId: libraryWideIntent.id,
+        type: NotificationType.FRIEND_PLAYING,
+        title: 'Mira is looking to play tonight',
+        body: 'Mira opened up her library for a chill session tonight.',
+        deliveredAt: minutesAgo(15)
       },
       {
-        playIntentId: subsetIntent.id,
-        gameId: bySlug['monster-hunter-wilds'].id
+        userId: viewer.id,
+        triggeredByUserId: jordan.id,
+        playIntentId: networkSubsetIntent.id,
+        gameId: bySlug['helldivers-2'].id,
+        type: NotificationType.FRIEND_PLAYING,
+        title: 'Jordan scheduled a weekend run',
+        body: 'Jordan picked a few games for the weekend and thought you might overlap.',
+        deliveredAt: minutesAgo(25)
       },
       {
-        playIntentId: subsetIntent.id,
-        gameId: bySlug['deep-rock-galactic'].id
+        userId: noa.id,
+        triggeredByUserId: jordan.id,
+        playIntentId: networkSubsetIntent.id,
+        gameId: bySlug['deep-rock-galactic'].id,
+        type: NotificationType.FRIEND_PLAYING,
+        title: 'Jordan scheduled a weekend run',
+        body: 'Jordan picked a few games for the weekend and thought you might overlap.',
+        deliveredAt: minutesAgo(25),
+        respondedAt: minutesAgo(10),
+        responseChoice: NotificationResponseChoice.JOIN
+      },
+      {
+        userId: viewer.id,
+        triggeredByUserId: kelsey.id,
+        playIntentId: serverScopedIntent.id,
+        gameId: bySlug['deep-rock-galactic'].id,
+        type: NotificationType.FRIEND_PLAYING,
+        title: 'Kelsey posted to Co-op Corner',
+        body: 'Kelsey narrowed this call to play down to Co-op Corner tonight.',
+        deliveredAt: minutesAgo(20)
+      },
+      {
+        userId: mira.id,
+        triggeredByUserId: kelsey.id,
+        playIntentId: serverScopedIntent.id,
+        gameId: bySlug['helldivers-2'].id,
+        type: NotificationType.FRIEND_PLAYING,
+        title: 'Kelsey posted to Co-op Corner',
+        body: 'Kelsey narrowed this call to play down to Co-op Corner tonight.',
+        deliveredAt: minutesAgo(20),
+        respondedAt: minutesAgo(6),
+        responseChoice: NotificationResponseChoice.JOIN
+      },
+      {
+        userId: viewer.id,
+        triggeredByUserId: noa.id,
+        playIntentId: specificFriendsIntent.id,
+        gameId: bySlug['sea-of-thieves'].id,
+        type: NotificationType.FRIEND_PLAYING,
+        title: 'Noa saved a smaller session for you',
+        body: 'Noa only sent this one to a couple of friends.',
+        deliveredAt: minutesAgo(5)
+      }
+    ]
+  })
+
+  await prisma.discordActivityObservation.createMany({
+    data: [
+      {
+        userId: mira.id,
+        gameId: bySlug['monster-hunter-wilds'].id,
+        sourceServerId: coopCorner.id,
+        activityName: 'Monster Hunter Wilds',
+        applicationId: 'discord-app-mhw',
+        activityType: DiscordActivityType.COMPETING,
+        details: 'Event hunt',
+        firstObservedAt: hoursAgo(2),
+        lastObservedAt: minutesAgo(10),
+        isActive: true
+      },
+      {
+        userId: kelsey.id,
+        gameId: bySlug['deep-rock-galactic'].id,
+        sourceServerId: coopCorner.id,
+        activityName: 'Deep Rock Galactic',
+        applicationId: 'discord-app-drg',
+        activityType: DiscordActivityType.PLAYING,
+        details: 'Hazard 4 run',
+        firstObservedAt: hoursAgo(1),
+        lastObservedAt: minutesAgo(6),
+        isActive: true
+      },
+      {
+        userId: jordan.id,
+        gameId: bySlug['apex-legends'].id,
+        sourceServerId: lateQueue.id,
+        activityName: 'Apex Legends',
+        applicationId: 'discord-app-apex',
+        activityType: DiscordActivityType.PLAYING,
+        details: 'Ranked queue',
+        firstObservedAt: hoursAgo(3),
+        lastObservedAt: minutesAgo(4),
+        isActive: true
       }
     ]
   })
@@ -428,8 +532,8 @@ async function main() {
         activityName: 'Apex Legends',
         applicationId: 'discord-app-apex',
         activityType: DiscordActivityType.PLAYING,
-        firstObservedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
-        lastObservedAt: new Date(Date.now() - 90 * 60 * 1000)
+        firstObservedAt: daysAgo(3),
+        lastObservedAt: minutesAgo(90)
       },
       {
         discordUserId: 'discord-alex',
@@ -438,8 +542,8 @@ async function main() {
         activityName: 'Deep Rock Galactic',
         applicationId: 'discord-app-drg',
         activityType: DiscordActivityType.PLAYING,
-        firstObservedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
-        lastObservedAt: new Date(Date.now() - 26 * 60 * 60 * 1000)
+        firstObservedAt: daysAgo(5),
+        lastObservedAt: hoursAgo(26)
       },
       {
         discordUserId: 'discord-alex',
@@ -448,25 +552,25 @@ async function main() {
         activityName: 'Monster Hunter Wilds',
         applicationId: 'discord-app-mhw',
         activityType: DiscordActivityType.COMPETING,
-        firstObservedAt: new Date(Date.now() - 6 * 60 * 60 * 1000),
-        lastObservedAt: new Date(Date.now() - 2 * 60 * 60 * 1000)
+        firstObservedAt: hoursAgo(6),
+        lastObservedAt: hoursAgo(2)
       },
       {
         discordUserId: 'discord-mystery-friend',
-        gameId: bySlug['deep-rock-galactic'].id,
-        sourceServerId: coopCorner.id,
-        activityName: 'Deep Rock Galactic',
-        applicationId: 'discord-app-drg',
+        gameId: bySlug['lethal-company'].id,
+        sourceServerId: weekendRaid.id,
+        activityName: 'Lethal Company',
+        applicationId: 'discord-app-lethal-company',
         activityType: DiscordActivityType.PLAYING,
-        firstObservedAt: new Date(Date.now() - 12 * 60 * 60 * 1000),
-        lastObservedAt: new Date(Date.now() - 30 * 60 * 1000)
+        firstObservedAt: daysAgo(1),
+        lastObservedAt: minutesAgo(45)
       }
     ]
   })
 
-  console.log(`Seeded viewer ${viewer.handle} with ${games.length} games and 2 candidate users.`)
-  console.log(`Created play intents ${libraryWideIntent.headline} and ${subsetIntent.headline}.`)
-  console.log('Seeded observed Discord suggestions for the default viewer.')
+  console.log(`Seeded ${5} users, ${games.length} games, and ${3} Discord servers.`)
+  console.log(`Default viewer ${viewer.handle} now has ${5} library entries, ${3} friends, and ${4} seeded play intents to inspect.`)
+  console.log('Added live Discord activity, observed game history, and response-ready notifications for richer testing.')
 }
 
 main()

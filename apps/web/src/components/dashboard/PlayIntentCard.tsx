@@ -59,12 +59,24 @@ export function PlayIntentCard({
   const isLibraryWide = intent.selectionMode === 'library'
   const viewerResponseChoice = intent.viewerResponseChoice
   const actionButtonSx = {
-    borderRadius: 'xl',
+    flexShrink: 0,
+    borderRadius: 'md',
     minHeight: '2rem',
     px: 1.25,
     fontSize: 'xs',
     fontWeight: 'md',
-    lineHeight: 1
+    lineHeight: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.04)',
+    transition: 'background-color 180ms ease, border-color 180ms ease, color 180ms ease, transform 120ms ease',
+    '&:hover': {
+      backgroundColor: 'rgba(255, 255, 255, 0.06)',
+      borderColor: 'rgba(181, 192, 208, 0.28)',
+      transform: 'translateY(-1px)'
+    },
+    '&:active': {
+      transform: 'translateY(0)'
+    }
   } as const
 
   return (
@@ -86,20 +98,20 @@ export function PlayIntentCard({
             </Typography>
           </Box>
         </Stack>
-        <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-          <Chip color="primary" variant="soft">
+        <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }} alignItems="center">
+          <Chip size="sm" color="primary" variant="soft">
             {isLibraryWide ? 'Any game in library' : 'Selected games'}
           </Chip>
-          <Chip color="neutral" variant="outlined">
+          <Chip size="sm" color="neutral" variant="outlined">
             {formatNotifyScopeLabel(intent.notifyScope)}
           </Chip>
           {intent.joinCount > 0 ? (
-            <Chip color="success" variant="soft">
-              {intent.joinCount} {intent.joinCount === 1 ? 'person' : 'people'} in
+            <Chip size="sm" color="success" variant="soft">
+              {intent.joinCount} {intent.joinCount === 1 ? 'person interested' : 'people interested'}
             </Chip>
           ) : null}
           <Button
-            variant={viewerResponseChoice === 'join' ? 'soft' : 'outlined'}
+            variant={viewerResponseChoice === 'join' ? 'solid' : 'outlined'}
             color={viewerResponseChoice === 'join' ? 'primary' : 'neutral'}
             size="sm"
             disabled={!canAddToLibrary || responsePending}
@@ -154,17 +166,23 @@ export function PlayIntentCard({
         </Typography>
       ) : null}
 
+      {intent.notifyScope === 'specific-discord-server' && intent.targetServer ? (
+        <Typography level="body-sm" sx={{ mb: 1.5, color: 'neutral.300' }}>
+          Target Discord server: {intent.targetServer.name}
+        </Typography>
+      ) : null}
+
       {isLibraryWide ? (
         <>
           <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: 'wrap' }}>
             {intent.platforms.map((platform) => (
-              <Chip key={platform} variant="outlined" color="neutral">
+              <Chip key={platform} size="sm" variant="outlined" color="neutral">
                 {platform}
               </Chip>
             ))}
           </Stack>
           <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
-            Recipient matching will compare this call to play against the sender&apos;s library and the recipient&apos;s library to find matching games instead of a single chosen title.
+            This call to play is for any proposed game that matches, not one specific title.
           </Typography>
         </>
       ) : (

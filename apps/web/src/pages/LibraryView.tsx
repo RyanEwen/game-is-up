@@ -1042,19 +1042,19 @@ function LibraryViewContent({
         />
       </DashboardModal>
 
-      <LibrarySuggestionsRow
-        suggestedGames={suggestedGames}
-        libraryGameIds={libraryGameIds}
-        addingLibraryGameId={addingLibraryGameId}
-        onAddToLibrary={onAddGameToLibrary}
-      />
-
       <AliasManagementCard
         libraryEntries={libraryEntries}
         platformAliases={platformAliases}
         savingKey={aliasSavingKey}
         onSavePlatformAlias={onSavePlatformAlias}
         onDeletePlatformAlias={onDeletePlatformAlias}
+      />
+
+      <LibrarySuggestionsRow
+        suggestedGames={suggestedGames}
+        libraryGameIds={libraryGameIds}
+        addingLibraryGameId={addingLibraryGameId}
+        onAddToLibrary={onAddGameToLibrary}
       />
 
       {libraryEntries.length > 0 ? (

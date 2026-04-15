@@ -1,6 +1,10 @@
 import type { PlayIntentFeed, PlayIntentPreview } from '@game-is-up/shared'
 import { GameIntentType, NotificationResponseChoice, NotificationType, PlayIntentSelectionMode, PlayIntentScope } from '@prisma/client'
-import { getMutualDiscoveryAudienceUserIds } from './discord-servers.js'
+import {
+  buildDiscordServerIconUrl,
+  getDiscordMembershipServerIds,
+  getMutualDiscoveryAudienceUserIds
+} from './discord-servers.js'
 import { toClientGameCoverUrl, toClientAvatarUrl } from './game-media.js'
 import { prisma } from './prisma.js'
 import { getViewer } from './demo-viewer.js'
@@ -9,8 +13,10 @@ function toSelectionMode(selectionMode: PlayIntentSelectionMode): 'library' | 's
   return selectionMode === PlayIntentSelectionMode.ENTIRE_LIBRARY ? 'library' : 'subset'
 }
 
-function toNotifyScope(scope: PlayIntentScope): 'friends-only' | 'network' | 'specific-friends' {
+function toNotifyScope(scope: PlayIntentScope): 'friends-only' | 'network' | 'specific-friends' | 'specific-discord-server' {
   switch (scope) {
+    case PlayIntentScope.SPECIFIC_DISCORD_SERVER:
+      return 'specific-discord-server'
     case PlayIntentScope.SPECIFIC_FRIENDS:
       return 'specific-friends'
     case PlayIntentScope.MUTUAL_FRIENDS:
@@ -31,6 +37,18 @@ function formatAvailabilityLabel(displayName: string, startsAt: Date, now: Date)
     : `${displayName} is available now`
 }
 
+function serializeTargetDiscordServer(targetDiscordServer: { id: string; name: string; iconHash: string | null } | null) {
+  if (!targetDiscordServer) {
+    return null
+  }
+
+  return {
+    id: targetDiscordServer.id,
+    name: targetDiscordServer.name,
+    iconUrl: toClientAvatarUrl(buildDiscordServerIconUrl(targetDiscordServer.id, targetDiscordServer.iconHash))
+  }
+}
+
 export async function buildPlayIntentFeed(viewerId?: string | null): Promise<PlayIntentFeed> {
   const viewer = await getViewer(viewerId)
   const now = new Date()
@@ -42,7 +60,7 @@ export async function buildPlayIntentFeed(viewerId?: string | null): Promise<Pla
     }
   }
 
-  const [viewerFriends, viewerInterests, discoveryAudienceUserIds, mutedUserIds] = await Promise.all([
+  const [viewerFriends, viewerInterests, discoveryAudienceUserIds, viewerServerIds, mutedUserIds] = await Promise.all([
     prisma.friend.findMany({
       where: {
         userId: viewer.id
@@ -63,6 +81,7 @@ export async function buildPlayIntentFeed(viewerId?: string | null): Promise<Pla
       }
     }),
     getMutualDiscoveryAudienceUserIds(viewer.id),
+    getDiscordMembershipServerIds(viewer.id),
     prisma.playIntentMute.findMany({
       where: { userId: viewer.id },
       select: { mutedUserId: true }
@@ -109,6 +128,13 @@ export async function buildPlayIntentFeed(viewerId?: string | null): Promise<Pla
       targetFriends: {
         select: {
           friendUserId: true
+        }
+      },
+      targetDiscordServer: {
+        select: {
+          id: true,
+          name: true,
+          iconHash: true
         }
       },
       games: {
@@ -188,6 +214,10 @@ export async function buildPlayIntentFeed(viewerId?: string | null): Promise<Pla
         return null
       }
 
+      if (intent.scope === PlayIntentScope.SPECIFIC_DISCORD_SERVER && !viewerServerIds.includes(intent.targetDiscordServerId ?? '')) {
+        return null
+      }
+
       if (intent.scope === PlayIntentScope.SPECIFIC_FRIENDS && !intent.targetFriends.some((entry) => entry.friendUserId === viewer.id)) {
         return null
       }
@@ -222,6 +252,7 @@ export async function buildPlayIntentFeed(viewerId?: string | null): Promise<Pla
         },
         selectionMode: toSelectionMode(intent.selectionMode),
         notifyScope: toNotifyScope(intent.scope),
+        targetServer: serializeTargetDiscordServer(intent.targetDiscordServer),
         platforms: intent.platforms.map((platform) => platform.platformLabel).sort((left, right) => left.localeCompare(right)),
         games: intent.selectionMode === PlayIntentSelectionMode.ENTIRE_LIBRARY ? [] : selectedGames,
         note: intent.note,

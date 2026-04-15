@@ -33,6 +33,8 @@ function toClientNotifyScope(scope: PlayIntentScope | null) {
   switch (scope) {
     case PlayIntentScope.FRIENDS_ONLY:
       return 'friends-only'
+    case PlayIntentScope.SPECIFIC_DISCORD_SERVER:
+      return 'specific-discord-server'
     case PlayIntentScope.SPECIFIC_FRIENDS:
       return 'specific-friends'
     default:

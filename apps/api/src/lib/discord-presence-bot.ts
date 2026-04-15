@@ -70,6 +70,7 @@ type DiscordRestGuildMember = {
 
 let started = false
 const discordApiBaseUrl = 'https://discord.com/api/v10'
+const discordSnowflakePattern = /^\d{17,20}$/
 const guildMemberCacheTtlMs = 2 * 60 * 1000
 const guildAccessCacheTtlMs = 2 * 60 * 1000
 const guildMemberCache = new Map<string, DiscordGuildMemberCacheEntry>()
@@ -84,6 +85,10 @@ function invalidateGuildMemberCache(serverId: string) {
 
 function invalidateGuildAccessCache(serverId: string) {
   guildAccessCache.delete(serverId)
+}
+
+function isDevelopmentSyntheticDiscordId(value: string) {
+  return env.NODE_ENV !== 'production' && !discordSnowflakePattern.test(value)
 }
 
 function parseRetryAfterSeconds(message: string): number | null {
@@ -393,6 +398,17 @@ async function fetchDiscordGuildMembers(serverId: string): Promise<DiscordGuildM
 }
 
 export async function isDiscordBotPresentInGuild(serverId: string): Promise<boolean> {
+  if (isDevelopmentSyntheticDiscordId(serverId)) {
+    guildAccessCache.set(serverId, {
+      serverId,
+      serverName: null,
+      present: true,
+      fetchedAt: Date.now()
+    })
+
+    return true
+  }
+
   if (!env.DISCORD_BOT_TOKEN) {
     return false
   }

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Autocomplete, Avatar, Box, Button, Card, Chip, DialogContent, DialogTitle, Input, Sheet, Stack, Switch, Typography } from '@mui/joy'
+import { Avatar, Box, Button, Card, Chip, DialogContent, DialogTitle, Input, Sheet, Stack, Switch, Typography } from '@mui/joy'
 import type {
   AuthSessionResponse,
   DiscordServerMembersResponse,
@@ -7,6 +7,7 @@ import type {
   SendDiscordServerInvitesResponse
 } from '@game-is-up/shared'
 import { DashboardModal } from '../components/dashboard/DashboardModal'
+import { DiscordServerPicker } from '../components/dashboard/DiscordServerPicker'
 import { DashboardModalActionBar } from '../components/dashboard/DashboardModalActionBar'
 import { EmptyStateCard } from '../components/dashboard/EmptyStateCard'
 import { SectionNav, sectionScrollMarginTop } from '../components/dashboard/SectionNav'
@@ -370,49 +371,16 @@ function InviteUsersCard({
         {selectedDiscoveryServers.length > 0 ? (
           <Stack spacing={1.5}>
             <Box>
-              <Autocomplete
-                autoHighlight
-                placeholder="Search selected servers"
+              <DiscordServerPicker
                 options={selectedDiscoveryServers}
-                value={activeInviteServer}
-                startDecorator={activeInviteServer ? <ServerAvatar server={activeInviteServer} size="sm" /> : null}
-                isOptionEqualToValue={(option, value) => option.id === value.id}
-                getOptionLabel={(option) => option.name}
-                onChange={(_event, value) => {
-                  if (value) {
-                    onSelectInviteServer(value.id)
-                  }
-                }}
-                slotProps={{
-                  input: {
-                    autoComplete: 'off'
-                  }
-                }}
-                renderOption={(optionProps, option) => {
-                  const listItemProps = {
-                    ...(optionProps as typeof optionProps & { key?: string; ownerState?: unknown })
-                  }
-                  const optionKey = listItemProps.key
-
-                  delete listItemProps.key
-                  delete listItemProps.ownerState
-
-                  return (
-                    <li key={optionKey} {...listItemProps}>
-                      <Stack direction="row" spacing={1.25} alignItems="center" sx={{ minWidth: 0 }}>
-                        <ServerAvatar server={option} size="sm" />
-                        <Stack spacing={0.25} sx={{ minWidth: 0 }}>
-                          <Typography level="title-sm">{option.name}</Typography>
-                          <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
-                            {option.knownUserCount > 0
-                              ? `${option.knownUserCount} other member${option.knownUserCount === 1 ? '' : 's'} in your network`
-                              : 'No other members in your network yet'}
-                          </Typography>
-                        </Stack>
-                      </Stack>
-                    </li>
-                  )
-                }}
+                value={activeInviteServer?.id ?? ''}
+                placeholder="Pick a Discord server"
+                onChange={onSelectInviteServer}
+                getOptionDescription={(option) =>
+                  option.knownUserCount > 0
+                    ? `${option.knownUserCount} other member${option.knownUserCount === 1 ? '' : 's'} in your network`
+                    : 'No other members in your network yet'
+                }
               />
             </Box>
             {activeInviteServer ? (

@@ -795,6 +795,7 @@ export async function handleDiscordAutoPlayPromptInteraction(interaction: Button
         expiresAt: true,
         selectionMode: true,
         scope: true,
+        targetDiscordServerId: true,
         note: true,
         voiceChannelId: true,
         voiceChannelName: true,
@@ -827,6 +828,8 @@ export async function handleDiscordAutoPlayPromptInteraction(interaction: Button
       )
       const notifyScope = settlePlayIntent.scope === PlayIntentScope.FRIENDS_ONLY
         ? 'friends-only' as const
+        : settlePlayIntent.scope === PlayIntentScope.SPECIFIC_DISCORD_SERVER
+          ? 'specific-discord-server' as const
         : settlePlayIntent.scope === PlayIntentScope.SPECIFIC_FRIENDS
           ? 'specific-friends' as const
           : 'network' as const
@@ -837,6 +840,7 @@ export async function handleDiscordAutoPlayPromptInteraction(interaction: Button
         notifyScope,
         gameIds: [prompt.game.id],
         targetUserIds,
+        targetDiscordServerId: settlePlayIntent.targetDiscordServerId ?? undefined,
         durationMinutes,
         note: settlePlayIntent.note,
         voiceChannelId: settlePlayIntent.voiceChannelId ?? undefined,

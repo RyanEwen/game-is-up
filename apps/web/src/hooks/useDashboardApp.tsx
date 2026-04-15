@@ -201,6 +201,7 @@ export function useDashboardApp() {
   const hasPlayIntentPreviews = Boolean(state.playIntents && state.playIntents.intents.length > 0)
   const showSignedInOnboarding = isSignedIn && !hasLibraryEntries && !hasDiscoveryContent && !hasPlayIntentPreviews
   const availableDiscoveryServers = (state.discordServers?.servers ?? []).filter((server: DiscordServerPreferencesResponse['servers'][number]) => server.botPresent)
+  const playIntentDiscordServerOptions = availableDiscoveryServers.filter((server: DiscordServerPreferencesResponse['servers'][number]) => server.selected)
   const selectedDiscoveryServerCount = availableDiscoveryServers.filter((server: DiscordServerPreferencesResponse['servers'][number]) => server.selected).length
   const noDiscoveryServersSelected = isSignedIn && availableDiscoveryServers.length > 0 && selectedDiscoveryServerCount === 0
   const libraryGameIds = new Set<string>(libraryEntries.map((entry: LibraryEntry) => entry.gameId))
@@ -625,6 +626,7 @@ export function useDashboardApp() {
     libraryEntries,
     discoveryPeople,
     playIntentFriendOptions,
+    playIntentDiscordServerOptions,
     playIntentPreviews: state.playIntents?.intents ?? [],
     loadDashboard,
     setActivePlayIntent,

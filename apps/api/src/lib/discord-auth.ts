@@ -9,6 +9,9 @@ const DISCORD_ME_URL = 'https://discord.com/api/users/@me'
 const DISCORD_GUILDS_URL = 'https://discord.com/api/users/@me/guilds'
 const DISCORD_BOT_SCOPES = ['bot', 'applications.commands'] as const
 const DISCORD_BOT_PERMISSIONS = '0'
+const developmentSeededDiscordHandleAliases = new Map([
+  ['technicallyreal', 'technicallyreal']
+])
 
 export const DISCORD_REQUESTED_SCOPES = ['identify', 'email', 'guilds'] as const
 
@@ -44,6 +47,26 @@ function buildDiscordAvatarUrl(profile: DiscordUserProfile): string | null {
   }
 
   return `https://cdn.discordapp.com/avatars/${profile.id}/${profile.avatar}.png?size=256`
+}
+
+function getDevelopmentSeededHandleAlias(profile: DiscordUserProfile): string | null {
+  if (env.NODE_ENV === 'production') {
+    return null
+  }
+
+  const candidates = [profile.username, profile.global_name]
+    .filter((value): value is string => Boolean(value))
+    .map((value) => normalizeHandleBase(value))
+
+  for (const candidate of candidates) {
+    const alias = developmentSeededDiscordHandleAliases.get(candidate)
+
+    if (alias) {
+      return alias
+    }
+  }
+
+  return null
 }
 
 export function isDiscordAuthConfigured(): boolean {
@@ -191,13 +214,23 @@ export async function upsertDiscordUser(profile: DiscordUserProfile, grantedScop
     return updatedUser
   }
 
-  let user = email
+  const developmentSeededHandleAlias = getDevelopmentSeededHandleAlias(profile)
+
+  let user = developmentSeededHandleAlias
     ? await prisma.user.findUnique({
         where: {
-          email
+          handle: developmentSeededHandleAlias
         }
       })
     : null
+
+  if (!user && email) {
+    user = await prisma.user.findUnique({
+      where: {
+        email
+      }
+    })
+  }
 
   if (!user) {
     const handle = await ensureUniqueHandle(normalizeHandleBase(displayName))

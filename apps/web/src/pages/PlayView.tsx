@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { Box, Button, Chip, DialogContent, DialogTitle, Card, Stack, Switch, Typography } from '@mui/joy'
+import { Avatar, Box, Button, Chip, DialogContent, DialogTitle, Card, Stack, Switch, Typography } from '@mui/joy'
 import type {
   ActivePlayIntent,
+  DiscordServerPreference,
   DiscordVoiceChannel,
   DiscoveryPerson,
   LibraryEntry,
@@ -89,20 +90,30 @@ function OwnActivePlayIntentCard({
         </Stack>
 
         <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-          <Chip color="primary" variant="soft">
+          <Chip size="sm" color="primary" variant="soft">
             {formatPlayIntentSelectionModeLabel(activePlayIntent.selectionMode)}
           </Chip>
-          <Chip color="neutral" variant="outlined">
+          <Chip size="sm" color="neutral" variant="outlined">
             {formatNotifyScopeLabel(activePlayIntent.notifyScope)}
           </Chip>
+          {activePlayIntent.notifyScope === 'specific-discord-server' && activePlayIntent.targetServer ? (
+            <Chip
+              size="sm"
+              color="neutral"
+              variant="outlined"
+              startDecorator={<Avatar src={activePlayIntent.targetServer.iconUrl ?? undefined} alt={activePlayIntent.targetServer.name} size="sm" variant="soft" />}
+            >
+              {activePlayIntent.targetServer.name}
+            </Chip>
+          ) : null}
           {activePlayIntent.platforms.map((platform) => (
-            <Chip key={platform} color="neutral" variant="outlined">
+            <Chip key={platform} size="sm" color="neutral" variant="outlined">
               {platform}
             </Chip>
           ))}
           {activePlayIntent.joinCount > 0 ? (
-            <Chip color="success" variant="soft">
-              {activePlayIntent.joinCount} {activePlayIntent.joinCount === 1 ? 'person' : 'people'} in
+            <Chip size="sm" color="success" variant="soft">
+              {activePlayIntent.joinCount} {activePlayIntent.joinCount === 1 ? 'person interested' : 'people interested'}
             </Chip>
           ) : null}
         </Stack>
@@ -116,14 +127,14 @@ function OwnActivePlayIntentCard({
         {activePlayIntent.selectionMode === 'subset' && activePlayIntent.games.length > 0 ? (
           <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
             {activePlayIntent.games.map((game) => (
-              <Chip key={game.id} color="primary" variant="outlined">
+              <Chip key={game.id} size="sm" color="primary" variant="outlined">
                 {game.title}
               </Chip>
             ))}
           </Stack>
         ) : (
           <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
-            Recipient matching compares this call to play against your library and each recipient&apos;s library to find matching games.
+            This call to play is for any proposed game that matches, not one specific title.
           </Typography>
         )}
       </Stack>
@@ -145,6 +156,9 @@ function PlayViewContent({
   playIntentNotifyScope,
   onPlayIntentNotifyScopeChange,
   playIntentFriendOptions,
+  playIntentDiscordServerOptions,
+  selectedPlayIntentTargetDiscordServerId,
+  onPlayIntentTargetDiscordServerChange,
   selectedPlayIntentTargetUserIds,
   onTogglePlayIntentTargetUser,
   playIntentSelectionMode,
@@ -203,6 +217,9 @@ function PlayViewContent({
   playIntentNotifyScope: PlayIntentNotifyScope;
   onPlayIntentNotifyScopeChange: (scope: PlayIntentNotifyScope) => void;
   playIntentFriendOptions: Array<Pick<DiscoveryPerson, 'id' | 'handle' | 'displayName' | 'avatarUrl'>>;
+  playIntentDiscordServerOptions: DiscordServerPreference[];
+  selectedPlayIntentTargetDiscordServerId: string;
+  onPlayIntentTargetDiscordServerChange: (serverId: string) => void;
   selectedPlayIntentTargetUserIds: string[];
   onTogglePlayIntentTargetUser: (userId: string) => void;
   playIntentSelectionMode: PlayIntentSelectionMode;
@@ -265,7 +282,7 @@ function PlayViewContent({
     ? 'Your library is still empty'
     : 'Nobody can receive a call to play yet'
   const handleOpenPlayIntent = () => {
-    if (!activePlayIntent && playIntentUnavailableMessage) {
+    if (!activePlayIntent && !canPostPlayIntent && playIntentUnavailableMessage) {
       setIsUnavailableAudienceModalOpen(true)
       return
     }
@@ -338,6 +355,9 @@ function PlayViewContent({
               playIntentNotifyScope={playIntentNotifyScope}
               onPlayIntentNotifyScopeChange={onPlayIntentNotifyScopeChange}
               playIntentFriendOptions={playIntentFriendOptions}
+              playIntentDiscordServerOptions={playIntentDiscordServerOptions}
+              selectedPlayIntentTargetDiscordServerId={selectedPlayIntentTargetDiscordServerId}
+              onPlayIntentTargetDiscordServerChange={onPlayIntentTargetDiscordServerChange}
               selectedPlayIntentTargetUserIds={selectedPlayIntentTargetUserIds}
               onTogglePlayIntentTargetUser={onTogglePlayIntentTargetUser}
               playIntentSelectionMode={playIntentSelectionMode}

@@ -5,7 +5,7 @@ import type { DiscordGuildSummary } from './discord-auth.js'
 import { getDiscordBotPresentServerIds, isDiscordBotPresentInGuild, listDiscordGuildMembers, listDiscordGuildVoiceChannels, sendDiscordGuildInvites } from './discord-presence-bot.js'
 import { toClientAvatarUrl } from './game-media.js'
 
-function buildDiscordServerIconUrl(serverId: string, iconHash: string | null): string | null {
+export function buildDiscordServerIconUrl(serverId: string, iconHash: string | null): string | null {
   if (!iconHash) {
     return null
   }
@@ -519,6 +519,36 @@ export async function getSelectedDiscordServerIds(userId: string): Promise<strin
   return preferences
     .map((preference) => preference.serverId)
     .filter((serverId) => botPresentServerIds.has(serverId))
+}
+
+export async function getDiscordMembershipServerIds(userId: string): Promise<string[]> {
+  const memberships = await prisma.discordServerMembership.findMany({
+    where: {
+      userId
+    },
+    select: {
+      serverId: true
+    }
+  })
+
+  return memberships.map((membership) => membership.serverId)
+}
+
+export async function getTargetDiscordServerAudienceUserIds(userId: string, serverId: string): Promise<string[]> {
+  const memberships = await prisma.discordServerMembership.findMany({
+    where: {
+      serverId,
+      userId: {
+        not: userId
+      }
+    },
+    distinct: ['userId'],
+    select: {
+      userId: true
+    }
+  })
+
+  return memberships.map((membership) => membership.userId)
 }
 
 export async function countBotVisibleDiscordServersForUser(userId: string): Promise<number> {

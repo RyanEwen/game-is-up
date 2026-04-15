@@ -13,7 +13,12 @@ import {
   PlayIntentScope,
   PlayIntentSelectionMode as PrismaPlayIntentSelectionMode
 } from '@prisma/client'
-import { getMutualDiscoveryAudienceUserIds } from './discord-servers.js'
+import {
+  buildDiscordServerIconUrl,
+  getSelectedDiscordServerIds,
+  getMutualDiscoveryAudienceUserIds,
+  getTargetDiscordServerAudienceUserIds
+} from './discord-servers.js'
 import { sendDiscordDirectMessages } from './discord-bot-runtime.js'
 import { toClientGameCoverUrl, toClientAvatarUrl } from './game-media.js'
 import {
@@ -36,6 +41,13 @@ const activePlayIntentInclude = {
     }
   },
   platforms: true,
+  targetDiscordServer: {
+    select: {
+      id: true,
+      name: true,
+      iconHash: true
+    }
+  },
   targetFriends: {
     include: {
       friendUser: {
@@ -74,6 +86,8 @@ function toPrismaSelectionMode(selectionMode: PlayIntentSelectionMode): PrismaPl
 
 function toClientNotifyScope(scope: PlayIntentScope): PlayIntentNotifyScope {
   switch (scope) {
+    case PlayIntentScope.SPECIFIC_DISCORD_SERVER:
+      return 'specific-discord-server'
     case PlayIntentScope.SPECIFIC_FRIENDS:
       return 'specific-friends'
     case PlayIntentScope.MUTUAL_FRIENDS:
@@ -85,6 +99,8 @@ function toClientNotifyScope(scope: PlayIntentScope): PlayIntentNotifyScope {
 
 function toPrismaNotifyScope(scope: PlayIntentNotifyScope): PlayIntentScope {
   switch (scope) {
+    case 'specific-discord-server':
+      return PlayIntentScope.SPECIFIC_DISCORD_SERVER
     case 'specific-friends':
       return PlayIntentScope.SPECIFIC_FRIENDS
     case 'network':
@@ -311,6 +327,18 @@ function resolvePlayIntentWindow(payload: UpsertPlayIntentRequest, now: Date) {
   }
 }
 
+function serializeTargetDiscordServer(targetDiscordServer: { id: string; name: string; iconHash: string | null } | null) {
+  if (!targetDiscordServer) {
+    return null
+  }
+
+  return {
+    id: targetDiscordServer.id,
+    name: targetDiscordServer.name,
+    iconUrl: toClientAvatarUrl(buildDiscordServerIconUrl(targetDiscordServer.id, targetDiscordServer.iconHash))
+  }
+}
+
 function serializeActivePlayIntent(intent: {
   id: string;
   headline: string;
@@ -319,6 +347,7 @@ function serializeActivePlayIntent(intent: {
   voiceChannelName: string | null;
   selectionMode: PrismaPlayIntentSelectionMode;
   scope: PlayIntentScope;
+  targetDiscordServer: { id: string; name: string; iconHash: string | null } | null;
   windowStartsAt: Date;
   windowEndsAt: Date;
   expiresAt: Date;
@@ -334,6 +363,7 @@ function serializeActivePlayIntent(intent: {
     title: intent.headline,
     selectionMode: toClientSelectionMode(intent.selectionMode),
     notifyScope: toClientNotifyScope(intent.scope),
+    targetServer: serializeTargetDiscordServer(intent.targetDiscordServer),
     targetedFriends: intent.targetFriends
       .map((entry) => ({ ...entry.friendUser, avatarUrl: toClientAvatarUrl(entry.friendUser.avatarUrl) }))
       .sort((left, right) => left.displayName.localeCompare(right.displayName)),
@@ -361,17 +391,36 @@ async function getRecipientUserIds(
   scope: PlayIntentNotifyScope,
   overlappingGameIds: string[],
   explicitFriendUserIds: string[],
-  targetUserIds: string[]
+  targetUserIds: string[],
+  targetDiscordServerId?: string | null
 ) {
   if (overlappingGameIds.length === 0) {
     return []
   }
 
-  const recipientUserIds = scope === 'network'
+  const recipientUserIds = await (scope === 'network'
     ? [...new Set([...explicitFriendUserIds, ...(await getMutualDiscoveryAudienceUserIds(userId))])]
+    : scope === 'specific-discord-server'
+      ? (() => {
+          const loadRecipientUserIds = async () => {
+            if (!targetDiscordServerId) {
+              return []
+            }
+
+            const [networkAudienceUserIds, serverAudienceUserIds] = await Promise.all([
+              Promise.resolve([...new Set([...explicitFriendUserIds, ...(await getMutualDiscoveryAudienceUserIds(userId))])]),
+              getTargetDiscordServerAudienceUserIds(userId, targetDiscordServerId)
+            ])
+            const serverAudienceUserIdSet = new Set(serverAudienceUserIds)
+
+            return networkAudienceUserIds.filter((recipientUserId) => serverAudienceUserIdSet.has(recipientUserId))
+          }
+
+          return loadRecipientUserIds()
+        })()
     : scope === 'specific-friends'
       ? targetUserIds
-      : explicitFriendUserIds
+      : explicitFriendUserIds)
 
   if (recipientUserIds.length === 0) {
     return []
@@ -436,7 +485,8 @@ export async function getPlayIntentRecipientUserIds(
   userId: string,
   scope: PlayIntentNotifyScope,
   overlappingGameIds: string[],
-  targetUserIds: string[] = []
+  targetUserIds: string[] = [],
+  targetDiscordServerId?: string | null
 ) {
   const explicitFriendUserIds = (await prisma.friend.findMany({
     where: {
@@ -447,7 +497,7 @@ export async function getPlayIntentRecipientUserIds(
     }
   })).map((friend) => friend.friendedUserId)
 
-  return getRecipientUserIds(userId, scope, overlappingGameIds, explicitFriendUserIds, targetUserIds)
+  return getRecipientUserIds(userId, scope, overlappingGameIds, explicitFriendUserIds, targetUserIds, targetDiscordServerId)
 }
 
 async function getPlayableLibraryEntries(userId: string) {
@@ -640,6 +690,23 @@ export async function upsertCurrentPlayIntent(
   const explicitFriendUsers = outgoingFriends.map((friend) => friend.friendedUser)
   const explicitFriendUserIds = explicitFriendUsers.map((friend) => friend.id)
   const normalizedTargetUserIds = [...new Set(payload.targetUserIds)]
+  const selectedDiscoveryServerIds = payload.notifyScope === 'specific-discord-server'
+    ? await getSelectedDiscordServerIds(userId)
+    : []
+  const targetDiscordServer = payload.notifyScope === 'specific-discord-server'
+    ? selectedDiscoveryServerIds.includes(payload.targetDiscordServerId ?? '')
+      ? await prisma.discordServer.findUnique({
+          where: {
+            id: payload.targetDiscordServerId ?? ''
+          },
+          select: {
+            id: true,
+            name: true,
+            iconHash: true
+          }
+        })
+      : null
+    : null
   const targetedFriends = payload.notifyScope === 'specific-friends'
     ? normalizedTargetUserIds.map((targetUserId) => {
         const matchedFriend = explicitFriendUsers.find((friend) => friend.id === targetUserId)
@@ -660,12 +727,17 @@ export async function upsertCurrentPlayIntent(
     throw new PlayIntentValidationError('Choose at least one friend for a specific-friends call to play.')
   }
 
+  if (payload.notifyScope === 'specific-discord-server' && !targetDiscordServer) {
+    throw new PlayIntentValidationError('Choose a Discord server that is already selected for your network before posting a specific Discord server call to play.')
+  }
+
   const recipientUserIds = await getRecipientUserIds(
     userId,
     payload.notifyScope,
     selectedGameIds,
     explicitFriendUserIds,
-    targetedFriends.map((friend) => friend.id)
+    targetedFriends.map((friend) => friend.id),
+    targetDiscordServer?.id
   )
   const now = new Date()
   const supersededIntentIds = (await prisma.playIntent.findMany({
@@ -811,6 +883,7 @@ export async function upsertCurrentPlayIntent(
         note,
         voiceChannelId: payload.voiceChannelId ?? null,
         voiceChannelName: payload.voiceChannelName ?? null,
+        targetDiscordServerId: targetDiscordServer?.id ?? null,
         scope: toPrismaNotifyScope(payload.notifyScope),
         windowStartsAt: startsAt,
         windowEndsAt: endsAt,

@@ -34,6 +34,7 @@ enum PlayIntentScope {
   FRIENDS_ONLY
   MUTUAL_FRIENDS
   SPECIFIC_FRIENDS
+  SPECIFIC_DISCORD_SERVER
 }
 
 enum PlayIntentSelectionMode {
@@ -135,6 +136,7 @@ model DiscordServer {
   updatedAt     DateTime                 @updatedAt
   memberships   DiscordServerMembership[]
   preferences   DiscordServerPreference[]
+  targetedPlayIntents PlayIntent[]       @relation("play_intent_target_discord_server")
   activityObservations DiscordActivityObservation[]
   observedGames DiscordObservedGame[]
   autoPlayPrompts DiscordAutoPlayPrompt[]
@@ -278,12 +280,14 @@ model PlayIntent {
   note           String                  @default("")
   voiceChannelId   String?
   voiceChannelName String?
+  targetDiscordServerId String?
   windowStartsAt DateTime
   windowEndsAt   DateTime
   scope          PlayIntentScope         @default(MUTUAL_FRIENDS)
   createdAt      DateTime                @default(now())
   expiresAt      DateTime
   user           User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  targetDiscordServer DiscordServer?     @relation("play_intent_target_discord_server", fields: [targetDiscordServerId], references: [id], onDelete: SetNull)
   games          PlayIntentGame[]
   platforms      PlayIntentPlatform[]
   targetFriends  PlayIntentTargetFriend[]
@@ -293,6 +297,7 @@ model PlayIntent {
 
   @@index([userId, expiresAt])
   @@index([selectionMode, expiresAt])
+  @@index([targetDiscordServerId, expiresAt])
 }
 
 model PlayIntentTargetFriend {

@@ -2,6 +2,7 @@ import type { Dispatch, SetStateAction } from 'react'
 import { useCallback, useEffect, useState } from 'react'
 import type {
   ActivePlayIntent,
+  DiscordServerPreference,
   DiscordVoiceChannel,
   DiscoveryPerson,
   LibraryEntry,
@@ -55,6 +56,9 @@ export type DashboardPlayViewProps = {
   playIntentNotifyScope: PlayIntentNotifyScope;
   onPlayIntentNotifyScopeChange: (scope: PlayIntentNotifyScope) => void;
   playIntentFriendOptions: Array<Pick<DiscoveryPerson, 'id' | 'handle' | 'displayName' | 'avatarUrl'>>;
+  playIntentDiscordServerOptions: DiscordServerPreference[];
+  selectedPlayIntentTargetDiscordServerId: string;
+  onPlayIntentTargetDiscordServerChange: (serverId: string) => void;
   selectedPlayIntentTargetUserIds: string[];
   onTogglePlayIntentTargetUser: (userId: string) => void;
   playIntentSelectionMode: PlayIntentSelectionMode;
@@ -104,6 +108,7 @@ export function useDashboardPlay({
   libraryEntries,
   discoveryPeople,
   playIntentFriendOptions,
+  playIntentDiscordServerOptions,
   playIntentPreviews,
   loadDashboard,
   setActivePlayIntent,
@@ -115,6 +120,7 @@ export function useDashboardPlay({
   libraryEntries: LibraryEntry[];
   discoveryPeople: DiscoveryPerson[];
   playIntentFriendOptions: Array<Pick<DiscoveryPerson, 'id' | 'handle' | 'displayName' | 'avatarUrl'>>;
+  playIntentDiscordServerOptions: DiscordServerPreference[];
   playIntentPreviews: PlayIntentPreview[];
   loadDashboard: () => Promise<void>;
   setActivePlayIntent: (intent: ActivePlayIntent | null) => void;
@@ -133,6 +139,7 @@ export function useDashboardPlay({
   const [playIntentVoiceChannelName, setPlayIntentVoiceChannelName] = useState('')
   const [playIntentVoiceChannelOptions, setPlayIntentVoiceChannelOptions] = useState<DiscordVoiceChannel[]>([])
   const [selectedPlayIntentGameIds, setSelectedPlayIntentGameIds] = useState<string[]>([])
+  const [selectedPlayIntentTargetDiscordServerId, setSelectedPlayIntentTargetDiscordServerId] = useState('')
   const [selectedPlayIntentTargetUserIds, setSelectedPlayIntentTargetUserIds] = useState<string[]>([])
   const [mutedPlayIntentUserIds, setMutedPlayIntentUserIds] = useState<Set<string>>(new Set())
   const [playIntentResponsePendingIntentId, setPlayIntentResponsePendingIntentId] = useState<string | null>(null)
@@ -156,23 +163,33 @@ export function useDashboardPlay({
     ? networkRecipientsForLibrary
     : playIntentNotifyScope === 'friends-only'
       ? friendRecipientsForLibrary
-      : targetedRecipientsForLibrary
+      : playIntentNotifyScope === 'specific-friends'
+        ? targetedRecipientsForLibrary
+        : []
   const currentRecipients = playIntentNotifyScope === 'network'
     ? networkRecipientsForCurrentSelection
     : playIntentNotifyScope === 'friends-only'
       ? friendRecipientsForCurrentSelection
-      : targetedRecipientsForCurrentSelection
+      : playIntentNotifyScope === 'specific-friends'
+        ? targetedRecipientsForCurrentSelection
+        : []
   const currentAudienceLabel = playIntentNotifyScope === 'network'
     ? 'your friends list or network'
     : playIntentNotifyScope === 'friends-only'
       ? 'your friends list'
-      : 'the friends you selected'
+      : playIntentNotifyScope === 'specific-friends'
+        ? 'the friends you selected'
+        : 'that Discord server'
   const playIntentFilteredAudienceMessage = !canPostPlayIntent
     ? null
     : playIntentNotifyScope === 'specific-friends' && selectedPlayIntentTargetUserIds.length === 0
       ? 'Choose at least one friend before posting a specific-friends call to play. Without a selection, nobody will receive it.'
+      : playIntentNotifyScope === 'specific-discord-server' && !selectedPlayIntentTargetDiscordServerId
+        ? 'Choose one Discord server before posting a server-targeted call to play.'
       : playIntentSelectionMode === 'subset' && selectedPlayIntentGameIds.length === 0
         ? 'Pick at least one game before posting a selected-games call to play. Without a selection, nobody will receive it.'
+        : playIntentNotifyScope === 'specific-discord-server'
+          ? null
         : currentRecipients.length > 0
           ? null
           : playIntentSelectionMode === 'subset' && currentScopeLibraryRecipients.length > 0
@@ -355,6 +372,7 @@ export function useDashboardPlay({
       setPlayIntentVoiceChannelId('')
       setPlayIntentVoiceChannelName('')
       setSelectedPlayIntentGameIds([])
+      setSelectedPlayIntentTargetDiscordServerId('')
       setSelectedPlayIntentTargetUserIds([])
       return
     }
@@ -381,6 +399,7 @@ export function useDashboardPlay({
     setPlayIntentVoiceChannelId(activePlayIntent.voiceChannelId ?? '')
     setPlayIntentVoiceChannelName(activePlayIntent.voiceChannelName ?? '')
     setSelectedPlayIntentGameIds(activePlayIntent.games.map((game) => game.id))
+    setSelectedPlayIntentTargetDiscordServerId(activePlayIntent.targetServer?.id ?? '')
     setSelectedPlayIntentTargetUserIds(activePlayIntent.targetedFriends.map((friend) => friend.id))
   }, [activePlayIntent])
 
@@ -423,6 +442,14 @@ export function useDashboardPlay({
       setPlayIntentNotice({
         tone: 'danger',
         message: 'Choose at least one friend before posting a specific-friends call to play.'
+      })
+      return
+    }
+
+    if (playIntentNotifyScope === 'specific-discord-server' && !selectedPlayIntentTargetDiscordServerId) {
+      setPlayIntentNotice({
+        tone: 'danger',
+        message: 'Choose one Discord server before posting a server-targeted call to play.'
       })
       return
     }
@@ -477,7 +504,10 @@ export function useDashboardPlay({
           voiceChannelId: playIntentVoiceChannelId.trim() || undefined,
           voiceChannelName: playIntentVoiceChannelName.trim() || undefined,
           gameIds: playIntentSelectionMode === 'subset' ? selectedPlayIntentGameIds : [],
-          targetUserIds: playIntentNotifyScope === 'specific-friends' ? selectedPlayIntentTargetUserIds : []
+          targetUserIds: playIntentNotifyScope === 'specific-friends' ? selectedPlayIntentTargetUserIds : [],
+          targetDiscordServerId: playIntentNotifyScope === 'specific-discord-server'
+            ? selectedPlayIntentTargetDiscordServerId
+            : undefined
         })
       })
 
@@ -502,10 +532,10 @@ export function useDashboardPlay({
         tone: 'success',
         message: isScheduledIntent
           ? parsedResponse.notifiedFriendCount > 0
-            ? `Your call to play is scheduled. ${parsedResponse.notifiedFriendCount} ${parsedResponse.notifiedFriendCount === 1 ? 'friend in your network who has' : 'friends in your network who have'} games in their library that match yours were notified.`
+            ? `Your call to play is scheduled. ${parsedResponse.notifiedFriendCount} ${parsedResponse.notifiedFriendCount === 1 ? 'person with a matching game was' : 'people with matching games were'} notified.`
             : 'Your call to play is scheduled. No Discord DMs were delivered yet.'
           : parsedResponse.notifiedFriendCount > 0
-            ? `Your call to play is live. ${parsedResponse.notifiedFriendCount} ${parsedResponse.notifiedFriendCount === 1 ? 'friend in your network who has' : 'friends in your network who have'} games in their library that match yours were notified.`
+            ? `Your call to play is live. ${parsedResponse.notifiedFriendCount} ${parsedResponse.notifiedFriendCount === 1 ? 'person with a matching game was' : 'people with matching games were'} notified.`
             : 'Your call to play is live. No Discord DMs were delivered yet.'
       })
       void loadDashboard()
@@ -536,6 +566,7 @@ export function useDashboardPlay({
     parsedPlayIntentStartAt,
     resolvedPlayIntentDurationMinutes,
     selectedPlayIntentGameIds,
+    selectedPlayIntentTargetDiscordServerId,
     selectedPlayIntentTargetUserIds,
     setActivePlayIntent,
     setPlayIntentNotice
@@ -579,6 +610,11 @@ export function useDashboardPlay({
 
   const handlePlayIntentNotifyScopeChange = useCallback((scope: PlayIntentNotifyScope) => {
     setPlayIntentNotifyScope(scope)
+    setPlayIntentNotice(null)
+  }, [setPlayIntentNotice])
+
+  const handlePlayIntentTargetDiscordServerChange = useCallback((serverId: string) => {
+    setSelectedPlayIntentTargetDiscordServerId(serverId)
     setPlayIntentNotice(null)
   }, [setPlayIntentNotice])
 
@@ -792,6 +828,9 @@ export function useDashboardPlay({
     playIntentNotifyScope,
     onPlayIntentNotifyScopeChange: handlePlayIntentNotifyScopeChange,
     playIntentFriendOptions,
+    playIntentDiscordServerOptions,
+    selectedPlayIntentTargetDiscordServerId,
+    onPlayIntentTargetDiscordServerChange: handlePlayIntentTargetDiscordServerChange,
     selectedPlayIntentTargetUserIds,
     onTogglePlayIntentTargetUser: handleTogglePlayIntentTargetUser,
     playIntentSelectionMode,

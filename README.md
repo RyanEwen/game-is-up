@@ -93,7 +93,7 @@ That runs ESLint, TypeScript checks, and `prisma validate`.
 - `npm run db:migrate:bootstrap` baselines an existing non-managed database at the checked-in baseline and then applies pending migrations.
 - `npm run db:push` force-resets the dev database and applies the current Prisma schema. Keep this for disposable local resets only, not shared or production databases.
 - `npm run db:seed` reloads the demo discovery dataset.
-- In local development, a signed-in non-demo account with no friends yet is automatically linked to the seeded sample friends on the next session refresh so discovery and friend-driven UI can be tested without rebuilding the graph manually.
+- In local development, a signed-in non-demo account with no friends yet is automatically linked to the seeded sample friends on the next session refresh, and the demo accounts are attached to one real bot-visible Discord server when possible so discovery, server-scoped targeting, and friend-driven UI can be tested without rebuilding the graph manually.
 - `npm run db:generate` refreshes the Prisma client after schema changes.
 - `npm run dev:fresh` waits for PostgreSQL, resets the schema, reseeds demo data, and starts the full stack.
 
@@ -228,6 +228,7 @@ Calls to play can also control who sees them:
 - explicit friends only
 - the broader discovery audience formed by opted-in shared Discord servers, plus friends
 - a specific hand-picked set of friends
+- one specific opted-in Discord server within that broader discovery audience
 
 Calls to play can start immediately or be scheduled for later, and they remain visible until the configured end time.
 

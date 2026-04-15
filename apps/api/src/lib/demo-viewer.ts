@@ -20,7 +20,7 @@ export async function getViewer(viewerId?: string | null) {
 
   return prisma.user.findFirst({
     where: {
-      handle: 'partyfinder'
+      handle: 'technicallyreal'
     }
   })
 }

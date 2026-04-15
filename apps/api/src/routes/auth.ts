@@ -21,7 +21,7 @@ import {
   upsertDiscordUser
 } from '../lib/discord-auth.js'
 import { getDiscordPresenceBotState } from '../lib/discord-bot-runtime.js'
-import { ensureDevelopmentSampleFriends } from '../lib/dev-sample-network.js'
+import { ensureDevelopmentSampleFriends, ensureDevelopmentSampleServerOverlap } from '../lib/dev-sample-network.js'
 import { countBotVisibleDiscordServersForUser, syncDiscordServersForUser } from '../lib/discord-servers.js'
 import { env } from '../lib/env.js'
 import { resolveAuthRedirectTarget } from '../lib/origin.js'
@@ -222,6 +222,7 @@ authRouter.get('/me', async (request, response) => {
   }
 
   await ensureDevelopmentSampleFriends(user)
+  await ensureDevelopmentSampleServerOverlap(user)
 
   const adminHandles = env.ADMIN_HANDLES
     ? env.ADMIN_HANDLES.split(',').map((h) => h.trim().toLowerCase()).filter(Boolean)

@@ -1,5 +1,5 @@
 ---
-name: "Audit Docs"
+name: "audit-docs"
 description: "Audit repository documentation and Copilot customization files so they match the current codebase and workflow."
 argument-hint: "Optional scope or recent change summary"
 agent: "agent"

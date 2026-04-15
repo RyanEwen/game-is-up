@@ -1,6 +1,7 @@
 import { Avatar, Button, Card, Chip, DialogContent, DialogTitle, Input, Option, Select, Stack, Typography } from '@mui/joy'
 import type {
   ActivePlayIntent,
+  DiscordServerPreference,
   DiscordVoiceChannel,
   DiscoveryPerson,
   LibraryEntry,
@@ -16,6 +17,7 @@ import {
   minimumPlayIntentDurationMinutes,
   playIntentPresetDurations
 } from './dashboardUtils'
+import { DiscordServerPicker } from './DiscordServerPicker'
 import { DashboardModalActionBar } from './DashboardModalActionBar'
 import type { PlayIntentStartMode, PlayIntentTimingMode } from './types'
 
@@ -26,6 +28,9 @@ export function PlayIntentComposerCard({
   playIntentNotifyScope,
   onPlayIntentNotifyScopeChange,
   playIntentFriendOptions,
+  playIntentDiscordServerOptions,
+  selectedPlayIntentTargetDiscordServerId,
+  onPlayIntentTargetDiscordServerChange,
   selectedPlayIntentTargetUserIds,
   onTogglePlayIntentTargetUser,
   playIntentSelectionMode,
@@ -68,6 +73,9 @@ export function PlayIntentComposerCard({
   playIntentNotifyScope: PlayIntentNotifyScope;
   onPlayIntentNotifyScopeChange: (scope: PlayIntentNotifyScope) => void;
   playIntentFriendOptions: Array<Pick<DiscoveryPerson, 'id' | 'handle' | 'displayName' | 'avatarUrl'>>;
+  playIntentDiscordServerOptions: DiscordServerPreference[];
+  selectedPlayIntentTargetDiscordServerId: string;
+  onPlayIntentTargetDiscordServerChange: (serverId: string) => void;
   selectedPlayIntentTargetUserIds: string[];
   onTogglePlayIntentTargetUser: (userId: string) => void;
   playIntentSelectionMode: PlayIntentSelectionMode;
@@ -175,33 +183,44 @@ export function PlayIntentComposerCard({
               <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
                 {isScheduledIntent ? (
                   <>
-                    <Chip color="warning" variant="soft">
+                    <Chip size="sm" color="warning" variant="soft">
                       Starts {new Date(activePlayIntent.windowStartsAt).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
                     </Chip>
-                    <Chip color="success" variant="soft">
+                    <Chip size="sm" color="success" variant="soft">
                       Ends {new Date(activePlayIntent.windowEndsAt).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
                     </Chip>
                   </>
                 ) : (
-                  <Chip color="success" variant="soft">
+                  <Chip size="sm" color="success" variant="soft">
                     Live until {new Date(activePlayIntent.windowEndsAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
                   </Chip>
                 )}
-                <Chip color="primary" variant="outlined">
+                <Chip size="sm" color="primary" variant="outlined">
                   {formatNotifyScopeLabel(activePlayIntent.notifyScope)}
                 </Chip>
-                <Chip color="neutral" variant="outlined">
+                <Chip size="sm" color="neutral" variant="outlined">
                   {formatPlayIntentSelectionModeLabel(activePlayIntent.selectionMode)}
                 </Chip>
               </Stack>
               <Typography level="body-xs" sx={{ color: 'neutral.300' }}>
                 {formatNotifyScopeDescription(activePlayIntent.notifyScope)}
               </Typography>
+              {activePlayIntent.notifyScope === 'specific-discord-server' && activePlayIntent.targetServer ? (
+                <Chip
+                  size="sm"
+                  variant="outlined"
+                  color="neutral"
+                  startDecorator={<Avatar src={activePlayIntent.targetServer.iconUrl ?? undefined} alt={activePlayIntent.targetServer.name} size="sm" variant="soft" />}
+                >
+                  {activePlayIntent.targetServer.name}
+                </Chip>
+              ) : null}
               {activePlayIntent.notifyScope === 'specific-friends' && activePlayIntent.targetedFriends.length > 0 ? (
                 <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
                   {activePlayIntent.targetedFriends.map((friend) => (
                     <Chip
                       key={friend.id}
+                      size="sm"
                       variant="outlined"
                       color="neutral"
                       startDecorator={<Avatar src={friend.avatarUrl ?? undefined} alt={friend.displayName} size="sm" variant="soft" />}
@@ -267,13 +286,16 @@ export function PlayIntentComposerCard({
         <Stack spacing={1}>
           <Typography level="title-sm">Who do you want to target?</Typography>
           <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-            {(['network', 'friends-only', 'specific-friends'] as const).map((scope) => (
+            {(['network', 'friends-only', 'specific-friends', 'specific-discord-server'] as const).map((scope) => (
               <Button
                 key={scope}
                 size="sm"
                 variant={playIntentNotifyScope === scope ? 'solid' : 'outlined'}
                 color={playIntentNotifyScope === scope ? 'primary' : 'neutral'}
-                disabled={scope === 'specific-friends' && playIntentFriendOptions.length === 0}
+                disabled={
+                  (scope === 'specific-friends' && playIntentFriendOptions.length === 0)
+                  || (scope === 'specific-discord-server' && playIntentDiscordServerOptions.length === 0)
+                }
                 onClick={() => onPlayIntentNotifyScopeChange(scope)}
               >
                 {formatNotifyScopeLabel(scope)}
@@ -311,6 +333,22 @@ export function PlayIntentComposerCard({
             ) : (
               <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
                 Add friends first to target a specific audience.
+              </Typography>
+            )
+          ) : null}
+          {playIntentNotifyScope === 'specific-discord-server' ? (
+            playIntentDiscordServerOptions.length > 0 ? (
+              <Stack spacing={1}>
+                <DiscordServerPicker
+                  options={playIntentDiscordServerOptions}
+                  value={selectedPlayIntentTargetDiscordServerId}
+                  placeholder="Pick a Discord server"
+                  onChange={onPlayIntentTargetDiscordServerChange}
+                />
+              </Stack>
+            ) : (
+              <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
+                Select a Discord server in your network settings first to target one server.
               </Typography>
             )
           ) : null}
