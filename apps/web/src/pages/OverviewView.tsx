@@ -638,7 +638,7 @@ function OverviewViewContent({
           mb={0}
           sections={[
             { id: 'account', label: 'Account' },
-            { id: 'what-is-games-up', label: 'What is Game\'s Up?' },
+            { id: 'what-is-games-up', label: 'About' },
             { id: 'quick-start', label: 'Quick start', ariaLabel: 'Quick start' },
             ...(isSignedIn ? [{ id: 'your-network', label: 'Network', ariaLabel: 'Your network' }] : [])
           ]}
