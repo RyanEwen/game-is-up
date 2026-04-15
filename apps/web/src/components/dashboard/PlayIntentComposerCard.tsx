@@ -446,7 +446,7 @@ export function PlayIntentComposerCard({
                 </Stack>
               </Option>,
               ...group.channels.map((channel) => (
-                <Option key={channel.id} value={channel.id}>
+                <Option key={channel.id} value={channel.id} sx={{ pl: 5 }}>
                   {channel.name}
                 </Option>
               ))
