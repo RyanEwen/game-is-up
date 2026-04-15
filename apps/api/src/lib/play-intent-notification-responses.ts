@@ -192,7 +192,7 @@ function buildExpiredMessage(reason: string) {
 
 function buildJoinAcceptedMessage(creatorDisplayName: string) {
   return [
-    `I recorded that you are joining ${creatorDisplayName}'s call to play.`,
+    `I marked you as interested in ${creatorDisplayName}'s call to play.`,
     "If you want to widen the group, you can still open Game's Up and post your own call too."
   ].join('\n\n')
 }
@@ -255,7 +255,7 @@ function buildGoTimeConfirmedCopy(creatorDisplayName: string) {
 function buildGoTimeReminderCopy(creatorDisplayName: string) {
   return {
     title: `${creatorDisplayName} confirmed the call to play is on`,
-    body: `${creatorDisplayName} confirmed this call to play is still on. Are you joining?`
+    body: `${creatorDisplayName} confirmed this call to play is still on. Are you interested?`
   }
 }
 
@@ -331,16 +331,16 @@ function buildCreatorJoinNotification(notification: {
   gameTitle: string | null;
 }) {
   const title = notification.gameTitle
-    ? `${notification.recipientDisplayName} is in for ${notification.gameTitle}`
-    : `${notification.recipientDisplayName} is joining your call to play`
+    ? `${notification.recipientDisplayName} is interested in ${notification.gameTitle}`
+    : `${notification.recipientDisplayName} is interested in your call to play`
   const body = notification.gameTitle
-    ? `${notification.recipientDisplayName} said yes to your ${notification.gameTitle} call to play.`
-    : `${notification.recipientDisplayName} said yes to your call to play.`
+    ? `${notification.recipientDisplayName} marked themselves as interested in your ${notification.gameTitle} call to play.`
+    : `${notification.recipientDisplayName} marked themselves as interested in your call to play.`
 
   return {
     title,
     body,
-    dm: `**${title}**\n${body}\n\nOpen Game's Up: ${buildPlayUrl()}`
+    dm: `**${title}**\n\nOpen Game's Up: ${buildPlayUrl()}`
   }
 }
 
@@ -453,9 +453,9 @@ async function applyRecipientResponseToPlayIntentNotification(options: {
 
   return {
     content: previousChoice === NotificationResponseChoice.DECLINE
-      ? `Nice. I marked you as joining ${playIntent.user.displayName}'s call to play and let them know.`
+      ? `Nice. I marked you as interested in ${playIntent.user.displayName}'s call to play and let them know.`
       : previousChoice === NotificationResponseChoice.JOIN
-        ? 'You are still marked as joining this call to play.'
+        ? 'You are still marked as interested in this call to play.'
         : buildJoinAcceptedMessage(playIntent.user.displayName)
   }
 }

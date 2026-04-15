@@ -234,6 +234,7 @@ function getUpdatedPlayIntentFields(options: {
   nextSelectedGameIds: string[];
 }) {
   const updatedFields: string[] = []
+  const previousSelectionMode = toClientSelectionMode(options.previousIntent.selectionMode)
 
   if (
     options.previousIntent.windowStartsAt.getTime() !== options.nextStartsAt.getTime()
@@ -243,10 +244,14 @@ function getUpdatedPlayIntentFields(options: {
   }
 
   if (
-    toClientSelectionMode(options.previousIntent.selectionMode) !== options.nextSelectionMode
-    || !areSameStringSets(
-      options.previousIntent.games.map((entry) => entry.gameId),
-      options.nextSelectedGameIds
+    previousSelectionMode !== options.nextSelectionMode
+    || (
+      previousSelectionMode === 'subset'
+      && options.nextSelectionMode === 'subset'
+      && !areSameStringSets(
+        options.previousIntent.games.map((entry) => entry.gameId),
+        options.nextSelectedGameIds
+      )
     )
   ) {
     updatedFields.push('game selection')

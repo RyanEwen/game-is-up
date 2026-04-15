@@ -33,9 +33,10 @@ function DiscordAutomationCard({
     <Card variant="soft" sx={{ p: 3 }}>
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }}>
         <Box>
-          <Typography level="title-sm">Automatic call-to-play prompts</Typography>
+          <Typography level="title-sm">Automatic call-to-play prompting</Typography>
           <Typography level="body-sm" sx={{ color: 'neutral.400', mt: 0.5 }}>
-            When this is on, the bot can DM you when it sees you start a game and offer to create a call to play for you. It will only prompt if you do not already have an active call and there is someone in your friends list or network who could receive it.
+            Offer to create a call to play for you automatically when Discord detects you start a game.<br />
+            You will only be prompted if you do not already have an active call, and there is someone in your network who could receive it.
           </Typography>
         </Box>
         <Switch
