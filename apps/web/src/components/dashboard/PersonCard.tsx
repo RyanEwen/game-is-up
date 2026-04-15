@@ -28,7 +28,11 @@ export function PersonCard({
   addingLibraryGameId,
   isPending,
   onToggleFriend,
-  onAddToLibrary
+  onAddToLibrary,
+  isMuted = false,
+  isMutePending = false,
+  onMute,
+  onUnmute
 }: {
   person: DiscoveryPerson;
   canManage: boolean;
@@ -41,6 +45,10 @@ export function PersonCard({
   onToggleFriend: (target: FriendTarget) => Promise<void>;
   onAddToLibrary: (game: DashboardLibraryQuickAddGame) => Promise<void>;
   onRemoveLibraryEntry: (entryId: string) => Promise<void>;
+  isMuted?: boolean;
+  isMutePending?: boolean;
+  onMute?: (userId: string) => Promise<void>;
+  onUnmute?: (userId: string) => Promise<void>;
 }) {
   return (
     <Card
@@ -77,7 +85,11 @@ export function PersonCard({
               person.usualAvailability ? `Usually plays: ${person.usualAvailability}` : ''
             ]}
             large
+            isMuted={isMuted}
+            isMutePending={isMutePending}
             onToggleFriend={onToggleFriend}
+            onMute={onMute}
+            onUnmute={onUnmute}
           />
         </Stack>
 

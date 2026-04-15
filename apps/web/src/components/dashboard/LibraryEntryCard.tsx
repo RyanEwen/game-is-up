@@ -93,6 +93,7 @@ export function LibraryEntryCard({
               <AvailabilityChip availability={entry.availability} availabilitySource={entry.availabilitySource} showInherited={false} />
             ) : null}
           </Stack>
+
         </Stack>
 
         <Stack direction="row" spacing={1} sx={{ mt: 'auto' }}>

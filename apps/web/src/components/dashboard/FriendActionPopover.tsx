@@ -36,7 +36,11 @@ export function FriendActionPopover({
   supportingText,
   detailLines = [],
   large = false,
-  onToggleFriend
+  isMuted = false,
+  isMutePending = false,
+  onToggleFriend,
+  onMute,
+  onUnmute
 }: {
   target: FriendTarget;
   handle: string;
@@ -45,7 +49,11 @@ export function FriendActionPopover({
   supportingText?: string;
   detailLines?: string[];
   large?: boolean;
+  isMuted?: boolean;
+  isMutePending?: boolean;
   onToggleFriend: (target: FriendTarget) => Promise<void>;
+  onMute?: (userId: string) => Promise<void>;
+  onUnmute?: (userId: string) => Promise<void>;
 }) {
   const visibleDetailLines = detailLines.map((line) => line.trim()).filter(Boolean)
 
@@ -107,6 +115,19 @@ export function FriendActionPopover({
                 ? 'Add as friend'
                 : 'Remove from friends'}
         </MenuItem>
+
+        {onMute && onUnmute ? (
+          <MenuItem
+            disabled={!canManage || isMutePending}
+            onClick={() => void (isMuted ? onUnmute(target.id) : onMute(target.id))}
+          >
+            {isMutePending
+              ? 'Updating...'
+              : isMuted
+                ? 'Unmute this player\'s CTPs'
+                : 'Mute this player\'s CTPs'}
+          </MenuItem>
+        ) : null}
       </Menu>
     </Dropdown>
   )

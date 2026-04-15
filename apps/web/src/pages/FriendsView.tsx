@@ -21,7 +21,10 @@ function FriendsViewContent({
   friendPendingId,
   onToggleFriend,
   onAddGameToLibrary,
-  onRemoveLibraryEntry
+  onRemoveLibraryEntry,
+  mutedPlayIntentUserIds,
+  onMutePlayIntentUser,
+  onUnmutePlayIntentUser
 }: {
   error: string | null;
   isSignedIn: boolean;
@@ -36,6 +39,9 @@ function FriendsViewContent({
   onToggleFriend: (target: FriendTarget) => Promise<void>;
   onAddGameToLibrary: (game: DashboardLibraryQuickAddGame) => Promise<void>;
   onRemoveLibraryEntry: (entryId: string) => Promise<void>;
+  mutedPlayIntentUserIds: ReadonlySet<string>;
+  onMutePlayIntentUser: (userId: string) => Promise<void>;
+  onUnmutePlayIntentUser: (userId: string) => Promise<void>;
 }) {
   const [isAddFriendsModalOpen, setIsAddFriendsModalOpen] = useState(false)
 
@@ -76,6 +82,9 @@ function FriendsViewContent({
               onToggleFriend={onToggleFriend}
               onAddToLibrary={onAddGameToLibrary}
               onRemoveLibraryEntry={onRemoveLibraryEntry}
+              isMuted={mutedPlayIntentUserIds.has(person.id)}
+              onMute={onMutePlayIntentUser}
+              onUnmute={onUnmutePlayIntentUser}
             />
           ))}
         </Stack>
@@ -125,8 +134,9 @@ function FriendsViewContent({
                     isPending={friendPendingId === person.id}
                     onToggleFriend={onToggleFriend}
                     onAddToLibrary={onAddGameToLibrary}
-                    onRemoveLibraryEntry={onRemoveLibraryEntry}
-                  />
+                    onRemoveLibraryEntry={onRemoveLibraryEntry}                      isMuted={mutedPlayIntentUserIds.has(person.id)}
+                      onMute={onMutePlayIntentUser}
+                      onUnmute={onUnmutePlayIntentUser}                  />
                 ))}
               </Stack>
             ) : (
@@ -146,6 +156,10 @@ function FriendsViewContent({
 
 export function FriendsView() {
   const { friendsViewProps, libraryViewProps } = useDashboardContext()
+  const gameAliasByGameId = new Map(libraryViewProps.gameAliases.map((alias) => [alias.gameId, alias.aliasValue]))
+  const editorGameAlias = libraryViewProps.editingLibraryEntry
+    ? (gameAliasByGameId.get(libraryViewProps.editingLibraryEntry.gameId) ?? null)
+    : null
 
   return (
     <>
@@ -167,6 +181,13 @@ export function FriendsView() {
           currentUsualAvailability={libraryViewProps.currentUsualAvailability}
           libraryAvailability={libraryViewProps.libraryAvailability}
           onLibraryAvailabilityChange={libraryViewProps.onLibraryAvailabilityChange}
+          gameAlias={editorGameAlias}
+          aliasSaving={Boolean(
+            libraryViewProps.editingLibraryEntry &&
+            libraryViewProps.aliasSavingKey === `game:${libraryViewProps.editingLibraryEntry.gameId}`
+          )}
+          onSaveGameAlias={libraryViewProps.onSaveGameAlias}
+          onDeleteGameAlias={libraryViewProps.onDeleteGameAlias}
           librarySaving={libraryViewProps.librarySaving}
           onAddLibraryEntry={libraryViewProps.onAddLibraryEntry}
           onCancelLibraryEdit={libraryViewProps.onCancelLibraryEdit}

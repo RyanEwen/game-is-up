@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { Box, Button, Card, Checkbox, Chip, DialogContent, DialogTitle, Input, Sheet, Stack, Typography } from '@mui/joy'
-import type { GameSearchResponse, GameSearchResult, ImportSteamLibrarySelectionRequest, LibraryEntry, LibraryEntryIntent, LibrarySuggestedGame, SteamLibraryImportGame, SteamLibraryImportPreviewResponse } from '@game-is-up/shared'
+import type { GameSearchResponse, GameSearchResult, ImportSteamLibrarySelectionRequest, LibraryEntry, LibraryEntryIntent, LibrarySuggestedGame, SteamLibraryImportGame, SteamLibraryImportPreviewResponse, UserGameAlias, UserPlatformAlias } from '@game-is-up/shared'
 import { DashboardModal } from '../components/dashboard/DashboardModal'
+import { AliasManagementCard } from '../components/dashboard/AliasManagementCard'
 import { DashboardModalActionBar } from '../components/dashboard/DashboardModalActionBar'
 import { DashboardDeferredImage } from '../components/dashboard/DashboardDeferredImage'
 import { EmptyStateCard } from '../components/dashboard/EmptyStateCard'
@@ -877,6 +878,13 @@ function LibraryViewContent({
   onCancelLibraryEdit,
   libraryEntries,
   suggestedGames,
+  platformAliases,
+  gameAliases,
+  aliasSavingKey,
+  onSavePlatformAlias,
+  onDeletePlatformAlias,
+  onSaveGameAlias,
+  onDeleteGameAlias,
   libraryGameIds,
   addingLibraryGameId,
   editingLibraryEntryId,
@@ -930,6 +938,13 @@ function LibraryViewContent({
   onCancelLibraryEdit: () => void;
   libraryEntries: LibraryEntry[];
   suggestedGames: LibrarySuggestedGame[];
+  platformAliases: UserPlatformAlias[];
+  gameAliases: UserGameAlias[];
+  aliasSavingKey: string | null;
+  onSavePlatformAlias: (platform: string, aliasValue: string) => Promise<void>;
+  onDeletePlatformAlias: (platform: string) => Promise<void>;
+  onSaveGameAlias: (gameId: string, aliasValue: string) => Promise<void>;
+  onDeleteGameAlias: (gameId: string) => Promise<void>;
   libraryGameIds: ReadonlySet<string>;
   addingLibraryGameId: string | null;
   editingLibraryEntryId: string | null;
@@ -938,6 +953,9 @@ function LibraryViewContent({
   onRemoveLibraryEntry: (entryId: string) => Promise<void>;
   onAddGameToLibrary: (game: DashboardLibraryQuickAddGame) => Promise<void>;
 }) {
+  const gameAliasByGameId = new Map(gameAliases.map((alias) => [alias.gameId, alias.aliasValue]))
+  const editorGameAlias = editingLibraryEntry ? (gameAliasByGameId.get(editingLibraryEntry.gameId) ?? null) : null
+
   if (!isSignedIn) {
     return (
       <EmptyStateCard
@@ -993,6 +1011,13 @@ function LibraryViewContent({
           currentUsualAvailability={currentUsualAvailability}
           libraryAvailability={libraryAvailability}
           onLibraryAvailabilityChange={onLibraryAvailabilityChange}
+          gameAlias={editorGameAlias}
+          aliasSaving={Boolean(
+            editingLibraryEntry &&
+            aliasSavingKey === `game:${editingLibraryEntry.gameId}`
+          )}
+          onSaveGameAlias={onSaveGameAlias}
+          onDeleteGameAlias={onDeleteGameAlias}
           librarySaving={librarySaving}
           onAddLibraryEntry={onAddLibraryEntry}
           onCancelLibraryEdit={onCancelLibraryEdit}
@@ -1022,6 +1047,14 @@ function LibraryViewContent({
         libraryGameIds={libraryGameIds}
         addingLibraryGameId={addingLibraryGameId}
         onAddToLibrary={onAddGameToLibrary}
+      />
+
+      <AliasManagementCard
+        libraryEntries={libraryEntries}
+        platformAliases={platformAliases}
+        savingKey={aliasSavingKey}
+        onSavePlatformAlias={onSavePlatformAlias}
+        onDeletePlatformAlias={onDeletePlatformAlias}
       />
 
       {libraryEntries.length > 0 ? (

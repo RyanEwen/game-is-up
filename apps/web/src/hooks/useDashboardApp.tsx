@@ -179,6 +179,7 @@ export function useDashboardApp() {
   const isSignedIn = Boolean(state.session?.authenticated && state.session.user)
   const libraryEntries = state.library?.entries ?? emptyLibraryEntries
   const suggestedLibraryGames = state.library?.suggestedGames ?? []
+  const trendingLibraryGames = state.library?.trendingGames ?? []
   const discoveryGames = state.discovery?.games ?? []
   const discoveryPeople = state.discovery?.people ?? []
   const playIntentFriendOptions = discoveryPeople
@@ -935,7 +936,10 @@ export function useDashboardApp() {
       friendPendingId,
       onToggleFriend: handleToggleFriend,
       onAddGameToLibrary: openLibraryEditorForGame,
-      onRemoveLibraryEntry: libraryViewProps.onRemoveLibraryEntry
+      onRemoveLibraryEntry: libraryViewProps.onRemoveLibraryEntry,
+      mutedPlayIntentUserIds: playViewProps.mutedPlayIntentUserIds,
+      onMutePlayIntentUser: playViewProps.onMutePlayIntentUser,
+      onUnmutePlayIntentUser: playViewProps.onUnmutePlayIntentUser
     },
     playViewProps: {
       ...playViewProps,
@@ -953,6 +957,7 @@ export function useDashboardApp() {
       discoveryLoading: state.discovery === null && !state.error,
       overlapGames,
       browseGames,
+      trendingGames: trendingLibraryGames,
       discoveryPeople,
       noDiscoveryServersSelected,
       isSignedIn,
@@ -963,7 +968,10 @@ export function useDashboardApp() {
       friendPendingId,
       onToggleFriend: handleToggleFriend,
       onAddGameToLibrary: openLibraryEditorForGame,
-      onRemoveLibraryEntry: libraryViewProps.onRemoveLibraryEntry
+      onRemoveLibraryEntry: libraryViewProps.onRemoveLibraryEntry,
+      mutedPlayIntentUserIds: playViewProps.mutedPlayIntentUserIds,
+      onMutePlayIntentUser: playViewProps.onMutePlayIntentUser,
+      onUnmutePlayIntentUser: playViewProps.onUnmutePlayIntentUser
     },
     debugViewProps: {
       isSignedIn,

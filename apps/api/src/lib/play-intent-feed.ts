@@ -42,7 +42,7 @@ export async function buildPlayIntentFeed(viewerId?: string | null): Promise<Pla
     }
   }
 
-  const [viewerFriends, viewerInterests, discoveryAudienceUserIds] = await Promise.all([
+  const [viewerFriends, viewerInterests, discoveryAudienceUserIds, mutedUserIds] = await Promise.all([
     prisma.friend.findMany({
       where: {
         userId: viewer.id
@@ -62,11 +62,17 @@ export async function buildPlayIntentFeed(viewerId?: string | null): Promise<Pla
         gameId: true
       }
     }),
-    getMutualDiscoveryAudienceUserIds(viewer.id)
+    getMutualDiscoveryAudienceUserIds(viewer.id),
+    prisma.playIntentMute.findMany({
+      where: { userId: viewer.id },
+      select: { mutedUserId: true }
+    }).then((rows) => rows.map((row) => row.mutedUserId))
   ])
 
   const friendUserIds = viewerFriends.map((friend) => friend.friendedUserId)
+  const mutedUserIdSet = new Set(mutedUserIds)
   const broadAudienceUserIds = [...new Set([...friendUserIds, ...discoveryAudienceUserIds])]
+    .filter((id) => !mutedUserIdSet.has(id))
   const viewerGameIds = viewerInterests.map((interest) => interest.gameId)
 
   if (broadAudienceUserIds.length === 0) {
@@ -171,6 +177,8 @@ export async function buildPlayIntentFeed(viewerId?: string | null): Promise<Pla
         platforms: intent.platforms.map((platform) => platform.platformLabel).sort((left, right) => left.localeCompare(right)),
         games: intent.selectionMode === PlayIntentSelectionMode.ENTIRE_LIBRARY ? [] : selectedGames,
         note: intent.note,
+        voiceChannelId: intent.voiceChannelId,
+        voiceChannelName: intent.voiceChannelName,
         availabilityWindow: {
           label: formatAvailabilityLabel(intent.user.displayName, intent.windowStartsAt, now),
           startsAt: intent.windowStartsAt.toISOString(),

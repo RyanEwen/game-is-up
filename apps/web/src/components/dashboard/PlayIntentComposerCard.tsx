@@ -1,6 +1,7 @@
-import { Avatar, Button, Card, Chip, DialogContent, DialogTitle, Input, Stack, Typography } from '@mui/joy'
+import { Avatar, Button, Card, Chip, DialogContent, DialogTitle, Input, Option, Select, Stack, Typography } from '@mui/joy'
 import type {
   ActivePlayIntent,
+  DiscordVoiceChannel,
   DiscoveryPerson,
   LibraryEntry,
   PlayIntentNotifyScope,
@@ -53,6 +54,12 @@ export function PlayIntentComposerCard({
   playIntentTimingHasError,
   playIntentNote,
   onPlayIntentNoteChange,
+  playIntentVoiceChannelId,
+  onPlayIntentVoiceChannelIdChange,
+  playIntentVoiceChannelName,
+  onPlayIntentVoiceChannelNameChange,
+  playIntentVoiceChannelOptions,
+  onPlayIntentVoiceChannelSelect,
   playIntentSaving,
   onSavePlayIntent,
   onCancel,
@@ -92,6 +99,12 @@ export function PlayIntentComposerCard({
   playIntentTimingHasError: boolean;
   playIntentNote: string;
   onPlayIntentNoteChange: (value: string) => void;
+  playIntentVoiceChannelId: string;
+  onPlayIntentVoiceChannelIdChange: (value: string) => void;
+  playIntentVoiceChannelName: string;
+  onPlayIntentVoiceChannelNameChange: (value: string) => void;
+  playIntentVoiceChannelOptions: DiscordVoiceChannel[];
+  onPlayIntentVoiceChannelSelect: (channelId: string | null) => void;
   playIntentSaving: boolean;
   onSavePlayIntent: () => Promise<void>;
   onCancel: () => void;
@@ -397,6 +410,31 @@ export function PlayIntentComposerCard({
             placeholder="Example: voice chat on, happy to fill support"
             value={playIntentNote}
             onChange={(event) => onPlayIntentNoteChange(event.target.value)}
+          />
+        </Stack>
+
+        <Stack spacing={1}>
+          <Typography level="title-sm">Discord voice channel (optional)</Typography>
+          <Select
+            value={playIntentVoiceChannelId || null}
+            placeholder={playIntentVoiceChannelOptions.length > 0 ? 'Pick a channel' : 'No selected Discord server channels available'}
+            onChange={(_event, value) => onPlayIntentVoiceChannelSelect(value)}
+          >
+            {playIntentVoiceChannelOptions.map((channel) => (
+              <Option key={channel.id} value={channel.id}>
+                {channel.serverName} / {channel.name}
+              </Option>
+            ))}
+          </Select>
+          <Input
+            placeholder="Voice channel ID (for clickable mentions)"
+            value={playIntentVoiceChannelId}
+            onChange={(event) => onPlayIntentVoiceChannelIdChange(event.target.value)}
+          />
+          <Input
+            placeholder="Voice channel name"
+            value={playIntentVoiceChannelName}
+            onChange={(event) => onPlayIntentVoiceChannelNameChange(event.target.value)}
           />
         </Stack>
       </DialogContent>

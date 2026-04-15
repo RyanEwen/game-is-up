@@ -2,6 +2,7 @@ import type { Dispatch, SetStateAction } from 'react'
 import { useCallback, useEffect, useState } from 'react'
 import type {
   ActivePlayIntent,
+  DiscordVoiceChannel,
   DiscoveryPerson,
   LibraryEntry,
   PlayIntentNotifyScope,
@@ -9,7 +10,7 @@ import type {
   PlayIntentSelectionMode,
   UpsertPlayIntentResponse
 } from '@game-is-up/shared'
-import { upsertPlayIntentResponseSchema } from '@game-is-up/shared'
+import { discordVoiceChannelsResponseSchema, upsertPlayIntentResponseSchema } from '@game-is-up/shared'
 import {
   buildPlayIntentEndTimeInputValue,
   formatPlayIntentDurationLabel,
@@ -76,10 +77,19 @@ export type DashboardPlayViewProps = {
   playIntentTimingHasError: boolean;
   playIntentNote: string;
   onPlayIntentNoteChange: (value: string) => void;
+  playIntentVoiceChannelId: string;
+  onPlayIntentVoiceChannelIdChange: (value: string) => void;
+  playIntentVoiceChannelName: string;
+  onPlayIntentVoiceChannelNameChange: (value: string) => void;
+  playIntentVoiceChannelOptions: DiscordVoiceChannel[];
+  onPlayIntentVoiceChannelSelect: (channelId: string | null) => void;
   playIntentSaving: boolean;
   onSavePlayIntent: () => Promise<void>;
   onClearPlayIntent: () => Promise<void>;
   playIntentPreviews: PlayIntentPreview[];
+  mutedPlayIntentUserIds: ReadonlySet<string>;
+  onMutePlayIntentUser: (userId: string) => Promise<void>;
+  onUnmutePlayIntentUser: (userId: string) => Promise<void>;
 }
 
 export function useDashboardPlay({
@@ -114,8 +124,12 @@ export function useDashboardPlay({
   const [playIntentStartAtInput, setPlayIntentStartAtInput] = useState(buildDefaultScheduledStartAtInput)
   const [playIntentEndAtInput, setPlayIntentEndAtInput] = useState(() => buildPlayIntentEndTimeInputValue(defaultPlayIntentDurationMinutes))
   const [playIntentNote, setPlayIntentNote] = useState('')
+  const [playIntentVoiceChannelId, setPlayIntentVoiceChannelId] = useState('')
+  const [playIntentVoiceChannelName, setPlayIntentVoiceChannelName] = useState('')
+  const [playIntentVoiceChannelOptions, setPlayIntentVoiceChannelOptions] = useState<DiscordVoiceChannel[]>([])
   const [selectedPlayIntentGameIds, setSelectedPlayIntentGameIds] = useState<string[]>([])
   const [selectedPlayIntentTargetUserIds, setSelectedPlayIntentTargetUserIds] = useState<string[]>([])
+  const [mutedPlayIntentUserIds, setMutedPlayIntentUserIds] = useState<Set<string>>(new Set())
   const [playIntentSaving, setPlayIntentSaving] = useState(false)
   const [isPlayIntentComposerOpen, setIsPlayIntentComposerOpen] = useState(false)
 
@@ -247,6 +261,81 @@ export function useDashboardPlay({
   const playIntentTimingHasError = playIntentTimingValidationMessage != null
 
   useEffect(() => {
+    if (!isSignedIn) {
+      setPlayIntentVoiceChannelOptions([])
+      return
+    }
+
+    let cancelled = false
+
+    void (async () => {
+      try {
+        const response = await fetch(buildApiUrl('/api/discord-servers/me/voice-channels'), {
+          credentials: 'include'
+        })
+
+        if (!response.ok) {
+          if (!cancelled) {
+            setPlayIntentVoiceChannelOptions([])
+          }
+          return
+        }
+
+        const parsed = discordVoiceChannelsResponseSchema.parse(await response.json())
+
+        if (!cancelled) {
+          setPlayIntentVoiceChannelOptions(parsed.channels)
+        }
+      } catch {
+        if (!cancelled) {
+          setPlayIntentVoiceChannelOptions([])
+        }
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [buildApiUrl, isSignedIn])
+
+  useEffect(() => {
+    if (!isSignedIn) {
+      setMutedPlayIntentUserIds(new Set())
+      return
+    }
+
+    let cancelled = false
+
+    void (async () => {
+      try {
+        const response = await fetch(buildApiUrl('/api/play-intents/mutes'), {
+          credentials: 'include'
+        })
+
+        if (!response.ok) {
+          return
+        }
+
+        const responseBody = (await response.json()) as { mutes?: Array<{ mutedUserId: string }> }
+
+        if (cancelled || !Array.isArray(responseBody.mutes)) {
+          return
+        }
+
+        setMutedPlayIntentUserIds(new Set(responseBody.mutes.map((mute) => mute.mutedUserId)))
+      } catch {
+        if (!cancelled) {
+          setMutedPlayIntentUserIds(new Set())
+        }
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [buildApiUrl, isSignedIn])
+
+  useEffect(() => {
     if (!activePlayIntent) {
       setPlayIntentSelectionMode('library')
       setPlayIntentNotifyScope('network')
@@ -257,6 +346,8 @@ export function useDashboardPlay({
       setPlayIntentStartAtInput(buildDefaultScheduledStartAtInput())
       setPlayIntentEndAtInput(buildPlayIntentEndTimeInputValue(defaultPlayIntentDurationMinutes))
       setPlayIntentNote('')
+      setPlayIntentVoiceChannelId('')
+      setPlayIntentVoiceChannelName('')
       setSelectedPlayIntentGameIds([])
       setSelectedPlayIntentTargetUserIds([])
       return
@@ -281,6 +372,8 @@ export function useDashboardPlay({
     setPlayIntentStartAtInput(toLocalDateTimeInputValue(activePlayIntent.windowStartsAt))
     setPlayIntentEndAtInput(toLocalDateTimeInputValue(activePlayIntent.windowEndsAt))
     setPlayIntentNote(activePlayIntent.note)
+    setPlayIntentVoiceChannelId(activePlayIntent.voiceChannelId ?? '')
+    setPlayIntentVoiceChannelName(activePlayIntent.voiceChannelName ?? '')
     setSelectedPlayIntentGameIds(activePlayIntent.games.map((game) => game.id))
     setSelectedPlayIntentTargetUserIds(activePlayIntent.targetedFriends.map((friend) => friend.id))
   }, [activePlayIntent])
@@ -375,6 +468,8 @@ export function useDashboardPlay({
           ...schedulingPayload,
           ...timingPayload,
           note: playIntentNote.trim() || undefined,
+          voiceChannelId: playIntentVoiceChannelId.trim() || undefined,
+          voiceChannelName: playIntentVoiceChannelName.trim() || undefined,
           gameIds: playIntentSelectionMode === 'subset' ? selectedPlayIntentGameIds : [],
           targetUserIds: playIntentNotifyScope === 'specific-friends' ? selectedPlayIntentTargetUserIds : []
         })
@@ -423,6 +518,8 @@ export function useDashboardPlay({
     parsedPlayIntentEndAt,
     playIntentDurationMinutes,
     playIntentNote,
+    playIntentVoiceChannelId,
+    playIntentVoiceChannelName,
     playIntentNotifyScope,
     playIntentSelectionMode,
     playIntentStartMode,
@@ -576,6 +673,63 @@ export function useDashboardPlay({
     setPlayIntentNotice(null)
   }, [setPlayIntentNotice])
 
+  const handlePlayIntentVoiceChannelIdChange = useCallback((value: string) => {
+    setPlayIntentVoiceChannelId(value)
+    setPlayIntentNotice(null)
+  }, [setPlayIntentNotice])
+
+  const handlePlayIntentVoiceChannelNameChange = useCallback((value: string) => {
+    setPlayIntentVoiceChannelName(value)
+    setPlayIntentNotice(null)
+  }, [setPlayIntentNotice])
+
+  const handlePlayIntentVoiceChannelSelect = useCallback((channelId: string | null) => {
+    if (!channelId) {
+      setPlayIntentVoiceChannelId('')
+      setPlayIntentVoiceChannelName('')
+      setPlayIntentNotice(null)
+      return
+    }
+
+    const selectedChannel = playIntentVoiceChannelOptions.find((channel) => channel.id === channelId)
+
+    if (!selectedChannel) {
+      return
+    }
+
+    setPlayIntentVoiceChannelId(selectedChannel.id)
+    setPlayIntentVoiceChannelName(selectedChannel.name)
+    setPlayIntentNotice(null)
+  }, [playIntentVoiceChannelOptions, setPlayIntentNotice])
+
+  const handleMutePlayIntentUser = useCallback(async (userId: string) => {
+    const response = await fetch(buildApiUrl(`/api/play-intents/mutes/${userId}`), {
+      method: 'PUT',
+      credentials: 'include'
+    })
+
+    if (response.ok) {
+      setMutedPlayIntentUserIds((current) => new Set([...current, userId]))
+      await loadDashboard()
+    }
+  }, [buildApiUrl, loadDashboard])
+
+  const handleUnmutePlayIntentUser = useCallback(async (userId: string) => {
+    const response = await fetch(buildApiUrl(`/api/play-intents/mutes/${userId}`), {
+      method: 'DELETE',
+      credentials: 'include'
+    })
+
+    if (response.ok) {
+      setMutedPlayIntentUserIds((current) => {
+        const next = new Set(current)
+        next.delete(userId)
+        return next
+      })
+      await loadDashboard()
+    }
+  }, [buildApiUrl, loadDashboard])
+
   const openPlayIntentComposer = useCallback(() => {
     setIsPlayIntentComposerOpen(true)
     setPlayIntentNotice(null)
@@ -625,10 +779,19 @@ export function useDashboardPlay({
     playIntentTimingHasError,
     playIntentNote,
     onPlayIntentNoteChange: handlePlayIntentNoteChange,
+    playIntentVoiceChannelId,
+    onPlayIntentVoiceChannelIdChange: handlePlayIntentVoiceChannelIdChange,
+    playIntentVoiceChannelName,
+    onPlayIntentVoiceChannelNameChange: handlePlayIntentVoiceChannelNameChange,
+    playIntentVoiceChannelOptions,
+    onPlayIntentVoiceChannelSelect: handlePlayIntentVoiceChannelSelect,
     playIntentSaving,
     onSavePlayIntent: handleSavePlayIntent,
     onClearPlayIntent: handleClearPlayIntent,
-    playIntentPreviews
+    playIntentPreviews,
+    mutedPlayIntentUserIds,
+    onMutePlayIntentUser: handleMutePlayIntentUser,
+    onUnmutePlayIntentUser: handleUnmutePlayIntentUser
   }
 
   return {

@@ -493,6 +493,67 @@ export async function listDiscordGuildMembers(serverId: string): Promise<{
   }
 }
 
+export async function listDiscordGuildVoiceChannels(serverId: string): Promise<{
+  serverId: string;
+  serverName: string;
+  channels: Array<{
+    id: string;
+    name: string;
+  }>;
+}> {
+  if (!env.DISCORD_BOT_TOKEN) {
+    throw new Error('Discord voice channel browsing needs the bot to be configured.')
+  }
+
+  if (isDiscordBotGatewayMode() && (!getDiscordBotClient() || !discordPresenceBotState.connected)) {
+    throw new Error('Discord voice channel browsing is unavailable because the bot is not connected.')
+  }
+
+  if (isDiscordBotGatewayMode()) {
+    const client = getDiscordBotClient()
+    const guild = client?.guilds.cache.get(serverId) ?? await client?.guilds.fetch(serverId)
+
+    if (!guild) {
+      throw new Error('Discord guild not available.')
+    }
+
+    const channels = await guild.channels.fetch()
+    const voiceChannels = [...channels.values()]
+      .filter((channel): channel is NonNullable<typeof channel> => channel != null)
+      .filter((channel) => channel.type === 2 || channel.type === 13)
+      .map((channel) => ({
+        id: channel.id,
+        name: channel.name
+      }))
+      .sort((left, right) => left.name.localeCompare(right.name))
+
+    return {
+      serverId: guild.id,
+      serverName: guild.name,
+      channels: voiceChannels
+    }
+  }
+
+  const [guild, channels] = await Promise.all([
+    fetchDiscordGuildSummaryViaRest(serverId),
+    fetchDiscordJson<Array<{ id: string; name: string; type: number }>>(`/guilds/${serverId}/channels`)
+  ])
+
+  const voiceChannels = channels
+    .filter((channel) => channel.type === 2 || channel.type === 13)
+    .map((channel) => ({
+      id: channel.id,
+      name: channel.name
+    }))
+    .sort((left, right) => left.name.localeCompare(right.name))
+
+  return {
+    serverId: guild.id,
+    serverName: guild.name,
+    channels: voiceChannels
+  }
+}
+
 export async function sendDiscordGuildInvites(options: {
   serverId: string;
   memberIds: string[];

@@ -2,7 +2,7 @@ import type { DiscordServerMembersResponse, DiscordServerPreferencesResponse } f
 import { AuthProvider as PrismaAuthProvider } from '@prisma/client'
 import { prisma } from './prisma.js'
 import type { DiscordGuildSummary } from './discord-auth.js'
-import { getDiscordBotPresentServerIds, isDiscordBotPresentInGuild, listDiscordGuildMembers, sendDiscordGuildInvites } from './discord-presence-bot.js'
+import { getDiscordBotPresentServerIds, isDiscordBotPresentInGuild, listDiscordGuildMembers, listDiscordGuildVoiceChannels, sendDiscordGuildInvites } from './discord-presence-bot.js'
 import { toClientAvatarUrl } from './game-media.js'
 
 function buildDiscordServerIconUrl(serverId: string, iconHash: string | null): string | null {
@@ -273,6 +273,82 @@ export async function buildDiscordServerMembers(
       status: 'unavailable',
       reason: error instanceof Error ? error.message : 'Discord member browsing is unavailable right now.'
     }
+  }
+}
+
+export async function buildSelectedDiscordVoiceChannels(userId: string): Promise<{
+  channels: Array<{
+    id: string;
+    name: string;
+    serverId: string;
+    serverName: string;
+  }>;
+}> {
+  const memberships = await prisma.discordServerMembership.findMany({
+    where: {
+      userId
+    },
+    include: {
+      server: {
+        select: {
+          id: true,
+          name: true
+        }
+      }
+    }
+  })
+
+  if (memberships.length === 0) {
+    return { channels: [] }
+  }
+
+  const preferences = await prisma.discordServerPreference.findMany({
+    where: {
+      userId,
+      includeInDiscovery: true
+    },
+    select: {
+      serverId: true
+    }
+  })
+
+  const selectedServerIds = new Set(preferences.map((preference) => preference.serverId))
+  const selectedMemberships = memberships.filter((membership) => selectedServerIds.has(membership.serverId))
+
+  if (selectedMemberships.length === 0) {
+    return { channels: [] }
+  }
+
+  const channelsByServer = await Promise.all(selectedMemberships.map(async (membership) => {
+    if (!(await isDiscordBotPresentInGuild(membership.serverId))) {
+      return []
+    }
+
+    try {
+      const response = await listDiscordGuildVoiceChannels(membership.serverId)
+      return response.channels.map((channel) => ({
+        id: channel.id,
+        name: channel.name,
+        serverId: response.serverId,
+        serverName: response.serverName
+      }))
+    } catch {
+      return []
+    }
+  }))
+
+  return {
+    channels: channelsByServer
+      .flat()
+      .sort((left, right) => {
+        const serverOrder = left.serverName.localeCompare(right.serverName)
+
+        if (serverOrder !== 0) {
+          return serverOrder
+        }
+
+        return left.name.localeCompare(right.name)
+      })
   }
 }
 

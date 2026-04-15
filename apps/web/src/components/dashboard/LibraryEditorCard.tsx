@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { Box, Button, DialogContent, DialogTitle, Input, Link, Sheet, Stack, Typography } from '@mui/joy'
 import type { GameSearchResponse, GameSearchResult, LibraryEntry, LibraryEntryIntent } from '@game-is-up/shared'
 import { DashboardDeferredImage } from './DashboardDeferredImage'
@@ -20,6 +21,10 @@ export function LibraryEditorCard({
   currentUsualAvailability,
   libraryAvailability,
   onLibraryAvailabilityChange,
+  gameAlias,
+  aliasSaving,
+  onSaveGameAlias,
+  onDeleteGameAlias,
   librarySaving,
   onAddLibraryEntry,
   onCancelLibraryEdit
@@ -39,10 +44,27 @@ export function LibraryEditorCard({
   currentUsualAvailability: string | null;
   libraryAvailability: string;
   onLibraryAvailabilityChange: (value: string) => void;
+  gameAlias: string | null;
+  aliasSaving: boolean;
+  onSaveGameAlias: (gameId: string, aliasValue: string) => Promise<void>;
+  onDeleteGameAlias: (gameId: string) => Promise<void>;
   librarySaving: boolean;
   onAddLibraryEntry: () => Promise<void>;
   onCancelLibraryEdit: () => void;
 }) {
+  const [aliasDraft, setAliasDraft] = useState(gameAlias ?? '')
+
+  useEffect(() => {
+    setAliasDraft(gameAlias ?? '')
+  }, [gameAlias])
+
+  const aliasTarget = editingLibraryEntry ?? (selectedCatalogResult ? {
+    gameId: selectedCatalogResult.id,
+    title: selectedCatalogResult.title
+  } : null)
+  const hasAlias = (gameAlias?.trim().length ?? 0) > 0
+  const aliasChanged = aliasDraft.trim() !== (gameAlias ?? '')
+
   return (
     <>
       <DialogTitle sx={{ pr: 6 }}>
@@ -189,6 +211,43 @@ export function LibraryEditorCard({
             ))}
           </Stack>
         </Stack>
+        {aliasTarget ? (
+          <Stack spacing={1}>
+            <Typography level="title-sm">Game alias</Typography>
+            <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
+              Your in-game name for {aliasTarget.title}, if different than your usual name.
+            </Typography>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+              <Input
+                value={aliasDraft}
+                placeholder="Optional in-game alias"
+                onChange={(event) => setAliasDraft(event.target.value)}
+                sx={{ flex: 1 }}
+              />
+              <Button
+                size="sm"
+                variant="solid"
+                color="primary"
+                disabled={aliasSaving || !aliasDraft.trim() || !aliasChanged}
+                onClick={() => void onSaveGameAlias(aliasTarget.gameId, aliasDraft)}
+              >
+                Save alias
+              </Button>
+              <Button
+                size="sm"
+                variant="outlined"
+                color="neutral"
+                disabled={aliasSaving || !hasAlias}
+                onClick={() => {
+                  setAliasDraft('')
+                  void onDeleteGameAlias(aliasTarget.gameId)
+                }}
+              >
+                Clear
+              </Button>
+            </Stack>
+          </Stack>
+        ) : null}
         <Stack spacing={1}>
           <Typography level="title-sm">Interest level</Typography>
           <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>

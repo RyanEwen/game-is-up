@@ -44,10 +44,20 @@ export const librarySuggestedGameSchema = z.object({
   sourceServerName: z.string().min(1).nullable()
 })
 
+export const libraryTrendingGameSchema = z.object({
+  gameId: z.string().uuid(),
+  title: z.string().min(1),
+  coverUrl: z.string().url().nullable(),
+  platformLabels: z.array(platformLabelSchema).min(1),
+  recentPlayerCount: z.number().int().positive(),
+  alreadyInLibrary: z.boolean()
+})
+
 export const libraryResponseSchema = z.object({
   usualAvailability: z.string().nullable(),
   entries: z.array(libraryEntrySchema),
-  suggestedGames: z.array(librarySuggestedGameSchema).default([])
+  suggestedGames: z.array(librarySuggestedGameSchema).default([]),
+  trendingGames: z.array(libraryTrendingGameSchema).default([])
 })
 
 export const steamLibraryImportStatusSchema = z.enum(['not-linked', 'ready', 'unavailable'])
@@ -135,6 +145,17 @@ export const discordServerMembersResponseSchema = z.object({
   members: z.array(discordServerMemberSchema)
 })
 
+export const discordVoiceChannelSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  serverId: z.string().min(1),
+  serverName: z.string().min(1)
+})
+
+export const discordVoiceChannelsResponseSchema = z.object({
+  channels: z.array(discordVoiceChannelSchema)
+})
+
 export const sendDiscordServerInvitesRequestSchema = z.object({
   inviteUrl: z.string().url(),
   memberIds: z.array(z.string().min(1)).min(1).max(25)
@@ -194,6 +215,8 @@ export const playIntentPreviewSchema = z.object({
   platforms: z.array(z.string()).min(1),
   games: z.array(playIntentGameSchema),
   note: z.string().max(140),
+  voiceChannelId: z.string().min(1).nullable(),
+  voiceChannelName: z.string().min(1).nullable(),
   availabilityWindow: availabilityWindowSchema
 })
 
@@ -211,6 +234,8 @@ export const activePlayIntentSchema = z.object({
   platforms: z.array(platformLabelSchema).min(1),
   games: z.array(playIntentGameSchema),
   note: z.string().max(140),
+  voiceChannelId: z.string().min(1).nullable(),
+  voiceChannelName: z.string().min(1).nullable(),
   windowStartsAt: z.string().datetime(),
   windowEndsAt: z.string().datetime(),
   expiresAt: z.string().datetime()
@@ -224,6 +249,8 @@ export const upsertPlayIntentRequestSchema = z.object({
   selectionMode: playIntentSelectionModeSchema,
   notifyScope: playIntentNotifyScopeSchema,
   note: z.string().trim().max(140).optional(),
+  voiceChannelId: z.string().trim().min(1).max(32).optional(),
+  voiceChannelName: z.string().trim().min(1).max(100).optional(),
   startAt: z.string().datetime().optional(),
   durationMinutes: z.number().int().min(15).max(1440).optional(),
   endAt: z.string().datetime().optional(),
@@ -430,7 +457,10 @@ export const debugAutoPlayPromptStatusSchema = z.enum([
   'failed',
   'accepted',
   'declined',
-  'expired'
+  'expired',
+  'settle_sent',
+  'settle_confirmed',
+  'settle_declined'
 ])
 
 export const debugAutoPlayPromptSchema = z.object({
@@ -545,6 +575,46 @@ export const debugAdminResponseSchema = z.object({
   recentErrors: z.array(debugErrorLogSchema)
 })
 
+export const userPlatformAliasSchema = z.object({
+  id: z.string().uuid(),
+  platform: z.string().min(1).max(32),
+  aliasValue: z.string().min(1).max(80)
+})
+
+export const userPlatformAliasesResponseSchema = z.object({
+  aliases: z.array(userPlatformAliasSchema)
+})
+
+export const upsertUserPlatformAliasRequestSchema = z.object({
+  aliasValue: z.string().trim().min(1).max(80)
+})
+
+export const userGameAliasSchema = z.object({
+  id: z.string().uuid(),
+  gameId: z.string().uuid(),
+  gameTitle: z.string().min(1),
+  aliasValue: z.string().min(1).max(80)
+})
+
+export const userGameAliasesResponseSchema = z.object({
+  aliases: z.array(userGameAliasSchema)
+})
+
+export const upsertUserGameAliasRequestSchema = z.object({
+  aliasValue: z.string().trim().min(1).max(80)
+})
+
+export const playIntentMuteSchema = z.object({
+  mutedUserId: z.string().uuid(),
+  mutedUserDisplayName: z.string().min(1),
+  mutedUserHandle: z.string().min(1),
+  mutedUserAvatarUrl: z.string().url().nullable()
+})
+
+export const playIntentMutesResponseSchema = z.object({
+  mutes: z.array(playIntentMuteSchema)
+})
+
 export const clientBootstrapSchema = z.object({
   appName: z.string(),
   apiBaseUrl: z.string().url(),
@@ -579,6 +649,7 @@ export type CatalogGameMatch = z.infer<typeof catalogGameMatchSchema>;
 export type LibraryEntryIntent = z.infer<typeof libraryEntryIntentSchema>;
 export type LibraryEntry = z.infer<typeof libraryEntrySchema>;
 export type LibrarySuggestedGame = z.infer<typeof librarySuggestedGameSchema>;
+export type LibraryTrendingGame = z.infer<typeof libraryTrendingGameSchema>;
 export type LibraryResponse = z.infer<typeof libraryResponseSchema>;
 export type SteamLibraryImportStatus = z.infer<typeof steamLibraryImportStatusSchema>;
 export type SteamLibraryImportGame = z.infer<typeof steamLibraryImportGameSchema>;
@@ -593,6 +664,8 @@ export type DiscordServerPreference = z.infer<typeof discordServerPreferenceSche
 export type DiscordServerPreferencesResponse = z.infer<typeof discordServerPreferencesResponseSchema>;
 export type DiscordServerMember = z.infer<typeof discordServerMemberSchema>;
 export type DiscordServerMembersResponse = z.infer<typeof discordServerMembersResponseSchema>;
+export type DiscordVoiceChannel = z.infer<typeof discordVoiceChannelSchema>;
+export type DiscordVoiceChannelsResponse = z.infer<typeof discordVoiceChannelsResponseSchema>;
 export type SendDiscordServerInvitesRequest = z.infer<typeof sendDiscordServerInvitesRequestSchema>;
 export type SendDiscordServerInvitesResult = z.infer<typeof sendDiscordServerInvitesResultSchema>;
 export type SendDiscordServerInvitesResponse = z.infer<typeof sendDiscordServerInvitesResponseSchema>;
@@ -631,3 +704,11 @@ export type DebugErrorLog = z.infer<typeof debugErrorLogSchema>;
 export type DebugAdminResponse = z.infer<typeof debugAdminResponseSchema>;
 export type ClientBootstrap = z.infer<typeof clientBootstrapSchema>;
 export type ServerEnv = z.infer<typeof serverEnvSchema>;
+export type UserPlatformAlias = z.infer<typeof userPlatformAliasSchema>;
+export type UserPlatformAliasesResponse = z.infer<typeof userPlatformAliasesResponseSchema>;
+export type UpsertUserPlatformAliasRequest = z.infer<typeof upsertUserPlatformAliasRequestSchema>;
+export type UserGameAlias = z.infer<typeof userGameAliasSchema>;
+export type UserGameAliasesResponse = z.infer<typeof userGameAliasesResponseSchema>;
+export type UpsertUserGameAliasRequest = z.infer<typeof upsertUserGameAliasRequestSchema>;
+export type PlayIntentMute = z.infer<typeof playIntentMuteSchema>;
+export type PlayIntentMutesResponse = z.infer<typeof playIntentMutesResponseSchema>;

@@ -24,13 +24,19 @@ export function PlayIntentCard({
   canAddToLibrary,
   libraryGameIds,
   addingLibraryGameId,
-  onAddToLibrary
+  onAddToLibrary,
+  isMuted,
+  onMuteCreator,
+  onUnmuteCreator
 }: {
   intent: PlayIntentPreview;
   canAddToLibrary: boolean;
   libraryGameIds: ReadonlySet<string>;
   addingLibraryGameId: string | null;
   onAddToLibrary: (game: DashboardLibraryQuickAddGame) => Promise<void>;
+  isMuted: boolean;
+  onMuteCreator: (userId: string) => Promise<void>;
+  onUnmuteCreator: (userId: string) => Promise<void>;
 }) {
   const isLibraryWide = intent.selectionMode === 'library'
 
@@ -60,12 +66,26 @@ export function PlayIntentCard({
           <Chip color="warning" variant="outlined">
             {formatNotifyScopeLabel(intent.notifyScope)}
           </Chip>
+          <Button
+            variant="outlined"
+            color="neutral"
+            size="sm"
+            onClick={() => void (isMuted ? onUnmuteCreator(intent.user.id) : onMuteCreator(intent.user.id))}
+          >
+            {isMuted ? 'Unmute creator' : 'Mute creator'}
+          </Button>
         </Stack>
       </Stack>
 
       <Typography level="body-md" sx={{ mb: 2, color: 'neutral.200' }}>
         {intent.note}
       </Typography>
+
+      {intent.voiceChannelName ? (
+        <Typography level="body-sm" sx={{ mb: 1.5, color: 'neutral.300' }}>
+          Voice channel: {intent.voiceChannelName}
+        </Typography>
+      ) : null}
 
       {isLibraryWide ? (
         <>

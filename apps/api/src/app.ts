@@ -3,6 +3,7 @@ import express from 'express'
 import type { NextFunction, Request, Response } from 'express'
 import helmet from 'helmet'
 import { clientBootstrapSchema } from '@game-is-up/shared'
+import { aliasesRouter } from './routes/aliases.js'
 import { authRouter } from './routes/auth.js'
 import { debugRouter } from './routes/debug.js'
 import { discoveryRouter } from './routes/discovery.js'
@@ -50,6 +51,7 @@ app.get('/api/bootstrap', (_request, response) => {
 
 app.use('/api/health', healthRouter)
 app.use('/api/auth', authRouter)
+app.use('/api/aliases', aliasesRouter)
 app.use('/api/debug', debugRouter)
 app.use('/api/discord-servers', discordServersRouter)
 app.use('/api/discovery', discoveryRouter)

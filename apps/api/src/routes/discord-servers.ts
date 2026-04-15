@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { z } from 'zod'
 import {
+  discordVoiceChannelsResponseSchema,
   discordServerMembersResponseSchema,
   discordServerPreferencesResponseSchema,
   sendDiscordServerInvitesRequestSchema,
@@ -10,6 +11,7 @@ import {
 import { getAuthSession } from '../lib/session.js'
 import {
   buildDiscordServerMembers,
+  buildSelectedDiscordVoiceChannels,
   buildDiscordServerPreferences,
   sendDiscordServerInvites,
   updateDiscordServerPreference
@@ -43,6 +45,20 @@ discordServersRouter.get('/me', async (request, response, next) => {
 
   try {
     response.json(discordServerPreferencesResponseSchema.parse(await buildDiscordServerPreferences(userId)))
+  } catch (error) {
+    next(error)
+  }
+})
+
+discordServersRouter.get('/me/voice-channels', async (request, response, next) => {
+  const userId = requireSignedInUserId(request, response)
+
+  if (!userId) {
+    return
+  }
+
+  try {
+    response.json(discordVoiceChannelsResponseSchema.parse(await buildSelectedDiscordVoiceChannels(userId)))
   } catch (error) {
     next(error)
   }

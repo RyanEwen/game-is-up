@@ -1,10 +1,11 @@
 import { Box, Card, Option, Select, Stack, Typography } from '@mui/joy'
 import { useState } from 'react'
-import type { DiscoveryGame, DiscoveryPerson } from '@game-is-up/shared'
+import type { DiscoveryGame, DiscoveryPerson, LibraryTrendingGame } from '@game-is-up/shared'
 import { DashboardModal } from '../components/dashboard/DashboardModal'
 import { EmptyStateCard } from '../components/dashboard/EmptyStateCard'
 import { GameCard, GameCardSkeleton } from '../components/dashboard/GameCard'
 import { LibraryEditorCard } from '../components/dashboard/LibraryEditorCard'
+import { LibraryTrendingRow } from '../components/dashboard/LibraryTrendingRow'
 import { PersonCard } from '../components/dashboard/PersonCard'
 import { SectionNav, sectionScrollMarginTop } from '../components/dashboard/SectionNav'
 import { discoveryGameGridSx } from '../components/dashboard/dashboardUtils'
@@ -73,6 +74,7 @@ function DiscoveryViewContent({
   discoveryLoading,
   overlapGames,
   browseGames,
+  trendingGames,
   discoveryPeople,
   noDiscoveryServersSelected,
   isSignedIn,
@@ -83,12 +85,16 @@ function DiscoveryViewContent({
   friendPendingId,
   onToggleFriend,
   onAddGameToLibrary,
-  onRemoveLibraryEntry
+  onRemoveLibraryEntry,
+  mutedPlayIntentUserIds,
+  onMutePlayIntentUser,
+  onUnmutePlayIntentUser
 }: {
   error: string | null;
   discoveryLoading: boolean;
   overlapGames: DiscoveryGame[];
   browseGames: DiscoveryGame[];
+  trendingGames: LibraryTrendingGame[];
   discoveryPeople: DiscoveryPerson[];
   noDiscoveryServersSelected: boolean;
   isSignedIn: boolean;
@@ -100,6 +106,9 @@ function DiscoveryViewContent({
   onToggleFriend: (target: FriendTarget) => Promise<void>;
   onAddGameToLibrary: (game: DashboardLibraryQuickAddGame) => Promise<void>;
   onRemoveLibraryEntry: (entryId: string) => Promise<void>;
+  mutedPlayIntentUserIds: ReadonlySet<string>;
+  onMutePlayIntentUser: (userId: string) => Promise<void>;
+  onUnmutePlayIntentUser: (userId: string) => Promise<void>;
 }) {
   const networkPeople = discoveryPeople.filter((person) => !person.isFriend)
   const [gameSort, setGameSort] = useState<GameSort>('players')
@@ -149,6 +158,17 @@ function DiscoveryViewContent({
           { id: 'network-members', label: 'Members', ariaLabel: 'Network members', count: sortedNetworkPeople.length }
         ]}
       />
+
+      {trendingGames.length > 0 ? (
+        <Box sx={{ mt: 2 }}>
+          <LibraryTrendingRow
+            trendingGames={trendingGames}
+            addingLibraryGameId={addingLibraryGameId}
+            onAddToLibrary={onAddGameToLibrary}
+          />
+        </Box>
+      ) : null}
+
       <DiscoverySection
         isFirst
         sectionId="matching-games"
@@ -273,6 +293,9 @@ function DiscoveryViewContent({
                 onToggleFriend={onToggleFriend}
                 onAddToLibrary={onAddGameToLibrary}
                 onRemoveLibraryEntry={onRemoveLibraryEntry}
+                isMuted={mutedPlayIntentUserIds.has(person.id)}
+                onMute={onMutePlayIntentUser}
+                onUnmute={onUnmutePlayIntentUser}
               />
             ))}
           </Stack>
@@ -297,6 +320,10 @@ function DiscoveryViewContent({
 
 export function DiscoveryView() {
   const { discoveryViewProps, libraryViewProps } = useDashboardContext()
+  const gameAliasByGameId = new Map(libraryViewProps.gameAliases.map((alias) => [alias.gameId, alias.aliasValue]))
+  const editorGameAlias = libraryViewProps.editingLibraryEntry
+    ? (gameAliasByGameId.get(libraryViewProps.editingLibraryEntry.gameId) ?? null)
+    : null
 
   return (
     <>
@@ -318,6 +345,13 @@ export function DiscoveryView() {
           currentUsualAvailability={libraryViewProps.currentUsualAvailability}
           libraryAvailability={libraryViewProps.libraryAvailability}
           onLibraryAvailabilityChange={libraryViewProps.onLibraryAvailabilityChange}
+          gameAlias={editorGameAlias}
+          aliasSaving={Boolean(
+            libraryViewProps.editingLibraryEntry &&
+            libraryViewProps.aliasSavingKey === `game:${libraryViewProps.editingLibraryEntry.gameId}`
+          )}
+          onSaveGameAlias={libraryViewProps.onSaveGameAlias}
+          onDeleteGameAlias={libraryViewProps.onDeleteGameAlias}
           librarySaving={libraryViewProps.librarySaving}
           onAddLibraryEntry={libraryViewProps.onAddLibraryEntry}
           onCancelLibraryEdit={libraryViewProps.onCancelLibraryEdit}

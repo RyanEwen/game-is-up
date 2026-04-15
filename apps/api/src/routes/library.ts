@@ -15,7 +15,7 @@ import {
 import { z } from 'zod'
 import { findOrCreateGameByTitle, findOrCreateGameFromCatalogMatch, searchGamesByTitle } from '../lib/game-catalog.js'
 import { toClientGameCoverUrl } from '../lib/game-media.js'
-import { getObservedLibrarySuggestions } from '../lib/library-suggestions.js'
+import { getNetworkTrendingGames, getObservedLibrarySuggestions } from '../lib/library-suggestions.js'
 import { prisma } from '../lib/prisma.js'
 import { fetchSteamOwnedGames, fetchSteamProfileSummary, isSteamImportConfigured } from '../lib/steam-auth.js'
 import { getAuthSession } from '../lib/session.js'
@@ -102,12 +102,17 @@ async function buildLibraryResponse(userId: string): Promise<LibraryResponse> {
       ...resolveAvailability(entry.availability, user?.usualAvailability ?? null)
     }))
     .sort((left, right) => left.title.localeCompare(right.title))
-  const suggestedGames = await getObservedLibrarySuggestions(userId, entries.map((entry) => entry.gameId))
+  const entryGameIds = entries.map((entry) => entry.gameId)
+  const [suggestedGames, trendingGames] = await Promise.all([
+    getObservedLibrarySuggestions(userId, entryGameIds),
+    getNetworkTrendingGames(userId, entryGameIds)
+  ])
 
   return {
     usualAvailability: user?.usualAvailability ?? null,
     entries,
-    suggestedGames
+    suggestedGames,
+    trendingGames
   }
 }
 

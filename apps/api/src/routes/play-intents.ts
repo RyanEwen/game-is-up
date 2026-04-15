@@ -1,9 +1,11 @@
 import { Router } from 'express'
 import type { Request, Response } from 'express'
 import { Prisma } from '@prisma/client'
+import { z } from 'zod'
 import {
   playIntentCurrentResponseSchema,
   playIntentFeedSchema,
+  playIntentMutesResponseSchema,
   upsertPlayIntentRequestSchema,
   upsertPlayIntentResponseSchema
 } from '@game-is-up/shared'
@@ -14,6 +16,7 @@ import {
   PlayIntentValidationError,
   upsertCurrentPlayIntent
 } from '../lib/play-intents.js'
+import { prisma } from '../lib/prisma.js'
 import { getAuthSession } from '../lib/session.js'
 
 export const playIntentRouter = Router()
@@ -104,6 +107,105 @@ playIntentRouter.delete('/me', async (request, response, next) => {
   try {
     await clearCurrentPlayIntent(userId)
     response.status(204).send()
+  } catch (error) {
+    next(error)
+  }
+})
+
+const muteTargetParamSchema = z.object({ targetUserId: z.string().uuid() })
+
+playIntentRouter.get('/mutes', async (request, response, next) => {
+  const userId = requireSignedInUserId(request, response)
+
+  if (!userId) {
+    return
+  }
+
+  try {
+    const mutes = await prisma.playIntentMute.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        mutedUserId: true,
+        mutedUser: {
+          select: {
+            displayName: true,
+            handle: true,
+            avatarUrl: true
+          }
+        }
+      }
+    })
+
+    response.json(playIntentMutesResponseSchema.parse({
+      mutes: mutes.map((mute) => ({
+        mutedUserId: mute.mutedUserId,
+        mutedUserDisplayName: mute.mutedUser.displayName,
+        mutedUserHandle: mute.mutedUser.handle,
+        mutedUserAvatarUrl: mute.mutedUser.avatarUrl
+      }))
+    }))
+  } catch (error) {
+    next(error)
+  }
+})
+
+playIntentRouter.put('/mutes/:targetUserId', async (request, response, next) => {
+  const userId = requireSignedInUserId(request, response)
+
+  if (!userId) {
+    return
+  }
+
+  const paramsParse = muteTargetParamSchema.safeParse(request.params)
+
+  if (!paramsParse.success) {
+    response.status(400).json({ error: 'Invalid user ID.' })
+    return
+  }
+
+  const { targetUserId } = paramsParse.data
+
+  if (targetUserId === userId) {
+    response.status(400).json({ error: 'Cannot mute your own calls to play.' })
+    return
+  }
+
+  try {
+    await prisma.playIntentMute.upsert({
+      where: { userId_mutedUserId: { userId, mutedUserId: targetUserId } },
+      create: { userId, mutedUserId: targetUserId },
+      update: {}
+    })
+
+    response.json({ muted: true })
+  } catch (error) {
+    next(error)
+  }
+})
+
+playIntentRouter.delete('/mutes/:targetUserId', async (request, response, next) => {
+  const userId = requireSignedInUserId(request, response)
+
+  if (!userId) {
+    return
+  }
+
+  const paramsParse = muteTargetParamSchema.safeParse(request.params)
+
+  if (!paramsParse.success) {
+    response.status(400).json({ error: 'Invalid user ID.' })
+    return
+  }
+
+  const { targetUserId } = paramsParse.data
+
+  try {
+    await prisma.playIntentMute.deleteMany({
+      where: { userId, mutedUserId: targetUserId }
+    })
+
+    response.json({ muted: false })
   } catch (error) {
     next(error)
   }

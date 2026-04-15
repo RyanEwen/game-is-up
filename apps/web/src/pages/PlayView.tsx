@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Box, Button, Chip, DialogContent, DialogTitle, Card, Stack, Switch, Typography } from '@mui/joy'
 import type {
   ActivePlayIntent,
+  DiscordVoiceChannel,
   DiscoveryPerson,
   LibraryEntry,
   PlayIntentNotifyScope,
@@ -106,6 +107,12 @@ function OwnActivePlayIntentCard({
           </Typography>
         ) : null}
 
+        {activePlayIntent.voiceChannelName ? (
+          <Typography level="body-sm" sx={{ color: 'neutral.200' }}>
+            Voice channel: {activePlayIntent.voiceChannelName}
+          </Typography>
+        ) : null}
+
         {activePlayIntent.selectionMode === 'subset' && activePlayIntent.games.length > 0 ? (
           <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
             {activePlayIntent.games.map((game) => (
@@ -166,10 +173,19 @@ function PlayViewContent({
   playIntentTimingHasError,
   playIntentNote,
   onPlayIntentNoteChange,
+  playIntentVoiceChannelId,
+  onPlayIntentVoiceChannelIdChange,
+  playIntentVoiceChannelName,
+  onPlayIntentVoiceChannelNameChange,
+  playIntentVoiceChannelOptions,
+  onPlayIntentVoiceChannelSelect,
   playIntentSaving,
   onSavePlayIntent,
   onClearPlayIntent,
   playIntentPreviews,
+  mutedPlayIntentUserIds,
+  onMutePlayIntentUser,
+  onUnmutePlayIntentUser,
   libraryGameIds,
   addingLibraryGameId,
   onAddGameToLibrary,
@@ -216,10 +232,19 @@ function PlayViewContent({
   playIntentTimingHasError: boolean;
   playIntentNote: string;
   onPlayIntentNoteChange: (value: string) => void;
+  playIntentVoiceChannelId: string;
+  onPlayIntentVoiceChannelIdChange: (value: string) => void;
+  playIntentVoiceChannelName: string;
+  onPlayIntentVoiceChannelNameChange: (value: string) => void;
+  playIntentVoiceChannelOptions: DiscordVoiceChannel[];
+  onPlayIntentVoiceChannelSelect: (channelId: string | null) => void;
   playIntentSaving: boolean;
   onSavePlayIntent: () => Promise<void>;
   onClearPlayIntent: () => Promise<void>;
   playIntentPreviews: PlayIntentPreview[];
+  mutedPlayIntentUserIds: ReadonlySet<string>;
+  onMutePlayIntentUser: (userId: string) => Promise<void>;
+  onUnmutePlayIntentUser: (userId: string) => Promise<void>;
   libraryGameIds: ReadonlySet<string>;
   addingLibraryGameId: string | null;
   onAddGameToLibrary: (game: DashboardLibraryQuickAddGame) => Promise<void>;
@@ -343,6 +368,12 @@ function PlayViewContent({
               playIntentTimingHasError={playIntentTimingHasError}
               playIntentNote={playIntentNote}
               onPlayIntentNoteChange={onPlayIntentNoteChange}
+              playIntentVoiceChannelId={playIntentVoiceChannelId}
+              onPlayIntentVoiceChannelIdChange={onPlayIntentVoiceChannelIdChange}
+              playIntentVoiceChannelName={playIntentVoiceChannelName}
+              onPlayIntentVoiceChannelNameChange={onPlayIntentVoiceChannelNameChange}
+              playIntentVoiceChannelOptions={playIntentVoiceChannelOptions}
+              onPlayIntentVoiceChannelSelect={onPlayIntentVoiceChannelSelect}
               playIntentSaving={playIntentSaving}
               onSavePlayIntent={onSavePlayIntent}
               onCancel={closePlayIntentComposer}
@@ -360,6 +391,9 @@ function PlayViewContent({
               libraryGameIds={libraryGameIds}
               addingLibraryGameId={addingLibraryGameId}
               onAddToLibrary={onAddGameToLibrary}
+              isMuted={mutedPlayIntentUserIds.has(intent.user.id)}
+              onMuteCreator={onMutePlayIntentUser}
+              onUnmuteCreator={onUnmutePlayIntentUser}
             />
           ))}
         </Stack>

@@ -70,11 +70,23 @@ function buildScheduledCheckInResponseRow(notificationId: string) {
   )
 }
 
-export function buildPlayIntentDirectMessage(title: string, body: string, creatorDiscordUserId?: string | null) {
+export function buildPlayIntentDirectMessage(
+  title: string,
+  body: string,
+  creatorDiscordUserId?: string | null,
+  voiceChannel?: { channelId: string | null; channelName: string | null; recipientSharesServer: boolean } | null
+) {
+  const voiceChannelLine = voiceChannel?.channelName
+    ? voiceChannel.channelId && voiceChannel.recipientSharesServer
+      ? `Voice channel: <#${voiceChannel.channelId}>`
+      : `Voice channel: ${voiceChannel.channelName}`
+    : null
+
   return [
     `**${title}**`,
     body,
     creatorDiscordUserId ? `Creator on Discord: <@${creatorDiscordUserId}>` : null,
+    voiceChannelLine,
     supportsDiscordInteractiveMessages()
       ? 'Are you planning to join this call to play?'
       : 'Open Game\'s Up to answer this call to play.',

@@ -303,6 +303,8 @@ function serializeActivePlayIntent(intent: {
   id: string;
   headline: string;
   note: string;
+  voiceChannelId: string | null;
+  voiceChannelName: string | null;
   selectionMode: PrismaPlayIntentSelectionMode;
   scope: PlayIntentScope;
   windowStartsAt: Date;
@@ -332,6 +334,8 @@ function serializeActivePlayIntent(intent: {
       }))
       .sort((left, right) => left.title.localeCompare(right.title)),
     note: intent.note,
+    voiceChannelId: intent.voiceChannelId,
+    voiceChannelName: intent.voiceChannelName,
     windowStartsAt: intent.windowStartsAt.toISOString(),
     windowEndsAt: intent.windowEndsAt.toISOString(),
     expiresAt: intent.expiresAt.toISOString()
@@ -773,6 +777,8 @@ export async function upsertCurrentPlayIntent(
         selectionMode: toPrismaSelectionMode(payload.selectionMode),
         headline,
         note,
+        voiceChannelId: payload.voiceChannelId ?? null,
+        voiceChannelName: payload.voiceChannelName ?? null,
         scope: toPrismaNotifyScope(payload.notifyScope),
         windowStartsAt: startsAt,
         windowEndsAt: endsAt,
@@ -847,7 +853,7 @@ export async function upsertCurrentPlayIntent(
   let deliveredNotificationCount = 0
 
   if (createdNotifications.length > 0) {
-    const [recipientIdentities, creatorIdentity] = await Promise.all([
+    const [recipientIdentities, creatorIdentity, creatorServerIds] = await Promise.all([
       prisma.userIdentity.findMany({
         where: {
           provider: AuthProvider.DISCORD,
@@ -868,8 +874,26 @@ export async function upsertCurrentPlayIntent(
         select: {
           providerUserId: true
         }
-      })
+      }),
+      payload.voiceChannelId
+        ? prisma.discordServerMembership.findMany({
+            where: { userId },
+            select: { serverId: true }
+          }).then((rows) => rows.map((row) => row.serverId))
+        : Promise.resolve([] as string[])
     ])
+
+    const recipientServerMemberships = payload.voiceChannelId && creatorServerIds.length > 0
+      ? await prisma.discordServerMembership.findMany({
+          where: {
+            userId: { in: createdNotifications.map((n) => n.userId) },
+            serverId: { in: creatorServerIds }
+          },
+          select: { userId: true }
+        })
+      : []
+    const recipientUserIdsWithSharedServer = new Set(recipientServerMemberships.map((m) => m.userId))
+
     const creatorDiscordUserId = creatorIdentity?.providerUserId ?? null
     const discordUserIdByUserId = new Map(recipientIdentities.map((identity) => [identity.userId, identity.providerUserId]))
     type DirectMessageTarget = {
@@ -886,10 +910,19 @@ export async function upsertCurrentPlayIntent(
           return null
         }
 
+        const sharesServer = recipientUserIdsWithSharedServer.has(notification.userId)
+        const voiceChannel = payload.voiceChannelId || payload.voiceChannelName
+          ? {
+              channelId: payload.voiceChannelId ?? null,
+              channelName: payload.voiceChannelName ?? null,
+              recipientSharesServer: sharesServer
+            }
+          : null
+
         return {
           notificationId: notification.id,
           discordUserId,
-          content: buildPlayIntentDirectMessage(notification.title, notification.body, creatorDiscordUserId),
+          content: buildPlayIntentDirectMessage(notification.title, notification.body, creatorDiscordUserId, voiceChannel),
           embeds: dmGameEmbeds.length > 0
             ? dmGameEmbeds
             : undefined
