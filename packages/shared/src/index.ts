@@ -217,6 +217,7 @@ export const playIntentPreviewSchema = z.object({
   note: z.string().max(140),
   voiceChannelId: z.string().min(1).nullable(),
   voiceChannelName: z.string().min(1).nullable(),
+  viewerResponseChoice: z.enum(['join', 'decline']).nullable().default(null),
   availabilityWindow: availabilityWindowSchema
 })
 
@@ -243,6 +244,17 @@ export const activePlayIntentSchema = z.object({
 
 export const playIntentCurrentResponseSchema = z.object({
   activeIntent: activePlayIntentSchema.nullable()
+})
+
+export const playIntentRecipientResponseChoiceSchema = z.enum(['join', 'decline'])
+
+export const playIntentRecipientResponseRequestSchema = z.object({
+  choice: playIntentRecipientResponseChoiceSchema
+})
+
+export const playIntentRecipientResponseResultSchema = z.object({
+  responseChoice: playIntentRecipientResponseChoiceSchema,
+  message: z.string().min(1)
 })
 
 export const upsertPlayIntentRequestSchema = z.object({
@@ -682,6 +694,9 @@ export type PlayIntentPreview = z.infer<typeof playIntentPreviewSchema>;
 export type PlayIntentFeed = z.infer<typeof playIntentFeedSchema>;
 export type ActivePlayIntent = z.infer<typeof activePlayIntentSchema>;
 export type PlayIntentCurrentResponse = z.infer<typeof playIntentCurrentResponseSchema>;
+export type PlayIntentRecipientResponseChoice = z.infer<typeof playIntentRecipientResponseChoiceSchema>;
+export type PlayIntentRecipientResponseRequest = z.infer<typeof playIntentRecipientResponseRequestSchema>;
+export type PlayIntentRecipientResponseResult = z.infer<typeof playIntentRecipientResponseResultSchema>;
 export type UpsertPlayIntentRequest = z.infer<typeof upsertPlayIntentRequestSchema>;
 export type UpsertPlayIntentResponse = z.infer<typeof upsertPlayIntentResponseSchema>;
 export type HealthResponse = z.infer<typeof healthResponseSchema>;

@@ -1,5 +1,5 @@
 import type { PlayIntentFeed, PlayIntentPreview } from '@game-is-up/shared'
-import { GameIntentType, PlayIntentSelectionMode, PlayIntentScope } from '@prisma/client'
+import { GameIntentType, NotificationResponseChoice, NotificationType, PlayIntentSelectionMode, PlayIntentScope } from '@prisma/client'
 import { getMutualDiscoveryAudienceUserIds } from './discord-servers.js'
 import { toClientGameCoverUrl, toClientAvatarUrl } from './game-media.js'
 import { prisma } from './prisma.js'
@@ -123,6 +123,42 @@ export async function buildPlayIntentFeed(viewerId?: string | null): Promise<Pla
     }
   })
 
+  const recipientResponseByPlayIntentId = intents.length > 0
+    ? await prisma.notification.findMany({
+        where: {
+          userId: viewer.id,
+          playIntentId: {
+            in: intents.map((intent) => intent.id)
+          },
+          type: {
+            in: [NotificationType.FRIEND_PLAYING, NotificationType.SCHEDULED_PLAY_INTENT_REMINDER]
+          },
+          responseChoice: {
+            in: [NotificationResponseChoice.JOIN, NotificationResponseChoice.DECLINE]
+          }
+        },
+        select: {
+          playIntentId: true,
+          responseChoice: true
+        },
+        orderBy: {
+          createdAt: 'desc'
+        }
+      }).then((rows) => {
+        const map = new Map<string, 'join' | 'decline'>()
+
+        for (const row of rows) {
+          if (!row.playIntentId || map.has(row.playIntentId)) {
+            continue
+          }
+
+          map.set(row.playIntentId, row.responseChoice === NotificationResponseChoice.JOIN ? 'join' : 'decline')
+        }
+
+        return map
+      })
+    : new Map<string, 'join' | 'decline'>()
+
   const previews = intents
     .map<PlayIntentPreview | null>((intent) => {
       const isExplicitFriend = friendUserIds.includes(intent.userId)
@@ -179,6 +215,7 @@ export async function buildPlayIntentFeed(viewerId?: string | null): Promise<Pla
         note: intent.note,
         voiceChannelId: intent.voiceChannelId,
         voiceChannelName: intent.voiceChannelName,
+        viewerResponseChoice: recipientResponseByPlayIntentId.get(intent.id) ?? null,
         availabilityWindow: {
           label: formatAvailabilityLabel(intent.user.displayName, intent.windowStartsAt, now),
           startsAt: intent.windowStartsAt.toISOString(),

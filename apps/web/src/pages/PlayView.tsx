@@ -6,6 +6,7 @@ import type {
   DiscoveryPerson,
   LibraryEntry,
   PlayIntentNotifyScope,
+  PlayIntentRecipientResponseChoice,
   PlayIntentPreview,
   PlayIntentSelectionMode
 } from '@game-is-up/shared'
@@ -183,6 +184,8 @@ function PlayViewContent({
   onSavePlayIntent,
   onClearPlayIntent,
   playIntentPreviews,
+  playIntentResponsePendingIntentId,
+  onRespondToPlayIntent,
   mutedPlayIntentUserIds,
   onMutePlayIntentUser,
   onUnmutePlayIntentUser,
@@ -242,6 +245,8 @@ function PlayViewContent({
   onSavePlayIntent: () => Promise<void>;
   onClearPlayIntent: () => Promise<void>;
   playIntentPreviews: PlayIntentPreview[];
+  playIntentResponsePendingIntentId: string | null;
+  onRespondToPlayIntent: (playIntentId: string, responseChoice: PlayIntentRecipientResponseChoice) => Promise<void>;
   mutedPlayIntentUserIds: ReadonlySet<string>;
   onMutePlayIntentUser: (userId: string) => Promise<void>;
   onUnmutePlayIntentUser: (userId: string) => Promise<void>;
@@ -391,6 +396,8 @@ function PlayViewContent({
               libraryGameIds={libraryGameIds}
               addingLibraryGameId={addingLibraryGameId}
               onAddToLibrary={onAddGameToLibrary}
+              responsePending={playIntentResponsePendingIntentId === intent.id}
+              onRespondToIntent={onRespondToPlayIntent}
               isMuted={mutedPlayIntentUserIds.has(intent.user.id)}
               onMuteCreator={onMutePlayIntentUser}
               onUnmuteCreator={onUnmutePlayIntentUser}

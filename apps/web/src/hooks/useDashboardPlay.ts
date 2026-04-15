@@ -7,10 +7,16 @@ import type {
   LibraryEntry,
   PlayIntentNotifyScope,
   PlayIntentPreview,
+  PlayIntentRecipientResponseChoice,
+  PlayIntentRecipientResponseResult,
   PlayIntentSelectionMode,
   UpsertPlayIntentResponse
 } from '@game-is-up/shared'
-import { discordVoiceChannelsResponseSchema, upsertPlayIntentResponseSchema } from '@game-is-up/shared'
+import {
+  discordVoiceChannelsResponseSchema,
+  playIntentRecipientResponseResultSchema,
+  upsertPlayIntentResponseSchema
+} from '@game-is-up/shared'
 import {
   buildPlayIntentEndTimeInputValue,
   formatPlayIntentDurationLabel,
@@ -87,6 +93,8 @@ export type DashboardPlayViewProps = {
   onSavePlayIntent: () => Promise<void>;
   onClearPlayIntent: () => Promise<void>;
   playIntentPreviews: PlayIntentPreview[];
+  playIntentResponsePendingIntentId: string | null;
+  onRespondToPlayIntent: (playIntentId: string, responseChoice: PlayIntentRecipientResponseChoice) => Promise<void>;
   mutedPlayIntentUserIds: ReadonlySet<string>;
   onMutePlayIntentUser: (userId: string) => Promise<void>;
   onUnmutePlayIntentUser: (userId: string) => Promise<void>;
@@ -130,6 +138,7 @@ export function useDashboardPlay({
   const [selectedPlayIntentGameIds, setSelectedPlayIntentGameIds] = useState<string[]>([])
   const [selectedPlayIntentTargetUserIds, setSelectedPlayIntentTargetUserIds] = useState<string[]>([])
   const [mutedPlayIntentUserIds, setMutedPlayIntentUserIds] = useState<Set<string>>(new Set())
+  const [playIntentResponsePendingIntentId, setPlayIntentResponsePendingIntentId] = useState<string | null>(null)
   const [playIntentSaving, setPlayIntentSaving] = useState(false)
   const [isPlayIntentComposerOpen, setIsPlayIntentComposerOpen] = useState(false)
 
@@ -730,6 +739,51 @@ export function useDashboardPlay({
     }
   }, [buildApiUrl, loadDashboard])
 
+  const handleRespondToPlayIntent = useCallback(async (playIntentId: string, responseChoice: PlayIntentRecipientResponseChoice) => {
+    setPlayIntentResponsePendingIntentId(playIntentId)
+    setPlayIntentNotice(null)
+
+    try {
+      const response = await fetch(buildApiUrl(`/api/play-intents/${playIntentId}/respond`), {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          choice: responseChoice
+        })
+      })
+
+      const responseBody = (await response.json()) as PlayIntentRecipientResponseResult | { error?: string }
+
+      if (!response.ok) {
+        setPlayIntentNotice({
+          tone: 'danger',
+          message:
+            typeof responseBody === 'object' && responseBody && 'error' in responseBody && typeof responseBody.error === 'string'
+              ? responseBody.error
+              : 'Unable to update your response right now.'
+        })
+        return
+      }
+
+      const parsed = playIntentRecipientResponseResultSchema.parse(responseBody)
+      setPlayIntentNotice({
+        tone: 'success',
+        message: parsed.message
+      })
+      await loadDashboard()
+    } catch (error) {
+      setPlayIntentNotice({
+        tone: 'danger',
+        message: error instanceof Error ? error.message : 'Unable to update your response right now.'
+      })
+    } finally {
+      setPlayIntentResponsePendingIntentId(null)
+    }
+  }, [buildApiUrl, loadDashboard, setPlayIntentNotice])
+
   const openPlayIntentComposer = useCallback(() => {
     setIsPlayIntentComposerOpen(true)
     setPlayIntentNotice(null)
@@ -789,6 +843,8 @@ export function useDashboardPlay({
     onSavePlayIntent: handleSavePlayIntent,
     onClearPlayIntent: handleClearPlayIntent,
     playIntentPreviews,
+    playIntentResponsePendingIntentId,
+    onRespondToPlayIntent: handleRespondToPlayIntent,
     mutedPlayIntentUserIds,
     onMutePlayIntentUser: handleMutePlayIntentUser,
     onUnmutePlayIntentUser: handleUnmutePlayIntentUser

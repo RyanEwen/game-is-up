@@ -6,6 +6,8 @@ import {
   playIntentCurrentResponseSchema,
   playIntentFeedSchema,
   playIntentMutesResponseSchema,
+  playIntentRecipientResponseRequestSchema,
+  playIntentRecipientResponseResultSchema,
   upsertPlayIntentRequestSchema,
   upsertPlayIntentResponseSchema
 } from '@game-is-up/shared'
@@ -16,6 +18,8 @@ import {
   PlayIntentValidationError,
   upsertCurrentPlayIntent
 } from '../lib/play-intents.js'
+import { NotificationResponseChoice } from '@prisma/client'
+import { PlayIntentNotificationResponseError, respondToPlayIntentFromWeb } from '../lib/play-intent-notification-responses.js'
 import { prisma } from '../lib/prisma.js'
 import { getAuthSession } from '../lib/session.js'
 
@@ -113,6 +117,7 @@ playIntentRouter.delete('/me', async (request, response, next) => {
 })
 
 const muteTargetParamSchema = z.object({ targetUserId: z.string().uuid() })
+const playIntentParamSchema = z.object({ playIntentId: z.string().uuid() })
 
 playIntentRouter.get('/mutes', async (request, response, next) => {
   const userId = requireSignedInUserId(request, response)
@@ -207,6 +212,39 @@ playIntentRouter.delete('/mutes/:targetUserId', async (request, response, next) 
 
     response.json({ muted: false })
   } catch (error) {
+    next(error)
+  }
+})
+
+playIntentRouter.post('/:playIntentId/respond', async (request, response, next) => {
+  const userId = requireSignedInUserId(request, response)
+
+  if (!userId) {
+    return
+  }
+
+  const paramsParse = playIntentParamSchema.safeParse(request.params)
+
+  if (!paramsParse.success) {
+    response.status(400).json({ error: 'Invalid play intent ID.' })
+    return
+  }
+
+  try {
+    const payload = playIntentRecipientResponseRequestSchema.parse(request.body)
+    const result = await respondToPlayIntentFromWeb({
+      userId,
+      playIntentId: paramsParse.data.playIntentId,
+      response: payload.choice === 'join' ? NotificationResponseChoice.JOIN : NotificationResponseChoice.DECLINE
+    })
+
+    response.json(playIntentRecipientResponseResultSchema.parse(result))
+  } catch (error) {
+    if (error instanceof PlayIntentNotificationResponseError) {
+      response.status(error.statusCode).json({ error: error.message })
+      return
+    }
+
     next(error)
   }
 })

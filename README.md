@@ -171,7 +171,7 @@ This repo now treats Prisma migrations as the source of truth for schema changes
 10. Bot-based activity tracking only records activity while the bot is online and present in a shared server, so it should be treated as opportunistic rather than authoritative history.
 11. If you want the app to browse every member in a selected Discord server for invite targeting, the bot also needs the Server Members intent enabled in the Discord developer portal.
 12. When a call to play matches someone who should be notified and that user has a linked Discord account, the bot can DM them directly. Quick response buttons are only active in the gateway-owning environment.
-13. If a notified recipient says they are joining from Discord, the creator gets a follow-up DM confirmation. If that recipient changes their response later, the creator is updated again so RSVP state stays current. Recipients who already have an overlapping active call to play are filtered out before those call notifications are sent.
+13. If a notified recipient says they are joining from Discord, the creator gets a follow-up DM confirmation. Recipients can also choose Pass without notifying the creator, and can still switch to joining later. Recipients who already have an overlapping active call to play are filtered out before those call notifications are sent.
 14. Users can leave a Play page setting on by default so the gateway-owning bot can DM them after it sees them start a game and offer to create a call to play straight from Discord. Those prompts only go out when there is no active call already, at least one visible overlap could receive it, and the same game has not already prompted that user in the last 10 minutes.
 15. Unanswered Discord call-to-play invites and auto-play prompts are now edited in place when they go stale, so users see that the session ended or the observed game activity stopped instead of keeping an outdated call to action.
 16. Scheduled calls to play still notify the target audience immediately when created. At start time, the creator now gets a check-in prompt to confirm whether the plan is still on.
@@ -182,7 +182,7 @@ This repo now treats Prisma migrations as the source of truth for schema changes
 21. Steam can now be linked as a secondary account for library import only. It does not replace Discord auth or discovery.
 22. Linked-account flows like Discord sign-in and Steam linking return directly to the current web URL after the provider callback completes.
 23. Call-to-play DMs now include a clickable creator Discord mention when available.
-24. Subset call-to-play DMs include game art: one cover for a single selected game, or up to three covers for multi-game options.
+24. Subset call-to-play DMs include game art only for single-game calls to play.
 
 ## Steam import setup
 

@@ -1,5 +1,5 @@
 import { Avatar, Box, Button, Card, Chip, Sheet, Stack, Typography } from '@mui/joy'
-import type { PlayIntentPreview } from '@game-is-up/shared'
+import type { PlayIntentPreview, PlayIntentRecipientResponseChoice } from '@game-is-up/shared'
 import { DashboardDeferredImage } from './DashboardDeferredImage'
 import { formatNotifyScopeLabel } from './dashboardUtils'
 import type { DashboardLibraryQuickAddGame } from './types'
@@ -25,6 +25,8 @@ export function PlayIntentCard({
   libraryGameIds,
   addingLibraryGameId,
   onAddToLibrary,
+  responsePending,
+  onRespondToIntent,
   isMuted,
   onMuteCreator,
   onUnmuteCreator
@@ -34,11 +36,14 @@ export function PlayIntentCard({
   libraryGameIds: ReadonlySet<string>;
   addingLibraryGameId: string | null;
   onAddToLibrary: (game: DashboardLibraryQuickAddGame) => Promise<void>;
+  responsePending: boolean;
+  onRespondToIntent: (playIntentId: string, responseChoice: PlayIntentRecipientResponseChoice) => Promise<void>;
   isMuted: boolean;
   onMuteCreator: (userId: string) => Promise<void>;
   onUnmuteCreator: (userId: string) => Promise<void>;
 }) {
   const isLibraryWide = intent.selectionMode === 'library'
+  const viewerResponseChoice = intent.viewerResponseChoice
 
   return (
     <Card
@@ -67,6 +72,24 @@ export function PlayIntentCard({
             {formatNotifyScopeLabel(intent.notifyScope)}
           </Chip>
           <Button
+            variant={viewerResponseChoice === 'join' ? 'solid' : 'outlined'}
+            color={viewerResponseChoice === 'join' ? 'success' : 'neutral'}
+            size="sm"
+            disabled={!canAddToLibrary || responsePending}
+            onClick={() => void onRespondToIntent(intent.id, 'join')}
+          >
+            I am in
+          </Button>
+          <Button
+            variant={viewerResponseChoice === 'decline' ? 'solid' : 'outlined'}
+            color={viewerResponseChoice === 'decline' ? 'danger' : 'neutral'}
+            size="sm"
+            disabled={!canAddToLibrary || responsePending}
+            onClick={() => void onRespondToIntent(intent.id, 'decline')}
+          >
+            Pass
+          </Button>
+          <Button
             variant="outlined"
             color="neutral"
             size="sm"
@@ -76,6 +99,18 @@ export function PlayIntentCard({
           </Button>
         </Stack>
       </Stack>
+
+      {viewerResponseChoice ? (
+        <Typography level="body-xs" sx={{ mb: 1.5, color: viewerResponseChoice === 'join' ? 'success.300' : 'neutral.400' }}>
+          {viewerResponseChoice === 'join' ? 'You are marked as joining this call to play.' : 'You are marked as passed on this call to play.'}
+        </Typography>
+      ) : null}
+
+      {responsePending ? (
+        <Typography level="body-xs" sx={{ mb: 1.5, color: 'neutral.400' }}>
+          Updating your response...
+        </Typography>
+      ) : null}
 
       <Typography level="body-md" sx={{ mb: 2, color: 'neutral.200' }}>
         {intent.note}

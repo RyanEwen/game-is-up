@@ -587,14 +587,14 @@ export async function upsertCurrentPlayIntent(
 
   const selectedGameIds = selectedEntries.map((entry) => entry.gameId)
   const selectedTitles = selectedEntries.map((entry) => entry.game.title)
-  const dmGameEmbeds = payload.selectionMode === 'subset'
+  const dmGameEmbeds = payload.selectionMode === 'subset' && selectedEntries.length === 1
     ? selectedEntries
       .map((entry) => ({
         title: entry.game.title,
         coverUrl: toClientGameCoverUrl(entry.game.coverUrl)
       }))
       .filter((entry): entry is { title: string; coverUrl: string } => Boolean(entry.coverUrl))
-      .slice(0, 3)
+      .slice(0, 1)
       .map((entry, index, allEntries) => ({
         title: allEntries.length > 1 ? `Possible game ${index + 1}: ${entry.title}` : `Possible game: ${entry.title}`,
         image: {
