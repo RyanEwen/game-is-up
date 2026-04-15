@@ -13,10 +13,12 @@ import {
 import { editDiscordDirectMessage, sendDiscordDirectMessages, supportsDiscordInteractiveMessages } from './discord-bot-runtime.js'
 import { env } from './env.js'
 import { prisma } from './prisma.js'
+import { normalizeTimezoneId } from './timezone-label.js'
 
 const playIntentNotificationPrefix = 'play-intent-response'
 const playIntentMutePrefix = 'play-intent-mute'
 const scheduledPlayIntentCheckInPrefix = 'scheduled-play-intent-check-in'
+const creatorPlayIntentSummaryPrefix = 'creator-play-intent-summary'
 
 type PlayIntentNotificationAction = {
   notificationId: string;
@@ -30,6 +32,11 @@ type PlayIntentMuteAction = {
 type ScheduledPlayIntentCheckInAction = {
   notificationId: string;
   response: NotificationResponseChoice;
+}
+
+type CreatorPlayIntentSummaryAction = {
+  playIntentId: string;
+  action: 'cancel';
 }
 
 type PlayIntentRecipientResponse = 'JOIN' | 'DECLINE'
@@ -52,6 +59,47 @@ type ResolvablePlayIntentNotification = {
       displayName: string;
     };
   } | null;
+}
+
+type CreatorPlayIntentSummarySnapshot = {
+  id: string;
+  headline: string;
+  note: string;
+  selectionMode: 'ENTIRE_LIBRARY' | 'SELECTED_GAMES';
+  scope: 'FRIENDS_ONLY' | 'MUTUAL_FRIENDS' | 'SPECIFIC_FRIENDS' | 'SPECIFIC_DISCORD_SERVER';
+  windowStartsAt: Date;
+  windowEndsAt: Date;
+  expiresAt: Date;
+  voiceChannelName: string | null;
+  creatorDiscordDmChannelId: string | null;
+  creatorDiscordDmMessageId: string | null;
+  user: {
+    id: string;
+    displayName: string;
+    timezoneId: string;
+    identities: { providerUserId: string }[];
+  };
+  targetDiscordServer: {
+    name: string;
+  } | null;
+  targetFriends: {
+    friendUser: {
+      displayName: string;
+    };
+  }[];
+  games: {
+    game: {
+      title: string;
+    };
+  }[];
+  notifications: {
+    userId: string;
+    type: NotificationType;
+    respondedAt: Date | null;
+    responseChoice: NotificationResponseChoice | null;
+    deliveredAt: Date | null;
+    createdAt: Date;
+  }[];
 }
 
 export class PlayIntentNotificationResponseError extends Error {
@@ -78,6 +126,15 @@ function buildLinkRow() {
       .setLabel("Open in Game's Up")
       .setStyle(ButtonStyle.Link)
       .setURL(buildPlayUrl())
+  )
+}
+
+function buildCreatorSummaryActionRow(playIntentId: string) {
+  return new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`${creatorPlayIntentSummaryPrefix}:${playIntentId}:cancel`)
+      .setLabel('Cancel CTP')
+      .setStyle(ButtonStyle.Danger)
   )
 }
 
@@ -180,6 +237,312 @@ export function buildScheduledPlayIntentCheckInComponents(notificationId: string
   return supportsDiscordInteractiveMessages()
     ? [buildScheduledCheckInResponseRow(notificationId), buildLinkRow()]
     : [buildLinkRow()]
+}
+
+function buildCreatorPlayIntentSummaryComponents(playIntentId: string, isActive: boolean) {
+  if (!isActive || !supportsDiscordInteractiveMessages()) {
+    return [buildLinkRow()]
+  }
+
+  return [buildCreatorSummaryActionRow(playIntentId), buildLinkRow()]
+}
+
+function formatSummaryDateTime(date: Date, timezoneId: string) {
+  const normalizedTimezoneId = normalizeTimezoneId(timezoneId) ?? 'Etc/UTC'
+
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone: normalizedTimezoneId,
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZoneName: 'short'
+  }).format(date)
+}
+
+function summarizeCreatorAudience(snapshot: CreatorPlayIntentSummarySnapshot) {
+  if (snapshot.scope === 'SPECIFIC_DISCORD_SERVER' && snapshot.targetDiscordServer) {
+    return `Audience: Discord server ${snapshot.targetDiscordServer.name}`
+  }
+
+  if (snapshot.scope === 'SPECIFIC_FRIENDS') {
+    const names = snapshot.targetFriends.map((entry) => entry.friendUser.displayName).sort((left, right) => left.localeCompare(right))
+
+    if (names.length <= 4) {
+      return `Audience: Specific friends (${names.join(', ')})`
+    }
+
+    return `Audience: Specific friends (${names.slice(0, 4).join(', ')} +${names.length - 4} more)`
+  }
+
+  if (snapshot.scope === 'MUTUAL_FRIENDS') {
+    return 'Audience: Friends and your selected network'
+  }
+
+  return 'Audience: Friends only'
+}
+
+function summarizeCreatorGames(snapshot: CreatorPlayIntentSummarySnapshot) {
+  if (snapshot.selectionMode === 'ENTIRE_LIBRARY') {
+    return 'Games: Your library'
+  }
+
+  const titles = snapshot.games.map((entry) => entry.game.title).sort((left, right) => left.localeCompare(right))
+
+  if (titles.length <= 4) {
+    return `Games: ${titles.join(', ')}`
+  }
+
+  return `Games: ${titles.slice(0, 4).join(', ')} +${titles.length - 4} more`
+}
+
+function getCreatorSummaryRecipientStats(snapshot: CreatorPlayIntentSummarySnapshot) {
+  const relevantNotifications = snapshot.notifications.filter((notification) =>
+    notification.type === NotificationType.FRIEND_PLAYING || notification.type === NotificationType.SCHEDULED_PLAY_INTENT_REMINDER
+  )
+
+  const latestByUserId = new Map<string, {
+    respondedAt: Date | null;
+    responseChoice: NotificationResponseChoice | null;
+  }>()
+  const deliveredUserIds = new Set<string>()
+
+  for (const notification of relevantNotifications) {
+    if (notification.deliveredAt) {
+      deliveredUserIds.add(notification.userId)
+    }
+
+    if (!latestByUserId.has(notification.userId)) {
+      latestByUserId.set(notification.userId, {
+        respondedAt: notification.respondedAt,
+        responseChoice: notification.responseChoice
+      })
+    }
+  }
+
+  let interestedCount = 0
+  let passedCount = 0
+  let waitingCount = 0
+
+  for (const status of latestByUserId.values()) {
+    if (status.responseChoice === NotificationResponseChoice.JOIN) {
+      interestedCount += 1
+      continue
+    }
+
+    if (status.responseChoice === NotificationResponseChoice.DECLINE) {
+      passedCount += 1
+      continue
+    }
+
+    if (!status.respondedAt) {
+      waitingCount += 1
+    }
+  }
+
+  return {
+    matchedCount: latestByUserId.size,
+    deliveredCount: deliveredUserIds.size,
+    interestedCount,
+    passedCount,
+    waitingCount
+  }
+}
+
+function getCreatorSummaryStatus(snapshot: CreatorPlayIntentSummarySnapshot) {
+  const latestCheckIn = snapshot.notifications.find((notification) => notification.type === NotificationType.SCHEDULED_PLAY_INTENT_CHECK_IN)
+  const now = new Date()
+
+  if (snapshot.expiresAt <= now) {
+    return 'Status: Closed'
+  }
+
+  if (latestCheckIn?.responseChoice === NotificationResponseChoice.CANCELED) {
+    return 'Status: Closed'
+  }
+
+  if (latestCheckIn && !latestCheckIn.respondedAt && snapshot.windowStartsAt <= now) {
+    return 'Status: Starting now - waiting for your confirmation'
+  }
+
+  if (snapshot.windowStartsAt.getTime() > now.getTime() + 60 * 1000) {
+    return 'Status: Scheduled'
+  }
+
+  return 'Status: Live now'
+}
+
+function buildCreatorPlayIntentSummaryMessage(snapshot: CreatorPlayIntentSummarySnapshot) {
+  const stats = getCreatorSummaryRecipientStats(snapshot)
+  const startsAtLabel = formatSummaryDateTime(snapshot.windowStartsAt, snapshot.user.timezoneId)
+  const endsAtLabel = formatSummaryDateTime(snapshot.windowEndsAt, snapshot.user.timezoneId)
+  const guidance = snapshot.expiresAt > new Date()
+    ? supportsDiscordInteractiveMessages()
+      ? 'Use the buttons below to open Game\'s Up or cancel this call to play.'
+      : 'Open Game\'s Up below if you want to edit or cancel this call to play.'
+    : 'Open Game\'s Up below if you want to post another call to play.'
+
+  return [
+    '**CTP summary**',
+    getCreatorSummaryStatus(snapshot),
+    `Title: ${snapshot.headline}`,
+    summarizeCreatorGames(snapshot),
+    summarizeCreatorAudience(snapshot),
+    `Window: ${startsAtLabel} to ${endsAtLabel}`,
+    snapshot.voiceChannelName ? `Voice channel: ${snapshot.voiceChannelName}` : null,
+    snapshot.note ? `Note: ${snapshot.note}` : null,
+    [
+      '**Responses**',
+      `Interested: ${stats.interestedCount}`,
+      `Passed: ${stats.passedCount}`,
+      `Waiting: ${stats.waitingCount}`
+    ].join('\n'),
+    stats.matchedCount > 0
+      ? `Reach: ${stats.deliveredCount} of ${stats.matchedCount} matched players received a Discord DM.`
+      : 'Reach: No matching players were found yet.',
+    guidance
+  ].filter((part): part is string => Boolean(part)).join('\n\n')
+}
+
+async function getCreatorPlayIntentSummarySnapshot(playIntentId: string) {
+  return prisma.playIntent.findUnique({
+    where: {
+      id: playIntentId
+    },
+    select: {
+      id: true,
+      headline: true,
+      note: true,
+      selectionMode: true,
+      scope: true,
+      windowStartsAt: true,
+      windowEndsAt: true,
+      expiresAt: true,
+      voiceChannelName: true,
+      creatorDiscordDmChannelId: true,
+      creatorDiscordDmMessageId: true,
+      user: {
+        select: {
+          id: true,
+          displayName: true,
+          timezoneId: true,
+          identities: {
+            where: {
+              provider: AuthProvider.DISCORD
+            },
+            select: {
+              providerUserId: true
+            }
+          }
+        }
+      },
+      targetDiscordServer: {
+        select: {
+          name: true
+        }
+      },
+      targetFriends: {
+        select: {
+          friendUser: {
+            select: {
+              displayName: true
+            }
+          }
+        }
+      },
+      games: {
+        select: {
+          game: {
+            select: {
+              title: true
+            }
+          }
+        }
+      },
+      notifications: {
+        where: {
+          type: {
+            in: [
+              NotificationType.FRIEND_PLAYING,
+              NotificationType.SCHEDULED_PLAY_INTENT_REMINDER,
+              NotificationType.SCHEDULED_PLAY_INTENT_CHECK_IN
+            ]
+          }
+        },
+        orderBy: {
+          createdAt: 'desc'
+        },
+        select: {
+          userId: true,
+          type: true,
+          respondedAt: true,
+          responseChoice: true,
+          deliveredAt: true,
+          createdAt: true
+        }
+      }
+    }
+  })
+}
+
+async function sendOrEditCreatorPlayIntentSummary(playIntentId: string) {
+  const snapshot = await getCreatorPlayIntentSummarySnapshot(playIntentId)
+
+  if (!snapshot) {
+    return
+  }
+
+  const creatorDiscordUserId = snapshot.user.identities[0]?.providerUserId
+
+  if (!creatorDiscordUserId) {
+    return
+  }
+
+  const content = buildCreatorPlayIntentSummaryMessage(snapshot)
+  const components = buildCreatorPlayIntentSummaryComponents(playIntentId, snapshot.expiresAt > new Date())
+
+  if (snapshot.creatorDiscordDmChannelId && snapshot.creatorDiscordDmMessageId) {
+    const editResult = await editDiscordDirectMessage({
+      channelId: snapshot.creatorDiscordDmChannelId,
+      messageId: snapshot.creatorDiscordDmMessageId,
+      content,
+      components
+    })
+
+    if (editResult.status === 'edited') {
+      return
+    }
+  }
+
+  const dmResult = (await sendDiscordDirectMessages([
+    {
+      discordUserId: creatorDiscordUserId,
+      content,
+      components
+    }
+  ]))[0]
+
+  if (dmResult?.status !== 'sent') {
+    return
+  }
+
+  await prisma.playIntent.update({
+    where: {
+      id: playIntentId
+    },
+    data: {
+      creatorDiscordDmChannelId: dmResult.channelId,
+      creatorDiscordDmMessageId: dmResult.messageId
+    }
+  })
+}
+
+export async function syncCreatorPlayIntentSummaryMessages(playIntentIds: string[]) {
+  const uniquePlayIntentIds = [...new Set(playIntentIds.filter(Boolean))]
+
+  for (const playIntentId of uniquePlayIntentIds) {
+    await sendOrEditCreatorPlayIntentSummary(playIntentId)
+  }
 }
 
 function buildExpiredMessage(reason: string) {
@@ -326,6 +689,23 @@ function parseScheduledCheckInAction(customId: string): ScheduledPlayIntentCheck
   return null
 }
 
+function parseCreatorPlayIntentSummaryAction(customId: string): CreatorPlayIntentSummaryAction | null {
+  const parts = customId.split(':')
+
+  if (parts.length !== 3 || parts[0] !== creatorPlayIntentSummaryPrefix || !parts[1]) {
+    return null
+  }
+
+  if (parts[2] !== 'cancel') {
+    return null
+  }
+
+  return {
+    playIntentId: parts[1],
+    action: 'cancel'
+  }
+}
+
 function buildCreatorJoinNotification(notification: {
   recipientDisplayName: string;
   gameTitle: string | null;
@@ -339,8 +719,7 @@ function buildCreatorJoinNotification(notification: {
 
   return {
     title,
-    body,
-    dm: `**${title}**\n\nOpen Game's Up: ${buildPlayUrl()}`
+    body
   }
 }
 
@@ -356,15 +735,6 @@ async function applyRecipientResponseToPlayIntentNotification(options: {
 
   const playIntent = notification.playIntent
   const previousChoice = notification.responseChoice
-  const creatorIdentity = await prisma.userIdentity.findFirst({
-    where: {
-      userId: playIntent.user.id,
-      provider: AuthProvider.DISCORD
-    },
-    select: {
-      providerUserId: true
-    }
-  })
 
   if (response === NotificationResponseChoice.DECLINE) {
     await prisma.notification.update({
@@ -376,6 +746,8 @@ async function applyRecipientResponseToPlayIntentNotification(options: {
         responseChoice: NotificationResponseChoice.DECLINE
       }
     })
+
+    await syncCreatorPlayIntentSummaryMessages([playIntent.id])
 
     return {
       content: previousChoice === NotificationResponseChoice.JOIN
@@ -431,25 +803,18 @@ async function applyRecipientResponseToPlayIntentNotification(options: {
         }
       })
 
-  if (previousChoice !== NotificationResponseChoice.JOIN && creatorIdentity?.providerUserId) {
-    const dmResult = (await sendDiscordDirectMessages([
-      {
-        discordUserId: creatorIdentity.providerUserId,
-        content: creatorNotificationCopy.dm
+  if (previousChoice !== NotificationResponseChoice.JOIN) {
+    await prisma.notification.update({
+      where: {
+        id: joinResult.id
+      },
+      data: {
+        deliveredAt: new Date()
       }
-    ]))[0]
-
-    if (dmResult?.status === 'sent') {
-      await prisma.notification.update({
-        where: {
-          id: joinResult.id
-        },
-        data: {
-          deliveredAt: new Date()
-        }
-      })
-    }
+    })
   }
+
+  await syncCreatorPlayIntentSummaryMessages([playIntent.id])
 
   return {
     content: previousChoice === NotificationResponseChoice.DECLINE
@@ -535,6 +900,10 @@ export function isPlayIntentMuteCustomId(customId: string) {
 
 export function isScheduledPlayIntentCheckInCustomId(customId: string) {
   return customId.startsWith(`${scheduledPlayIntentCheckInPrefix}:`)
+}
+
+export function isCreatorPlayIntentSummaryCustomId(customId: string) {
+  return customId.startsWith(`${creatorPlayIntentSummaryPrefix}:`)
 }
 
 export async function sweepScheduledPlayIntentCreatorCheckIns() {
@@ -628,6 +997,8 @@ export async function sweepScheduledPlayIntentCreatorCheckIns() {
         }
       })
     }
+
+    await syncCreatorPlayIntentSummaryMessages([intent.id])
   }
 }
 
@@ -697,6 +1068,8 @@ export async function expirePendingPlayIntentNotifications(playIntentIds: string
       components: [buildLinkRow()]
     })
   }))
+
+  await syncCreatorPlayIntentSummaryMessages(playIntentIds)
 }
 
 export async function handleScheduledPlayIntentCheckInInteraction(interaction: ButtonInteraction) {
@@ -817,6 +1190,8 @@ export async function handleScheduledPlayIntentCheckInInteraction(interaction: B
         : buildCreatorCheckInAlreadyHandledMessage(NotificationResponseChoice.CANCELED),
       components: [buildLinkRow()]
     })
+
+    await syncCreatorPlayIntentSummaryMessages(notification.playIntentId ? [notification.playIntentId] : [])
     return
   }
 
@@ -1032,6 +1407,8 @@ export async function handleScheduledPlayIntentCheckInInteraction(interaction: B
     content: buildCreatorConfirmedMessage(),
     components: [buildLinkRow()]
   })
+
+  await syncCreatorPlayIntentSummaryMessages([playIntent.id])
 }
 
 export async function handlePlayIntentNotificationInteraction(interaction: ButtonInteraction) {
@@ -1187,6 +1564,71 @@ async function handlePlayIntentMuteInteraction(interaction: ButtonInteraction, a
 
   await interaction.update({
     content: `Muted ${creatorUser.displayName}'s CTPs. You won't see their calls to play in your feed.`,
+    components: [buildLinkRow()]
+  })
+}
+
+export async function handleCreatorPlayIntentSummaryInteraction(interaction: ButtonInteraction) {
+  const action = parseCreatorPlayIntentSummaryAction(interaction.customId)
+
+  if (!action) {
+    return
+  }
+
+  const [playIntent, identity] = await Promise.all([
+    prisma.playIntent.findUnique({
+      where: {
+        id: action.playIntentId
+      },
+      select: {
+        id: true,
+        userId: true,
+        expiresAt: true
+      }
+    }),
+    prisma.userIdentity.findUnique({
+      where: {
+        provider_providerUserId: {
+          provider: AuthProvider.DISCORD,
+          providerUserId: interaction.user.id
+        }
+      },
+      select: {
+        userId: true
+      }
+    })
+  ])
+
+  if (!playIntent || !identity || identity.userId !== playIntent.userId) {
+    await interaction.update({
+      content: 'This CTP summary is not available for your account anymore.',
+      components: [buildLinkRow()]
+    })
+    return
+  }
+
+  if (playIntent.expiresAt > new Date()) {
+    const now = new Date()
+
+    await prisma.playIntent.update({
+      where: {
+        id: playIntent.id
+      },
+      data: {
+        expiresAt: now,
+        windowEndsAt: now
+      }
+    })
+
+    await expirePendingPlayIntentNotifications([playIntent.id])
+  } else {
+    await syncCreatorPlayIntentSummaryMessages([playIntent.id])
+  }
+
+  const refreshedSnapshot = await getCreatorPlayIntentSummarySnapshot(playIntent.id)
+
+  await interaction.update({
+    content: refreshedSnapshot ? buildCreatorPlayIntentSummaryMessage(refreshedSnapshot) : 'This call to play is already closed.',
     components: [buildLinkRow()]
   })
 }

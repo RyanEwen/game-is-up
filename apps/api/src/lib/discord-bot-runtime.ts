@@ -42,6 +42,24 @@ export type DiscordDirectMessageEditResult = {
   error: string | null;
 };
 
+export type DiscordDirectMessageDeletePayload = {
+  channelId: string;
+  messageId: string;
+};
+
+export type DiscordDirectMessageDeleteResult = {
+  channelId: string;
+  messageId: string;
+  status: 'deleted' | 'failed';
+  error: string | null;
+};
+
+export type DiscordChannelMessageSummary = {
+  id: string;
+  timestamp: string;
+  authorId: string | null;
+};
+
 function resolveDiscordBotMode(): DiscordBotMode {
   if (!env.DISCORD_BOT_TOKEN) {
     return 'off'
@@ -109,6 +127,7 @@ export const discordPresenceBotState: DiscordPresenceBotState = {
 }
 
 let discordBotClient: Client | null = null
+let discordBotUserId: string | null | undefined
 
 export function getDiscordBotMode(): DiscordBotMode {
   return discordPresenceBotState.mode
@@ -128,6 +147,7 @@ export function getDiscordBotClient() {
 
 export function setDiscordBotClient(client: Client | null) {
   discordBotClient = client
+  discordBotUserId = client?.user?.id ?? undefined
   syncDiscordPresenceBotGuildIds()
 }
 
@@ -140,6 +160,82 @@ export function getDiscordPresenceBotState() {
     ...discordPresenceBotState,
     guildCount: discordPresenceBotState.guildIds.length
   }
+}
+
+export async function getDiscordBotUserId() {
+  if (discordBotClient?.user?.id) {
+    discordBotUserId = discordBotClient.user.id
+    return discordBotUserId
+  }
+
+  if (discordBotUserId !== undefined) {
+    return discordBotUserId
+  }
+
+  if (!discordBotRest) {
+    discordBotUserId = null
+    return null
+  }
+
+  try {
+    const currentUser = await discordBotRest.get(Routes.user('@me'))
+
+    if (currentUser && typeof currentUser === 'object' && 'id' in currentUser && typeof currentUser.id === 'string') {
+      discordBotUserId = currentUser.id
+      return discordBotUserId
+    }
+  } catch {
+    // Fall through to cache a missing bot identity and let callers skip cleanup gracefully.
+  }
+
+  discordBotUserId = null
+  return null
+}
+
+export async function fetchDiscordChannelMessages(options: {
+  channelId: string;
+  before?: string;
+  limit?: number;
+}): Promise<DiscordChannelMessageSummary[]> {
+  if (!discordBotRest) {
+    return []
+  }
+
+  const query = new URLSearchParams()
+  query.set('limit', String(Math.max(1, Math.min(options.limit ?? 100, 100))))
+
+  if (options.before) {
+    query.set('before', options.before)
+  }
+
+  const response = await discordBotRest.get(`${Routes.channelMessages(options.channelId)}?${query.toString()}`)
+
+  if (!Array.isArray(response)) {
+    return []
+  }
+
+  return response.flatMap((entry) => {
+    if (!entry || typeof entry !== 'object' || !('id' in entry) || typeof entry.id !== 'string') {
+      return []
+    }
+
+    const timestamp = 'timestamp' in entry && typeof entry.timestamp === 'string'
+      ? entry.timestamp
+      : new Date(0).toISOString()
+    const authorId = 'author' in entry
+      && entry.author
+      && typeof entry.author === 'object'
+      && 'id' in entry.author
+      && typeof entry.author.id === 'string'
+      ? entry.author.id
+      : null
+
+    return [{
+      id: entry.id,
+      timestamp,
+      authorId
+    }]
+  })
 }
 
 export async function sendDiscordDirectMessages(messages: DiscordDirectMessagePayload[]): Promise<DiscordDirectMessageSendResult[]> {
@@ -229,6 +325,46 @@ export async function editDiscordDirectMessage(message: DiscordDirectMessageEdit
       messageId: message.messageId,
       status: 'failed',
       error: error instanceof Error ? error.message : 'Unable to edit a Discord DM.'
+    }
+  }
+}
+
+export async function deleteDiscordDirectMessage(message: DiscordDirectMessageDeletePayload): Promise<DiscordDirectMessageDeleteResult> {
+  if (!discordBotRest) {
+    return {
+      channelId: message.channelId,
+      messageId: message.messageId,
+      status: 'failed',
+      error: 'Discord DM deletion needs the bot to be configured.'
+    }
+  }
+
+  try {
+    await discordBotRest.delete(Routes.channelMessage(message.channelId, message.messageId))
+
+    return {
+      channelId: message.channelId,
+      messageId: message.messageId,
+      status: 'deleted',
+      error: null
+    }
+  } catch (error) {
+    const description = error instanceof Error ? error.message : 'Unable to delete a Discord DM.'
+
+    if (/Unknown Message/i.test(description)) {
+      return {
+        channelId: message.channelId,
+        messageId: message.messageId,
+        status: 'deleted',
+        error: null
+      }
+    }
+
+    return {
+      channelId: message.channelId,
+      messageId: message.messageId,
+      status: 'failed',
+      error: description
     }
   }
 }

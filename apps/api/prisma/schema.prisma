@@ -280,6 +280,8 @@ model PlayIntent {
   note           String                  @default("")
   voiceChannelId   String?
   voiceChannelName String?
+  creatorDiscordDmChannelId String?
+  creatorDiscordDmMessageId String?
   targetDiscordServerId String?
   windowStartsAt DateTime
   windowEndsAt   DateTime

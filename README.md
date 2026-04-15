@@ -176,13 +176,15 @@ This repo now treats Prisma migrations as the source of truth for schema changes
 15. Unanswered Discord call-to-play invites and auto-play prompts are now edited in place when they go stale, so users see that the session ended or the observed game activity stopped instead of keeping an outdated call to action.
 16. Scheduled calls to play still notify the target audience immediately when created. At start time, the creator now gets a check-in prompt to confirm whether the plan is still on.
 17. If the creator confirms, users who already accepted get a go-time update and users who never answered get one follow-up reminder. Users who declined are not reminded again.
-18. Discovery-based play-intent visibility can now include both explicit friends and users from the Discord servers you opted into discovery.
-19. Discovery remains based on opted-in shared Discord servers plus explicit in-app friendships. The Discord friend-list import path has been removed.
-20. Discord is still the only sign-in path in this scaffold.
-21. Steam can now be linked as a secondary account for library import only. It does not replace Discord auth or discovery.
-22. Linked-account flows like Discord sign-in and Steam linking return directly to the current web URL after the provider callback completes.
-23. Call-to-play DMs now include a clickable creator Discord mention when available.
-24. Subset call-to-play DMs include game art only for single-game calls to play.
+18. When a call to play is created, the creator also gets a persistent Discord DM summary that is edited as responses come in. In the gateway-owning environment, that summary includes a creator-only Cancel CTP button.
+19. Bot-authored Discord DMs tied to tracked call-to-play and auto-play flows are now swept and deleted after 72 hours, and their stored message references are cleared afterward.
+20. Discovery-based play-intent visibility can now include both explicit friends and users from the Discord servers you opted into discovery.
+21. Discovery remains based on opted-in shared Discord servers plus explicit in-app friendships. The Discord friend-list import path has been removed.
+22. Discord is still the only sign-in path in this scaffold.
+23. Steam can now be linked as a secondary account for library import only. It does not replace Discord auth or discovery.
+24. Linked-account flows like Discord sign-in and Steam linking return directly to the current web URL after the provider callback completes.
+25. Call-to-play DMs now include a clickable creator Discord mention when available.
+26. Subset call-to-play DMs include game art only for single-game calls to play.
 
 ## Steam import setup
 

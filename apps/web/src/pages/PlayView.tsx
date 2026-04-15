@@ -35,8 +35,8 @@ function DiscordAutomationCard({
         <Box>
           <Typography level="title-sm">Automatic call-to-play prompting</Typography>
           <Typography level="body-sm" sx={{ color: 'neutral.400', mt: 0.5 }}>
-            Offer to create a call to play for you automatically when Discord detects you start a game.<br />
-            You will only be prompted if you do not already have an active call, and there is someone in your network who could receive it.
+            Offer to create a call to play automatically when Discord detects that a game from your library is being played.<br />
+            You will only be prompted if you do not already have an active call, and there are matches in your network who can receive it.
           </Typography>
         </Box>
         <Switch

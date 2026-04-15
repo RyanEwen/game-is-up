@@ -171,6 +171,36 @@ function QuickStartCard() {
   )
 }
 
+function WhatIsGamesUpCard() {
+  return (
+    <Card variant="soft" sx={{ p: 3 }}>
+      <Stack spacing={2}>
+        <Typography level="body-md" sx={{ color: 'neutral.200' }}>
+          Game's Up is an app that helps you find people who are into the same games you are, so it is easier to spot overlap before you ask around manually.
+        </Typography>
+        <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5}>
+          <Sheet variant="outlined" sx={{ p: 2, borderRadius: 'lg', flex: 1, backgroundColor: 'rgba(255,255,255,0.02)' }}>
+            <Stack spacing={0.75}>
+              <Typography level="title-sm">Shared-interest app</Typography>
+              <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
+                Build your library, form a network from friends and Discord servers, then find the people who already overlap with your games and availability.
+              </Typography>
+            </Stack>
+          </Sheet>
+          <Sheet variant="outlined" sx={{ p: 2, borderRadius: 'lg', flex: 1, backgroundColor: 'rgba(255,255,255,0.02)' }}>
+            <Stack spacing={0.75}>
+              <Typography level="title-sm">Matchmaking bot</Typography>
+              <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
+                The Discord bot helps you matchmake faster by sending calls to play, follow-up prompts, and invite flows into the places where your group already hangs out.
+              </Typography>
+            </Stack>
+          </Sheet>
+        </Stack>
+      </Stack>
+    </Card>
+  )
+}
+
 function DiscoveryServersSection({
   discordBotInstallUrl,
   availableDiscoveryServers,
@@ -608,6 +638,7 @@ function OverviewViewContent({
           mb={0}
           sections={[
             { id: 'account', label: 'Account' },
+            { id: 'what-is-games-up', label: 'What is Game\'s Up?' },
             { id: 'quick-start', label: 'Quick start', ariaLabel: 'Quick start' },
             ...(isSignedIn ? [{ id: 'your-network', label: 'Network', ariaLabel: 'Your network' }] : [])
           ]}
@@ -621,6 +652,12 @@ function OverviewViewContent({
               onLogout={onLogout}
               onDiscordLogin={onDiscordLogin}
             />
+          </Stack>
+        </Box>
+        <Box id="what-is-games-up" sx={{ scrollMarginTop: sectionScrollMarginTop }}>
+          <Stack spacing={1.5}>
+            <Typography level="h2">What is Game's Up?</Typography>
+            <WhatIsGamesUpCard />
           </Stack>
         </Box>
         <Box id="quick-start" sx={{ scrollMarginTop: sectionScrollMarginTop }}>

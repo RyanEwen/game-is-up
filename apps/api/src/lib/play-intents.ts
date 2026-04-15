@@ -24,7 +24,8 @@ import { toClientGameCoverUrl, toClientAvatarUrl } from './game-media.js'
 import {
   buildPlayIntentDirectMessage,
   buildPlayIntentNotificationComponents,
-  expirePendingPlayIntentNotifications
+  expirePendingPlayIntentNotifications,
+  syncCreatorPlayIntentSummaryMessages
 } from './play-intent-notification-responses.js'
 import { prisma } from './prisma.js'
 import { normalizeTimezoneId } from './timezone-label.js'
@@ -399,6 +400,7 @@ async function getRecipientUserIds(
   overlappingGameIds: string[],
   explicitFriendUserIds: string[],
   targetUserIds: string[],
+  includeSelf = false,
   targetDiscordServerId?: string | null
 ) {
   if (overlappingGameIds.length === 0) {
@@ -429,14 +431,18 @@ async function getRecipientUserIds(
       ? targetUserIds
       : explicitFriendUserIds)
 
-  if (recipientUserIds.length === 0) {
+  const recipientUserIdsWithSelf = includeSelf
+    ? [...new Set([...recipientUserIds, userId])]
+    : recipientUserIds
+
+  if (recipientUserIdsWithSelf.length === 0) {
     return []
   }
 
   const overlappingRecipients = await prisma.userGameInterest.findMany({
     where: {
       userId: {
-        in: recipientUserIds
+        in: recipientUserIdsWithSelf
       },
       gameId: {
         in: overlappingGameIds
@@ -482,6 +488,7 @@ async function getRecipientUserIds(
     activeRecipientIntents
       .filter((intent) => intent.selectionMode === PrismaPlayIntentSelectionMode.ENTIRE_LIBRARY
         || intent.games.some((game) => overlappingGameIdSet.has(game.gameId)))
+      .filter((intent) => !(includeSelf && intent.userId === userId))
       .map((intent) => intent.userId)
   )
 
@@ -495,16 +502,34 @@ export async function getPlayIntentRecipientUserIds(
   targetUserIds: string[] = [],
   targetDiscordServerId?: string | null
 ) {
-  const explicitFriendUserIds = (await prisma.friend.findMany({
-    where: {
-      userId
-    },
-    select: {
-      friendedUserId: true
-    }
-  })).map((friend) => friend.friendedUserId)
+  const [user, explicitFriendUserIds] = await Promise.all([
+    prisma.user.findUnique({
+      where: {
+        id: userId
+      },
+      select: {
+        isAdmin: true
+      }
+    }),
+    prisma.friend.findMany({
+      where: {
+        userId
+      },
+      select: {
+        friendedUserId: true
+      }
+    }).then((friends) => friends.map((friend) => friend.friendedUserId))
+  ])
 
-  return getRecipientUserIds(userId, scope, overlappingGameIds, explicitFriendUserIds, targetUserIds, targetDiscordServerId)
+  return getRecipientUserIds(
+    userId,
+    scope,
+    overlappingGameIds,
+    explicitFriendUserIds,
+    targetUserIds,
+    user?.isAdmin ?? false,
+    targetDiscordServerId
+  )
 }
 
 async function getPlayableLibraryEntries(userId: string) {
@@ -615,7 +640,8 @@ export async function upsertCurrentPlayIntent(
       },
       select: {
         displayName: true,
-        timezoneId: true
+        timezoneId: true,
+        isAdmin: true
       }
     }),
     prisma.friend.findMany({
@@ -744,6 +770,7 @@ export async function upsertCurrentPlayIntent(
     selectedGameIds,
     explicitFriendUserIds,
     targetedFriends.map((friend) => friend.id),
+    sender.isAdmin,
     targetDiscordServer?.id
   )
   const now = new Date()
@@ -866,6 +893,7 @@ export async function upsertCurrentPlayIntent(
   const recipientTimezoneByUserId = new Map(recipientProfiles.map((profile) => [profile.id, profile.timezoneId]))
 
   let activeIntent: ActivePlayIntent | null = null
+  let activeIntentId: string | null = null
   let createdNotifications: Array<{ id: string; userId: string; title: string; body: string }> = []
 
   await prisma.$transaction(async (transaction) => {
@@ -958,6 +986,7 @@ export async function upsertCurrentPlayIntent(
     }
 
     activeIntent = serializeActivePlayIntent(createdIntent)
+    activeIntentId = createdIntent.id
   })
 
   await expirePendingPlayIntentNotifications(supersededIntentIds)
@@ -1078,6 +1107,10 @@ export async function upsertCurrentPlayIntent(
         }
       })))
     }
+  }
+
+  if (activeIntentId) {
+    await syncCreatorPlayIntentSummaryMessages([activeIntentId])
   }
 
   if (!activeIntent) {
