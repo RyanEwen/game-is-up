@@ -936,7 +936,7 @@ export async function upsertCurrentPlayIntent(
           discordUserId: target.discordUserId,
           content: target.content,
           embeds: target.embeds,
-          components: buildPlayIntentNotificationComponents(target.notificationId)
+          components: buildPlayIntentNotificationComponents(target.notificationId, userId)
         }))
       )
       const deliveredTargets = directMessageTargets

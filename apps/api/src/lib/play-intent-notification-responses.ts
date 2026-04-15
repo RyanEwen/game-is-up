@@ -15,11 +15,16 @@ import { env } from './env.js'
 import { prisma } from './prisma.js'
 
 const playIntentNotificationPrefix = 'play-intent-response'
+const playIntentMutePrefix = 'play-intent-mute'
 const scheduledPlayIntentCheckInPrefix = 'scheduled-play-intent-check-in'
 
 type PlayIntentNotificationAction = {
   notificationId: string;
   response: NotificationResponseChoice;
+}
+
+type PlayIntentMuteAction = {
+  creatorUserId: string;
 }
 
 type ScheduledPlayIntentCheckInAction = {
@@ -54,6 +59,15 @@ function buildResponseRow(notificationId: string) {
       .setCustomId(`${playIntentNotificationPrefix}:${notificationId}:decline`)
       .setLabel('Not this time')
       .setStyle(ButtonStyle.Secondary)
+  )
+}
+
+function buildMuteRow(creatorUserId: string) {
+  return new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`${playIntentMutePrefix}:${creatorUserId}`)
+      .setLabel('Mute this player\'s CTPs')
+      .setStyle(ButtonStyle.Danger)
   )
 }
 
@@ -96,10 +110,13 @@ export function buildPlayIntentDirectMessage(
   ].filter((part): part is string => Boolean(part)).join('\n\n')
 }
 
-export function buildPlayIntentNotificationComponents(notificationId: string) {
-  return supportsDiscordInteractiveMessages()
-    ? [buildResponseRow(notificationId), buildLinkRow()]
-    : [buildLinkRow()]
+export function buildPlayIntentNotificationComponents(notificationId: string, creatorUserId?: string) {
+  const rows = [buildResponseRow(notificationId)]
+  if (creatorUserId) {
+    rows.push(buildMuteRow(creatorUserId))
+  }
+  rows.push(buildLinkRow())
+  return supportsDiscordInteractiveMessages() ? rows : [buildLinkRow()]
 }
 
 export function buildScheduledPlayIntentCheckInComponents(notificationId: string) {
@@ -209,6 +226,18 @@ function parseAction(customId: string): PlayIntentNotificationAction | null {
   return null
 }
 
+function parseMuteAction(customId: string): PlayIntentMuteAction | null {
+  const parts = customId.split(':')
+
+  if (parts.length !== 2 || parts[0] !== playIntentMutePrefix || !parts[1]) {
+    return null
+  }
+
+  return {
+    creatorUserId: parts[1]
+  }
+}
+
 function parseScheduledCheckInAction(customId: string): ScheduledPlayIntentCheckInAction | null {
   const parts = customId.split(':')
 
@@ -270,7 +299,11 @@ function buildCreatorDeclineNotification(notification: {
 }
 
 export function isPlayIntentNotificationCustomId(customId: string) {
-  return customId.startsWith(`${playIntentNotificationPrefix}:`)
+  return customId.startsWith(`${playIntentNotificationPrefix}:`) || customId.startsWith(`${playIntentMutePrefix}:`)
+}
+
+export function isPlayIntentMuteCustomId(customId: string) {
+  return customId.startsWith(`${playIntentMutePrefix}:`)
 }
 
 export function isScheduledPlayIntentCheckInCustomId(customId: string) {
@@ -715,7 +748,7 @@ export async function handleScheduledPlayIntentCheckInInteraction(interaction: B
         discordUserId,
         content: buildPlayIntentDirectMessage(createdNotification.title, createdNotification.body, creatorDiscordUserId),
         components: createdNotification.type === NotificationType.SCHEDULED_PLAY_INTENT_REMINDER
-          ? buildPlayIntentNotificationComponents(createdNotification.id)
+          ? buildPlayIntentNotificationComponents(createdNotification.id, playIntent.userId)
           : [buildLinkRow()]
       }
     })
@@ -763,6 +796,12 @@ export async function handleScheduledPlayIntentCheckInInteraction(interaction: B
 }
 
 export async function handlePlayIntentNotificationInteraction(interaction: ButtonInteraction) {
+  const muteAction = parseMuteAction(interaction.customId)
+  if (muteAction) {
+    await handlePlayIntentMuteInteraction(interaction, muteAction)
+    return
+  }
+
   const action = parseAction(interaction.customId)
 
   if (!action) {
@@ -999,6 +1038,69 @@ export async function handlePlayIntentNotificationInteraction(interaction: Butto
       : previousChoice === NotificationResponseChoice.JOIN
         ? 'You are still marked as joining this call to play.'
         : buildJoinAcceptedMessage(playIntent.user.displayName),
+    components: [buildLinkRow()]
+  })
+}
+
+async function handlePlayIntentMuteInteraction(interaction: ButtonInteraction, action: PlayIntentMuteAction) {
+  const identity = await prisma.userIdentity.findUnique({
+    where: {
+      provider_providerUserId: {
+        provider: AuthProvider.DISCORD,
+        providerUserId: interaction.user.id
+      }
+    },
+    select: {
+      userId: true
+    }
+  })
+
+  if (!identity) {
+    await interaction.update({
+      content: 'Unable to verify your account. Please sign in to Game\'s Up.',
+      components: [buildLinkRow()]
+    })
+    return
+  }
+
+  const creatorUser = await prisma.user.findUnique({
+    where: {
+      id: action.creatorUserId
+    },
+    select: {
+      displayName: true,
+      id: true
+    }
+  })
+
+  if (!creatorUser) {
+    await interaction.update({
+      content: 'This player was not found.',
+      components: [buildLinkRow()]
+    })
+    return
+  }
+
+  const existingMute = await prisma.playIntentMute.findUnique({
+    where: {
+      userId_mutedUserId: {
+        userId: identity.userId,
+        mutedUserId: action.creatorUserId
+      }
+    }
+  })
+
+  if (!existingMute) {
+    await prisma.playIntentMute.create({
+      data: {
+        userId: identity.userId,
+        mutedUserId: action.creatorUserId
+      }
+    })
+  }
+
+  await interaction.update({
+    content: `Muted ${creatorUser.displayName}'s CTPs. You won't see their calls to play in your feed.`,
     components: [buildLinkRow()]
   })
 }
