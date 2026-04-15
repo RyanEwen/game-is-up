@@ -185,6 +185,8 @@ function PlayViewContent({
   maxPlayIntentEndAtInput,
   playIntentTimingHelperText,
   playIntentTimingHasError,
+  playIntentTitle,
+  onPlayIntentTitleChange,
   playIntentNote,
   onPlayIntentNoteChange,
   playIntentVoiceChannelId,
@@ -246,6 +248,8 @@ function PlayViewContent({
   maxPlayIntentEndAtInput: string;
   playIntentTimingHelperText: string;
   playIntentTimingHasError: boolean;
+  playIntentTitle: string;
+  onPlayIntentTitleChange: (value: string) => void;
   playIntentNote: string;
   onPlayIntentNoteChange: (value: string) => void;
   playIntentVoiceChannelId: string;
@@ -384,6 +388,8 @@ function PlayViewContent({
               maxPlayIntentEndAtInput={maxPlayIntentEndAtInput}
               playIntentTimingHelperText={playIntentTimingHelperText}
               playIntentTimingHasError={playIntentTimingHasError}
+              playIntentTitle={playIntentTitle}
+              onPlayIntentTitleChange={onPlayIntentTitleChange}
               playIntentNote={playIntentNote}
               onPlayIntentNoteChange={onPlayIntentNoteChange}
               playIntentVoiceChannelId={playIntentVoiceChannelId}

@@ -57,6 +57,8 @@ export function PlayIntentComposerCard({
   maxPlayIntentEndAtInput,
   playIntentTimingHelperText,
   playIntentTimingHasError,
+  playIntentTitle,
+  onPlayIntentTitleChange,
   playIntentNote,
   onPlayIntentNoteChange,
   playIntentVoiceChannelId,
@@ -102,6 +104,8 @@ export function PlayIntentComposerCard({
   maxPlayIntentEndAtInput: string;
   playIntentTimingHelperText: string;
   playIntentTimingHasError: boolean;
+  playIntentTitle: string;
+  onPlayIntentTitleChange: (value: string) => void;
   playIntentNote: string;
   onPlayIntentNoteChange: (value: string) => void;
   playIntentVoiceChannelId: string;
@@ -244,6 +248,23 @@ export function PlayIntentComposerCard({
             Add at least one game to your library before posting a call to play.
           </Typography>
         ) : null}
+
+        <Stack spacing={1}>
+          <Typography level="title-sm">Title</Typography>
+          <Input
+            placeholder="Call to play"
+            value={playIntentTitle}
+            onChange={(event) => onPlayIntentTitleChange(event.target.value)}
+            slotProps={{
+              input: {
+                maxLength: 80
+              }
+            }}
+          />
+          <Typography level="body-xs" sx={{ color: 'neutral.300' }}>
+            Leave this blank to use Call to play.
+          </Typography>
+        </Stack>
 
         <Stack spacing={1}>
           <Typography level="title-sm">What are you up for?</Typography>

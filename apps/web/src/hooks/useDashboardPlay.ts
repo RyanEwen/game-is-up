@@ -85,6 +85,8 @@ export type DashboardPlayViewProps = {
   maxPlayIntentEndAtInput: string;
   playIntentTimingHelperText: string;
   playIntentTimingHasError: boolean;
+  playIntentTitle: string;
+  onPlayIntentTitleChange: (value: string) => void;
   playIntentNote: string;
   onPlayIntentNoteChange: (value: string) => void;
   playIntentVoiceChannelId: string;
@@ -134,6 +136,7 @@ export function useDashboardPlay({
   const [playIntentCustomDurationInput, setPlayIntentCustomDurationInput] = useState(String(defaultPlayIntentDurationMinutes))
   const [playIntentStartAtInput, setPlayIntentStartAtInput] = useState(buildDefaultScheduledStartAtInput)
   const [playIntentEndAtInput, setPlayIntentEndAtInput] = useState(() => buildPlayIntentEndTimeInputValue(defaultPlayIntentDurationMinutes))
+  const [playIntentTitle, setPlayIntentTitle] = useState('')
   const [playIntentNote, setPlayIntentNote] = useState('')
   const [playIntentVoiceChannelId, setPlayIntentVoiceChannelId] = useState('')
   const [playIntentVoiceChannelName, setPlayIntentVoiceChannelName] = useState('')
@@ -368,6 +371,7 @@ export function useDashboardPlay({
       setPlayIntentCustomDurationInput(String(defaultPlayIntentDurationMinutes))
       setPlayIntentStartAtInput(buildDefaultScheduledStartAtInput())
       setPlayIntentEndAtInput(buildPlayIntentEndTimeInputValue(defaultPlayIntentDurationMinutes))
+      setPlayIntentTitle('')
       setPlayIntentNote('')
       setPlayIntentVoiceChannelId('')
       setPlayIntentVoiceChannelName('')
@@ -395,6 +399,7 @@ export function useDashboardPlay({
     setPlayIntentCustomDurationInput(String(durationMinutes))
     setPlayIntentStartAtInput(toLocalDateTimeInputValue(activePlayIntent.windowStartsAt))
     setPlayIntentEndAtInput(toLocalDateTimeInputValue(activePlayIntent.windowEndsAt))
+    setPlayIntentTitle(activePlayIntent.title)
     setPlayIntentNote(activePlayIntent.note)
     setPlayIntentVoiceChannelId(activePlayIntent.voiceChannelId ?? '')
     setPlayIntentVoiceChannelName(activePlayIntent.voiceChannelName ?? '')
@@ -496,6 +501,7 @@ export function useDashboardPlay({
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
+          title: playIntentTitle.trim() || undefined,
           selectionMode: playIntentSelectionMode,
           notifyScope: playIntentNotifyScope,
           ...schedulingPayload,
@@ -553,6 +559,7 @@ export function useDashboardPlay({
     loadDashboard,
     parsedPlayIntentEndAt,
     playIntentDurationMinutes,
+    playIntentTitle,
     playIntentNote,
     playIntentVoiceChannelId,
     playIntentVoiceChannelName,
@@ -715,6 +722,11 @@ export function useDashboardPlay({
     setPlayIntentNotice(null)
   }, [setPlayIntentNotice])
 
+  const handlePlayIntentTitleChange = useCallback((value: string) => {
+    setPlayIntentTitle(value)
+    setPlayIntentNotice(null)
+  }, [setPlayIntentNotice])
+
   const handlePlayIntentVoiceChannelSelect = useCallback((channelId: string | null) => {
     if (!channelId) {
       setPlayIntentVoiceChannelId('')
@@ -857,6 +869,8 @@ export function useDashboardPlay({
     maxPlayIntentEndAtInput,
     playIntentTimingHelperText,
     playIntentTimingHasError,
+    playIntentTitle,
+    onPlayIntentTitleChange: handlePlayIntentTitleChange,
     playIntentNote,
     onPlayIntentNoteChange: handlePlayIntentNoteChange,
     playIntentVoiceChannelId,

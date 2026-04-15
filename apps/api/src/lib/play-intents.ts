@@ -148,10 +148,12 @@ function summarizeTitles(titles: string[]) {
   return 'one of the following games'
 }
 
-function buildHeadline(selectionMode: PlayIntentSelectionMode, selectedTitles: string[]) {
-  return selectionMode === 'library'
-    ? 'Open to anything in my library right now'
-    : `Looking to play ${summarizeTitles(selectedTitles)}`
+const defaultPlayIntentTitle = 'Call to play'
+
+function normalizePlayIntentTitle(title: string | null | undefined) {
+  const normalizedTitle = title?.trim() ?? ''
+
+  return normalizedTitle.length > 0 ? normalizedTitle : defaultPlayIntentTitle
 }
 
 function buildNotificationCopy(
@@ -752,7 +754,7 @@ export async function upsertCurrentPlayIntent(
     }
   })).map((intent) => intent.id)
   const { startsAt, durationMinutes, endsAt } = resolvePlayIntentWindow(payload, now)
-  const headline = buildHeadline(payload.selectionMode, selectedTitles)
+  const headline = normalizePlayIntentTitle(payload.title)
   const note = payload.note?.trim() ?? ''
   const [latestSupersededIntent, priorRecipientNotifications] = supersededIntentIds.length > 0
     ? await Promise.all([
@@ -827,7 +829,7 @@ export async function upsertCurrentPlayIntent(
   const isMeaningfulUpdate = updatedFields.length > 0 && priorNotifiedRecipientUserIds.size > 0
   const recipientUserIdsForNotifications = recipientUserIds.filter((recipientUserId) => {
     if (!isMeaningfulUpdate) {
-      return true
+      return !priorNotifiedRecipientUserIds.has(recipientUserId)
     }
 
     const priorStatus = priorRecipientStatusByUserId.get(recipientUserId)

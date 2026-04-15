@@ -269,6 +269,7 @@ export const playIntentRecipientResponseResultSchema = z.object({
 })
 
 export const upsertPlayIntentRequestSchema = z.object({
+  title: z.string().trim().max(80).optional(),
   selectionMode: playIntentSelectionModeSchema,
   notifyScope: playIntentNotifyScopeSchema,
   note: z.string().trim().max(140).optional(),
