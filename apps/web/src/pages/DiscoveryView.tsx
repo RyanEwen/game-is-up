@@ -160,7 +160,7 @@ function DiscoveryViewContent({
       />
 
       {trendingGames.length > 0 ? (
-        <Box sx={{ mt: 2 }}>
+        <Box sx={{ mt: 1, mb: 2 }}>
           <LibraryTrendingRow
             trendingGames={trendingGames}
             addingLibraryGameId={addingLibraryGameId}
