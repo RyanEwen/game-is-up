@@ -80,7 +80,7 @@ export function PersonCard({
             detailLines={[
               person.contactHint,
               person.mutualServers.length > 0 ? `Mutual servers: ${person.mutualServers.join(', ')}` : 'Visible to you through your friends list or network.',
-              `Shared games visible: ${person.games.length}`,
+              `Matching games: ${person.games.length}`,
               `Timezone: ${person.timezoneLabel}`,
               person.usualAvailability ? `Usually plays: ${person.usualAvailability}` : ''
             ]}

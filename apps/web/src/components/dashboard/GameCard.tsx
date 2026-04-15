@@ -234,12 +234,13 @@ export function GameCard({
                           handle={player.handle}
                           canManage={canManage}
                           isPending={pendingFriendId === player.id}
-                          supportingText={player.platformLabels.join(', ')}
                           detailLines={[
                             player.contactHint,
-                            player.mutualServers.length > 0 ? `Mutual servers: ${player.mutualServers.join(', ')}` : '',
+                            player.mutualServers.length > 0 ? `Mutual servers: ${player.mutualServers.join(', ')}` : 'Visible to you through your friends list or network.',
+                            `Matching game: ${game.title}`,
                             player.availability && player.availabilitySource === 'game-specific' ? `Availability: ${player.availability}` : ''
                           ]}
+                          large={!compact}
                           onToggleFriend={onToggleFriend}
                         />
                       </Box>

@@ -44,6 +44,14 @@ export function PlayIntentCard({
 }) {
   const isLibraryWide = intent.selectionMode === 'library'
   const viewerResponseChoice = intent.viewerResponseChoice
+  const actionButtonSx = {
+    borderRadius: 'xl',
+    minHeight: '2rem',
+    px: 1.25,
+    fontSize: 'xs',
+    fontWeight: 'md',
+    lineHeight: 1
+  } as const
 
   return (
     <Card
@@ -72,28 +80,31 @@ export function PlayIntentCard({
             {formatNotifyScopeLabel(intent.notifyScope)}
           </Chip>
           <Button
-            variant={viewerResponseChoice === 'join' ? 'solid' : 'outlined'}
+            variant={viewerResponseChoice === 'join' ? 'soft' : 'outlined'}
             color={viewerResponseChoice === 'join' ? 'success' : 'neutral'}
             size="sm"
             disabled={!canAddToLibrary || responsePending}
             onClick={() => void onRespondToIntent(intent.id, 'join')}
+            sx={actionButtonSx}
           >
             I am in
           </Button>
           <Button
-            variant={viewerResponseChoice === 'decline' ? 'solid' : 'outlined'}
-            color={viewerResponseChoice === 'decline' ? 'danger' : 'neutral'}
+            variant={viewerResponseChoice === 'decline' ? 'soft' : 'outlined'}
+            color={viewerResponseChoice === 'decline' ? 'warning' : 'neutral'}
             size="sm"
             disabled={!canAddToLibrary || responsePending}
             onClick={() => void onRespondToIntent(intent.id, 'decline')}
+            sx={actionButtonSx}
           >
             Pass
           </Button>
           <Button
-            variant="outlined"
-            color="neutral"
+            variant={isMuted ? 'soft' : 'outlined'}
+            color={isMuted ? 'warning' : 'neutral'}
             size="sm"
             onClick={() => void (isMuted ? onUnmuteCreator(intent.user.id) : onMuteCreator(intent.user.id))}
+            sx={actionButtonSx}
           >
             {isMuted ? 'Unmute creator' : 'Mute creator'}
           </Button>
@@ -112,9 +123,11 @@ export function PlayIntentCard({
         </Typography>
       ) : null}
 
-      <Typography level="body-md" sx={{ mb: 2, color: 'neutral.200' }}>
-        {intent.note}
-      </Typography>
+      {intent.note.trim() ? (
+        <Typography level="body-md" sx={{ mb: 2, color: 'neutral.200' }}>
+          {intent.note}
+        </Typography>
+      ) : null}
 
       {intent.voiceChannelName ? (
         <Typography level="body-sm" sx={{ mb: 1.5, color: 'neutral.300' }}>
