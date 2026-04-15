@@ -100,13 +100,12 @@ function OwnActivePlayIntentCard({
               {platform}
             </Chip>
           ))}
+          {activePlayIntent.joinCount > 0 ? (
+            <Chip color="success" variant="soft">
+              {activePlayIntent.joinCount} {activePlayIntent.joinCount === 1 ? 'person' : 'people'} in
+            </Chip>
+          ) : null}
         </Stack>
-
-        {activePlayIntent.note ? (
-          <Typography level="body-md" sx={{ color: 'neutral.100' }}>
-            {activePlayIntent.note}
-          </Typography>
-        ) : null}
 
         {activePlayIntent.voiceChannelName ? (
           <Typography level="body-sm" sx={{ color: 'neutral.200' }}>

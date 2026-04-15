@@ -85,7 +85,7 @@ function buildResponseRow(notificationId: string) {
   return new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
     new ButtonBuilder()
       .setCustomId(`${playIntentNotificationPrefix}:${notificationId}:join`)
-      .setLabel('I am in')
+      .setLabel('I\'m interested')
       .setStyle(ButtonStyle.Primary),
     new ButtonBuilder()
       .setCustomId(`${playIntentNotificationPrefix}:${notificationId}:pass`)
@@ -132,7 +132,8 @@ export function buildPlayIntentDirectMessage(
   title: string,
   body: string,
   creatorDiscordUserId?: string | null,
-  voiceChannel?: { channelId: string | null; channelName: string | null; recipientSharesServer: boolean } | null
+  voiceChannel?: { channelId: string | null; channelName: string | null; recipientSharesServer: boolean } | null,
+  joinCount?: number
 ) {
   const bodyWithCreatorMention = creatorDiscordUserId
     ? `${body} Posted by <@${creatorDiscordUserId}>.`
@@ -144,10 +145,15 @@ export function buildPlayIntentDirectMessage(
       : `Voice channel: ${voiceChannel.channelName}`
     : null
 
+  const joinCountLine = joinCount && joinCount > 0
+    ? `${joinCount} ${joinCount === 1 ? 'person is' : 'people are'} showing interest.`
+    : null
+
   return [
     `**${title}**`,
     bodyWithCreatorMention,
     voiceChannelLine,
+    joinCountLine,
     supportsDiscordInteractiveMessages()
       ? 'Are you planning to join this call to play?'
       : 'Open Game\'s Up to answer this call to play.',
@@ -194,7 +200,7 @@ function buildJoinAcceptedMessage(creatorDisplayName: string) {
 function buildPassAcceptedMessage() {
   return [
     'Got it. I marked this call to play as passed for now.',
-    "You can still switch to \"I am in\" later."
+    "You can still switch to \"I'm interested\" later."
   ].join('\n\n')
 }
 
@@ -636,12 +642,13 @@ export async function expirePendingPlayIntentNotifications(playIntentIds: string
         in: playIntentIds
       },
       type: {
-        in: [NotificationType.FRIEND_PLAYING, NotificationType.SCHEDULED_PLAY_INTENT_REMINDER]
+        in: [NotificationType.FRIEND_PLAYING, NotificationType.SCHEDULED_PLAY_INTENT_REMINDER, NotificationType.SCHEDULED_PLAY_INTENT_CHECK_IN]
       },
       respondedAt: null
     },
     select: {
       id: true,
+      type: true,
       discordDmChannelId: true,
       discordDmMessageId: true,
       game: {
@@ -677,12 +684,16 @@ export async function expirePendingPlayIntentNotifications(playIntentIds: string
       return
     }
 
+    const expiredContent = notification.type === NotificationType.SCHEDULED_PLAY_INTENT_CHECK_IN
+      ? buildExpiredMessage('This call to play expired before you confirmed.')
+      : buildExpiredMessage(
+          buildSessionEndedReason(notification.playIntent?.user.displayName ?? 'This player', notification.game?.title ?? null)
+        )
+
     await editDiscordDirectMessage({
       channelId: notification.discordDmChannelId,
       messageId: notification.discordDmMessageId,
-      content: buildExpiredMessage(
-        buildSessionEndedReason(notification.playIntent?.user.displayName ?? 'This player', notification.game?.title ?? null)
-      ),
+      content: expiredContent,
       components: [buildLinkRow()]
     })
   }))
@@ -918,7 +929,8 @@ export async function handleScheduledPlayIntentCheckInInteraction(interaction: B
       : []
 
     return {
-      createdNotifications: [...confirmedNotifications, ...reminderNotifications]
+      createdNotifications: [...confirmedNotifications, ...reminderNotifications],
+      priorAcceptedCount: acceptedUserIds.length
     }
   })
 
@@ -967,7 +979,13 @@ export async function handleScheduledPlayIntentCheckInInteraction(interaction: B
       return {
         notificationId: createdNotification.id,
         discordUserId,
-        content: buildPlayIntentDirectMessage(createdNotification.title, createdNotification.body, creatorDiscordUserId),
+        content: buildPlayIntentDirectMessage(
+          createdNotification.title,
+          createdNotification.body,
+          creatorDiscordUserId,
+          null,
+          createdNotification.type === NotificationType.SCHEDULED_PLAY_INTENT_REMINDER ? result.priorAcceptedCount : undefined
+        ),
         components: createdNotification.type === NotificationType.SCHEDULED_PLAY_INTENT_REMINDER
           ? buildPlayIntentNotificationComponents(createdNotification.id, playIntent.userId, playIntent.user.displayName)
           : [buildLinkRow()]

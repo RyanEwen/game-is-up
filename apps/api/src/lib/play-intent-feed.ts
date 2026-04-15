@@ -116,7 +116,19 @@ export async function buildPlayIntentFeed(viewerId?: string | null): Promise<Pla
           game: true
         }
       },
-      platforms: true
+      platforms: true,
+      _count: {
+        select: {
+          notifications: {
+            where: {
+              responseChoice: NotificationResponseChoice.JOIN,
+              type: {
+                in: [NotificationType.FRIEND_PLAYING, NotificationType.SCHEDULED_PLAY_INTENT_REMINDER] as NotificationType[]
+              }
+            }
+          }
+        }
+      }
     },
     orderBy: {
       windowStartsAt: 'asc'
@@ -216,6 +228,7 @@ export async function buildPlayIntentFeed(viewerId?: string | null): Promise<Pla
         voiceChannelId: intent.voiceChannelId,
         voiceChannelName: intent.voiceChannelName,
         viewerResponseChoice: recipientResponseByPlayIntentId.get(intent.id) ?? null,
+        joinCount: intent._count.notifications,
         availabilityWindow: {
           label: formatAvailabilityLabel(intent.user.displayName, intent.windowStartsAt, now),
           startsAt: intent.windowStartsAt.toISOString(),

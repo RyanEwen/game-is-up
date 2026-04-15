@@ -18,7 +18,9 @@ export async function sweepExpiredPlayIntentNotifications() {
       },
       notifications: {
         some: {
-          type: NotificationType.FRIEND_PLAYING,
+          type: {
+            in: [NotificationType.FRIEND_PLAYING, NotificationType.SCHEDULED_PLAY_INTENT_CHECK_IN]
+          },
           respondedAt: null
         }
       }

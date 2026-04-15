@@ -93,6 +93,11 @@ export function PlayIntentCard({
           <Chip color="neutral" variant="outlined">
             {formatNotifyScopeLabel(intent.notifyScope)}
           </Chip>
+          {intent.joinCount > 0 ? (
+            <Chip color="success" variant="soft">
+              {intent.joinCount} {intent.joinCount === 1 ? 'person' : 'people'} in
+            </Chip>
+          ) : null}
           <Button
             variant={viewerResponseChoice === 'join' ? 'soft' : 'outlined'}
             color={viewerResponseChoice === 'join' ? 'primary' : 'neutral'}
@@ -101,7 +106,7 @@ export function PlayIntentCard({
             onClick={() => void onRespondToIntent(intent.id, 'join')}
             sx={actionButtonSx}
           >
-            I am in
+            I'm interested
           </Button>
           <Button
             variant={viewerResponseChoice === 'decline' ? 'soft' : 'outlined'}

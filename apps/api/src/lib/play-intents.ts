@@ -47,8 +47,20 @@ const activePlayIntentInclude = {
         }
       }
     }
+  },
+  _count: {
+    select: {
+      notifications: {
+        where: {
+          responseChoice: NotificationResponseChoice.JOIN,
+          type: {
+            in: [NotificationType.FRIEND_PLAYING, NotificationType.SCHEDULED_PLAY_INTENT_REMINDER] as NotificationType[]
+          }
+        }
+      }
+    }
   }
-} as const
+}
 
 function toClientSelectionMode(selectionMode: PrismaPlayIntentSelectionMode): PlayIntentSelectionMode {
   return selectionMode === PrismaPlayIntentSelectionMode.ENTIRE_LIBRARY ? 'library' : 'subset'
@@ -313,6 +325,7 @@ function serializeActivePlayIntent(intent: {
   platforms: { platformLabel: string }[];
   games: { game: { id: string; title: string; coverUrl: string | null } }[];
   targetFriends: { friendUser: { id: string; handle: string; displayName: string; avatarUrl: string | null } }[];
+  _count: { notifications: number };
 }): ActivePlayIntent {
   const primaryPlatform = intent.platforms[0]?.platformLabel ?? 'Unknown'
 
@@ -338,7 +351,8 @@ function serializeActivePlayIntent(intent: {
     voiceChannelName: intent.voiceChannelName,
     windowStartsAt: intent.windowStartsAt.toISOString(),
     windowEndsAt: intent.windowEndsAt.toISOString(),
-    expiresAt: intent.expiresAt.toISOString()
+    expiresAt: intent.expiresAt.toISOString(),
+    joinCount: intent._count.notifications
   }
 }
 
@@ -468,7 +482,9 @@ export async function getCurrentPlayIntent(userId: string) {
       },
       notifications: {
         some: {
-          type: NotificationType.FRIEND_PLAYING,
+          type: {
+            in: [NotificationType.FRIEND_PLAYING, NotificationType.SCHEDULED_PLAY_INTENT_CHECK_IN]
+          },
           respondedAt: null
         }
       }

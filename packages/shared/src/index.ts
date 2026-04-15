@@ -219,6 +219,7 @@ export const playIntentPreviewSchema = z.object({
   voiceChannelId: z.string().min(1).nullable(),
   voiceChannelName: z.string().min(1).nullable(),
   viewerResponseChoice: z.enum(['join', 'decline']).nullable().default(null),
+  joinCount: z.number().int().min(0),
   availabilityWindow: availabilityWindowSchema
 })
 
@@ -240,7 +241,8 @@ export const activePlayIntentSchema = z.object({
   voiceChannelName: z.string().min(1).nullable(),
   windowStartsAt: z.string().datetime(),
   windowEndsAt: z.string().datetime(),
-  expiresAt: z.string().datetime()
+  expiresAt: z.string().datetime(),
+  joinCount: z.number().int().min(0)
 })
 
 export const playIntentCurrentResponseSchema = z.object({
