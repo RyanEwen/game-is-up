@@ -299,7 +299,7 @@ export function GameCard({
                     {!compact && player.mutualServers.length > 0 ? (
                       <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
                         {player.mutualServers.map((serverName: string) => (
-                          <Chip key={serverName} size="sm" variant="soft" color="warning">
+                          <Chip key={serverName} size="sm" variant="soft" color="neutral">
                             {serverName}
                           </Chip>
                         ))}

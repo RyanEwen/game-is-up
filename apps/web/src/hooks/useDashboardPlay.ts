@@ -84,9 +84,6 @@ export type DashboardPlayViewProps = {
   playIntentNote: string;
   onPlayIntentNoteChange: (value: string) => void;
   playIntentVoiceChannelId: string;
-  onPlayIntentVoiceChannelIdChange: (value: string) => void;
-  playIntentVoiceChannelName: string;
-  onPlayIntentVoiceChannelNameChange: (value: string) => void;
   playIntentVoiceChannelOptions: DiscordVoiceChannel[];
   onPlayIntentVoiceChannelSelect: (channelId: string | null) => void;
   playIntentSaving: boolean;
@@ -682,16 +679,6 @@ export function useDashboardPlay({
     setPlayIntentNotice(null)
   }, [setPlayIntentNotice])
 
-  const handlePlayIntentVoiceChannelIdChange = useCallback((value: string) => {
-    setPlayIntentVoiceChannelId(value)
-    setPlayIntentNotice(null)
-  }, [setPlayIntentNotice])
-
-  const handlePlayIntentVoiceChannelNameChange = useCallback((value: string) => {
-    setPlayIntentVoiceChannelName(value)
-    setPlayIntentNotice(null)
-  }, [setPlayIntentNotice])
-
   const handlePlayIntentVoiceChannelSelect = useCallback((channelId: string | null) => {
     if (!channelId) {
       setPlayIntentVoiceChannelId('')
@@ -834,9 +821,6 @@ export function useDashboardPlay({
     playIntentNote,
     onPlayIntentNoteChange: handlePlayIntentNoteChange,
     playIntentVoiceChannelId,
-    onPlayIntentVoiceChannelIdChange: handlePlayIntentVoiceChannelIdChange,
-    playIntentVoiceChannelName,
-    onPlayIntentVoiceChannelNameChange: handlePlayIntentVoiceChannelNameChange,
     playIntentVoiceChannelOptions,
     onPlayIntentVoiceChannelSelect: handlePlayIntentVoiceChannelSelect,
     playIntentSaving,

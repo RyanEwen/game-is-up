@@ -149,7 +149,8 @@ export const discordVoiceChannelSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
   serverId: z.string().min(1),
-  serverName: z.string().min(1)
+  serverName: z.string().min(1),
+  serverIconUrl: z.string().url().nullable()
 })
 
 export const discordVoiceChannelsResponseSchema = z.object({

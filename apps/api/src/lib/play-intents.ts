@@ -117,7 +117,7 @@ function summarizeTitles(titles: string[]) {
     return `${titles[0]} or ${titles[1]}`
   }
 
-  return `${titles[0]} or ${titles.length - 1} other options`
+  return 'one of the following games'
 }
 
 function buildHeadline(selectionMode: PlayIntentSelectionMode, selectedTitles: string[]) {
@@ -587,20 +587,36 @@ export async function upsertCurrentPlayIntent(
 
   const selectedGameIds = selectedEntries.map((entry) => entry.gameId)
   const selectedTitles = selectedEntries.map((entry) => entry.game.title)
-  const dmGameEmbeds = payload.selectionMode === 'subset' && selectedEntries.length === 1
-    ? selectedEntries
-      .map((entry) => ({
-        title: entry.game.title,
-        coverUrl: toClientGameCoverUrl(entry.game.coverUrl)
-      }))
-      .filter((entry): entry is { title: string; coverUrl: string } => Boolean(entry.coverUrl))
-      .slice(0, 1)
-      .map((entry, index, allEntries) => ({
-        title: allEntries.length > 1 ? `Possible game ${index + 1}: ${entry.title}` : `Possible game: ${entry.title}`,
-        image: {
-          url: entry.coverUrl
+  const dmGameEmbeds = payload.selectionMode === 'subset' && selectedEntries.length > 0 && selectedEntries.length < 12
+    ? (() => {
+        const gamesWithCover = selectedEntries
+          .map((entry) => ({
+            title: entry.game.title,
+            coverUrl: toClientGameCoverUrl(entry.game.coverUrl)
+          }))
+          .filter((entry): entry is { title: string; coverUrl: string } => Boolean(entry.coverUrl))
+
+        if (gamesWithCover.length === 0) {
+          return []
         }
-      }))
+
+        if (gamesWithCover.length === 1) {
+          const firstGame = gamesWithCover[0]!
+          return [{
+            title: `Game: ${firstGame.title}`,
+            image: { url: firstGame.coverUrl }
+          }]
+        }
+
+        // Multiple games: bullet list with first game's cover as embed image
+        const firstGame = gamesWithCover[0]!
+        const bulletList = gamesWithCover.map((game) => `• ${game.title}`).join('\n')
+        return [{
+          title: `${gamesWithCover.length} games`,
+          description: bulletList,
+          image: { url: firstGame.coverUrl }
+        }]
+      })()
     : []
   const platformLabels = dedupePlatformLabels(
     selectedEntries.flatMap((entry) => entry.platforms.map((platform) => platform.platformLabel))
@@ -900,7 +916,7 @@ export async function upsertCurrentPlayIntent(
       notificationId: string;
       discordUserId: string;
       content: string;
-      embeds: { title: string; image: { url: string } }[] | undefined;
+      embeds: { title: string; image: { url: string }; description?: string }[] | undefined;
     }
     const directMessageTargets = createdNotifications
       .map((notification) => {
@@ -936,7 +952,7 @@ export async function upsertCurrentPlayIntent(
           discordUserId: target.discordUserId,
           content: target.content,
           embeds: target.embeds,
-          components: buildPlayIntentNotificationComponents(target.notificationId, userId)
+          components: buildPlayIntentNotificationComponents(target.notificationId, userId, sender.displayName)
         }))
       )
       const deliveredTargets = directMessageTargets

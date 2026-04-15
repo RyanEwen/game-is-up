@@ -92,7 +92,7 @@ function OwnActivePlayIntentCard({
           <Chip color="primary" variant="soft">
             {formatPlayIntentSelectionModeLabel(activePlayIntent.selectionMode)}
           </Chip>
-          <Chip color="warning" variant="outlined">
+          <Chip color="neutral" variant="outlined">
             {formatNotifyScopeLabel(activePlayIntent.notifyScope)}
           </Chip>
           {activePlayIntent.platforms.map((platform) => (
@@ -175,9 +175,6 @@ function PlayViewContent({
   playIntentNote,
   onPlayIntentNoteChange,
   playIntentVoiceChannelId,
-  onPlayIntentVoiceChannelIdChange,
-  playIntentVoiceChannelName,
-  onPlayIntentVoiceChannelNameChange,
   playIntentVoiceChannelOptions,
   onPlayIntentVoiceChannelSelect,
   playIntentSaving,
@@ -236,9 +233,6 @@ function PlayViewContent({
   playIntentNote: string;
   onPlayIntentNoteChange: (value: string) => void;
   playIntentVoiceChannelId: string;
-  onPlayIntentVoiceChannelIdChange: (value: string) => void;
-  playIntentVoiceChannelName: string;
-  onPlayIntentVoiceChannelNameChange: (value: string) => void;
   playIntentVoiceChannelOptions: DiscordVoiceChannel[];
   onPlayIntentVoiceChannelSelect: (channelId: string | null) => void;
   playIntentSaving: boolean;
@@ -374,9 +368,6 @@ function PlayViewContent({
               playIntentNote={playIntentNote}
               onPlayIntentNoteChange={onPlayIntentNoteChange}
               playIntentVoiceChannelId={playIntentVoiceChannelId}
-              onPlayIntentVoiceChannelIdChange={onPlayIntentVoiceChannelIdChange}
-              playIntentVoiceChannelName={playIntentVoiceChannelName}
-              onPlayIntentVoiceChannelNameChange={onPlayIntentVoiceChannelNameChange}
               playIntentVoiceChannelOptions={playIntentVoiceChannelOptions}
               onPlayIntentVoiceChannelSelect={onPlayIntentVoiceChannelSelect}
               playIntentSaving={playIntentSaving}

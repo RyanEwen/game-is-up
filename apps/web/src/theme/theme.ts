@@ -27,6 +27,18 @@ export const theme = extendTheme({
           800: '#0f5444',
           900: '#0d463a'
         },
+        warning: {
+          50: '#f2f9ff',
+          100: '#d6ecff',
+          200: '#add8ff',
+          300: '#7cc0ff',
+          400: '#4aa5ff',
+          500: '#1f84ff',
+          600: '#0f6ad8',
+          700: '#0c4f9f',
+          800: '#0a3973',
+          900: '#07264c'
+        },
         neutral: {
           50: '#f8fafc',
           100: '#d9e0ea',

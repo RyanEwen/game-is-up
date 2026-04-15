@@ -10,6 +10,20 @@ const selectedGameGridSx = {
   gap: 1.25
 } as const
 
+const compactActionLabelSx = {
+  display: 'inline',
+  '@container (max-width: 280px)': {
+    display: 'none'
+  }
+} as const
+
+const compactActionSymbolSx = {
+  display: 'none',
+  '@container (max-width: 280px)': {
+    display: 'inline'
+  }
+} as const
+
 function getGameMonogram(title: string) {
   return title
     .split(/\s+/)
@@ -76,12 +90,12 @@ export function PlayIntentCard({
           <Chip color="primary" variant="soft">
             {isLibraryWide ? 'Any game in library' : 'Selected games'}
           </Chip>
-          <Chip color="warning" variant="outlined">
+          <Chip color="neutral" variant="outlined">
             {formatNotifyScopeLabel(intent.notifyScope)}
           </Chip>
           <Button
             variant={viewerResponseChoice === 'join' ? 'soft' : 'outlined'}
-            color={viewerResponseChoice === 'join' ? 'success' : 'neutral'}
+            color={viewerResponseChoice === 'join' ? 'primary' : 'neutral'}
             size="sm"
             disabled={!canAddToLibrary || responsePending}
             onClick={() => void onRespondToIntent(intent.id, 'join')}
@@ -91,7 +105,7 @@ export function PlayIntentCard({
           </Button>
           <Button
             variant={viewerResponseChoice === 'decline' ? 'soft' : 'outlined'}
-            color={viewerResponseChoice === 'decline' ? 'warning' : 'neutral'}
+            color="neutral"
             size="sm"
             disabled={!canAddToLibrary || responsePending}
             onClick={() => void onRespondToIntent(intent.id, 'decline')}
@@ -101,7 +115,7 @@ export function PlayIntentCard({
           </Button>
           <Button
             variant={isMuted ? 'soft' : 'outlined'}
-            color={isMuted ? 'warning' : 'neutral'}
+            color="neutral"
             size="sm"
             onClick={() => void (isMuted ? onUnmuteCreator(intent.user.id) : onMuteCreator(intent.user.id))}
             sx={actionButtonSx}
@@ -173,7 +187,7 @@ export function PlayIntentCard({
                   height: '100%'
                 }}
               >
-                <Stack spacing={1.5} sx={{ height: '100%' }}>
+                <Stack spacing={1.5} sx={{ height: '100%', containerType: 'inline-size' }}>
                   <Stack direction="row" spacing={1.25} alignItems="flex-start">
                     <Box
                       sx={{
@@ -243,26 +257,46 @@ export function PlayIntentCard({
                     </Stack>
                   </Stack>
 
-                  <Button
-                    size="sm"
-                    variant={isInLibrary ? 'soft' : 'solid'}
-                    color={isInLibrary ? 'neutral' : 'success'}
-                    disabled={!canAddToLibrary || isInLibrary || isAddingToLibrary}
-                    onClick={() => void onAddToLibrary(libraryQuickAddGame)}
-                    sx={{
-                      mt: 'auto',
-                      borderRadius: 'xl',
-                      justifyContent: 'center'
-                    }}
-                  >
-                    {!canAddToLibrary
-                      ? 'Sign in to add to library'
-                      : isInLibrary
-                        ? 'Already in your library'
-                        : isAddingToLibrary
-                          ? 'Adding...'
-                          : 'Add to library'}
-                  </Button>
+                  {!isInLibrary ? (
+                    <Button
+                      size="sm"
+                      variant="soft"
+                      color="success"
+                      disabled={!canAddToLibrary || isAddingToLibrary}
+                      onClick={() => void onAddToLibrary(libraryQuickAddGame)}
+                      sx={{
+                        mt: 'auto',
+                        ml: 'auto',
+                        flexShrink: 0,
+                        alignSelf: 'flex-end',
+                        borderRadius: 'xl',
+                        minHeight: '1.75rem',
+                        minWidth: { xs: '1.75rem', sm: 'auto' },
+                        px: { xs: 0.625, sm: 1.25 },
+                        whiteSpace: 'nowrap',
+                        fontSize: 'xs',
+                        fontWeight: 'md',
+                        lineHeight: 1
+                      }}
+                    >
+                      {!canAddToLibrary ? (
+                        <>
+                          <Box component="span" sx={compactActionLabelSx}>Sign in to add</Box>
+                          <Box component="span" sx={compactActionSymbolSx}>?</Box>
+                        </>
+                      ) : isAddingToLibrary ? (
+                        <>
+                          <Box component="span" sx={compactActionLabelSx}>Adding...</Box>
+                          <Box component="span" sx={compactActionSymbolSx}>...</Box>
+                        </>
+                      ) : (
+                        <>
+                          <Box component="span" sx={compactActionLabelSx}>Add to library</Box>
+                          <Box component="span" sx={compactActionSymbolSx}>Add</Box>
+                        </>
+                      )}
+                    </Button>
+                  ) : null}
                 </Stack>
               </Sheet>
             )

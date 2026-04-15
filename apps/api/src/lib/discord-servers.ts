@@ -282,6 +282,7 @@ export async function buildSelectedDiscordVoiceChannels(userId: string): Promise
     name: string;
     serverId: string;
     serverName: string;
+    serverIconUrl: string | null;
   }>;
 }> {
   const memberships = await prisma.discordServerMembership.findMany({
@@ -292,7 +293,8 @@ export async function buildSelectedDiscordVoiceChannels(userId: string): Promise
       server: {
         select: {
           id: true,
-          name: true
+          name: true,
+          iconHash: true
         }
       }
     }
@@ -330,7 +332,8 @@ export async function buildSelectedDiscordVoiceChannels(userId: string): Promise
         id: channel.id,
         name: channel.name,
         serverId: response.serverId,
-        serverName: response.serverName
+        serverName: response.serverName,
+        serverIconUrl: toClientAvatarUrl(buildDiscordServerIconUrl(response.serverId, membership.server.iconHash))
       }))
     } catch {
       return []

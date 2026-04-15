@@ -55,9 +55,6 @@ export function PlayIntentComposerCard({
   playIntentNote,
   onPlayIntentNoteChange,
   playIntentVoiceChannelId,
-  onPlayIntentVoiceChannelIdChange,
-  playIntentVoiceChannelName,
-  onPlayIntentVoiceChannelNameChange,
   playIntentVoiceChannelOptions,
   onPlayIntentVoiceChannelSelect,
   playIntentSaving,
@@ -100,9 +97,6 @@ export function PlayIntentComposerCard({
   playIntentNote: string;
   onPlayIntentNoteChange: (value: string) => void;
   playIntentVoiceChannelId: string;
-  onPlayIntentVoiceChannelIdChange: (value: string) => void;
-  playIntentVoiceChannelName: string;
-  onPlayIntentVoiceChannelNameChange: (value: string) => void;
   playIntentVoiceChannelOptions: DiscordVoiceChannel[];
   onPlayIntentVoiceChannelSelect: (channelId: string | null) => void;
   playIntentSaving: boolean;
@@ -129,6 +123,27 @@ export function PlayIntentComposerCard({
       : playIntentStartMode === 'scheduled'
         ? 'Schedule call to play'
         : 'Post call to play'
+    const voiceChannelsByServer = playIntentVoiceChannelOptions.reduce<Array<{
+      serverId: string;
+      serverName: string;
+      serverIconUrl: string | null;
+      channels: DiscordVoiceChannel[];
+    }>>((groups, channel) => {
+      const existingGroup = groups.find((group) => group.serverId === channel.serverId)
+
+      if (existingGroup) {
+        existingGroup.channels.push(channel)
+        return groups
+      }
+
+      groups.push({
+        serverId: channel.serverId,
+        serverName: channel.serverName,
+        serverIconUrl: channel.serverIconUrl,
+        channels: [channel]
+      })
+      return groups
+    }, [])
 
   return (
     <>
@@ -418,24 +433,25 @@ export function PlayIntentComposerCard({
           <Select
             value={playIntentVoiceChannelId || null}
             placeholder={playIntentVoiceChannelOptions.length > 0 ? 'Pick a channel' : 'No selected Discord server channels available'}
-            onChange={(_event, value) => onPlayIntentVoiceChannelSelect(value)}
+            onChange={(_event, value) => onPlayIntentVoiceChannelSelect(value && value.length > 0 ? value : null)}
           >
-            {playIntentVoiceChannelOptions.map((channel) => (
-              <Option key={channel.id} value={channel.id}>
-                {channel.serverName} / {channel.name}
-              </Option>
-            ))}
+            <Option value="">No voice channel</Option>
+            {voiceChannelsByServer.flatMap((group) => [
+              <Option key={`server-${group.serverId}`} value={`server-${group.serverId}`} disabled>
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <Avatar src={group.serverIconUrl ?? undefined} alt={group.serverName} size="sm" variant="soft" />
+                  <Typography level="body-sm" sx={{ color: 'neutral.300', fontWeight: 'lg' }}>
+                    {group.serverName}
+                  </Typography>
+                </Stack>
+              </Option>,
+              ...group.channels.map((channel) => (
+                <Option key={channel.id} value={channel.id}>
+                  {channel.name}
+                </Option>
+              ))
+            ])}
           </Select>
-          <Input
-            placeholder="Voice channel ID (for clickable mentions)"
-            value={playIntentVoiceChannelId}
-            onChange={(event) => onPlayIntentVoiceChannelIdChange(event.target.value)}
-          />
-          <Input
-            placeholder="Voice channel name"
-            value={playIntentVoiceChannelName}
-            onChange={(event) => onPlayIntentVoiceChannelNameChange(event.target.value)}
-          />
         </Stack>
       </DialogContent>
       <DashboardModalActionBar

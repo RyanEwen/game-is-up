@@ -44,7 +44,7 @@ export function LibraryTrendingRow({
             <Button
               key={game.gameId}
               variant="soft"
-              color={game.alreadyInLibrary ? 'neutral' : 'warning'}
+              color={game.alreadyInLibrary ? 'neutral' : 'primary'}
               size="sm"
               disabled={game.alreadyInLibrary || addingLibraryGameId === game.gameId}
               onClick={() => void onAddToLibrary({

@@ -94,11 +94,23 @@ function buildResponseRow(notificationId: string) {
   )
 }
 
-function buildMuteRow(creatorUserId: string) {
+function buildMuteLabel(creatorDisplayName: string) {
+  const normalized = creatorDisplayName.trim()
+  const baseLabel = normalized ? `Mute ${normalized}` : 'Mute creator'
+
+  // Discord button labels are limited to 80 characters.
+  if (baseLabel.length <= 80) {
+    return baseLabel
+  }
+
+  return `${baseLabel.slice(0, 77)}...`
+}
+
+function buildMuteRow(creatorUserId: string, creatorDisplayName: string) {
   return new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
     new ButtonBuilder()
       .setCustomId(`${playIntentMutePrefix}:${creatorUserId}`)
-      .setLabel('Mute this player\'s CTPs')
+      .setLabel(buildMuteLabel(creatorDisplayName))
       .setStyle(ButtonStyle.Danger)
   )
 }
@@ -122,6 +134,10 @@ export function buildPlayIntentDirectMessage(
   creatorDiscordUserId?: string | null,
   voiceChannel?: { channelId: string | null; channelName: string | null; recipientSharesServer: boolean } | null
 ) {
+  const bodyWithCreatorMention = creatorDiscordUserId
+    ? `${body} Posted by <@${creatorDiscordUserId}>.`
+    : body
+
   const voiceChannelLine = voiceChannel?.channelName
     ? voiceChannel.channelId && voiceChannel.recipientSharesServer
       ? `Voice channel: <#${voiceChannel.channelId}>`
@@ -130,8 +146,7 @@ export function buildPlayIntentDirectMessage(
 
   return [
     `**${title}**`,
-    body,
-    creatorDiscordUserId ? `Creator on Discord: <@${creatorDiscordUserId}>` : null,
+    bodyWithCreatorMention,
     voiceChannelLine,
     supportsDiscordInteractiveMessages()
       ? 'Are you planning to join this call to play?'
@@ -142,10 +157,14 @@ export function buildPlayIntentDirectMessage(
   ].filter((part): part is string => Boolean(part)).join('\n\n')
 }
 
-export function buildPlayIntentNotificationComponents(notificationId: string, creatorUserId?: string) {
+export function buildPlayIntentNotificationComponents(
+  notificationId: string,
+  creatorUserId?: string,
+  creatorDisplayName?: string
+) {
   const rows = [buildResponseRow(notificationId)]
-  if (creatorUserId) {
-    rows.push(buildMuteRow(creatorUserId))
+  if (creatorUserId && creatorDisplayName) {
+    rows.push(buildMuteRow(creatorUserId, creatorDisplayName))
   }
   rows.push(buildLinkRow())
   return supportsDiscordInteractiveMessages() ? rows : [buildLinkRow()]
@@ -950,7 +969,7 @@ export async function handleScheduledPlayIntentCheckInInteraction(interaction: B
         discordUserId,
         content: buildPlayIntentDirectMessage(createdNotification.title, createdNotification.body, creatorDiscordUserId),
         components: createdNotification.type === NotificationType.SCHEDULED_PLAY_INTENT_REMINDER
-          ? buildPlayIntentNotificationComponents(createdNotification.id, playIntent.userId)
+          ? buildPlayIntentNotificationComponents(createdNotification.id, playIntent.userId, playIntent.user.displayName)
           : [buildLinkRow()]
       }
     })
@@ -1087,7 +1106,7 @@ export async function handlePlayIntentNotificationInteraction(interaction: Butto
 
   await interaction.update({
     content: result.content,
-    components: buildPlayIntentNotificationComponents(notification.id, playIntent.user.id)
+    components: buildPlayIntentNotificationComponents(notification.id, playIntent.user.id, playIntent.user.displayName)
   })
 }
 

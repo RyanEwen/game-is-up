@@ -138,11 +138,11 @@ export function PersonCard({
 
       <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: 'wrap' }}>
         {person.mutualServers.map((serverName) => (
-          <Chip key={serverName} size="sm" color="warning" variant="soft">
+          <Chip key={serverName} size="sm" color="neutral" variant="soft">
             {serverName}
           </Chip>
         ))}
-        <Chip variant="outlined" color="warning">
+        <Chip variant="outlined" color="neutral">
           {person.timezoneLabel}
         </Chip>
         {person.usualAvailability ? (
