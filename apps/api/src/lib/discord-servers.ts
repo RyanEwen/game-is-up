@@ -410,7 +410,15 @@ export async function sendDiscordServerInvites(options: {
       },
       select: {
         displayName: true,
-        handle: true
+        handle: true,
+        identities: {
+          where: {
+            provider: PrismaAuthProvider.DISCORD
+          },
+          select: {
+            providerUserId: true
+          }
+        }
       }
     })
   ])
@@ -457,6 +465,7 @@ export async function sendDiscordServerInvites(options: {
           serverId: options.serverId,
           memberIds: inviteableMemberIds,
           inviterLabel: formatDiscordInviteSender(user?.displayName, user?.handle),
+          inviterDiscordUserId: user?.identities[0]?.providerUserId ?? null,
           inviteUrl: options.inviteUrl
         })
       : {

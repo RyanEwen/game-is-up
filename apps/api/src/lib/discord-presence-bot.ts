@@ -576,6 +576,7 @@ export async function sendDiscordGuildInvites(options: {
   serverId: string;
   memberIds: string[];
   inviterLabel: string;
+  inviterDiscordUserId?: string | null;
   inviteUrl: string;
 }): Promise<{
   serverId: string;
@@ -586,11 +587,12 @@ export async function sendDiscordGuildInvites(options: {
     throw new Error('Discord invite sending needs the bot to be configured.')
   }
 
-  const { serverId, memberIds, inviterLabel, inviteUrl } = options
+  const { serverId, memberIds, inviterLabel, inviterDiscordUserId, inviteUrl } = options
   const memberList = await listDiscordGuildMembers(serverId)
   const memberById = new Map(memberList.members.map((member) => [member.id, member]))
   const results: DiscordGuildInviteSendResult[] = []
-  const inviteMessage = `${inviterLabel} invited you to Game's Up from ${memberList.serverName}.\n\nJoin here: ${inviteUrl}`
+  const inviteSender = inviterDiscordUserId ? `<@${inviterDiscordUserId}>` : inviterLabel
+  const inviteMessage = `${inviteSender} invited you to Game's Up from ${memberList.serverName}.\n\nJoin here: ${inviteUrl}`
   const inviteTargets = [...new Set(memberIds)]
     .map((memberId) => {
       const knownMember = memberById.get(memberId)

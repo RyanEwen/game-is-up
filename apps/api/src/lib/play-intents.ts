@@ -1063,7 +1063,7 @@ export async function upsertCurrentPlayIntent(
         return {
           notificationId: notification.id,
           discordUserId,
-          content: buildPlayIntentDirectMessage(notification.title, notification.body, creatorDiscordUserId, voiceChannel),
+          content: buildPlayIntentDirectMessage(notification.title, notification.body, creatorDiscordUserId, sender.displayName, voiceChannel),
           embeds: dmGameEmbeds.length > 0
             ? dmGameEmbeds
             : undefined
