@@ -96,7 +96,7 @@ playIntentRouter.put('/me', async (request, response, next) => {
 
     if (payload.includeSelf && !requestUser?.isAdmin) {
       response.status(403).json({
-        error: 'Admin access is required to send a call to play to yourself for testing.'
+        error: 'Admin access is required to target yourself with a test call to play.'
       })
       return
     }

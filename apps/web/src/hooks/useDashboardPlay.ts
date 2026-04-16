@@ -54,8 +54,6 @@ export type DashboardPlayViewProps = {
   closePlayIntentComposer: () => void;
   canPostPlayIntent: boolean;
   playIntentFilteredAudienceMessage: string | null;
-  playIntentIncludeSelf: boolean;
-  onPlayIntentIncludeSelfChange: (nextValue: boolean) => void;
   playIntentNotifyScope: PlayIntentNotifyScope;
   onPlayIntentNotifyScopeChange: (scope: PlayIntentNotifyScope) => void;
   playIntentFriendOptions: Array<Pick<DiscoveryPerson, 'id' | 'handle' | 'displayName' | 'avatarUrl'>>;
@@ -97,6 +95,7 @@ export type DashboardPlayViewProps = {
   onPlayIntentVoiceChannelSelect: (channelId: string | null) => void;
   playIntentSaving: boolean;
   onSavePlayIntent: () => Promise<void>;
+  onSavePlayIntentToSelf: () => Promise<void>;
   onClearPlayIntent: () => Promise<void>;
   playIntentPreviews: PlayIntentPreview[];
   playIntentResponsePendingIntentId: string | null;
@@ -139,7 +138,6 @@ export function useDashboardPlay({
 }) {
   const [playIntentSelectionMode, setPlayIntentSelectionMode] = useState<PlayIntentSelectionMode>('library')
   const [playIntentNotifyScope, setPlayIntentNotifyScope] = useState<PlayIntentNotifyScope>('network')
-  const [playIntentIncludeSelf, setPlayIntentIncludeSelf] = useState(false)
   const [playIntentStartMode, setPlayIntentStartMode] = useState<PlayIntentStartMode>('now')
   const [playIntentTimingMode, setPlayIntentTimingMode] = useState<PlayIntentTimingMode>('preset')
   const [playIntentDurationMinutes, setPlayIntentDurationMinutes] = useState(defaultPlayIntentDurationMinutes)
@@ -186,7 +184,7 @@ export function useDashboardPlay({
       : playIntentNotifyScope === 'specific-friends'
         ? targetedRecipientsForCurrentSelection
         : []
-  const currentRecipientCount = currentRecipients.length + (isAdmin && playIntentIncludeSelf ? 1 : 0)
+  const currentRecipientCount = currentRecipients.length
   const currentAudienceLabel = playIntentNotifyScope === 'network'
     ? 'your friends list or network'
     : playIntentNotifyScope === 'friends-only'
@@ -437,7 +435,9 @@ export function useDashboardPlay({
     setPlayIntentNotice(null)
   }, [setPlayIntentNotice])
 
-  const handleSavePlayIntent = useCallback(async () => {
+  const savePlayIntent = useCallback(async (selfTargetOnly: boolean) => {
+    const shouldSelfTarget = selfTargetOnly && isAdmin
+
     if (!canPostPlayIntent) {
       setPlayIntentNotice({
         tone: 'danger',
@@ -486,7 +486,7 @@ export function useDashboardPlay({
       return
     }
 
-    if (playIntentFilteredAudienceMessage) {
+    if (!shouldSelfTarget && playIntentFilteredAudienceMessage) {
       setPlayIntentNotice({
         tone: 'danger',
         message: playIntentFilteredAudienceMessage
@@ -515,7 +515,7 @@ export function useDashboardPlay({
           title: playIntentTitle.trim() || undefined,
           selectionMode: playIntentSelectionMode,
           notifyScope: playIntentNotifyScope,
-          includeSelf: isAdmin && playIntentIncludeSelf,
+          includeSelf: shouldSelfTarget,
           ...schedulingPayload,
           ...timingPayload,
           note: playIntentNote.trim() || undefined,
@@ -544,17 +544,22 @@ export function useDashboardPlay({
 
       const parsedResponse = upsertPlayIntentResponseSchema.parse(responseBody)
       const isScheduledIntent = new Date(parsedResponse.activeIntent.windowStartsAt).getTime() > Date.now() + 60 * 1000
-      setActivePlayIntent(parsedResponse.activeIntent)
-      setIsPlayIntentComposerOpen(false)
-      setPlayIntentNotice({
-        tone: 'success',
-        message: isScheduledIntent
+      const successMessage = shouldSelfTarget
+        ? isScheduledIntent
+          ? 'Your test call to play is scheduled. Only you are in the target audience.'
+          : 'Your test call to play is live. Only you are in the target audience.'
+        : isScheduledIntent
           ? parsedResponse.notifiedFriendCount > 0
             ? `Your call to play is scheduled. ${parsedResponse.notifiedFriendCount} ${parsedResponse.notifiedFriendCount === 1 ? 'person with a matching game was' : 'people with matching games were'} notified.`
             : 'Your call to play is scheduled. No Discord DMs were delivered yet.'
           : parsedResponse.notifiedFriendCount > 0
             ? `Your call to play is live. ${parsedResponse.notifiedFriendCount} ${parsedResponse.notifiedFriendCount === 1 ? 'person with a matching game was' : 'people with matching games were'} notified.`
             : 'Your call to play is live. No Discord DMs were delivered yet.'
+      setActivePlayIntent(parsedResponse.activeIntent)
+      setIsPlayIntentComposerOpen(false)
+      setPlayIntentNotice({
+        tone: 'success',
+        message: successMessage
       })
       void loadDashboard()
     } catch (error) {
@@ -581,7 +586,6 @@ export function useDashboardPlay({
     playIntentStartValidationMessage,
     playIntentFilteredAudienceMessage,
     isAdmin,
-    playIntentIncludeSelf,
     playIntentTimingMode,
     playIntentTimingValidationMessage,
     parsedPlayIntentStartAt,
@@ -592,6 +596,14 @@ export function useDashboardPlay({
     setActivePlayIntent,
     setPlayIntentNotice
   ])
+
+  const handleSavePlayIntent = useCallback(async () => {
+    await savePlayIntent(false)
+  }, [savePlayIntent])
+
+  const handleSavePlayIntentToSelf = useCallback(async () => {
+    await savePlayIntent(true)
+  }, [savePlayIntent])
 
   const handleClearPlayIntent = useCallback(async () => {
     setPlayIntentSaving(true)
@@ -852,8 +864,6 @@ export function useDashboardPlay({
     closePlayIntentComposer,
     canPostPlayIntent,
     playIntentFilteredAudienceMessage,
-    playIntentIncludeSelf,
-    onPlayIntentIncludeSelfChange: setPlayIntentIncludeSelf,
     playIntentNotifyScope,
     onPlayIntentNotifyScopeChange: handlePlayIntentNotifyScopeChange,
     playIntentFriendOptions,
@@ -895,6 +905,7 @@ export function useDashboardPlay({
     onPlayIntentVoiceChannelSelect: handlePlayIntentVoiceChannelSelect,
     playIntentSaving,
     onSavePlayIntent: handleSavePlayIntent,
+    onSavePlayIntentToSelf: handleSavePlayIntentToSelf,
     onClearPlayIntent: handleClearPlayIntent,
     playIntentPreviews,
     playIntentResponsePendingIntentId,

@@ -1,4 +1,4 @@
-import { Avatar, Button, Card, Checkbox, Chip, DialogContent, DialogTitle, Input, Option, Select, Stack, Typography } from '@mui/joy'
+import { Avatar, Button, Card, Chip, DialogContent, DialogTitle, Input, Option, Select, Stack, Typography } from '@mui/joy'
 import type {
   ActivePlayIntent,
   DiscordServerPreference,
@@ -26,8 +26,6 @@ export function PlayIntentComposerCard({
   isAdmin,
   canPostPlayIntent,
   playIntentFilteredAudienceMessage,
-  playIntentIncludeSelf,
-  onPlayIntentIncludeSelfChange,
   playIntentNotifyScope,
   onPlayIntentNotifyScopeChange,
   playIntentFriendOptions,
@@ -69,6 +67,7 @@ export function PlayIntentComposerCard({
   onPlayIntentVoiceChannelSelect,
   playIntentSaving,
   onSavePlayIntent,
+  onSavePlayIntentToSelf,
   onCancel,
   onClearPlayIntent
 }: {
@@ -76,8 +75,6 @@ export function PlayIntentComposerCard({
   isAdmin: boolean;
   canPostPlayIntent: boolean;
   playIntentFilteredAudienceMessage: string | null;
-  playIntentIncludeSelf: boolean;
-  onPlayIntentIncludeSelfChange: (nextValue: boolean) => void;
   playIntentNotifyScope: PlayIntentNotifyScope;
   onPlayIntentNotifyScopeChange: (scope: PlayIntentNotifyScope) => void;
   playIntentFriendOptions: Array<Pick<DiscoveryPerson, 'id' | 'handle' | 'displayName' | 'avatarUrl'>>;
@@ -119,6 +116,7 @@ export function PlayIntentComposerCard({
   onPlayIntentVoiceChannelSelect: (channelId: string | null) => void;
   playIntentSaving: boolean;
   onSavePlayIntent: () => Promise<void>;
+  onSavePlayIntentToSelf: () => Promise<void>;
   onCancel: () => void;
   onClearPlayIntent: () => Promise<void>;
 }) {
@@ -141,7 +139,8 @@ export function PlayIntentComposerCard({
       : playIntentStartMode === 'scheduled'
         ? 'Schedule call to play'
         : 'Post call to play'
-    const voiceChannelsByServer = playIntentVoiceChannelOptions.reduce<Array<{
+  const saveToSelfButtonLabel = activePlayIntent ? 'Update for me only' : 'Post to me only'
+  const voiceChannelsByServer = playIntentVoiceChannelOptions.reduce<Array<{
       serverId: string;
       serverName: string;
       serverIconUrl: string | null;
@@ -332,20 +331,6 @@ export function PlayIntentComposerCard({
           <Typography level="body-xs" sx={{ color: 'neutral.300' }}>
             {formatNotifyScopeDescription(playIntentNotifyScope)}
           </Typography>
-          {isAdmin ? (
-            <Card variant="outlined" sx={{ p: 1.5 }}>
-              <Stack spacing={0.75}>
-                <Checkbox
-                  checked={playIntentIncludeSelf}
-                  onChange={(event) => onPlayIntentIncludeSelfChange(event.target.checked)}
-                  label="Also send this call to play to me for testing"
-                />
-                <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
-                  Admin-only debug option. This adds your own account as a recipient so you can see the member-facing DM flow.
-                </Typography>
-              </Stack>
-            </Card>
-          ) : null}
           {playIntentNotifyScope === 'specific-friends' ? (
             playIntentFriendOptions.length > 0 ? (
               <Stack spacing={1}>
@@ -534,16 +519,31 @@ export function PlayIntentComposerCard({
         </Stack>
       </DialogContent>
       <DashboardModalActionBar
-        secondaryAction={activePlayIntent ? (
-          <Button
-            variant="outlined"
-            color="neutral"
-            disabled={playIntentSaving}
-            onClick={() => void onClearPlayIntent()}
-            sx={{ minHeight: 46 }}
-          >
-            Clear call to play
-          </Button>
+        secondaryAction={isAdmin || activePlayIntent ? (
+          <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+            {isAdmin ? (
+              <Button
+                variant="soft"
+                color="primary"
+                disabled={playIntentSaving || !canPostPlayIntent}
+                onClick={() => void onSavePlayIntentToSelf()}
+                sx={{ minHeight: 46 }}
+              >
+                {saveToSelfButtonLabel}
+              </Button>
+            ) : null}
+            {activePlayIntent ? (
+              <Button
+                variant="outlined"
+                color="neutral"
+                disabled={playIntentSaving}
+                onClick={() => void onClearPlayIntent()}
+                sx={{ minHeight: 46 }}
+              >
+                Clear call to play
+              </Button>
+            ) : null}
+          </Stack>
         ) : undefined}
         cancelAction={(
           <Button size="lg" variant="outlined" color="neutral" disabled={playIntentSaving} onClick={onCancel} sx={{ minHeight: 52 }}>

@@ -37,7 +37,7 @@ function DiscordAutomationCard({
         <Box>
           <Typography level="title-sm">Automatic call-to-play prompting</Typography>
           <Typography level="body-sm" sx={{ color: 'neutral.400', mt: 0.5 }}>
-            Offer to create a call to play automatically when Discord detects that a game from your library is being played.<br />
+            Allow the bot to offer to create a call to play when it detects that a game from your library is being played.<br />
             You will only be prompted if you do not already have an active call, and there are matches in your network who can receive it.
           </Typography>
         </Box>
@@ -187,8 +187,6 @@ function PlayViewContent({
   closePlayIntentComposer,
   canPostPlayIntent,
   playIntentFilteredAudienceMessage,
-  playIntentIncludeSelf,
-  onPlayIntentIncludeSelfChange,
   playIntentNotifyScope,
   onPlayIntentNotifyScopeChange,
   playIntentFriendOptions,
@@ -230,6 +228,7 @@ function PlayViewContent({
   onPlayIntentVoiceChannelSelect,
   playIntentSaving,
   onSavePlayIntent,
+  onSavePlayIntentToSelf,
   onClearPlayIntent,
   playIntentPreviews,
   playIntentResponsePendingIntentId,
@@ -261,8 +260,6 @@ function PlayViewContent({
   closePlayIntentComposer: () => void;
   canPostPlayIntent: boolean;
   playIntentFilteredAudienceMessage: string | null;
-  playIntentIncludeSelf: boolean;
-  onPlayIntentIncludeSelfChange: (nextValue: boolean) => void;
   playIntentNotifyScope: PlayIntentNotifyScope;
   onPlayIntentNotifyScopeChange: (scope: PlayIntentNotifyScope) => void;
   playIntentFriendOptions: Array<Pick<DiscoveryPerson, 'id' | 'handle' | 'displayName' | 'avatarUrl'>>;
@@ -304,6 +301,7 @@ function PlayViewContent({
   onPlayIntentVoiceChannelSelect: (channelId: string | null) => void;
   playIntentSaving: boolean;
   onSavePlayIntent: () => Promise<void>;
+  onSavePlayIntentToSelf: () => Promise<void>;
   onClearPlayIntent: () => Promise<void>;
   playIntentPreviews: PlayIntentPreview[];
   playIntentResponsePendingIntentId: string | null;
@@ -425,8 +423,6 @@ function PlayViewContent({
               isAdmin={isAdmin}
               canPostPlayIntent={canPostPlayIntent}
               playIntentFilteredAudienceMessage={playIntentFilteredAudienceMessage}
-              playIntentIncludeSelf={playIntentIncludeSelf}
-              onPlayIntentIncludeSelfChange={onPlayIntentIncludeSelfChange}
               playIntentNotifyScope={playIntentNotifyScope}
               onPlayIntentNotifyScopeChange={onPlayIntentNotifyScopeChange}
               playIntentFriendOptions={playIntentFriendOptions}
@@ -468,6 +464,7 @@ function PlayViewContent({
               onPlayIntentVoiceChannelSelect={onPlayIntentVoiceChannelSelect}
               playIntentSaving={playIntentSaving}
               onSavePlayIntent={onSavePlayIntent}
+              onSavePlayIntentToSelf={onSavePlayIntentToSelf}
               onCancel={closePlayIntentComposer}
               onClearPlayIntent={onClearPlayIntent}
             />

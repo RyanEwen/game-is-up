@@ -402,7 +402,7 @@ async function getRecipientUserIds(
   overlappingGameIds: string[],
   explicitFriendUserIds: string[],
   targetUserIds: string[],
-  includeSelf = false,
+  selfAudienceMode: 'exclude' | 'append' | 'only' = 'exclude',
   targetDiscordServerId?: string | null
 ) {
   if (overlappingGameIds.length === 0) {
@@ -433,9 +433,11 @@ async function getRecipientUserIds(
       ? targetUserIds
       : explicitFriendUserIds)
 
-  const recipientUserIdsWithSelf = includeSelf
-    ? [...new Set([...recipientUserIds, userId])]
-    : recipientUserIds
+  const recipientUserIdsWithSelf = selfAudienceMode === 'only'
+    ? [userId]
+    : selfAudienceMode === 'append'
+      ? [...new Set([...recipientUserIds, userId])]
+      : recipientUserIds
 
   if (recipientUserIdsWithSelf.length === 0) {
     return []
@@ -490,7 +492,7 @@ async function getRecipientUserIds(
     activeRecipientIntents
       .filter((intent) => intent.selectionMode === PrismaPlayIntentSelectionMode.ENTIRE_LIBRARY
         || intent.games.some((game) => overlappingGameIdSet.has(game.gameId)))
-      .filter((intent) => !(includeSelf && intent.userId === userId))
+      .filter((intent) => !(selfAudienceMode !== 'exclude' && intent.userId === userId))
       .map((intent) => intent.userId)
   )
 
@@ -529,7 +531,7 @@ export async function getPlayIntentRecipientUserIds(
     overlappingGameIds,
     explicitFriendUserIds,
     targetUserIds,
-    user?.isAdmin ?? false,
+    user?.isAdmin ? 'append' : 'exclude',
     targetDiscordServerId
   )
 }
@@ -557,7 +559,7 @@ export async function getPlayIntentRecipientUserIdsForDebug(options: {
     options.overlappingGameIds,
     explicitFriendUserIds,
     options.targetUserIds ?? [],
-    options.includeSelf ?? false,
+    options.includeSelf ? 'append' : 'exclude',
     options.targetDiscordServerId
   )
 }
@@ -806,7 +808,7 @@ export async function upsertCurrentPlayIntent(
     selectedGameIds,
     explicitFriendUserIds,
     targetedFriends.map((friend) => friend.id),
-    payload.includeSelf && sender.isAdmin,
+    payload.includeSelf && sender.isAdmin ? 'only' : 'exclude',
     targetDiscordServer?.id
   )
   const now = new Date()

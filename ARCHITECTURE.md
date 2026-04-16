@@ -59,6 +59,8 @@ Scheduled calls to play now add a second-stage check-in flow. The audience is st
 
 Creators also receive a persistent Discord DM summary for each live call to play. That summary is edited in place as recipient responses change, and in the gateway-owning environment it can expose creator-only actions such as canceling the call directly from Discord.
 
+Admin users also have a self-only test path in the Play composer. That path still creates the normal creator summary DM, but it overrides recipient selection so the audience-facing notification flow targets only the creator instead of combining the creator with the selected audience.
+
 Notification and auto-play prompt rows also store the Discord DM message reference when the bot delivers an interactive DM. That allows the API to edit stale bot prompts in place when a play intent expires or an observed Discord activity ends, rather than leaving outdated buttons behind in the user's DM history.
 
 The admin debug snapshot now also exposes serialized DM previews and derived revision history for tracked call-to-play threads. Those revisions are reconstructed from play-intent and notification lifecycle timestamps instead of being stored in a separate message-history table, which keeps Discord as the single live message surface while still giving the web emulator historical states to inspect.
