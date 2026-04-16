@@ -81,6 +81,10 @@ const guildAccessCache = new Map<string, DiscordGuildAccessCacheEntry>()
 const guildAccessRequests = new Map<string, Promise<DiscordGuildAccessCacheEntry>>()
 const guildMemberCooldowns = new Map<string, number>()
 
+function isDiscordSnowflake(value: string) {
+  return discordSnowflakePattern.test(value)
+}
+
 function invalidateGuildMemberCache(serverId: string) {
   guildMemberCache.delete(serverId)
 }
@@ -90,7 +94,28 @@ function invalidateGuildAccessCache(serverId: string) {
 }
 
 function isDevelopmentSyntheticDiscordId(value: string) {
-  return env.NODE_ENV !== 'production' && !discordSnowflakePattern.test(value)
+  return env.NODE_ENV !== 'production' && !isDiscordSnowflake(value)
+}
+
+function buildInvalidGuildAccessEntry(serverId: string): DiscordGuildAccessCacheEntry {
+  return {
+    serverId,
+    serverName: null,
+    present: isDevelopmentSyntheticDiscordId(serverId),
+    fetchedAt: Date.now()
+  }
+}
+
+function assertLiveDiscordGuildId(serverId: string, operation: 'member browsing' | 'voice channel browsing') {
+  if (isDiscordSnowflake(serverId)) {
+    return
+  }
+
+  if (isDevelopmentSyntheticDiscordId(serverId)) {
+    throw new Error(`Synthetic development Discord servers do not support live ${operation}.`)
+  }
+
+  throw new Error('Discord guild ids must be snowflakes.')
 }
 
 function parseRetryAfterSeconds(message: string): number | null {
@@ -210,6 +235,7 @@ async function fetchDiscordGuildSummaryViaRest(serverId: string): Promise<Discor
 }
 
 async function fetchDiscordGuildMembersViaRest(serverId: string): Promise<DiscordGuildMemberCacheEntry> {
+  assertLiveDiscordGuildId(serverId, 'member browsing')
   const guild = await fetchDiscordGuildSummaryViaRest(serverId)
   const members: DiscordGuildMemberSummary[] = []
   let after: string | undefined
@@ -277,6 +303,12 @@ async function fetchDiscordGuildAccess(serverId: string): Promise<DiscordGuildAc
 
   if (existingRequest) {
     return existingRequest
+  }
+
+  if (!isDiscordSnowflake(serverId)) {
+    const entry = buildInvalidGuildAccessEntry(serverId)
+    guildAccessCache.set(serverId, entry)
+    return entry
   }
 
   const request = (async () => {
@@ -400,15 +432,10 @@ async function fetchDiscordGuildMembers(serverId: string): Promise<DiscordGuildM
 }
 
 export async function isDiscordBotPresentInGuild(serverId: string): Promise<boolean> {
-  if (isDevelopmentSyntheticDiscordId(serverId)) {
-    guildAccessCache.set(serverId, {
-      serverId,
-      serverName: null,
-      present: true,
-      fetchedAt: Date.now()
-    })
-
-    return true
+  if (!isDiscordSnowflake(serverId)) {
+    const entry = buildInvalidGuildAccessEntry(serverId)
+    guildAccessCache.set(serverId, entry)
+    return entry.present
   }
 
   if (!env.DISCORD_BOT_TOKEN) {
@@ -472,6 +499,8 @@ export async function listDiscordGuildMembers(serverId: string): Promise<{
   serverName: string;
   members: DiscordGuildMemberSummary[];
 }> {
+  assertLiveDiscordGuildId(serverId, 'member browsing')
+
   if (!env.DISCORD_BOT_TOKEN) {
     throw new Error('Discord member browsing needs the bot to be configured.')
   }
@@ -519,6 +548,8 @@ export async function listDiscordGuildVoiceChannels(serverId: string): Promise<{
     name: string;
   }>;
 }> {
+  assertLiveDiscordGuildId(serverId, 'voice channel browsing')
+
   if (!env.DISCORD_BOT_TOKEN) {
     throw new Error('Discord voice channel browsing needs the bot to be configured.')
   }

@@ -63,7 +63,7 @@ Notification and auto-play prompt rows also store the Discord DM message referen
 
 The admin debug snapshot now also exposes serialized DM previews and derived revision history for tracked call-to-play threads. Those revisions are reconstructed from play-intent and notification lifecycle timestamps instead of being stored in a separate message-history table, which keeps Discord as the single live message surface while still giving the web emulator historical states to inspect.
 
-Tracked Discord DM channels now also participate in a retention sweep: the API periodically pages through known DM channels, deletes bot-authored messages older than 72 hours, and clears stale stored message references after the sweep.
+Tracked Discord DM channels now also participate in a retention sweep: the API periodically pages through known DM channels, deletes bot-authored messages older than 6 hours, and clears stale stored message references after the sweep.
 
 The Discord bot runtime is now intentionally split by environment. Exactly one environment should run the live Discord gateway connection for presence tracking and interactive Discord buttons, while other environments can reuse the same bot token in a REST-only mode for DM send/edit plus read-only server-member browsing without competing for gateway ownership.
 

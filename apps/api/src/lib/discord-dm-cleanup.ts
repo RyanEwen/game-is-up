@@ -1,7 +1,7 @@
 import { deleteDiscordDirectMessage, fetchDiscordChannelMessages, getDiscordBotUserId } from './discord-bot-runtime.js'
 import { prisma } from './prisma.js'
 
-const discordDmRetentionMs = 72 * 60 * 60 * 1000
+const discordDmRetentionMs = 6 * 60 * 60 * 1000
 const discordDmPageSize = 100
 
 async function getTrackedDmChannelIds(cutoff: Date) {
