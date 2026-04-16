@@ -21,6 +21,7 @@ import {
 } from './discord-servers.js'
 import { sendDiscordDirectMessages } from './discord-bot-runtime.js'
 import { toClientGameCoverUrl, toClientAvatarUrl } from './game-media.js'
+import { getInterestedUsersByPlayIntentId } from './play-intent-interested-users.js'
 import {
   buildPlayIntentDirectMessage,
   buildPlayIntentNotificationComponents,
@@ -363,7 +364,7 @@ function serializeActivePlayIntent(intent: {
   games: { game: { id: string; title: string; coverUrl: string | null } }[];
   targetFriends: { friendUser: { id: string; handle: string; displayName: string; avatarUrl: string | null } }[];
   _count: { notifications: number };
-}): ActivePlayIntent {
+}, interestedUsers: Array<{ id: string; handle: string; displayName: string; avatarUrl: string | null }>): ActivePlayIntent {
   const primaryPlatform = intent.platforms[0]?.platformLabel ?? 'Unknown'
 
   return {
@@ -390,7 +391,8 @@ function serializeActivePlayIntent(intent: {
     windowStartsAt: intent.windowStartsAt.toISOString(),
     windowEndsAt: intent.windowEndsAt.toISOString(),
     expiresAt: intent.expiresAt.toISOString(),
-    joinCount: intent._count.notifications
+    interestedUsers,
+    joinCount: interestedUsers.length
   }
 }
 
@@ -596,7 +598,13 @@ export async function getCurrentPlayIntent(userId: string) {
     ]
   })
 
-  return activeIntent ? serializeActivePlayIntent(activeIntent) : null
+  if (!activeIntent) {
+    return null
+  }
+
+  const interestedUsersByPlayIntentId = await getInterestedUsersByPlayIntentId([activeIntent.id])
+
+  return serializeActivePlayIntent(activeIntent, interestedUsersByPlayIntentId.get(activeIntent.id) ?? [])
 }
 
 export async function clearCurrentPlayIntent(userId: string) {
@@ -985,7 +993,7 @@ export async function upsertCurrentPlayIntent(
       )
     }
 
-    activeIntent = serializeActivePlayIntent(createdIntent)
+    activeIntent = serializeActivePlayIntent(createdIntent, [])
     activeIntentId = createdIntent.id
   })
 

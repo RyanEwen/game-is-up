@@ -1,26 +1,13 @@
-import { env } from './env.js'
 import { prisma } from './prisma.js'
 
 export async function getViewer(viewerId?: string | null) {
-  if (viewerId) {
-    const viewer = await prisma.user.findUnique({
-      where: {
-        id: viewerId
-      }
-    })
-
-    if (viewer) {
-      return viewer
-    }
-  }
-
-  if (env.NODE_ENV === 'production') {
+  if (!viewerId) {
     return null
   }
 
-  return prisma.user.findFirst({
+  return prisma.user.findUnique({
     where: {
-      handle: 'technicallyreal'
+      id: viewerId
     }
   })
 }

@@ -1,22 +1,14 @@
 import { prisma } from './prisma.js'
 import { env } from './env.js'
 import { getDiscordBotPresentServerIds } from './discord-presence-bot.js'
+import { PlayIntentScope } from '@prisma/client'
 
 const sampleFriendHandles = ['raidandrelax', 'nightqueue', 'supportmain', 'weekendwizard'] as const
-const seededHandles = new Set(['technicallyreal', ...sampleFriendHandles])
+const defaultSeedViewerHandle = 'technicallyreal'
+const seededHandles = new Set([defaultSeedViewerHandle, ...sampleFriendHandles])
 
-export async function ensureDevelopmentSampleFriends(user: { id: string; handle: string }) {
-  if (env.NODE_ENV === 'production' || seededHandles.has(user.handle)) {
-    return
-  }
-
-  const existingFriendCount = await prisma.friend.count({
-    where: {
-      userId: user.id
-    }
-  })
-
-  if (existingFriendCount > 0) {
+export async function ensureDevelopmentSampleFriends(user: { id: string; handle: string; isAdmin: boolean }) {
+  if (env.NODE_ENV === 'production' || !user.isAdmin || seededHandles.has(user.handle)) {
     return
   }
 
@@ -44,8 +36,8 @@ export async function ensureDevelopmentSampleFriends(user: { id: string; handle:
   })
 }
 
-export async function ensureDevelopmentSampleServerOverlap(user: { id: string; handle: string }) {
-  if (env.NODE_ENV === 'production') {
+export async function ensureDevelopmentSampleServerOverlap(user: { id: string; handle: string; isAdmin: boolean }) {
+  if (env.NODE_ENV === 'production' || !user.isAdmin || seededHandles.has(user.handle)) {
     return
   }
 
@@ -168,4 +160,112 @@ export async function ensureDevelopmentSampleServerOverlap(user: { id: string; h
       }
     })
   }
+}
+
+export async function ensureDevelopmentSamplePlayIntentTargets(user: { id: string; handle: string; isAdmin: boolean }) {
+  if (env.NODE_ENV === 'production' || !user.isAdmin || seededHandles.has(user.handle)) {
+    return
+  }
+
+  const [memberships, preferences, sampleUsers, defaultSeedViewer] = await Promise.all([
+    prisma.discordServerMembership.findMany({
+      where: {
+        userId: user.id
+      },
+      select: {
+        serverId: true
+      }
+    }),
+    prisma.discordServerPreference.findMany({
+      where: {
+        userId: user.id,
+        includeInDiscovery: true
+      },
+      select: {
+        serverId: true
+      }
+    }),
+    prisma.user.findMany({
+      where: {
+        handle: {
+          in: [...sampleFriendHandles]
+        }
+      },
+      select: {
+        id: true
+      }
+    }),
+    prisma.user.findUnique({
+      where: {
+        handle: defaultSeedViewerHandle
+      },
+      select: {
+        id: true
+      }
+    })
+  ])
+
+  const sampleUserIds = sampleUsers.map((sampleUser) => sampleUser.id)
+
+  if (sampleUserIds.length === 0) {
+    return
+  }
+
+  const membershipServerIds = memberships.map((membership) => membership.serverId)
+  const botPresentServerIds = await getDiscordBotPresentServerIds(membershipServerIds)
+  const selectedServerIdSet = new Set(preferences.map((preference) => preference.serverId))
+  const selectedRealBotVisibleServerIds = membershipServerIds.filter((serverId) => botPresentServerIds.has(serverId) && selectedServerIdSet.has(serverId))
+  const fallbackBotVisibleServerIds = membershipServerIds.filter((serverId) => botPresentServerIds.has(serverId))
+  const primaryTargetServerId = selectedRealBotVisibleServerIds[0] ?? fallbackBotVisibleServerIds[0] ?? null
+
+  if (primaryTargetServerId) {
+    await prisma.playIntent.updateMany({
+      where: {
+        userId: {
+          in: sampleUserIds
+        },
+        scope: PlayIntentScope.SPECIFIC_DISCORD_SERVER
+      },
+      data: {
+        targetDiscordServerId: primaryTargetServerId
+      }
+    })
+  }
+
+  const specificFriendIntents = await prisma.playIntent.findMany({
+    where: {
+      userId: {
+        in: sampleUserIds
+      },
+      scope: PlayIntentScope.SPECIFIC_FRIENDS
+    },
+    select: {
+      id: true
+    }
+  })
+
+  if (specificFriendIntents.length === 0) {
+    return
+  }
+
+  const specificFriendIntentIds = specificFriendIntents.map((intent) => intent.id)
+
+  if (defaultSeedViewer?.id) {
+    await prisma.playIntentTargetFriend.deleteMany({
+      where: {
+        playIntentId: {
+          in: specificFriendIntentIds
+        },
+        friendUserId: defaultSeedViewer.id
+      }
+    })
+  }
+
+  await prisma.playIntentTargetFriend.createMany({
+    data: specificFriendIntentIds.map((playIntentId) => ({
+      playIntentId,
+      friendUserId: user.id
+    })),
+    skipDuplicates: true
+  })
 }

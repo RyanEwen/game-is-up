@@ -12,13 +12,14 @@ import type {
   PlayIntentSelectionMode
 } from '@game-is-up/shared'
 import { EmptyStateCard } from '../components/dashboard/EmptyStateCard'
+import { InterestedPlayerList } from '../components/dashboard/InterestedPlayerList'
 import { DashboardModal } from '../components/dashboard/DashboardModal'
 import { DashboardModalActionBar } from '../components/dashboard/DashboardModalActionBar'
-import { PlayIntentCard } from '../components/dashboard/PlayIntentCard'
+import { PlayIntentCard, PlayIntentGameList } from '../components/dashboard/PlayIntentCard'
 import { PlayIntentComposerCard } from '../components/dashboard/PlayIntentComposerCard'
 import { formatNotifyScopeLabel, formatPlayIntentSelectionModeLabel } from '../components/dashboard/dashboardUtils'
 import { useDashboardContext } from '../contexts/useDashboardContext'
-import type { DashboardLibraryQuickAddGame, PlayIntentStartMode, PlayIntentTimingMode } from '../components/dashboard/types'
+import type { DashboardLibraryQuickAddGame, FriendTarget, PlayIntentStartMode, PlayIntentTimingMode } from '../components/dashboard/types'
 
 function DiscordAutomationCard({
   enabled,
@@ -52,10 +53,24 @@ function DiscordAutomationCard({
 
 function OwnActivePlayIntentCard({
   activePlayIntent,
-  onEdit
+  onEdit,
+  discoveryPeopleById,
+  isSignedIn,
+  libraryGameIds,
+  addingLibraryGameId,
+  friendPendingId,
+  onToggleFriend,
+  onAddGameToLibrary,
 }: {
   activePlayIntent: ActivePlayIntent;
   onEdit: () => void;
+  discoveryPeopleById: ReadonlyMap<string, DiscoveryPerson>;
+  isSignedIn: boolean;
+  libraryGameIds: ReadonlySet<string>;
+  addingLibraryGameId: string | null;
+  friendPendingId: string | null;
+  onToggleFriend: (target: FriendTarget) => Promise<void>;
+  onAddGameToLibrary: (game: DashboardLibraryQuickAddGame) => Promise<void>;
 }) {
   const startsAt = new Date(activePlayIntent.windowStartsAt)
   const endsAt = new Date(activePlayIntent.windowEndsAt)
@@ -107,7 +122,7 @@ function OwnActivePlayIntentCard({
               {activePlayIntent.targetServer.name}
             </Chip>
           ) : null}
-          {activePlayIntent.platforms.map((platform) => (
+          {activePlayIntent.platforms.map((platform: string) => (
             <Chip key={platform} size="sm" color="neutral" variant="outlined">
               {platform}
             </Chip>
@@ -125,14 +140,23 @@ function OwnActivePlayIntentCard({
           </Typography>
         ) : null}
 
+        <InterestedPlayerList
+          users={activePlayIntent.interestedUsers}
+          sx={{ mt: -0.25 }}
+          discoveryPeopleById={discoveryPeopleById}
+          canManage={isSignedIn}
+          friendPendingId={friendPendingId}
+          onToggleFriend={onToggleFriend}
+        />
+
         {activePlayIntent.selectionMode === 'subset' && activePlayIntent.games.length > 0 ? (
-          <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-            {activePlayIntent.games.map((game) => (
-              <Chip key={game.id} size="sm" color="primary" variant="outlined">
-                {game.title}
-              </Chip>
-            ))}
-          </Stack>
+          <PlayIntentGameList
+            games={activePlayIntent.games}
+            canAddToLibrary={isSignedIn}
+            libraryGameIds={libraryGameIds}
+            addingLibraryGameId={addingLibraryGameId}
+            onAddToLibrary={onAddGameToLibrary}
+          />
         ) : (
           <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
             This call to play is for any proposed game that matches, not one specific title.
@@ -202,6 +226,9 @@ function PlayViewContent({
   mutedPlayIntentUserIds,
   onMutePlayIntentUser,
   onUnmutePlayIntentUser,
+  discoveryPeople = [],
+  friendPendingId = null,
+  onToggleFriend = async () => {},
   libraryGameIds,
   addingLibraryGameId,
   onAddGameToLibrary,
@@ -265,12 +292,16 @@ function PlayViewContent({
   mutedPlayIntentUserIds: ReadonlySet<string>;
   onMutePlayIntentUser: (userId: string) => Promise<void>;
   onUnmutePlayIntentUser: (userId: string) => Promise<void>;
+  discoveryPeople?: DiscoveryPerson[];
+  friendPendingId?: string | null;
+  onToggleFriend?: (target: FriendTarget) => Promise<void>;
   libraryGameIds: ReadonlySet<string>;
   addingLibraryGameId: string | null;
   onAddGameToLibrary: (game: DashboardLibraryQuickAddGame) => Promise<void>;
   onToggleDiscordAutoPromptPlayIntent: (nextEnabled: boolean) => Promise<void>;
 }) {
   const [isUnavailableAudienceModalOpen, setIsUnavailableAudienceModalOpen] = useState(false)
+  const discoveryPeopleById = new Map(discoveryPeople.map((person) => [person.id, person]))
   const hasScheduledOwnCallToPlay = activePlayIntent ? new Date(activePlayIntent.windowStartsAt).getTime() > Date.now() + 60 * 1000 : false
   const playComposerButtonLabel = activePlayIntent
     ? hasScheduledOwnCallToPlay
@@ -320,7 +351,17 @@ function PlayViewContent({
       ) : null}
 
       {isSignedIn && activePlayIntent ? (
-        <OwnActivePlayIntentCard activePlayIntent={activePlayIntent} onEdit={openPlayIntentComposer} />
+        <OwnActivePlayIntentCard
+          activePlayIntent={activePlayIntent}
+          onEdit={openPlayIntentComposer}
+          discoveryPeopleById={discoveryPeopleById}
+          isSignedIn={isSignedIn}
+          libraryGameIds={libraryGameIds}
+          addingLibraryGameId={addingLibraryGameId}
+          friendPendingId={friendPendingId}
+          onToggleFriend={onToggleFriend}
+          onAddGameToLibrary={onAddGameToLibrary}
+        />
       ) : null}
 
       {isSignedIn ? (
@@ -410,9 +451,12 @@ function PlayViewContent({
               key={intent.id}
               intent={intent}
               canAddToLibrary={isSignedIn}
+              discoveryPeopleById={discoveryPeopleById}
               libraryGameIds={libraryGameIds}
               addingLibraryGameId={addingLibraryGameId}
+              friendPendingId={friendPendingId}
               onAddToLibrary={onAddGameToLibrary}
+              onToggleFriend={onToggleFriend}
               responsePending={playIntentResponsePendingIntentId === intent.id}
               onRespondToIntent={onRespondToPlayIntent}
               isMuted={mutedPlayIntentUserIds.has(intent.user.id)}

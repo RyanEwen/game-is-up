@@ -6,6 +6,12 @@ import { GameActionPopover } from './GameActionPopover'
 import { formatLibraryIntentLabel } from './dashboardUtils'
 import type { DashboardLibraryQuickAddGame, FriendTarget } from './types'
 
+type CompactCardBadge = {
+  label: string;
+  color?: 'neutral' | 'primary' | 'success' | 'warning' | 'danger';
+  variant?: 'soft' | 'outlined' | 'solid' | 'plain';
+}
+
 const compactActionLabelSx = {
   display: 'inline',
   '@container (max-width: 280px)': {
@@ -19,6 +25,110 @@ const compactActionSymbolSx = {
     display: 'inline'
   }
 } as const
+
+export function CompactDiscoveryPlayerCard({
+  target,
+  handle,
+  canManage,
+  isPending,
+  supportingText,
+  detailLines = [],
+  badges,
+  footerBadge,
+  onToggleFriend
+}: {
+  target: FriendTarget;
+  handle: string;
+  canManage: boolean;
+  isPending: boolean;
+  supportingText?: string;
+  detailLines?: string[];
+  badges: CompactCardBadge[];
+  footerBadge?: CompactCardBadge | null;
+  onToggleFriend: (target: FriendTarget) => Promise<void>;
+}) {
+  return (
+    <Sheet
+      variant="soft"
+      sx={{
+        p: 1.25,
+        borderRadius: 'md',
+        height: '100%'
+      }}
+    >
+      <Stack direction="column" spacing={1.25} justifyContent="space-between" alignItems="stretch">
+        <Stack spacing={0.75} sx={{ minWidth: 0 }}>
+          <Stack direction="row" spacing={1} sx={{ minWidth: 0, containerType: 'inline-size' }} alignItems="center">
+            <Box sx={{ minWidth: 0, flex: 1 }}>
+              <FriendActionPopover
+                target={target}
+                handle={handle}
+                canManage={canManage}
+                isPending={isPending}
+                supportingText={supportingText}
+                detailLines={detailLines}
+                onToggleFriend={onToggleFriend}
+              />
+            </Box>
+            {(!canManage || isPending || target.friendEligible) ? (
+              <Button
+                size="sm"
+                variant="soft"
+                color={target.friendEligible ? 'success' : 'neutral'}
+                disabled={!canManage || isPending}
+                onClick={() => void onToggleFriend(target)}
+                sx={{
+                  ml: 'auto',
+                  flexShrink: 0,
+                  borderRadius: 'xl',
+                  minHeight: '1.5rem',
+                  minWidth: { xs: '1.5rem', sm: 'auto' },
+                  px: { xs: 0.625, sm: 1 },
+                  fontSize: 'xs',
+                  lineHeight: 1
+                }}
+              >
+                {!canManage ? (
+                  <>
+                    <Box component="span" sx={compactActionLabelSx}>Sign in</Box>
+                    <Box component="span" sx={compactActionSymbolSx}>?</Box>
+                  </>
+                ) : isPending ? (
+                  <>
+                    <Box component="span" sx={compactActionLabelSx}>Saving...</Box>
+                    <Box component="span" sx={compactActionSymbolSx}>...</Box>
+                  </>
+                ) : (
+                  <>
+                    <Box component="span" sx={compactActionLabelSx}>Add friend</Box>
+                    <Box component="span" sx={compactActionSymbolSx}>Add</Box>
+                  </>
+                )}
+              </Button>
+            ) : null}
+          </Stack>
+          <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', width: '100%' }} alignItems="center">
+            {badges.map((badge) => (
+              <Chip
+                key={`${badge.label}-${badge.color ?? 'neutral'}-${badge.variant ?? 'soft'}`}
+                size="sm"
+                color={badge.color ?? 'neutral'}
+                variant={badge.variant ?? 'soft'}
+              >
+                {badge.label}
+              </Chip>
+            ))}
+          </Stack>
+          {footerBadge ? (
+            <Chip size="sm" variant={footerBadge.variant ?? 'soft'} color={footerBadge.color ?? 'neutral'} sx={{ alignSelf: 'flex-start' }}>
+              {footerBadge.label}
+            </Chip>
+          ) : null}
+        </Stack>
+      </Stack>
+    </Sheet>
+  )
+}
 
 export function GameCard({
   game,
@@ -211,103 +321,27 @@ export function GameCard({
             }}
           >
             {visiblePlayers.map((player: DiscoveryGamePlayer) => (
-              <Sheet
+              <CompactDiscoveryPlayerCard
                 key={player.id}
-                variant="soft"
-                sx={{
-                  p: compact ? 1.25 : 1.5,
-                  borderRadius: 'md',
-                  height: '100%'
-                }}
-              >
-                <Stack
-                  direction={compact ? 'column' : { xs: 'column', md: 'row' }}
-                  spacing={1.25}
-                  justifyContent="space-between"
-                  alignItems={compact ? 'stretch' : { xs: 'stretch', md: 'center' }}
-                >
-                  <Stack spacing={0.75} sx={{ minWidth: 0 }}>
-                    <Stack direction="row" spacing={1} sx={{ minWidth: 0, containerType: 'inline-size' }} alignItems="center">
-                      <Box sx={{ minWidth: 0, flex: 1 }}>
-                        <FriendActionPopover
-                          target={player}
-                          handle={player.handle}
-                          canManage={canManage}
-                          isPending={pendingFriendId === player.id}
-                          detailLines={[
-                            player.contactHint,
-                            player.mutualServers.length > 0 ? `Mutual servers: ${player.mutualServers.join(', ')}` : 'Visible to you through your friends list or network.',
-                            `Matching game: ${game.title}`,
-                            player.availability && player.availabilitySource === 'game-specific' ? `Availability: ${player.availability}` : ''
-                          ]}
-                          large={!compact}
-                          onToggleFriend={onToggleFriend}
-                        />
-                      </Box>
-                      {(!canManage || pendingFriendId === player.id || player.friendEligible) ? (
-                        <Button
-                          size="sm"
-                          variant="soft"
-                          color={player.friendEligible ? 'success' : 'neutral'}
-                          disabled={!canManage || pendingFriendId === player.id}
-                          onClick={() => void onToggleFriend(player)}
-                          sx={{
-                            ml: 'auto',
-                            flexShrink: 0,
-                            borderRadius: 'xl',
-                            minHeight: '1.5rem',
-                            minWidth: { xs: '1.5rem', sm: 'auto' },
-                            px: { xs: 0.625, sm: 1 },
-                            fontSize: 'xs',
-                            lineHeight: 1
-                          }}
-                        >
-                          {!canManage ? (
-                            <>
-                              <Box component="span" sx={compactActionLabelSx}>Sign in</Box>
-                              <Box component="span" sx={compactActionSymbolSx}>?</Box>
-                            </>
-                          ) : pendingFriendId === player.id ? (
-                            <>
-                              <Box component="span" sx={compactActionLabelSx}>Saving...</Box>
-                              <Box component="span" sx={compactActionSymbolSx}>...</Box>
-                            </>
-                          ) : (
-                            <>
-                              <Box component="span" sx={compactActionLabelSx}>Add friend</Box>
-                              <Box component="span" sx={compactActionSymbolSx}>Add</Box>
-                            </>
-                          )}
-                        </Button>
-                      ) : null}
-                    </Stack>
-                    <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', width: '100%' }} alignItems="center">
-                      <Chip size="sm" color={player.intent === 'playing-now' ? 'success' : 'primary'}>
-                        {formatLibraryIntentLabel(player.intent)}
-                      </Chip>
-                      {player.platformLabels.map((platform: string) => (
-                        <Chip key={platform} size="sm" variant="outlined" color="neutral">
-                          {platform}
-                        </Chip>
-                      ))}
-                    </Stack>
-                    {player.availability && player.availabilitySource === 'game-specific' ? (
-                      <Chip size="sm" variant="soft" color="neutral" sx={{ alignSelf: 'flex-start' }}>
-                        Plays: {player.availability}
-                      </Chip>
-                    ) : null}
-                    {!compact && player.mutualServers.length > 0 ? (
-                      <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-                        {player.mutualServers.map((serverName: string) => (
-                          <Chip key={serverName} size="sm" variant="soft" color="neutral">
-                            {serverName}
-                          </Chip>
-                        ))}
-                      </Stack>
-                    ) : null}
-                  </Stack>
-                </Stack>
-              </Sheet>
+                target={player}
+                handle={player.handle}
+                canManage={canManage}
+                isPending={pendingFriendId === player.id}
+                detailLines={[
+                  player.contactHint,
+                  player.mutualServers.length > 0 ? `Mutual servers: ${player.mutualServers.join(', ')}` : 'Visible to you through your friends list or network.',
+                  `Matching game: ${game.title}`,
+                  player.availability && player.availabilitySource === 'game-specific' ? `Availability: ${player.availability}` : ''
+                ]}
+                badges={[
+                  { label: formatLibraryIntentLabel(player.intent), color: player.intent === 'playing-now' ? 'success' : 'primary' },
+                  ...player.platformLabels.map((platform: string) => ({ label: platform, variant: 'outlined' as const }))
+                ]}
+                footerBadge={player.availability && player.availabilitySource === 'game-specific'
+                  ? { label: `Plays: ${player.availability}` }
+                  : null}
+                onToggleFriend={onToggleFriend}
+              />
             ))}
           </Box>
           {hiddenPlayerCount > 0 ? (

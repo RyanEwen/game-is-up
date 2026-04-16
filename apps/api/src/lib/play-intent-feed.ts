@@ -6,6 +6,7 @@ import {
   getMutualDiscoveryAudienceUserIds
 } from './discord-servers.js'
 import { toClientGameCoverUrl, toClientAvatarUrl } from './game-media.js'
+import { getInterestedUsersByPlayIntentId } from './play-intent-interested-users.js'
 import { prisma } from './prisma.js'
 import { getViewer } from './demo-viewer.js'
 
@@ -196,6 +197,7 @@ export async function buildPlayIntentFeed(viewerId?: string | null): Promise<Pla
         return map
       })
     : new Map<string, 'join' | 'decline'>()
+  const interestedUsersByPlayIntentId = await getInterestedUsersByPlayIntentId(intents.map((intent) => intent.id))
 
   const previews = intents
     .map<PlayIntentPreview | null>((intent) => {
@@ -241,6 +243,8 @@ export async function buildPlayIntentFeed(viewerId?: string | null): Promise<Pla
         return null
       }
 
+      const interestedUsers = interestedUsersByPlayIntentId.get(intent.id) ?? []
+
       return {
         id: intent.id,
         title: intent.headline,
@@ -259,7 +263,8 @@ export async function buildPlayIntentFeed(viewerId?: string | null): Promise<Pla
         voiceChannelId: intent.voiceChannelId,
         voiceChannelName: intent.voiceChannelName,
         viewerResponseChoice: recipientResponseByPlayIntentId.get(intent.id) ?? null,
-        joinCount: intent._count.notifications,
+        interestedUsers,
+        joinCount: interestedUsers.length,
         availabilityWindow: {
           label: formatAvailabilityLabel(intent.user.displayName, intent.windowStartsAt, now),
           startsAt: intent.windowStartsAt.toISOString(),

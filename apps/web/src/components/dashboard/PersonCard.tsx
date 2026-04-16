@@ -6,6 +6,12 @@ import { GameActionPopover } from './GameActionPopover'
 import { formatDiscordActivityTypeLabel, formatLibraryIntentLabel, memberGameGridSx } from './dashboardUtils'
 import type { DashboardLibraryQuickAddGame, FriendTarget } from './types'
 
+type CompactCardBadge = {
+  label: string;
+  color?: 'neutral' | 'primary' | 'success' | 'warning' | 'danger';
+  variant?: 'soft' | 'outlined' | 'solid' | 'plain';
+}
+
 const compactActionLabelSx = {
   display: 'inline',
   '@container (max-width: 280px)': {
@@ -19,6 +25,129 @@ const compactActionSymbolSx = {
     display: 'inline'
   }
 } as const
+
+export function CompactPersonGameCard({
+  game,
+  canAddToLibrary,
+  isInLibrary,
+  isAddingToLibrary,
+  supportingText,
+  detailLines = [],
+  badges,
+  footerBadge,
+  onAddToLibrary
+}: {
+  game: DashboardLibraryQuickAddGame;
+  canAddToLibrary: boolean;
+  isInLibrary: boolean;
+  isAddingToLibrary: boolean;
+  supportingText?: string;
+  detailLines?: string[];
+  badges: CompactCardBadge[];
+  footerBadge?: CompactCardBadge | null;
+  onAddToLibrary: (game: DashboardLibraryQuickAddGame) => Promise<void>;
+}) {
+  return (
+    <Sheet
+      variant="soft"
+      sx={{
+        p: 1.5,
+        borderRadius: 'md',
+        height: '100%'
+      }}
+    >
+      <Stack spacing={1.25} sx={{ height: '100%' }}>
+        <Stack direction="row" spacing={1.25} alignItems="flex-start">
+          <Box
+            sx={{
+              width: 52,
+              height: 68,
+              borderRadius: 'sm',
+              overflow: 'hidden',
+              backgroundColor: 'rgba(255,255,255,0.06)',
+              flexShrink: 0
+            }}
+          >
+            {game.coverUrl ? (
+              <DashboardDeferredImage src={game.coverUrl} alt={game.title} rootMargin="240px 0px" />
+            ) : null}
+          </Box>
+          <Stack spacing={0.75} sx={{ minWidth: 0, flex: 1 }}>
+            <Stack direction="row" spacing={1} sx={{ minWidth: 0, width: '100%', containerType: 'inline-size' }} alignItems="flex-start">
+              <Box sx={{ minWidth: 0, flex: 1 }}>
+                <GameActionPopover
+                  game={game}
+                  canAddToLibrary={canAddToLibrary}
+                  isInLibrary={isInLibrary}
+                  isAddingToLibrary={isAddingToLibrary}
+                  supportingText={supportingText}
+                  detailLines={detailLines}
+                  onAddToLibrary={onAddToLibrary}
+                />
+              </Box>
+              {!isInLibrary ? (
+                <Button
+                  size="sm"
+                  variant="soft"
+                  color="success"
+                  disabled={!canAddToLibrary || isAddingToLibrary}
+                  onClick={() => void onAddToLibrary(game)}
+                  sx={{
+                    ml: 'auto',
+                    flexShrink: 0,
+                    borderRadius: 'xl',
+                    minHeight: '1.75rem',
+                    minWidth: { xs: '1.75rem', sm: 'auto' },
+                    px: { xs: 0.625, sm: 1.25 },
+                    whiteSpace: 'nowrap',
+                    fontSize: 'xs',
+                    fontWeight: 'md',
+                    lineHeight: 1
+                  }}
+                >
+                  {!canAddToLibrary ? (
+                    <>
+                      <Box component="span" sx={compactActionLabelSx}>Sign in to add</Box>
+                      <Box component="span" sx={compactActionSymbolSx}>?</Box>
+                    </>
+                  ) : isAddingToLibrary ? (
+                    <>
+                      <Box component="span" sx={compactActionLabelSx}>Adding...</Box>
+                      <Box component="span" sx={compactActionSymbolSx}>...</Box>
+                    </>
+                  ) : (
+                    <>
+                      <Box component="span" sx={compactActionLabelSx}>Add to library</Box>
+                      <Box component="span" sx={compactActionSymbolSx}>Add</Box>
+                    </>
+                  )}
+                </Button>
+              ) : null}
+            </Stack>
+            <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', width: '100%' }} alignItems="center">
+              {badges.map((badge) => (
+                <Chip
+                  key={`${badge.label}-${badge.color ?? 'neutral'}-${badge.variant ?? 'soft'}`}
+                  color={badge.color ?? 'neutral'}
+                  variant={badge.variant ?? 'soft'}
+                  size="sm"
+                  sx={{ flexShrink: 0 }}
+                >
+                  {badge.label}
+                </Chip>
+              ))}
+            </Stack>
+            {footerBadge ? (
+              <Chip size="sm" variant={footerBadge.variant ?? 'soft'} color={footerBadge.color ?? 'neutral'} sx={{ alignSelf: 'flex-start' }}>
+                {footerBadge.label}
+              </Chip>
+            ) : null}
+          </Stack>
+        </Stack>
+      </Stack>
+    </Sheet>
+  )
+}
 
 export function PersonCard({
   person,
@@ -186,115 +315,31 @@ export function PersonCard({
               const isInLibrary = libraryGameIds.has(game.id)
 
               return (
-                <Sheet
+                <CompactPersonGameCard
                   key={game.id}
-                  variant="soft"
-                  sx={{
-                    p: 1.5,
-                    borderRadius: 'md',
-                    height: '100%'
+                  game={{
+                    gameId: game.id,
+                    title: game.title,
+                    coverUrl: game.coverUrl,
+                    platformLabels: game.platformLabels
                   }}
-                >
-                  <Stack spacing={1.25} sx={{ height: '100%' }}>
-                    <Stack direction="row" spacing={1.25} alignItems="flex-start">
-                      <Box
-                        sx={{
-                          width: 52,
-                          height: 68,
-                          borderRadius: 'sm',
-                          overflow: 'hidden',
-                          backgroundColor: 'rgba(255,255,255,0.06)',
-                          flexShrink: 0
-                        }}
-                      >
-                        {game.coverUrl ? (
-                          <DashboardDeferredImage src={game.coverUrl} alt={game.title} rootMargin="240px 0px" />
-                        ) : null}
-                      </Box>
-                      <Stack spacing={0.75} sx={{ minWidth: 0, flex: 1 }}>
-                        <Stack direction="row" spacing={1} sx={{ minWidth: 0, width: '100%', containerType: 'inline-size' }} alignItems="flex-start">
-                          <Box sx={{ minWidth: 0, flex: 1 }}>
-                            <GameActionPopover
-                              game={{
-                                gameId: game.id,
-                                title: game.title,
-                                coverUrl: game.coverUrl,
-                                platformLabels: game.platformLabels
-                              }}
-                              canAddToLibrary={canAddToLibrary}
-                              isInLibrary={isInLibrary}
-                              isAddingToLibrary={addingLibraryGameId === game.id}
-                              supportingText={formatLibraryIntentLabel(game.intent)}
-                              detailLines={[
-                                game.availability && game.availabilitySource === 'game-specific' ? `Availability: ${game.availability}` : 'No game-specific availability shared.',
-                                `Platforms: ${game.platformLabels.join(', ')}`
-                              ]}
-                              onAddToLibrary={onAddToLibrary}
-                            />
-                          </Box>
-                          {!isInLibrary ? (
-                            <Button
-                              size="sm"
-                              variant="soft"
-                              color="success"
-                              disabled={!canAddToLibrary || addingLibraryGameId === game.id}
-                              onClick={() => void onAddToLibrary({
-                                gameId: game.id,
-                                title: game.title,
-                                coverUrl: game.coverUrl,
-                                platformLabels: game.platformLabels
-                              })}
-                              sx={{
-                                ml: 'auto',
-                                flexShrink: 0,
-                                borderRadius: 'xl',
-                                minHeight: '1.75rem',
-                                minWidth: { xs: '1.75rem', sm: 'auto' },
-                                px: { xs: 0.625, sm: 1.25 },
-                                whiteSpace: 'nowrap',
-                                fontSize: 'xs',
-                                fontWeight: 'md',
-                                lineHeight: 1
-                              }}
-                            >
-                              {!canAddToLibrary ? (
-                                <>
-                                  <Box component="span" sx={compactActionLabelSx}>Sign in to add</Box>
-                                  <Box component="span" sx={compactActionSymbolSx}>?</Box>
-                                </>
-                              ) : addingLibraryGameId === game.id ? (
-                                <>
-                                  <Box component="span" sx={compactActionLabelSx}>Adding...</Box>
-                                  <Box component="span" sx={compactActionSymbolSx}>...</Box>
-                                </>
-                              ) : (
-                                <>
-                                  <Box component="span" sx={compactActionLabelSx}>Add to library</Box>
-                                  <Box component="span" sx={compactActionSymbolSx}>Add</Box>
-                                </>
-                              )}
-                            </Button>
-                          ) : null}
-                        </Stack>
-                        <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', width: '100%' }} alignItems="center">
-                          <Chip color={game.intent === 'playing-now' ? 'success' : 'primary'} size="sm" sx={{ flexShrink: 0 }}>
-                            {formatLibraryIntentLabel(game.intent)}
-                          </Chip>
-                          {game.platformLabels.map((platform) => (
-                            <Chip key={platform} size="sm" variant="outlined" color="neutral">
-                              {platform}
-                            </Chip>
-                          ))}
-                        </Stack>
-                        {game.availability && game.availabilitySource === 'game-specific' ? (
-                          <Chip size="sm" variant="soft" color="neutral" sx={{ alignSelf: 'flex-start' }}>
-                            Plays: {game.availability}
-                          </Chip>
-                        ) : null}
-                      </Stack>
-                    </Stack>
-                  </Stack>
-                </Sheet>
+                  canAddToLibrary={canAddToLibrary}
+                  isInLibrary={isInLibrary}
+                  isAddingToLibrary={addingLibraryGameId === game.id}
+                  supportingText={formatLibraryIntentLabel(game.intent)}
+                  detailLines={[
+                    game.availability && game.availabilitySource === 'game-specific' ? `Availability: ${game.availability}` : 'No game-specific availability shared.',
+                    `Platforms: ${game.platformLabels.join(', ')}`
+                  ]}
+                  badges={[
+                    { label: formatLibraryIntentLabel(game.intent), color: game.intent === 'playing-now' ? 'success' : 'primary' },
+                    ...game.platformLabels.map((platform) => ({ label: platform, variant: 'outlined' as const }))
+                  ]}
+                  footerBadge={game.availability && game.availabilitySource === 'game-specific'
+                    ? { label: `Plays: ${game.availability}` }
+                    : null}
+                  onAddToLibrary={onAddToLibrary}
+                />
               )
             })}
           </Box>

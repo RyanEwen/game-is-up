@@ -29,7 +29,7 @@ import {
   playIntentPresetDurations,
   toLocalDateTimeInputValue
 } from '../components/dashboard/dashboardUtils'
-import type { Notice, PlayIntentStartMode, PlayIntentTimingMode } from '../components/dashboard/types'
+import type { DashboardLibraryQuickAddGame, FriendTarget, Notice, PlayIntentStartMode, PlayIntentTimingMode } from '../components/dashboard/types'
 
 function buildDefaultScheduledStartAtInput() {
   return toLocalDateTimeInputValue(new Date(Date.now() + 60 * 60 * 1000))
@@ -101,6 +101,10 @@ export type DashboardPlayViewProps = {
   mutedPlayIntentUserIds: ReadonlySet<string>;
   onMutePlayIntentUser: (userId: string) => Promise<void>;
   onUnmutePlayIntentUser: (userId: string) => Promise<void>;
+  discoveryPeople?: DiscoveryPerson[];
+  friendPendingId?: string | null;
+  onToggleFriend?: (target: FriendTarget) => Promise<void>;
+  onAddGameToLibrary?: (game: DashboardLibraryQuickAddGame) => Promise<void>;
 }
 
 export function useDashboardPlay({

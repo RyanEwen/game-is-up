@@ -21,7 +21,11 @@ import {
   upsertDiscordUser
 } from '../lib/discord-auth.js'
 import { getDiscordPresenceBotState } from '../lib/discord-bot-runtime.js'
-import { ensureDevelopmentSampleFriends, ensureDevelopmentSampleServerOverlap } from '../lib/dev-sample-network.js'
+import {
+  ensureDevelopmentSampleFriends,
+  ensureDevelopmentSamplePlayIntentTargets,
+  ensureDevelopmentSampleServerOverlap
+} from '../lib/dev-sample-network.js'
 import { countBotVisibleDiscordServersForUser, syncDiscordServersForUser } from '../lib/discord-servers.js'
 import { env } from '../lib/env.js'
 import { resolveAuthRedirectTarget } from '../lib/origin.js'
@@ -221,9 +225,6 @@ authRouter.get('/me', async (request, response) => {
     return
   }
 
-  await ensureDevelopmentSampleFriends(user)
-  await ensureDevelopmentSampleServerOverlap(user)
-
   const adminHandles = env.ADMIN_HANDLES
     ? env.ADMIN_HANDLES.split(',').map((h) => h.trim().toLowerCase()).filter(Boolean)
     : []
@@ -232,6 +233,10 @@ authRouter.get('/me', async (request, response) => {
     await prisma.user.update({ where: { id: user.id }, data: { isAdmin: shouldBeAdmin } })
     user.isAdmin = shouldBeAdmin
   }
+
+  await ensureDevelopmentSampleFriends(user)
+  await ensureDevelopmentSampleServerOverlap(user)
+  await ensureDevelopmentSamplePlayIntentTargets(user)
 
   const discordGraph = await buildDiscordGraphCapabilities(user.id)
   const connectedProviders = [...new Set(user.identities.map((identity) => toSharedAuthProvider(identity.provider)).sort((left, right) => left.localeCompare(right)))]

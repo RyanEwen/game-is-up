@@ -423,7 +423,9 @@ async function main() {
         type: NotificationType.FRIEND_PLAYING,
         title: 'Mira is looking to play tonight',
         body: 'Mira opened up her library for a chill session tonight.',
-        deliveredAt: minutesAgo(15)
+        deliveredAt: minutesAgo(15),
+        respondedAt: minutesAgo(9),
+        responseChoice: NotificationResponseChoice.JOIN
       },
       {
         userId: viewer.id,
@@ -467,6 +469,30 @@ async function main() {
         body: 'Kelsey narrowed this call to play down to Co-op Corner tonight.',
         deliveredAt: minutesAgo(20),
         respondedAt: minutesAgo(6),
+        responseChoice: NotificationResponseChoice.JOIN
+      },
+      {
+        userId: noa.id,
+        triggeredByUserId: kelsey.id,
+        playIntentId: serverScopedIntent.id,
+        gameId: bySlug['deep-rock-galactic'].id,
+        type: NotificationType.FRIEND_PLAYING,
+        title: 'Kelsey posted to Co-op Corner',
+        body: 'Kelsey narrowed this call to play down to Co-op Corner tonight.',
+        deliveredAt: minutesAgo(19),
+        respondedAt: minutesAgo(4),
+        responseChoice: NotificationResponseChoice.JOIN
+      },
+      {
+        userId: mira.id,
+        triggeredByUserId: noa.id,
+        playIntentId: specificFriendsIntent.id,
+        gameId: bySlug['deep-rock-galactic'].id,
+        type: NotificationType.FRIEND_PLAYING,
+        title: 'Noa saved a smaller session for you',
+        body: 'Noa only sent this one to a couple of friends.',
+        deliveredAt: minutesAgo(5),
+        respondedAt: minutesAgo(2),
         responseChoice: NotificationResponseChoice.JOIN
       },
       {
@@ -568,9 +594,9 @@ async function main() {
     ]
   })
 
-  console.log(`Seeded ${5} users, ${games.length} games, and ${3} Discord servers.`)
-  console.log(`Default viewer ${viewer.handle} now has ${5} library entries, ${3} friends, and ${4} seeded play intents to inspect.`)
-  console.log('Added live Discord activity, observed game history, and response-ready notifications for richer testing.')
+  console.log(`Seeded ${5} sample users, ${games.length} games, and ${3} Discord servers.`)
+  console.log(`Sample account ${viewer.handle} now has ${5} library entries, ${3} friends, and ${4} seeded play intents to inspect.`)
+  console.log('Added live Discord activity plus seeded join responses so admins can test richer call-to-play states.')
 }
 
 main()

@@ -53,6 +53,8 @@ The scheduling model uses an explicit start and end window so the same aggregate
 
 Notification rows can now also track whether a recipient explicitly said they would join from a Discord DM prompt. That keeps the response flow attached to the original play intent instead of introducing a second RSVP-specific entity.
 
+Play-intent feed and current-intent payloads now also include lightweight interested-user previews derived from join responses. That lets the web app render interested-player summaries directly on the Play view without a second lookup for basic identity data.
+
 Scheduled calls to play now add a second-stage check-in flow. The audience is still notified immediately at creation time, but the creator receives an explicit confirmation prompt when the scheduled start time arrives. If confirmed, accepted recipients receive a go-time update, unanswered recipients receive one follow-up reminder, and prior decliners remain opted out.
 
 Creators also receive a persistent Discord DM summary for each live call to play. That summary is edited in place as recipient responses change, and in the gateway-owning environment it can expose creator-only actions such as canceling the call directly from Discord.

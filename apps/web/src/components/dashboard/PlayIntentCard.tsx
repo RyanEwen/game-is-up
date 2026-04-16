@@ -1,8 +1,9 @@
-import { Avatar, Box, Button, Card, Chip, Sheet, Stack, Typography } from '@mui/joy'
-import type { PlayIntentPreview, PlayIntentRecipientResponseChoice } from '@game-is-up/shared'
-import { DashboardDeferredImage } from './DashboardDeferredImage'
+import { Avatar, Box, Button, Card, Chip, Stack, Typography } from '@mui/joy'
+import type { ActivePlayIntent, DiscoveryPerson, PlayIntentPreview, PlayIntentRecipientResponseChoice } from '@game-is-up/shared'
+import { InterestedPlayerList } from './InterestedPlayerList'
+import { CompactPersonGameCard } from './PersonCard'
 import { formatNotifyScopeLabel } from './dashboardUtils'
-import type { DashboardLibraryQuickAddGame } from './types'
+import type { DashboardLibraryQuickAddGame, FriendTarget } from './types'
 
 const selectedGameGridSx = {
   display: 'grid',
@@ -10,35 +11,73 @@ const selectedGameGridSx = {
   gap: 1.25
 } as const
 
-const compactActionLabelSx = {
-  display: 'inline',
-  '@container (max-width: 280px)': {
-    display: 'none'
-  }
-} as const
+type PlayIntentGame = ActivePlayIntent['games'][number] | PlayIntentPreview['games'][number]
 
-const compactActionSymbolSx = {
-  display: 'none',
-  '@container (max-width: 280px)': {
-    display: 'inline'
+export function PlayIntentGameList({
+  games,
+  canAddToLibrary,
+  libraryGameIds,
+  addingLibraryGameId,
+  onAddToLibrary,
+  label = 'Games in this call to play'
+}: {
+  games: PlayIntentGame[];
+  canAddToLibrary: boolean;
+  libraryGameIds: ReadonlySet<string>;
+  addingLibraryGameId: string | null;
+  onAddToLibrary: (game: DashboardLibraryQuickAddGame) => Promise<void>;
+  label?: string;
+}) {
+  if (games.length === 0) {
+    return null
   }
-} as const
 
-function getGameMonogram(title: string) {
-  return title
-    .split(/\s+/)
-    .map((part) => part[0] ?? '')
-    .join('')
-    .slice(0, 2)
-    .toUpperCase()
+  return (
+    <Box>
+      <Typography level="body-xs" sx={{ mb: 0.75, color: 'primary.200', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+        {label}
+      </Typography>
+      <Box sx={selectedGameGridSx}>
+        {games.map((game) => {
+          return (
+            <CompactPersonGameCard
+              key={game.id}
+              game={{
+                gameId: game.id,
+                title: game.title,
+                coverUrl: game.coverUrl ?? null,
+                platformLabels: [game.platform]
+              }}
+              canAddToLibrary={canAddToLibrary}
+              isInLibrary={libraryGameIds.has(game.id)}
+              isAddingToLibrary={addingLibraryGameId === game.id}
+              supportingText="Looking to play"
+              detailLines={[
+                'Included in this call to play.',
+                `Platform: ${game.platform}`
+              ]}
+              badges={[
+                { label: 'Looking to play', color: 'primary' },
+                { label: game.platform, variant: 'outlined' }
+              ]}
+              onAddToLibrary={onAddToLibrary}
+            />
+          )
+        })}
+      </Box>
+    </Box>
+  )
 }
 
 export function PlayIntentCard({
   intent,
   canAddToLibrary,
+  discoveryPeopleById,
   libraryGameIds,
   addingLibraryGameId,
+  friendPendingId,
   onAddToLibrary,
+  onToggleFriend,
   responsePending,
   onRespondToIntent,
   isMuted,
@@ -47,9 +86,12 @@ export function PlayIntentCard({
 }: {
   intent: PlayIntentPreview;
   canAddToLibrary: boolean;
+  discoveryPeopleById: ReadonlyMap<string, DiscoveryPerson>;
   libraryGameIds: ReadonlySet<string>;
   addingLibraryGameId: string | null;
+  friendPendingId: string | null;
   onAddToLibrary: (game: DashboardLibraryQuickAddGame) => Promise<void>;
+  onToggleFriend: (target: FriendTarget) => Promise<void>;
   responsePending: boolean;
   onRespondToIntent: (playIntentId: string, responseChoice: PlayIntentRecipientResponseChoice) => Promise<void>;
   isMuted: boolean;
@@ -144,7 +186,7 @@ export function PlayIntentCard({
 
       {viewerResponseChoice ? (
         <Typography level="body-xs" sx={{ mb: 1.5, color: viewerResponseChoice === 'join' ? 'success.300' : 'neutral.400' }}>
-          {viewerResponseChoice === 'join' ? 'You are marked as joining this call to play.' : 'You are marked as passed on this call to play.'}
+          {viewerResponseChoice === 'join' ? 'You are marked as interested in this call to play.' : 'You are marked as passed on this call to play.'}
         </Typography>
       ) : null}
 
@@ -172,6 +214,15 @@ export function PlayIntentCard({
         </Typography>
       ) : null}
 
+      <InterestedPlayerList
+        users={intent.interestedUsers}
+        sx={{ mb: intent.selectionMode === 'subset' || isLibraryWide ? 2 : 0 }}
+        discoveryPeopleById={discoveryPeopleById}
+        canManage={canAddToLibrary}
+        friendPendingId={friendPendingId}
+        onToggleFriend={onToggleFriend}
+      />
+
       {isLibraryWide ? (
         <>
           <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: 'wrap' }}>
@@ -186,145 +237,13 @@ export function PlayIntentCard({
           </Typography>
         </>
       ) : (
-        <Box sx={selectedGameGridSx}>
-          {intent.games.map((game) => {
-            const libraryQuickAddGame: DashboardLibraryQuickAddGame = {
-              gameId: game.id,
-              title: game.title,
-              coverUrl: game.coverUrl ?? null,
-              platformLabels: [game.platform]
-            }
-            const isInLibrary = libraryGameIds.has(game.id)
-            const isAddingToLibrary = addingLibraryGameId === game.id
-
-            return (
-              <Sheet
-                key={game.id}
-                variant="soft"
-                sx={{
-                  p: 1.5,
-                  borderRadius: 'lg',
-                  border: '1px solid rgba(141, 255, 216, 0.12)',
-                  background: 'linear-gradient(180deg, rgba(13, 70, 58, 0.28), rgba(14, 21, 34, 0.88))',
-                  boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.04)',
-                  height: '100%'
-                }}
-              >
-                <Stack spacing={1.5} sx={{ height: '100%', containerType: 'inline-size' }}>
-                  <Stack direction="row" spacing={1.25} alignItems="flex-start">
-                    <Box
-                      sx={{
-                        width: 58,
-                        height: 74,
-                        borderRadius: 'md',
-                        flexShrink: 0,
-                        overflow: 'hidden',
-                        background: 'linear-gradient(160deg, rgba(28, 171, 132, 0.8), rgba(17, 24, 38, 0.96) 72%)',
-                        boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.18)'
-                      }}
-                    >
-                      {game.coverUrl ? (
-                        <DashboardDeferredImage src={game.coverUrl} alt={game.title} rootMargin="220px 0px" />
-                      ) : (
-                        <Box
-                          sx={{
-                            width: '100%',
-                            height: '100%',
-                            display: 'flex',
-                            alignItems: 'flex-end',
-                            justifyContent: 'flex-start',
-                            p: 1
-                          }}
-                        >
-                          <Typography
-                            level="h3"
-                            sx={{
-                              color: 'common.white',
-                              lineHeight: 0.9,
-                              letterSpacing: '0.06em',
-                              textShadow: '0 6px 18px rgba(0, 0, 0, 0.35)'
-                            }}
-                          >
-                            {getGameMonogram(game.title)}
-                          </Typography>
-                        </Box>
-                      )}
-                    </Box>
-
-                    <Stack spacing={1} sx={{ minWidth: 0, flex: 1 }}>
-                      <Typography
-                        level="title-sm"
-                        sx={{
-                          display: '-webkit-box',
-                          overflow: 'hidden',
-                          WebkitLineClamp: 2,
-                          WebkitBoxOrient: 'vertical',
-                          color: 'neutral.50'
-                        }}
-                      >
-                        {game.title}
-                      </Typography>
-
-                      <Stack direction="row" spacing={0.75} sx={{ flexWrap: 'wrap' }}>
-                        <Chip size="sm" variant="soft" color="primary">
-                          {game.platform}
-                        </Chip>
-                        <Chip size="sm" variant={isInLibrary ? 'soft' : 'outlined'} color={isInLibrary ? 'success' : 'neutral'}>
-                          {isInLibrary ? 'In your library' : 'Quick add'}
-                        </Chip>
-                      </Stack>
-
-                      <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
-                        Included in this call to play.
-                      </Typography>
-                    </Stack>
-                  </Stack>
-
-                  {!isInLibrary ? (
-                    <Button
-                      size="sm"
-                      variant="soft"
-                      color="success"
-                      disabled={!canAddToLibrary || isAddingToLibrary}
-                      onClick={() => void onAddToLibrary(libraryQuickAddGame)}
-                      sx={{
-                        mt: 'auto',
-                        ml: 'auto',
-                        flexShrink: 0,
-                        alignSelf: 'flex-end',
-                        borderRadius: 'xl',
-                        minHeight: '1.75rem',
-                        minWidth: { xs: '1.75rem', sm: 'auto' },
-                        px: { xs: 0.625, sm: 1.25 },
-                        whiteSpace: 'nowrap',
-                        fontSize: 'xs',
-                        fontWeight: 'md',
-                        lineHeight: 1
-                      }}
-                    >
-                      {!canAddToLibrary ? (
-                        <>
-                          <Box component="span" sx={compactActionLabelSx}>Sign in to add</Box>
-                          <Box component="span" sx={compactActionSymbolSx}>?</Box>
-                        </>
-                      ) : isAddingToLibrary ? (
-                        <>
-                          <Box component="span" sx={compactActionLabelSx}>Adding...</Box>
-                          <Box component="span" sx={compactActionSymbolSx}>...</Box>
-                        </>
-                      ) : (
-                        <>
-                          <Box component="span" sx={compactActionLabelSx}>Add to library</Box>
-                          <Box component="span" sx={compactActionSymbolSx}>Add</Box>
-                        </>
-                      )}
-                    </Button>
-                  ) : null}
-                </Stack>
-              </Sheet>
-            )
-          })}
-        </Box>
+        <PlayIntentGameList
+          games={intent.games}
+          canAddToLibrary={canAddToLibrary}
+          libraryGameIds={libraryGameIds}
+          addingLibraryGameId={addingLibraryGameId}
+          onAddToLibrary={onAddToLibrary}
+        />
       )}
     </Card>
   )

@@ -93,7 +93,7 @@ That runs ESLint, TypeScript checks, and `prisma validate`.
 - `npm run db:migrate:bootstrap` baselines an existing non-managed database at the checked-in baseline and then applies pending migrations.
 - `npm run db:push` force-resets the dev database and applies the current Prisma schema. Keep this for disposable local resets only, not shared or production databases.
 - `npm run db:seed` reloads the demo discovery dataset.
-- In local development, a signed-in non-demo account with no friends yet is automatically linked to the seeded sample friends on the next session refresh, and the demo accounts are attached to one real bot-visible Discord server when possible so discovery, server-scoped targeting, and friend-driven UI can be tested without rebuilding the graph manually.
+- In local development, seeded sample discovery and call-to-play data are only rebound after an admin signs in. That admin account is linked to the seeded sample friends, and seeded server-scoped or targeted calls to play are retargeted onto the admin's real bot-visible Discord network when possible so discovery and play-intent flows can be tested without exposing sample data to signed-out or non-admin users.
 - `npm run db:generate` refreshes the Prisma client after schema changes.
 - `npm run dev:fresh` waits for PostgreSQL, resets the schema, reseeds demo data, and starts the full stack.
 
