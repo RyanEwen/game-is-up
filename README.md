@@ -67,7 +67,7 @@ Optional: set `VITE_PUBLIC_APP_URL` when you want in-app invites to point at a p
 
 Optional: set `VITE_API_BASE_URL` to an explicit origin if the web app should call an API on a different host. Leave it empty when the app is served behind a reverse proxy on the same origin.
 
-The dashboard uses route-backed tabs, so the main views live at `/`, `/library`, `/discovery`, and `/play`. In local development, a dev-only `/debug` tab is also available for bot, prompt, and notification diagnostics. Discord sign-in now preserves same-origin return URLs so a user can authenticate and land back on the view they started from.
+The dashboard uses route-backed tabs, so the main views live at `/`, `/library`, `/discovery`, and `/play`. Admin users also get a `/debug` tab for bot, prompt, notification, and DM-emulator diagnostics. Discord sign-in now preserves same-origin return URLs so a user can authenticate and land back on the view they started from.
 
 For a clean local reset plus startup in one command, run:
 
@@ -167,24 +167,26 @@ This repo now treats Prisma migrations as the source of truth for schema changes
 6. After signing in, use the in-app Discord server controls to opt specific shared servers into discovery. Synced servers are excluded by default, and a server can only be selected once the bot is installed in that server.
 7. Optional: set `DISCORD_BOT_TOKEN` if you want the app to send Discord DMs. Set `DISCORD_BOT_MODE=gateway` only in the one environment that should own the live gateway connection for presence tracking and interactive bot flows.
 8. If you need to reuse that same bot token locally while production still owns the gateway connection, set `DISCORD_BOT_MODE=rest` in development. That mode supports DM send/edit plus read-only server and member browsing without opening a second live gateway session.
-9. Install the bot in shared Discord servers and enable the Presence Intent in the Discord developer portal if you want lossy recording of currently played Discord games from the gateway-owning environment.
-10. Bot-based activity tracking only records activity while the bot is online and present in a shared server, so it should be treated as opportunistic rather than authoritative history.
-11. If you want the app to browse every member in a selected Discord server for invite targeting, the bot also needs the Server Members intent enabled in the Discord developer portal.
-12. When a call to play matches someone who should be notified and that user has a linked Discord account, the bot can DM them directly. Quick response buttons are only active in the gateway-owning environment.
-13. If a notified recipient says they are joining from Discord, the creator gets a follow-up DM confirmation. Recipients can also choose Pass without notifying the creator, and can still switch to joining later. Recipients who already have an overlapping active call to play are filtered out before those call notifications are sent.
-14. Users can leave a Play page setting on by default so the gateway-owning bot can DM them after it sees them start a game and offer to create a call to play straight from Discord. Those prompts only go out when there is no active call already, at least one visible overlap could receive it, and the same game has not already prompted that user in the last 10 minutes.
-15. Unanswered Discord call-to-play invites and auto-play prompts are now edited in place when they go stale, so users see that the session ended or the observed game activity stopped instead of keeping an outdated call to action.
-16. Scheduled calls to play still notify the target audience immediately when created. At start time, the creator now gets a check-in prompt to confirm whether the plan is still on.
-17. If the creator confirms, users who already accepted get a go-time update and users who never answered get one follow-up reminder. Users who declined are not reminded again.
-18. When a call to play is created, the creator also gets a persistent Discord DM summary that is edited as responses come in. In the gateway-owning environment, that summary includes a creator-only Cancel CTP button.
-19. Bot-authored Discord DMs tied to tracked call-to-play and auto-play flows are now swept and deleted after 72 hours, and their stored message references are cleared afterward.
-20. Discovery-based play-intent visibility can now include both explicit friends and users from the Discord servers you opted into discovery.
-21. Discovery remains based on opted-in shared Discord servers plus explicit in-app friendships. The Discord friend-list import path has been removed.
-22. Discord is still the only sign-in path in this scaffold.
-23. Steam can now be linked as a secondary account for library import only. It does not replace Discord auth or discovery.
-24. Linked-account flows like Discord sign-in and Steam linking return directly to the current web URL after the provider callback completes.
-25. Call-to-play DMs now include a clickable creator Discord mention when available.
-26. Subset call-to-play DMs include game art only for single-game calls to play.
+9. Development now emulates Discord DM send, edit, and delete by default even when the bot token is configured. Set `DISCORD_SEND_REAL_DMS_IN_DEV=true` only when you explicitly want a dev environment to deliver live Discord DMs.
+10. Install the bot in shared Discord servers and enable the Presence Intent in the Discord developer portal if you want lossy recording of currently played Discord games from the gateway-owning environment.
+11. Bot-based activity tracking only records activity while the bot is online and present in a shared server, so it should be treated as opportunistic rather than authoritative history.
+12. If you want the app to browse every member in a selected Discord server for invite targeting, the bot also needs the Server Members intent enabled in the Discord developer portal.
+13. When a call to play matches someone who should be notified and that user has a linked Discord account, the bot can DM them directly. Quick response buttons in Discord are only active in the gateway-owning environment.
+14. If a notified recipient says they are joining from Discord, the creator gets a follow-up DM confirmation. Recipients can also choose Pass without notifying the creator, and can still switch to joining later. Recipients who already have an overlapping active call to play are filtered out before those call notifications are sent.
+15. Users can leave a Play page setting on by default so the gateway-owning bot can DM them after it sees them start a game and offer to create a call to play straight from Discord. Those prompts only go out when there is no active call already, at least one visible overlap could receive it, and the same game has not already prompted that user in the last 10 minutes.
+16. Unanswered Discord call-to-play invites and auto-play prompts are now edited in place when they go stale, so users see that the session ended or the observed game activity stopped instead of keeping an outdated call to action.
+17. Scheduled calls to play still notify the target audience immediately when created. At start time, the creator now gets a check-in prompt to confirm whether the plan is still on.
+18. If the creator confirms, users who already accepted get a go-time update and users who never answered get one follow-up reminder. Users who declined are not reminded again.
+19. When a call to play is created, the creator also gets a persistent Discord DM summary that is edited as responses come in. In the gateway-owning environment, that summary includes a creator-only Cancel CTP button.
+20. Admin users can inspect a DM emulator in the debug surface and from Play cards. That emulator shows the latest thread state plus derived revisions for tracked call-to-play DMs.
+21. Bot-authored Discord DMs tied to tracked call-to-play and auto-play flows are now swept and deleted after 72 hours, and their stored message references are cleared afterward.
+22. Discovery-based play-intent visibility can now include both explicit friends and users from the Discord servers you opted into discovery.
+23. Discovery remains based on opted-in shared Discord servers plus explicit in-app friendships. The Discord friend-list import path has been removed.
+24. Discord is still the only sign-in path in this scaffold.
+25. Steam can now be linked as a secondary account for library import only. It does not replace Discord auth or discovery.
+26. Linked-account flows like Discord sign-in and Steam linking return directly to the current web URL after the provider callback completes.
+27. Call-to-play DMs now include a clickable creator Discord mention when available.
+28. Subset call-to-play DMs include game art only for single-game calls to play.
 
 ## Steam import setup
 

@@ -158,7 +158,7 @@ function normalizePlayIntentTitle(title: string | null | undefined) {
   return normalizedTitle.length > 0 ? normalizedTitle : defaultPlayIntentTitle
 }
 
-function buildNotificationCopy(
+export function buildPlayIntentNotificationCopy(
   senderDisplayName: string,
   selectionMode: PlayIntentSelectionMode,
   selectedTitles: string[],
@@ -534,6 +534,34 @@ export async function getPlayIntentRecipientUserIds(
   )
 }
 
+export async function getPlayIntentRecipientUserIdsForDebug(options: {
+  userId: string;
+  scope: PlayIntentNotifyScope;
+  overlappingGameIds: string[];
+  targetUserIds?: string[];
+  includeSelf?: boolean;
+  targetDiscordServerId?: string | null;
+}) {
+  const explicitFriendUserIds = await prisma.friend.findMany({
+    where: {
+      userId: options.userId
+    },
+    select: {
+      friendedUserId: true
+    }
+  }).then((friends) => friends.map((friend) => friend.friendedUserId))
+
+  return getRecipientUserIds(
+    options.userId,
+    options.scope,
+    options.overlappingGameIds,
+    explicitFriendUserIds,
+    options.targetUserIds ?? [],
+    options.includeSelf ?? false,
+    options.targetDiscordServerId
+  )
+}
+
 async function getPlayableLibraryEntries(userId: string) {
   return prisma.userGameInterest.findMany({
     where: {
@@ -778,7 +806,7 @@ export async function upsertCurrentPlayIntent(
     selectedGameIds,
     explicitFriendUserIds,
     targetedFriends.map((friend) => friend.id),
-    sender.isAdmin,
+    payload.includeSelf && sender.isAdmin,
     targetDiscordServer?.id
   )
   const now = new Date()
@@ -961,7 +989,7 @@ export async function upsertCurrentPlayIntent(
           const recipientUpdatedFields = isMeaningfulUpdate && priorNotifiedRecipientUserIds.has(recipientUserId)
             ? updatedFields
             : []
-          const notificationCopy = buildNotificationCopy(
+          const notificationCopy = buildPlayIntentNotificationCopy(
             sender.displayName,
             payload.selectionMode,
             selectedTitles,
@@ -1093,6 +1121,7 @@ export async function upsertCurrentPlayIntent(
           const result = dmResults.find((candidate) => candidate.discordUserId === target.discordUserId && candidate.status === 'sent')
 
           return result
+            && !result.emulated
             ? {
                 notificationId: target.notificationId,
                 channelId: result.channelId,

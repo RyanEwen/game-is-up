@@ -1,4 +1,4 @@
-import { Avatar, Button, Card, Chip, DialogContent, DialogTitle, Input, Option, Select, Stack, Typography } from '@mui/joy'
+import { Avatar, Button, Card, Checkbox, Chip, DialogContent, DialogTitle, Input, Option, Select, Stack, Typography } from '@mui/joy'
 import type {
   ActivePlayIntent,
   DiscordServerPreference,
@@ -23,8 +23,11 @@ import type { PlayIntentStartMode, PlayIntentTimingMode } from './types'
 
 export function PlayIntentComposerCard({
   activePlayIntent,
+  isAdmin,
   canPostPlayIntent,
   playIntentFilteredAudienceMessage,
+  playIntentIncludeSelf,
+  onPlayIntentIncludeSelfChange,
   playIntentNotifyScope,
   onPlayIntentNotifyScopeChange,
   playIntentFriendOptions,
@@ -70,8 +73,11 @@ export function PlayIntentComposerCard({
   onClearPlayIntent
 }: {
   activePlayIntent: ActivePlayIntent | null;
+  isAdmin: boolean;
   canPostPlayIntent: boolean;
   playIntentFilteredAudienceMessage: string | null;
+  playIntentIncludeSelf: boolean;
+  onPlayIntentIncludeSelfChange: (nextValue: boolean) => void;
   playIntentNotifyScope: PlayIntentNotifyScope;
   onPlayIntentNotifyScopeChange: (scope: PlayIntentNotifyScope) => void;
   playIntentFriendOptions: Array<Pick<DiscoveryPerson, 'id' | 'handle' | 'displayName' | 'avatarUrl'>>;
@@ -326,6 +332,20 @@ export function PlayIntentComposerCard({
           <Typography level="body-xs" sx={{ color: 'neutral.300' }}>
             {formatNotifyScopeDescription(playIntentNotifyScope)}
           </Typography>
+          {isAdmin ? (
+            <Card variant="outlined" sx={{ p: 1.5 }}>
+              <Stack spacing={0.75}>
+                <Checkbox
+                  checked={playIntentIncludeSelf}
+                  onChange={(event) => onPlayIntentIncludeSelfChange(event.target.checked)}
+                  label="Also send this call to play to me for testing"
+                />
+                <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
+                  Admin-only debug option. This adds your own account as a recipient so you can see the member-facing DM flow.
+                </Typography>
+              </Stack>
+            </Card>
+          ) : null}
           {playIntentNotifyScope === 'specific-friends' ? (
             playIntentFriendOptions.length > 0 ? (
               <Stack spacing={1}>

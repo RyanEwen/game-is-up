@@ -29,6 +29,11 @@ type AutoPlayPromptAction =
   | { kind: 'settle-confirm'; promptId: string }
   | { kind: 'settle-decline'; promptId: string }
 
+type DirectMessagePreviewPayload = {
+  content: string;
+  components: ActionRowBuilder<MessageActionRowComponentBuilder>[];
+}
+
 function buildPlayUrl(): string {
   try {
     return new URL('/play', env.CLIENT_ORIGIN).toString()
@@ -225,6 +230,63 @@ function buildAcceptedMessage(gameTitle: string, durationMinutes: number, notify
   ].join('\n\n')
 }
 
+export function buildDiscordAutoPlayPromptPreview(options: {
+  promptId: string;
+  status: DiscordAutoPlayPromptStatus;
+  gameTitle: string;
+  durationMinutes: number | null;
+  notifyScope: PlayIntentScope | null;
+  friendRecipientCount: number;
+  networkRecipientCount: number;
+  statusDetail: string | null;
+  deliveredCount: number;
+}): DirectMessagePreviewPayload | null {
+  switch (options.status) {
+    case DiscordAutoPlayPromptStatus.SKIPPED:
+      return null
+    case DiscordAutoPlayPromptStatus.DECLINED:
+      return {
+        content: buildDeclinedMessage(options.gameTitle),
+        components: [buildLinkRow()]
+      }
+    case DiscordAutoPlayPromptStatus.EXPIRED:
+      return {
+        content: buildExpiredMessage(options.statusDetail ?? 'This Discord prompt is no longer active.'),
+        components: [buildLinkRow()]
+      }
+    case DiscordAutoPlayPromptStatus.ACCEPTED:
+      return {
+        content: buildAcceptedMessage(
+          options.gameTitle,
+          options.durationMinutes ?? autoPlayPromptDurations[0],
+          options.notifyScope === PlayIntentScope.FRIENDS_ONLY ? 'friends-only' : 'network',
+          options.deliveredCount
+        ),
+        components: [buildLinkRow()]
+      }
+    case DiscordAutoPlayPromptStatus.SETTLE_SENT:
+      return {
+        content: buildSettlePromptMessage(options.gameTitle),
+        components: buildSettleRows(options.promptId)
+      }
+    case DiscordAutoPlayPromptStatus.SETTLE_CONFIRMED:
+      return {
+        content: buildSettleConfirmedMessage(options.gameTitle),
+        components: [buildLinkRow()]
+      }
+    case DiscordAutoPlayPromptStatus.SETTLE_DECLINED:
+      return {
+        content: buildSettleDeclinedMessage(),
+        components: [buildLinkRow()]
+      }
+    default:
+      return {
+        content: buildInitialPromptMessage(options.gameTitle, options.networkRecipientCount),
+        components: buildDurationRows(options.promptId)
+      }
+  }
+}
+
 function parseAction(customId: string): AutoPlayPromptAction | null {
   const parts = customId.split(':')
   const promptId = parts[1]
@@ -372,6 +434,18 @@ async function maybeSendSettleGamePrompt(options: {
         status: DiscordAutoPlayPromptStatus.FAILED,
         statusDetail: 'Settle prompt DM could not be delivered.',
         dmError: dmResult?.error ?? 'Unknown Discord DM delivery failure.'
+      }
+    })
+    return
+  }
+
+  if (dmResult.emulated) {
+    await prisma.discordAutoPlayPrompt.update({
+      where: { id: prompt.id },
+      data: {
+        statusDetail: `Settle prompt DM emulated in development for ${options.gameTitle}.`,
+        discordDmChannelId: null,
+        discordDmMessageId: null
       }
     })
     return
@@ -661,6 +735,20 @@ export async function maybeSendDiscordAutoPlayPromptForObservation(observationId
     return
   }
 
+  if (dmResult.emulated) {
+    await prisma.discordAutoPlayPrompt.update({
+      where: {
+        id: prompt.id
+      },
+      data: {
+        statusDetail: `Prompt DM emulated in development for ${observation.game.title}.`,
+        discordDmChannelId: null,
+        discordDmMessageId: null
+      }
+    })
+    return
+  }
+
   await prisma.discordAutoPlayPrompt.update({
     where: {
       id: prompt.id
@@ -838,6 +926,7 @@ export async function handleDiscordAutoPlayPromptInteraction(interaction: Button
       const response = await upsertCurrentPlayIntent(prompt.user.id, {
         selectionMode: 'subset',
         notifyScope,
+        includeSelf: false,
         gameIds: [prompt.game.id],
         targetUserIds,
         targetDiscordServerId: settlePlayIntent.targetDiscordServerId ?? undefined,
@@ -932,6 +1021,7 @@ export async function handleDiscordAutoPlayPromptInteraction(interaction: Button
     const response = await upsertCurrentPlayIntent(prompt.user.id, {
       selectionMode: 'subset',
       notifyScope: action.notifyScope,
+      includeSelf: false,
       gameIds: [prompt.game.id],
       targetUserIds: [],
       durationMinutes: action.durationMinutes,

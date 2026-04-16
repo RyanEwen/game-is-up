@@ -82,7 +82,8 @@ export function PlayIntentCard({
   onRespondToIntent,
   isMuted,
   onMuteCreator,
-  onUnmuteCreator
+  onUnmuteCreator,
+  onOpenDmEmulator
 }: {
   intent: PlayIntentPreview;
   canAddToLibrary: boolean;
@@ -97,6 +98,7 @@ export function PlayIntentCard({
   isMuted: boolean;
   onMuteCreator: (userId: string) => Promise<void>;
   onUnmuteCreator: (userId: string) => Promise<void>;
+  onOpenDmEmulator?: () => void;
 }) {
   const isLibraryWide = intent.selectionMode === 'library'
   const viewerResponseChoice = intent.viewerResponseChoice
@@ -181,6 +183,17 @@ export function PlayIntentCard({
           >
             {isMuted ? 'Unmute creator' : 'Mute creator'}
           </Button>
+          {onOpenDmEmulator ? (
+            <Button
+              variant="outlined"
+              color="neutral"
+              size="sm"
+              onClick={onOpenDmEmulator}
+              sx={actionButtonSx}
+            >
+              Open DM emulator
+            </Button>
+          ) : null}
         </Stack>
       </Stack>
 

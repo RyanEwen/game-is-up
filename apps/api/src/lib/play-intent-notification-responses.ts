@@ -41,6 +41,11 @@ type CreatorPlayIntentSummaryAction = {
 
 type PlayIntentRecipientResponse = 'JOIN' | 'DECLINE'
 
+type DirectMessagePreviewPayload = {
+  content: string;
+  components: ActionRowBuilder<MessageActionRowComponentBuilder>[];
+}
+
 type ResolvablePlayIntentNotification = {
   id: string;
   userId: string;
@@ -264,6 +269,117 @@ export function buildScheduledPlayIntentCheckInComponents(notificationId: string
     : [buildLinkRow()]
 }
 
+export function buildNotificationDirectMessagePreview(options: {
+  notificationId: string;
+  notificationType: NotificationType;
+  title: string;
+  body: string;
+  responseChoice?: NotificationResponseChoice | null;
+  creatorUserId?: string | null;
+  creatorDiscordUserId?: string | null;
+  creatorDisplayName?: string | null;
+  gameTitle?: string | null;
+  playIntentIsActive?: boolean;
+  voiceChannel?: { channelId: string | null; channelName: string | null; recipientSharesServer: boolean } | null;
+  joinCount?: number;
+}): DirectMessagePreviewPayload {
+  const creatorLabel = options.creatorDisplayName
+    ? buildDiscordUserLabel(options.creatorDisplayName, options.creatorDiscordUserId)
+    : 'this player'
+
+  if (options.notificationType === NotificationType.SCHEDULED_PLAY_INTENT_CHECK_IN) {
+    if (options.responseChoice === NotificationResponseChoice.CANCELED) {
+      return {
+        content: buildCreatorCanceledMessage(),
+        components: [buildLinkRow()]
+      }
+    }
+
+    if (options.responseChoice === NotificationResponseChoice.CONFIRMED) {
+      return {
+        content: buildCreatorConfirmedMessage(),
+        components: [buildLinkRow()]
+      }
+    }
+
+    if (options.responseChoice === NotificationResponseChoice.EXPIRED || options.playIntentIsActive === false) {
+      return {
+        content: buildExpiredMessage('This call to play expired before you confirmed.'),
+        components: [buildLinkRow()]
+      }
+    }
+
+    return {
+      content: buildCreatorCheckInPromptMessage(
+        options.creatorDisplayName
+          ? buildDiscordUserLabel(options.creatorDisplayName, options.creatorDiscordUserId)
+          : 'there'
+      ),
+      components: buildScheduledPlayIntentCheckInComponents(options.notificationId)
+    }
+  }
+
+  if (
+    options.notificationType === NotificationType.FRIEND_PLAYING
+    || options.notificationType === NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED
+    || options.notificationType === NotificationType.SCHEDULED_PLAY_INTENT_REMINDER
+  ) {
+    if (options.notificationType !== NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED) {
+      if (options.responseChoice === NotificationResponseChoice.JOIN) {
+        return {
+          content: buildJoinAcceptedMessage(creatorLabel),
+          components: buildPlayIntentNotificationComponents(
+            options.notificationId,
+            options.creatorUserId ?? undefined,
+            options.creatorDisplayName ?? undefined
+          )
+        }
+      }
+
+      if (options.responseChoice === NotificationResponseChoice.DECLINE) {
+        return {
+          content: buildPassAcceptedMessage(),
+          components: buildPlayIntentNotificationComponents(
+            options.notificationId,
+            options.creatorUserId ?? undefined,
+            options.creatorDisplayName ?? undefined
+          )
+        }
+      }
+
+      if (options.responseChoice === NotificationResponseChoice.EXPIRED || options.playIntentIsActive === false) {
+        return {
+          content: buildExpiredMessage(buildSessionEndedReason(creatorLabel, options.gameTitle ?? null)),
+          components: [buildLinkRow()]
+        }
+      }
+    }
+
+    return {
+      content: buildPlayIntentDirectMessage(
+        options.title,
+        options.body,
+        options.creatorDiscordUserId,
+        options.creatorDisplayName,
+        options.voiceChannel,
+        options.joinCount
+      ),
+      components: options.notificationType === NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED
+        ? [buildLinkRow()]
+        : buildPlayIntentNotificationComponents(
+            options.notificationId,
+            options.creatorUserId ?? undefined,
+            options.creatorDisplayName ?? undefined
+          )
+    }
+  }
+
+  return {
+    content: [`**${options.title}**`, options.body].filter(Boolean).join('\n\n'),
+    components: [buildLinkRow()]
+  }
+}
+
 function buildCreatorPlayIntentSummaryComponents(playIntentId: string, isActive: boolean) {
   if (!isActive || !supportsDiscordInteractiveMessages()) {
     return [buildLinkRow()]
@@ -376,11 +492,10 @@ function getCreatorSummaryRecipientStats(snapshot: CreatorPlayIntentSummarySnaps
   }
 }
 
-function getCreatorSummaryStatus(snapshot: CreatorPlayIntentSummarySnapshot) {
+function getCreatorSummaryStatus(snapshot: CreatorPlayIntentSummarySnapshot, currentTime = new Date()) {
   const latestCheckIn = snapshot.notifications.find((notification) => notification.type === NotificationType.SCHEDULED_PLAY_INTENT_CHECK_IN)
-  const now = new Date()
 
-  if (snapshot.expiresAt <= now) {
+  if (snapshot.expiresAt <= currentTime) {
     return 'Status: Closed'
   }
 
@@ -388,22 +503,22 @@ function getCreatorSummaryStatus(snapshot: CreatorPlayIntentSummarySnapshot) {
     return 'Status: Closed'
   }
 
-  if (latestCheckIn && !latestCheckIn.respondedAt && snapshot.windowStartsAt <= now) {
+  if (latestCheckIn && !latestCheckIn.respondedAt && snapshot.windowStartsAt <= currentTime) {
     return 'Status: Starting now - waiting for your confirmation'
   }
 
-  if (snapshot.windowStartsAt.getTime() > now.getTime() + 60 * 1000) {
+  if (snapshot.windowStartsAt.getTime() > currentTime.getTime() + 60 * 1000) {
     return 'Status: Scheduled'
   }
 
   return 'Status: Live now'
 }
 
-function buildCreatorPlayIntentSummaryMessage(snapshot: CreatorPlayIntentSummarySnapshot) {
+function buildCreatorPlayIntentSummaryMessage(snapshot: CreatorPlayIntentSummarySnapshot, currentTime = new Date()) {
   const stats = getCreatorSummaryRecipientStats(snapshot)
   const startsAtLabel = formatSummaryDateTime(snapshot.windowStartsAt, snapshot.user.timezoneId)
   const endsAtLabel = formatSummaryDateTime(snapshot.windowEndsAt, snapshot.user.timezoneId)
-  const guidance = snapshot.expiresAt > new Date()
+  const guidance = snapshot.expiresAt > currentTime
     ? supportsDiscordInteractiveMessages()
       ? 'Use the buttons below to open Game\'s Up or cancel this call to play.'
       : 'Open Game\'s Up below if you want to edit or cancel this call to play.'
@@ -411,7 +526,7 @@ function buildCreatorPlayIntentSummaryMessage(snapshot: CreatorPlayIntentSummary
 
   return [
     '**CTP summary**',
-    getCreatorSummaryStatus(snapshot),
+    getCreatorSummaryStatus(snapshot, currentTime),
     `Title: ${snapshot.headline}`,
     summarizeCreatorGames(snapshot),
     summarizeCreatorAudience(snapshot),
@@ -429,6 +544,52 @@ function buildCreatorPlayIntentSummaryMessage(snapshot: CreatorPlayIntentSummary
       : 'Reach: No matching players were found yet.',
     guidance
   ].filter((part): part is string => Boolean(part)).join('\n\n')
+}
+
+export function buildCreatorPlayIntentSummaryPreview(snapshot: {
+  id: string;
+  headline: string;
+  note: string;
+  selectionMode: 'ENTIRE_LIBRARY' | 'SELECTED_GAMES';
+  scope: 'FRIENDS_ONLY' | 'MUTUAL_FRIENDS' | 'SPECIFIC_FRIENDS' | 'SPECIFIC_DISCORD_SERVER';
+  windowStartsAt: Date;
+  windowEndsAt: Date;
+  expiresAt: Date;
+  voiceChannelName: string | null;
+  user: {
+    displayName: string;
+    timezoneId: string;
+  };
+  targetDiscordServer: {
+    name: string;
+  } | null;
+  targetFriends: {
+    friendUser: {
+      displayName: string;
+      identities?: { providerUserId: string }[];
+    };
+  }[];
+  games: {
+    game: {
+      title: string;
+    };
+  }[];
+  notifications: {
+    userId: string;
+    type: NotificationType;
+    respondedAt: Date | null;
+    responseChoice: NotificationResponseChoice | null;
+    deliveredAt: Date | null;
+    createdAt: Date;
+  }[];
+  currentTime?: Date;
+}): DirectMessagePreviewPayload {
+  const currentTime = snapshot.currentTime ?? new Date()
+
+  return {
+    content: buildCreatorPlayIntentSummaryMessage(snapshot as CreatorPlayIntentSummarySnapshot, currentTime),
+    components: buildCreatorPlayIntentSummaryComponents(snapshot.id, snapshot.expiresAt > currentTime)
+  }
 }
 
 async function getCreatorPlayIntentSummarySnapshot(playIntentId: string) {
@@ -558,6 +719,10 @@ async function sendOrEditCreatorPlayIntentSummary(playIntentId: string) {
   ]))[0]
 
   if (dmResult?.status !== 'sent') {
+    return
+  }
+
+  if (dmResult.emulated) {
     return
   }
 
@@ -1041,7 +1206,7 @@ export async function sweepScheduledPlayIntentCreatorCheckIns() {
       }
     ]))[0]
 
-    if (dmResult?.status === 'sent') {
+    if (dmResult?.status === 'sent' && !dmResult.emulated) {
       await prisma.notification.update({
         where: {
           id: checkInNotification.id
@@ -1460,7 +1625,7 @@ export async function handleScheduledPlayIntentCheckInInteraction(interaction: B
       .map((target) => {
         const sentResult = dmResults.find((candidate) => candidate.discordUserId === target.discordUserId && candidate.status === 'sent')
 
-        return sentResult
+        return sentResult && !sentResult.emulated
           ? {
               notificationId: target.notificationId,
               channelId: sentResult.channelId,

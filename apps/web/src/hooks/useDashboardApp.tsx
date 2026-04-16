@@ -5,6 +5,7 @@ import type {
   AuthProvidersResponse,
   AuthSessionResponse,
   DebugAdminResponse,
+  DebugDmActionResponse,
   DiscordServerPreferencesResponse,
   DiscoveryFeed,
   DiscoveryGame,
@@ -22,6 +23,7 @@ import {
   authProvidersResponseSchema,
   authSessionResponseSchema,
   debugAdminResponseSchema,
+  debugDmActionResponseSchema,
   discordServerPreferencesResponseSchema,
   discoveryFeedSchema,
   healthResponseSchema,
@@ -621,6 +623,7 @@ export function useDashboardApp() {
 
   const { playViewProps } = useDashboardPlay({
     isSignedIn,
+    isAdmin: Boolean(state.session?.user?.isAdmin),
     buildApiUrl,
     activePlayIntent: state.activePlayIntent,
     libraryEntries,
@@ -946,6 +949,7 @@ export function useDashboardApp() {
     playViewProps: {
       ...playViewProps,
       isSignedIn,
+      isAdmin: Boolean(state.session?.user?.isAdmin),
       playIntentUnavailableAudienceMessage,
       discordAutoPromptPlayIntent: state.session?.user?.discordAutoPromptPlayIntent ?? true,
       discordAutoPromptPlayIntentSaving,
@@ -982,7 +986,9 @@ export function useDashboardApp() {
       isSignedIn,
       debugAdmin: state.debugAdmin,
       debugLoading: showDebugView && isSignedIn && state.debugAdmin == null && !state.error,
-      onRefreshDebug: loadDashboard
+      onRefreshDebug: loadDashboard,
+      buildApiUrl,
+      parseDebugDmActionResponse: (value: unknown) => debugDmActionResponseSchema.parse(value as DebugDmActionResponse)
     }
   }
 }

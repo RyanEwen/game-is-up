@@ -88,6 +88,19 @@ playIntentRouter.put('/me', async (request, response, next) => {
 
   try {
     const payload = upsertPlayIntentRequestSchema.parse(request.body)
+
+    const requestUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { isAdmin: true }
+    })
+
+    if (payload.includeSelf && !requestUser?.isAdmin) {
+      response.status(403).json({
+        error: 'Admin access is required to send a call to play to yourself for testing.'
+      })
+      return
+    }
+
     response.json(upsertPlayIntentResponseSchema.parse(await upsertCurrentPlayIntent(userId, payload)))
   } catch (error) {
     if (error instanceof PlayIntentValidationError) {

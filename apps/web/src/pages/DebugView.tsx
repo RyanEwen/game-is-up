@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   Box,
   Button,
@@ -7,13 +7,28 @@ import {
   DialogContent,
   DialogTitle,
   Input,
+  Link,
   Option,
   Select,
   Stack,
   Table,
   Typography
 } from '@mui/joy'
-import type { DebugAdminResponse, DebugErrorLog, DebugPlayIntentLifecycleEvent, DebugPlayIntentSummary } from '@game-is-up/shared'
+import type {
+  DebugAdminResponse,
+  DebugAutoPlayPrompt,
+  DebugDmActionResponse,
+  DebugDmInboxMessage,
+  DebugDmInboxParticipant,
+  DebugDmPreview,
+  DebugErrorLog,
+  DebugNotificationDelivery,
+  DebugPlayIntentLifecycleEvent,
+  DebugPlayIntentSummary
+} from '@game-is-up/shared'
+import ReactMarkdown from 'react-markdown'
+import remarkBreaks from 'remark-breaks'
+import remarkGfm from 'remark-gfm'
 import { DashboardModal } from '../components/dashboard/DashboardModal'
 import { EmptyStateCard } from '../components/dashboard/EmptyStateCard'
 import { SectionNav, sectionScrollMarginTop } from '../components/dashboard/SectionNav'
@@ -57,18 +72,498 @@ function paginateRows<T>(rows: T[], page: number, pageSize: number) {
   return rows.slice(start, start + pageSize)
 }
 
+function formatDeliveryStateLabel(deliveryState: 'emulated' | 'stored-only' | 'dm-delivered') {
+  switch (deliveryState) {
+    case 'dm-delivered':
+      return 'DM delivered'
+    case 'stored-only':
+      return 'Stored only'
+    default:
+      return 'Emulated thread'
+  }
+}
+
+function DmMarkdown({ content }: { content: string }) {
+  return (
+    <Box
+      sx={{
+        color: 'neutral.100',
+        lineHeight: 1.65,
+        '& > :first-of-type': { mt: 0 },
+        '& > :last-child': { mb: 0 },
+        '& p, & ul, & ol, & pre, & blockquote': {
+          m: 0
+        },
+        '& p + p, & p + ul, & p + ol, & ul + p, & ol + p, & ul + ul, & ol + ol, & blockquote + p, & pre + p': {
+          mt: 1.25
+        },
+        '& ul, & ol': {
+          pl: 3
+        },
+        '& li + li': {
+          mt: 0.5
+        },
+        '& a': {
+          color: 'primary.300',
+          textDecorationColor: 'rgba(111, 217, 255, 0.38)'
+        },
+        '& strong': {
+          color: '#fff',
+          fontWeight: 700
+        },
+        '& code': {
+          fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace',
+          fontSize: '0.95em',
+          px: 0.5,
+          py: 0.125,
+          borderRadius: '6px',
+          bgcolor: 'rgba(111, 217, 255, 0.12)'
+        },
+        '& pre': {
+          overflowX: 'auto',
+          p: 1.25,
+          borderRadius: '10px',
+          bgcolor: 'rgba(8, 14, 24, 0.72)',
+          border: '1px solid rgba(111, 217, 255, 0.12)'
+        },
+        '& pre code': {
+          p: 0,
+          bgcolor: 'transparent'
+        },
+        '& blockquote': {
+          pl: 1.5,
+          borderLeft: '3px solid rgba(111, 217, 255, 0.3)',
+          color: 'neutral.300'
+        }
+      }}
+    >
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm, remarkBreaks]}
+        components={{
+          a: ({ children, href, node, title }) => {
+            void node
+            return (
+              <Link href={href} title={title} target="_blank" rel="noreferrer">
+                {children}
+              </Link>
+            )
+          }
+        }}
+      >
+        {content}
+      </ReactMarkdown>
+    </Box>
+  )
+}
+
+function getDmInboxParticipantKey(participant: DebugDmInboxParticipant) {
+  return `${participant.role}:${participant.user.id}`
+}
+
+function DmPreviewCard({
+  preview,
+  onButtonClick,
+  pendingButtonCustomId,
+  isInteractive = true
+}: {
+  preview: DebugDmPreview;
+  onButtonClick?: (customId: string) => void;
+  pendingButtonCustomId?: string | null;
+  isInteractive?: boolean;
+}) {
+  return (
+    <Card variant="soft" sx={{ p: 2.5 }}>
+      <Stack spacing={2}>
+        <Card variant="outlined" sx={{ p: 2, bgcolor: 'rgba(20, 24, 31, 0.72)' }}>
+          <DmMarkdown content={preview.content} />
+        </Card>
+
+        {preview.buttonRows.length > 0 ? (
+          <Stack spacing={1}>
+            <Typography level="title-sm">Buttons</Typography>
+            {preview.buttonRows.map((row, rowIndex) => (
+              <Stack key={`dm-preview-row-${rowIndex}`} direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+                {row.map((button, buttonIndex) => {
+                  const color = button.style === 'danger'
+                    ? 'danger'
+                    : button.style === 'primary'
+                      ? 'primary'
+                      : 'neutral'
+                  const variant = button.style === 'primary'
+                    ? 'solid'
+                    : button.style === 'danger'
+                      ? 'soft'
+                      : button.style === 'link'
+                        ? 'plain'
+                        : 'outlined'
+                  const isPending = button.customId != null && pendingButtonCustomId === button.customId
+                  const canTriggerAction = button.customId != null && Boolean(onButtonClick)
+                  const canOpenUrl = Boolean(button.url)
+
+                  return (
+                    <Button
+                      key={`dm-preview-button-${rowIndex}-${buttonIndex}`}
+                      size="sm"
+                      color={color}
+                      variant={variant}
+                      disabled={!isInteractive || button.disabled || isPending || (!canTriggerAction && !canOpenUrl)}
+                      loading={isPending}
+                      onClick={() => {
+                        if (!isInteractive) {
+                          return
+                        }
+
+                        if (button.customId && onButtonClick) {
+                          onButtonClick(button.customId)
+                          return
+                        }
+
+                        if (button.url && typeof window !== 'undefined') {
+                          window.open(button.url, '_blank', 'noopener,noreferrer')
+                        }
+                      }}
+                    >
+                      {button.label}
+                    </Button>
+                  )
+                })}
+              </Stack>
+            ))}
+          </Stack>
+        ) : (
+          <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
+            This DM only includes content and no interactive buttons.
+          </Typography>
+        )}
+      </Stack>
+    </Card>
+  )
+}
+
+function DmInboxMessageCard({
+  message,
+  formatDateTime,
+  onButtonClick,
+  pendingButtonCustomId
+}: {
+  message: DebugDmInboxMessage;
+  formatDateTime: (value: string | null) => string;
+  onButtonClick: (customId: string) => void;
+  pendingButtonCustomId: string | null;
+}) {
+  const [selectedRevisionIndex, setSelectedRevisionIndex] = useState(Math.max(0, message.revisions.length - 1))
+
+  useEffect(() => {
+    setSelectedRevisionIndex(Math.max(0, message.revisions.length - 1))
+  }, [message.id, message.revisions.length])
+
+  const latestRevision = message.revisions[message.revisions.length - 1]
+  const revision = message.revisions[selectedRevisionIndex] ?? latestRevision
+
+  if (!revision) {
+    return null
+  }
+
+  const isLatestRevision = selectedRevisionIndex === message.revisions.length - 1
+
+  return (
+    <Card variant="outlined" sx={{ p: 2 }}>
+      <Stack spacing={1.25}>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} justifyContent="space-between">
+          <Stack spacing={0.35}>
+            <Typography level="title-sm">{message.label}</Typography>
+            <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
+              Sent {formatDateTime(message.sentAt)}
+            </Typography>
+            <Typography level="body-xs" sx={{ color: 'neutral.500' }}>
+              {revision.label} · {formatDateTime(revision.occurredAt)}
+            </Typography>
+          </Stack>
+          <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center', flexWrap: 'wrap', justifyContent: { xs: 'flex-start', sm: 'flex-end' } }}>
+            {message.revisions.length > 1 ? (
+              <>
+                <Chip size="sm" variant="outlined" color="neutral">
+                  Revision {selectedRevisionIndex + 1} of {message.revisions.length}
+                </Chip>
+                <Button
+                  size="sm"
+                  variant="outlined"
+                  color="neutral"
+                  disabled={selectedRevisionIndex === 0}
+                  onClick={() => setSelectedRevisionIndex((currentIndex) => Math.max(0, currentIndex - 1))}
+                >
+                  Prev
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outlined"
+                  color="neutral"
+                  disabled={selectedRevisionIndex === message.revisions.length - 1}
+                  onClick={() => setSelectedRevisionIndex((currentIndex) => Math.min(message.revisions.length - 1, currentIndex + 1))}
+                >
+                  Next
+                </Button>
+              </>
+            ) : null}
+            <Chip
+              size="sm"
+              variant={message.deliveryState === 'dm-delivered' ? 'soft' : 'outlined'}
+              color={message.deliveryState === 'dm-delivered' ? 'success' : message.deliveryState === 'emulated' ? 'primary' : 'neutral'}
+            >
+              {formatDeliveryStateLabel(message.deliveryState)}
+            </Chip>
+          </Stack>
+        </Stack>
+        <DmPreviewCard
+          preview={revision.preview}
+          onButtonClick={isLatestRevision ? onButtonClick : undefined}
+          pendingButtonCustomId={isLatestRevision ? pendingButtonCustomId : null}
+          isInteractive={isLatestRevision}
+        />
+        {!isLatestRevision ? (
+          <Typography level="body-xs" sx={{ color: 'neutral.500' }}>
+            Historical revisions are view-only. Switch back to the latest revision to emulate buttons.
+          </Typography>
+        ) : null}
+      </Stack>
+    </Card>
+  )
+}
+
+function DmPreviewDialog({
+  open,
+  onClose,
+  title,
+  subtitle,
+  preview
+}: {
+  open: boolean;
+  onClose: () => void;
+  title: string;
+  subtitle: string;
+  preview: DebugDmPreview | null;
+}) {
+  return (
+    <DashboardModal open={open} onClose={onClose} width="min(92vw, 760px)">
+      <DialogTitle sx={{ pr: 6 }}>{title}</DialogTitle>
+      <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, minHeight: 0, overflow: 'auto' }}>
+        <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
+          {subtitle}
+        </Typography>
+
+        {preview ? (
+          <DmPreviewCard preview={preview} />
+        ) : (
+          <EmptyStateCard
+            title="No DM preview available"
+            body="This row did not produce a Discord DM message body that can be previewed from the current snapshot."
+            chips={['Admin only', 'DM preview']}
+          />
+        )}
+      </DialogContent>
+    </DashboardModal>
+  )
+}
+
+export function CtpDmInboxDialog({
+  open,
+  onClose,
+  ctp,
+  formatDateTime,
+  buildApiUrl,
+  onRefreshDebug,
+  parseDebugDmActionResponse
+}: {
+  open: boolean;
+  onClose: () => void;
+  ctp: DebugPlayIntentSummary | null;
+  formatDateTime: (value: string | null) => string;
+  buildApiUrl: (path: string) => string;
+  onRefreshDebug: () => Promise<void>;
+  parseDebugDmActionResponse: (value: unknown) => DebugDmActionResponse;
+}) {
+  const [selectedParticipantKey, setSelectedParticipantKey] = useState<string | null>(null)
+  const [pendingButtonCustomId, setPendingButtonCustomId] = useState<string | null>(null)
+  const [actionNotice, setActionNotice] = useState<{ tone: 'success' | 'danger'; message: string } | null>(null)
+
+  useEffect(() => {
+    setSelectedParticipantKey(ctp?.dmInboxParticipants[0] ? getDmInboxParticipantKey(ctp.dmInboxParticipants[0]) : null)
+  }, [ctp])
+
+  if (!ctp) {
+    return null
+  }
+
+  const selectedParticipant = ctp.dmInboxParticipants.find((participant) => getDmInboxParticipantKey(participant) === selectedParticipantKey) ?? ctp.dmInboxParticipants[0] ?? null
+
+  const handlePreviewButtonClick = async (customId: string) => {
+    if (!selectedParticipant) {
+      return
+    }
+
+    setPendingButtonCustomId(customId)
+    setActionNotice(null)
+
+    try {
+      const response = await fetch(buildApiUrl('/api/debug/admin/dm-action'), {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          actingUserId: selectedParticipant.user.id,
+          customId
+        })
+      })
+
+      const responseBody = await response.json()
+
+      if (!response.ok) {
+        setActionNotice({
+          tone: 'danger',
+          message: typeof responseBody === 'object' && responseBody && 'error' in responseBody && typeof responseBody.error === 'string'
+            ? responseBody.error
+            : 'Unable to emulate that DM action right now.'
+        })
+        return
+      }
+
+      const parsed = parseDebugDmActionResponse(responseBody)
+      setActionNotice({
+        tone: 'success',
+        message: parsed.message
+      })
+      await onRefreshDebug()
+    } catch (error) {
+      setActionNotice({
+        tone: 'danger',
+        message: error instanceof Error ? error.message : 'Unable to emulate that DM action right now.'
+      })
+    } finally {
+      setPendingButtonCustomId(null)
+    }
+  }
+
+  return (
+    <DashboardModal open={open} onClose={onClose} width="min(96vw, 1200px)">
+      <DialogTitle sx={{ pr: 6 }}>DM emulator: {ctp.headline}</DialogTitle>
+      <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, minHeight: 0, overflow: 'auto' }}>
+        <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
+          Latest mailbox state for the creator and each audience member tied to this call to play. Each card represents the latest state of a real DM thread, not every intermediate edit.
+        </Typography>
+
+        {actionNotice ? (
+          <Card variant="soft" color={actionNotice.tone === 'success' ? 'success' : 'danger'} sx={{ p: 1.5 }}>
+            <Typography level="body-sm">{actionNotice.message}</Typography>
+          </Card>
+        ) : null}
+
+        {ctp.dmInboxParticipants.length > 0 ? (
+          <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} sx={{ minHeight: 0 }}>
+            <Card variant="soft" sx={{ width: { xs: '100%', md: 280 }, p: 1.5, flexShrink: 0 }}>
+              <Stack spacing={1}>
+                <Typography level="title-sm">Users</Typography>
+                {ctp.dmInboxParticipants.map((participant) => {
+                  const participantKey = getDmInboxParticipantKey(participant)
+                  const isSelected = participantKey === (selectedParticipant ? getDmInboxParticipantKey(selectedParticipant) : null)
+
+                  return (
+                    <Button
+                      key={participantKey}
+                      variant={isSelected ? 'solid' : 'outlined'}
+                      color={isSelected ? 'primary' : 'neutral'}
+                      onClick={() => setSelectedParticipantKey(participantKey)}
+                      sx={{ justifyContent: 'flex-start', textAlign: 'left', p: 1.25, minHeight: 'unset' }}
+                    >
+                      <Stack spacing={0.35} sx={{ alignItems: 'flex-start' }}>
+                        <Typography level="title-sm">{participant.user.displayName}</Typography>
+                        <Typography level="body-xs" sx={{ color: isSelected ? 'primary.100' : 'neutral.400' }}>
+                          @{participant.user.handle}
+                        </Typography>
+                        <Stack direction="row" spacing={0.75} sx={{ flexWrap: 'wrap' }}>
+                          <Chip size="sm" variant="soft" color={participant.role === 'creator' ? 'primary' : 'neutral'}>
+                            {participant.role}
+                          </Chip>
+                          <Chip size="sm" variant="outlined" color="neutral">
+                            {participant.messages.length} {participant.messages.length === 1 ? 'thread' : 'threads'}
+                          </Chip>
+                          {participant.messages.length === 0 ? (
+                            <Chip size="sm" variant="outlined" color="warning">
+                              No DM thread yet
+                            </Chip>
+                          ) : null}
+                        </Stack>
+                      </Stack>
+                    </Button>
+                  )
+                })}
+              </Stack>
+            </Card>
+
+            <Stack spacing={1.5} sx={{ flex: 1, minWidth: 0 }}>
+              {selectedParticipant ? (
+                <>
+                  <Card variant="outlined" sx={{ p: 2 }}>
+                    <Stack spacing={0.5}>
+                      <Typography level="title-md">{selectedParticipant.user.displayName}</Typography>
+                      <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
+                        @{selectedParticipant.user.handle} · latest activity {formatDateTime(selectedParticipant.lastActivityAt)}
+                      </Typography>
+                    </Stack>
+                  </Card>
+
+                  {selectedParticipant.messages.length > 0 ? selectedParticipant.messages.map((message) => (
+                    <DmInboxMessageCard
+                      key={message.id}
+                      message={message}
+                      formatDateTime={formatDateTime}
+                      onButtonClick={handlePreviewButtonClick}
+                      pendingButtonCustomId={pendingButtonCustomId}
+                    />
+                  )) : (
+                    <EmptyStateCard
+                      title="No DM threads for this user"
+                      body="This participant is part of the computed audience, but no call-to-play DM thread exists for them in the current snapshot yet."
+                      chips={['CTP mailbox', 'Latest state']}
+                    />
+                  )}
+                </>
+              ) : (
+                <EmptyStateCard
+                  title="No user selected"
+                  body="Choose a user from the left side to inspect their latest DM threads for this call to play."
+                  chips={['CTP mailbox', 'User picker']}
+                />
+              )}
+            </Stack>
+          </Stack>
+        ) : (
+          <EmptyStateCard
+            title="No mailbox data for this call to play"
+            body="No creator or recipient DM threads were found for the current snapshot."
+            chips={['CTP mailbox', 'Admin only']}
+          />
+        )}
+      </DialogContent>
+    </DashboardModal>
+  )
+}
+
 function CtpLifecycleDialog({
   open,
   onClose,
   ctp,
   events,
-  formatDateTime
+  formatDateTime,
+  onOpenDmInbox
 }: {
   open: boolean;
   onClose: () => void;
   ctp: DebugPlayIntentSummary | null;
   events: DebugPlayIntentLifecycleEvent[];
   formatDateTime: (value: string | null) => string;
+  onOpenDmInbox: (ctp: DebugPlayIntentSummary) => void;
 }) {
   if (!ctp) {
     return null
@@ -88,7 +583,12 @@ function CtpLifecycleDialog({
 
         <Card variant="outlined" sx={{ p: 2 }}>
           <Stack spacing={0.75}>
-            <Typography level="title-sm">Session window</Typography>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }}>
+              <Typography level="title-sm">Session window</Typography>
+              <Button size="sm" variant="outlined" color="neutral" disabled={ctp.dmInboxParticipants.length === 0} onClick={() => onOpenDmInbox(ctp)}>
+                Open DM emulator
+              </Button>
+            </Stack>
             <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
               Created {formatDateTime(ctp.createdAt)}
             </Typography>
@@ -534,9 +1034,19 @@ function BotStateCard({ debugAdmin, formatDateTime }: { debugAdmin: DebugAdminRe
   )
 }
 
-function PromptLogCard({ debugAdmin, formatDateTime }: { debugAdmin: DebugAdminResponse; formatDateTime: (value: string | null) => string }) {
+function PromptLogCard({
+  debugAdmin,
+  formatDateTime,
+  onOpenPreview
+}: {
+  debugAdmin: DebugAdminResponse;
+  formatDateTime: (value: string | null) => string;
+  onOpenPreview: (prompt: DebugAutoPlayPrompt) => void;
+}) {
   const [query, setQuery] = useState('')
-  const [statusFilter, setStatusFilter] = useState<'all' | 'sent' | 'skipped' | 'failed' | 'accepted' | 'declined' | 'expired'>('all')
+  const [statusFilter, setStatusFilter] = useState<
+    'all' | 'sent' | 'skipped' | 'failed' | 'accepted' | 'declined' | 'expired' | 'settle_sent' | 'settle_confirmed' | 'settle_declined'
+  >('all')
   const [sortKey, setSortKey] = useState<PromptSortKey>('createdAt')
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
   const [page, setPage] = useState(1)
@@ -644,6 +1154,9 @@ function PromptLogCard({ debugAdmin, formatDateTime }: { debugAdmin: DebugAdminR
             <Option value="accepted">Accepted</Option>
             <Option value="declined">Declined</Option>
             <Option value="expired">Expired</Option>
+            <Option value="settle_sent">Settle prompt</Option>
+            <Option value="settle_confirmed">Settled</Option>
+            <Option value="settle_declined">Still deciding</Option>
             <Option value="failed">Failed</Option>
           </Select>
         </Stack>
@@ -662,6 +1175,7 @@ function PromptLogCard({ debugAdmin, formatDateTime }: { debugAdmin: DebugAdminR
                     <th><Button size="sm" variant="plain" onClick={() => setSort('deliveredAt')}>Delivered</Button></th>
                     <th><Button size="sm" variant="plain" onClick={() => setSort('respondedAt')}>Responded</Button></th>
                     <th>CTP</th>
+                    <th>Preview</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -711,6 +1225,11 @@ function PromptLogCard({ debugAdmin, formatDateTime }: { debugAdmin: DebugAdminR
                           {prompt.createdPlayIntentId ?? 'Not created'}
                         </Typography>
                       </td>
+                      <td>
+                        <Button size="sm" variant="outlined" color="neutral" disabled={!prompt.dmPreview} onClick={() => onOpenPreview(prompt)}>
+                          Preview DM
+                        </Button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -745,7 +1264,15 @@ function PromptLogCard({ debugAdmin, formatDateTime }: { debugAdmin: DebugAdminR
   )
 }
 
-function NotificationLogCard({ debugAdmin, formatDateTime }: { debugAdmin: DebugAdminResponse; formatDateTime: (value: string | null) => string }) {
+function NotificationLogCard({
+  debugAdmin,
+  formatDateTime,
+  onOpenPreview
+}: {
+  debugAdmin: DebugAdminResponse;
+  formatDateTime: (value: string | null) => string;
+  onOpenPreview: (notification: DebugNotificationDelivery) => void;
+}) {
   const [query, setQuery] = useState('')
   const [deliveryFilter, setDeliveryFilter] = useState<'all' | 'delivered' | 'stored'>('all')
   const [sortKey, setSortKey] = useState<NotificationSortKey>('createdAt')
@@ -870,6 +1397,7 @@ function NotificationLogCard({ debugAdmin, formatDateTime }: { debugAdmin: Debug
                     <th><Button size="sm" variant="plain" onClick={() => setSort('game')}>Game</Button></th>
                     <th><Button size="sm" variant="plain" onClick={() => setSort('triggeredBy')}>Triggered by</Button></th>
                     <th><Button size="sm" variant="plain" onClick={() => setSort('deliveredAt')}>Delivery</Button></th>
+                    <th>Preview</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -899,6 +1427,11 @@ function NotificationLogCard({ debugAdmin, formatDateTime }: { debugAdmin: Debug
                         <Typography level="body-xs" sx={{ color: 'neutral.400', mt: 0.5 }}>
                           {formatDateTime(notification.deliveredAt)}
                         </Typography>
+                      </td>
+                      <td>
+                        <Button size="sm" variant="outlined" color="neutral" disabled={!notification.dmPreview} onClick={() => onOpenPreview(notification)}>
+                          Preview DM
+                        </Button>
                       </td>
                     </tr>
                   ))}
@@ -938,27 +1471,38 @@ function DebugViewContent({
   isSignedIn,
   debugAdmin,
   debugLoading,
-  onRefreshDebug
+  onRefreshDebug,
+  buildApiUrl,
+  parseDebugDmActionResponse
 }: {
   isSignedIn: boolean;
   debugAdmin: DebugAdminResponse | null;
   debugLoading: boolean;
   onRefreshDebug: () => Promise<void>;
+  buildApiUrl: (path: string) => string;
+  parseDebugDmActionResponse: (value: unknown) => DebugDmActionResponse;
 }) {
   const { timeZone, formatDateTime } = useLocalDateFormatter()
   const [selectedPlayIntentId, setSelectedPlayIntentId] = useState<string | null>(null)
+  const [selectedMailboxPlayIntentId, setSelectedMailboxPlayIntentId] = useState<string | null>(null)
+  const [selectedDmPreview, setSelectedDmPreview] = useState<{
+    title: string;
+    subtitle: string;
+    preview: DebugDmPreview | null;
+  } | null>(null)
 
   if (!isSignedIn) {
     return (
       <EmptyStateCard
         title="Sign in to inspect debug data"
         body="The debug view is only populated for authenticated sessions so it can reuse the same backend access checks as the rest of the dashboard."
-        chips={['Development only', 'Signed-in route', 'Bot and prompt logs']}
+        chips={['Admin only', 'Signed-in route', 'Bot and prompt logs']}
       />
     )
   }
 
   const selectedPlayIntent = debugAdmin?.recentPlayIntents.find((intent) => intent.id === selectedPlayIntentId) ?? null
+  const selectedMailboxPlayIntent = debugAdmin?.recentPlayIntents.find((intent) => intent.id === selectedMailboxPlayIntentId) ?? null
   const selectedLifecycleEvents = debugAdmin?.playIntentLifecycleEvents
     .filter((eventEntry) => eventEntry.playIntentId === selectedPlayIntentId)
     .sort((left, right) => new Date(left.occurredAt).getTime() - new Date(right.occurredAt).getTime()) ?? []
@@ -1004,11 +1548,27 @@ function DebugViewContent({
             </Box>
 
             <Box id="prompts" sx={{ scrollMarginTop: sectionScrollMarginTop }}>
-              <PromptLogCard debugAdmin={debugAdmin} formatDateTime={formatDateTime} />
+              <PromptLogCard
+                debugAdmin={debugAdmin}
+                formatDateTime={formatDateTime}
+                onOpenPreview={(prompt) => setSelectedDmPreview({
+                  title: `Auto-play DM: ${prompt.game.title}`,
+                  subtitle: `${prompt.user.displayName} @${prompt.user.handle} · status ${prompt.status}`,
+                  preview: prompt.dmPreview
+                })}
+              />
             </Box>
 
             <Box id="notifications" sx={{ scrollMarginTop: sectionScrollMarginTop }}>
-              <NotificationLogCard debugAdmin={debugAdmin} formatDateTime={formatDateTime} />
+              <NotificationLogCard
+                debugAdmin={debugAdmin}
+                formatDateTime={formatDateTime}
+                onOpenPreview={(notification) => setSelectedDmPreview({
+                  title: `Notification DM: ${notification.title}`,
+                  subtitle: `${notification.recipient.displayName} @${notification.recipient.handle}`,
+                  preview: notification.dmPreview
+                })}
+              />
             </Box>
 
             <Box id="errors" sx={{ scrollMarginTop: sectionScrollMarginTop }}>
@@ -1030,6 +1590,25 @@ function DebugViewContent({
         ctp={selectedPlayIntent}
         events={selectedLifecycleEvents}
         formatDateTime={formatDateTime}
+        onOpenDmInbox={(ctp) => setSelectedMailboxPlayIntentId(ctp.id)}
+      />
+
+      <CtpDmInboxDialog
+        open={selectedMailboxPlayIntent != null}
+        onClose={() => setSelectedMailboxPlayIntentId(null)}
+        ctp={selectedMailboxPlayIntent}
+        formatDateTime={formatDateTime}
+        buildApiUrl={buildApiUrl}
+        onRefreshDebug={onRefreshDebug}
+        parseDebugDmActionResponse={parseDebugDmActionResponse}
+      />
+
+      <DmPreviewDialog
+        open={selectedDmPreview != null}
+        onClose={() => setSelectedDmPreview(null)}
+        title={selectedDmPreview?.title ?? 'DM preview'}
+        subtitle={selectedDmPreview?.subtitle ?? ''}
+        preview={selectedDmPreview?.preview ?? null}
       />
     </>
   )

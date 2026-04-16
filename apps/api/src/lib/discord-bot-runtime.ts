@@ -23,6 +23,7 @@ export type DiscordDirectMessagePayload = {
 export type DiscordDirectMessageSendResult = {
   discordUserId: string;
   status: 'sent' | 'failed';
+  emulated: boolean;
   error: string | null;
   channelId: string | null;
   messageId: string | null;
@@ -39,6 +40,7 @@ export type DiscordDirectMessageEditResult = {
   channelId: string;
   messageId: string;
   status: 'edited' | 'failed';
+  emulated: boolean;
   error: string | null;
 };
 
@@ -51,6 +53,7 @@ export type DiscordDirectMessageDeleteResult = {
   channelId: string;
   messageId: string;
   status: 'deleted' | 'failed';
+  emulated: boolean;
   error: string | null;
 };
 
@@ -66,6 +69,14 @@ function resolveDiscordBotMode(): DiscordBotMode {
   }
 
   return env.DISCORD_BOT_MODE ?? 'gateway'
+}
+
+function shouldDeliverDiscordDirectMessages() {
+  return env.NODE_ENV === 'production' || env.DISCORD_SEND_REAL_DMS_IN_DEV
+}
+
+export function areDiscordDirectMessagesEmulated() {
+  return !shouldDeliverDiscordDirectMessages()
 }
 
 function toDiscordApiComponents(components?: MessageCreateOptions['components']) {
@@ -243,10 +254,22 @@ export async function sendDiscordDirectMessages(messages: DiscordDirectMessagePa
     return []
   }
 
+  if (!shouldDeliverDiscordDirectMessages()) {
+    return messages.map((message) => ({
+      discordUserId: message.discordUserId,
+      status: 'sent',
+      emulated: true,
+      error: null,
+      channelId: null,
+      messageId: null
+    }))
+  }
+
   if (!discordBotRest) {
     return messages.map((message) => ({
       discordUserId: message.discordUserId,
       status: 'failed',
+      emulated: false,
       error: 'Discord DM sending needs the bot to be configured.',
       channelId: null,
       messageId: null
@@ -273,6 +296,7 @@ export async function sendDiscordDirectMessages(messages: DiscordDirectMessagePa
       results.push({
         discordUserId: message.discordUserId,
         status: 'sent',
+        emulated: false,
         error: null,
         channelId: typeof sentMessage.channel_id === 'string' ? sentMessage.channel_id : channel.id,
         messageId: typeof sentMessage.id === 'string' ? sentMessage.id : null
@@ -283,6 +307,7 @@ export async function sendDiscordDirectMessages(messages: DiscordDirectMessagePa
       results.push({
         discordUserId: message.discordUserId,
         status: 'failed',
+        emulated: false,
         error: /Cannot send messages to this user/i.test(description)
           ? 'This user is not accepting DMs from the bot.'
           : description,
@@ -296,11 +321,22 @@ export async function sendDiscordDirectMessages(messages: DiscordDirectMessagePa
 }
 
 export async function editDiscordDirectMessage(message: DiscordDirectMessageEditPayload): Promise<DiscordDirectMessageEditResult> {
+  if (!shouldDeliverDiscordDirectMessages()) {
+    return {
+      channelId: message.channelId,
+      messageId: message.messageId,
+      status: 'edited',
+      emulated: true,
+      error: null
+    }
+  }
+
   if (!discordBotRest) {
     return {
       channelId: message.channelId,
       messageId: message.messageId,
       status: 'failed',
+      emulated: false,
       error: 'Discord DM editing needs the bot to be configured.'
     }
   }
@@ -317,6 +353,7 @@ export async function editDiscordDirectMessage(message: DiscordDirectMessageEdit
       channelId: message.channelId,
       messageId: message.messageId,
       status: 'edited',
+      emulated: false,
       error: null
     }
   } catch (error) {
@@ -324,17 +361,29 @@ export async function editDiscordDirectMessage(message: DiscordDirectMessageEdit
       channelId: message.channelId,
       messageId: message.messageId,
       status: 'failed',
+      emulated: false,
       error: error instanceof Error ? error.message : 'Unable to edit a Discord DM.'
     }
   }
 }
 
 export async function deleteDiscordDirectMessage(message: DiscordDirectMessageDeletePayload): Promise<DiscordDirectMessageDeleteResult> {
+  if (!shouldDeliverDiscordDirectMessages()) {
+    return {
+      channelId: message.channelId,
+      messageId: message.messageId,
+      status: 'deleted',
+      emulated: true,
+      error: null
+    }
+  }
+
   if (!discordBotRest) {
     return {
       channelId: message.channelId,
       messageId: message.messageId,
       status: 'failed',
+      emulated: false,
       error: 'Discord DM deletion needs the bot to be configured.'
     }
   }
@@ -346,6 +395,7 @@ export async function deleteDiscordDirectMessage(message: DiscordDirectMessageDe
       channelId: message.channelId,
       messageId: message.messageId,
       status: 'deleted',
+      emulated: false,
       error: null
     }
   } catch (error) {
@@ -356,6 +406,7 @@ export async function deleteDiscordDirectMessage(message: DiscordDirectMessageDe
         channelId: message.channelId,
         messageId: message.messageId,
         status: 'deleted',
+        emulated: false,
         error: null
       }
     }
@@ -364,6 +415,7 @@ export async function deleteDiscordDirectMessage(message: DiscordDirectMessageDe
       channelId: message.channelId,
       messageId: message.messageId,
       status: 'failed',
+      emulated: false,
       error: description
     }
   }

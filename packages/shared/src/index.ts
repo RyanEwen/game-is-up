@@ -274,6 +274,7 @@ export const upsertPlayIntentRequestSchema = z.object({
   title: z.string().trim().max(80).optional(),
   selectionMode: playIntentSelectionModeSchema,
   notifyScope: playIntentNotifyScopeSchema,
+  includeSelf: z.boolean().optional().default(false),
   note: z.string().trim().max(140).optional(),
   voiceChannelId: z.string().trim().min(1).max(32).optional(),
   voiceChannelName: z.string().trim().min(1).max(100).optional(),
@@ -506,6 +507,21 @@ export const debugAutoPlayPromptStatusSchema = z.enum([
   'settle_declined'
 ])
 
+export const debugDmPreviewButtonStyleSchema = z.enum(['primary', 'secondary', 'danger', 'link'])
+
+export const debugDmPreviewButtonSchema = z.object({
+  label: z.string().min(1),
+  style: debugDmPreviewButtonStyleSchema,
+  disabled: z.boolean(),
+  url: z.string().url().nullable(),
+  customId: z.string().min(1).nullable()
+})
+
+export const debugDmPreviewSchema = z.object({
+  content: z.string().min(1),
+  buttonRows: z.array(z.array(debugDmPreviewButtonSchema))
+})
+
 export const debugAutoPlayPromptSchema = z.object({
   id: z.string().uuid(),
   createdAt: z.string().datetime(),
@@ -530,7 +546,8 @@ export const debugAutoPlayPromptSchema = z.object({
   game: z.object({
     id: z.string().uuid(),
     title: z.string().min(1)
-  })
+  }),
+  dmPreview: debugDmPreviewSchema.nullable()
 })
 
 export const debugNotificationDeliverySchema = z.object({
@@ -549,10 +566,52 @@ export const debugNotificationDeliverySchema = z.object({
     id: z.string().uuid(),
     handle: z.string().min(2).max(32),
     displayName: z.string().min(2).max(60)
-  }).nullable()
+  }).nullable(),
+  dmPreview: debugDmPreviewSchema.nullable()
 })
 
 export const debugPlayIntentStatusSchema = z.enum(['active', 'ended'])
+
+export const debugDmInboxRoleSchema = z.enum(['creator', 'audience'])
+
+export const debugDmInboxDeliveryStateSchema = z.enum(['emulated', 'stored-only', 'dm-delivered'])
+
+export const debugDmInboxMessageKindSchema = z.enum([
+  'creator-summary',
+  'scheduled-check-in',
+  'call-to-play',
+  'go-time-reminder',
+  'go-time-confirmed'
+])
+
+export const debugDmInboxMessageRevisionSchema = z.object({
+  id: z.string().min(1),
+  label: z.string().min(1),
+  occurredAt: z.string().datetime(),
+  preview: debugDmPreviewSchema
+})
+
+export const debugDmInboxMessageSchema = z.object({
+  id: z.string().min(1),
+  kind: debugDmInboxMessageKindSchema,
+  label: z.string().min(1),
+  sentAt: z.string().datetime(),
+  deliveryState: debugDmInboxDeliveryStateSchema,
+  preview: debugDmPreviewSchema,
+  revisions: z.array(debugDmInboxMessageRevisionSchema).min(1)
+})
+
+export const debugDmInboxParticipantSchema = z.object({
+  user: z.object({
+    id: z.string().uuid(),
+    handle: z.string().min(2).max(32),
+    displayName: z.string().min(2).max(60),
+    timezoneId: timezoneIdSchema
+  }),
+  role: debugDmInboxRoleSchema,
+  lastActivityAt: z.string().datetime().nullable(),
+  messages: z.array(debugDmInboxMessageSchema)
+})
 
 export const debugPlayIntentSummarySchema = z.object({
   id: z.string().uuid(),
@@ -577,7 +636,18 @@ export const debugPlayIntentSummarySchema = z.object({
     handle: z.string().min(2).max(32),
     displayName: z.string().min(2).max(60),
     timezoneId: timezoneIdSchema
-  })
+  }),
+  creatorDmPreview: debugDmPreviewSchema.nullable(),
+  dmInboxParticipants: z.array(debugDmInboxParticipantSchema)
+})
+
+export const debugDmActionRequestSchema = z.object({
+  actingUserId: z.string().uuid(),
+  customId: z.string().min(1)
+})
+
+export const debugDmActionResponseSchema = z.object({
+  message: z.string().min(1)
 })
 
 export const debugPlayIntentLifecycleEventSourceSchema = z.enum(['play-intent', 'notification', 'auto-play-prompt', 'system'])
@@ -678,6 +748,7 @@ export const serverEnvSchema = z.object({
   DISCORD_CALLBACK_URL: z.string().url().optional(),
   DISCORD_BOT_TOKEN: z.string().optional(),
   DISCORD_BOT_MODE: discordBotModeSchema.optional(),
+  DISCORD_SEND_REAL_DMS_IN_DEV: z.enum(['true', 'false']).optional().transform((value) => value === 'true'),
   STEAM_CALLBACK_URL: z.string().url().optional(),
   STEAM_WEB_API_KEY: z.string().optional(),
   RAWG_API_KEY: z.string().optional(),
@@ -741,6 +812,17 @@ export type UpdateUserProfileRequest = z.infer<typeof updateUserProfileRequestSc
 export type AuthSessionResponse = z.infer<typeof authSessionResponseSchema>;
 export type DebugDiscordBotState = z.infer<typeof debugDiscordBotStateSchema>;
 export type DebugAutoPlayPromptStatus = z.infer<typeof debugAutoPlayPromptStatusSchema>;
+export type DebugDmPreviewButtonStyle = z.infer<typeof debugDmPreviewButtonStyleSchema>;
+export type DebugDmPreviewButton = z.infer<typeof debugDmPreviewButtonSchema>;
+export type DebugDmPreview = z.infer<typeof debugDmPreviewSchema>;
+export type DebugDmInboxRole = z.infer<typeof debugDmInboxRoleSchema>;
+export type DebugDmInboxDeliveryState = z.infer<typeof debugDmInboxDeliveryStateSchema>;
+export type DebugDmInboxMessageKind = z.infer<typeof debugDmInboxMessageKindSchema>;
+export type DebugDmInboxMessageRevision = z.infer<typeof debugDmInboxMessageRevisionSchema>;
+export type DebugDmInboxMessage = z.infer<typeof debugDmInboxMessageSchema>;
+export type DebugDmInboxParticipant = z.infer<typeof debugDmInboxParticipantSchema>;
+export type DebugDmActionRequest = z.infer<typeof debugDmActionRequestSchema>;
+export type DebugDmActionResponse = z.infer<typeof debugDmActionResponseSchema>;
 export type DebugAutoPlayPrompt = z.infer<typeof debugAutoPlayPromptSchema>;
 export type DebugNotificationDelivery = z.infer<typeof debugNotificationDeliverySchema>;
 export type DebugPlayIntentStatus = z.infer<typeof debugPlayIntentStatusSchema>;

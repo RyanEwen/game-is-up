@@ -47,12 +47,15 @@ function personHasGameOverlap(person: DiscoveryPerson, gameIds: ReadonlySet<stri
 
 export type DashboardPlayViewProps = {
   isSignedIn: boolean;
+  isAdmin: boolean;
   activePlayIntent: ActivePlayIntent | null;
   isPlayIntentComposerOpen: boolean;
   openPlayIntentComposer: () => void;
   closePlayIntentComposer: () => void;
   canPostPlayIntent: boolean;
   playIntentFilteredAudienceMessage: string | null;
+  playIntentIncludeSelf: boolean;
+  onPlayIntentIncludeSelfChange: (nextValue: boolean) => void;
   playIntentNotifyScope: PlayIntentNotifyScope;
   onPlayIntentNotifyScopeChange: (scope: PlayIntentNotifyScope) => void;
   playIntentFriendOptions: Array<Pick<DiscoveryPerson, 'id' | 'handle' | 'displayName' | 'avatarUrl'>>;
@@ -109,6 +112,7 @@ export type DashboardPlayViewProps = {
 
 export function useDashboardPlay({
   isSignedIn,
+  isAdmin,
   buildApiUrl,
   activePlayIntent,
   libraryEntries,
@@ -121,6 +125,7 @@ export function useDashboardPlay({
   setPlayIntentNotice
 }: {
   isSignedIn: boolean;
+  isAdmin: boolean;
   buildApiUrl: (path: string) => string;
   activePlayIntent: ActivePlayIntent | null;
   libraryEntries: LibraryEntry[];
@@ -134,6 +139,7 @@ export function useDashboardPlay({
 }) {
   const [playIntentSelectionMode, setPlayIntentSelectionMode] = useState<PlayIntentSelectionMode>('library')
   const [playIntentNotifyScope, setPlayIntentNotifyScope] = useState<PlayIntentNotifyScope>('network')
+  const [playIntentIncludeSelf, setPlayIntentIncludeSelf] = useState(false)
   const [playIntentStartMode, setPlayIntentStartMode] = useState<PlayIntentStartMode>('now')
   const [playIntentTimingMode, setPlayIntentTimingMode] = useState<PlayIntentTimingMode>('preset')
   const [playIntentDurationMinutes, setPlayIntentDurationMinutes] = useState(defaultPlayIntentDurationMinutes)
@@ -180,6 +186,7 @@ export function useDashboardPlay({
       : playIntentNotifyScope === 'specific-friends'
         ? targetedRecipientsForCurrentSelection
         : []
+  const currentRecipientCount = currentRecipients.length + (isAdmin && playIntentIncludeSelf ? 1 : 0)
   const currentAudienceLabel = playIntentNotifyScope === 'network'
     ? 'your friends list or network'
     : playIntentNotifyScope === 'friends-only'
@@ -197,7 +204,7 @@ export function useDashboardPlay({
         ? 'Pick at least one game before posting a selected-games call to play. Without a selection, nobody will receive it.'
         : playIntentNotifyScope === 'specific-discord-server'
           ? null
-        : currentRecipients.length > 0
+        : currentRecipientCount > 0
           ? null
           : playIntentSelectionMode === 'subset' && currentScopeLibraryRecipients.length > 0
             ? 'With these game choices, nobody in your network matches right now. Pick different games or switch back to any game in your library.'
@@ -508,6 +515,7 @@ export function useDashboardPlay({
           title: playIntentTitle.trim() || undefined,
           selectionMode: playIntentSelectionMode,
           notifyScope: playIntentNotifyScope,
+          includeSelf: isAdmin && playIntentIncludeSelf,
           ...schedulingPayload,
           ...timingPayload,
           note: playIntentNote.trim() || undefined,
@@ -572,6 +580,8 @@ export function useDashboardPlay({
     playIntentStartMode,
     playIntentStartValidationMessage,
     playIntentFilteredAudienceMessage,
+    isAdmin,
+    playIntentIncludeSelf,
     playIntentTimingMode,
     playIntentTimingValidationMessage,
     parsedPlayIntentStartAt,
@@ -835,12 +845,15 @@ export function useDashboardPlay({
 
   const playViewProps: DashboardPlayViewProps = {
     isSignedIn,
+    isAdmin,
     activePlayIntent,
     isPlayIntentComposerOpen,
     openPlayIntentComposer,
     closePlayIntentComposer,
     canPostPlayIntent,
     playIntentFilteredAudienceMessage,
+    playIntentIncludeSelf,
+    onPlayIntentIncludeSelfChange: setPlayIntentIncludeSelf,
     playIntentNotifyScope,
     onPlayIntentNotifyScopeChange: handlePlayIntentNotifyScopeChange,
     playIntentFriendOptions,

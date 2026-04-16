@@ -17,6 +17,7 @@ import { DashboardModal } from '../components/dashboard/DashboardModal'
 import { DashboardModalActionBar } from '../components/dashboard/DashboardModalActionBar'
 import { PlayIntentCard, PlayIntentGameList } from '../components/dashboard/PlayIntentCard'
 import { PlayIntentComposerCard } from '../components/dashboard/PlayIntentComposerCard'
+import { CtpDmInboxDialog } from './DebugView'
 import { formatNotifyScopeLabel, formatPlayIntentSelectionModeLabel } from '../components/dashboard/dashboardUtils'
 import { useDashboardContext } from '../contexts/useDashboardContext'
 import type { DashboardLibraryQuickAddGame, FriendTarget, PlayIntentStartMode, PlayIntentTimingMode } from '../components/dashboard/types'
@@ -54,6 +55,7 @@ function DiscordAutomationCard({
 function OwnActivePlayIntentCard({
   activePlayIntent,
   onEdit,
+  onOpenDmEmulator,
   discoveryPeopleById,
   isSignedIn,
   libraryGameIds,
@@ -64,6 +66,7 @@ function OwnActivePlayIntentCard({
 }: {
   activePlayIntent: ActivePlayIntent;
   onEdit: () => void;
+  onOpenDmEmulator?: () => void;
   discoveryPeopleById: ReadonlyMap<string, DiscoveryPerson>;
   isSignedIn: boolean;
   libraryGameIds: ReadonlySet<string>;
@@ -103,6 +106,11 @@ function OwnActivePlayIntentCard({
           <Button variant="solid" color="primary" onClick={onEdit}>
             Edit call to play
           </Button>
+          {onOpenDmEmulator ? (
+            <Button variant="outlined" color="neutral" onClick={onOpenDmEmulator}>
+              Open DM emulator
+            </Button>
+          ) : null}
         </Stack>
 
         <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
@@ -169,6 +177,7 @@ function OwnActivePlayIntentCard({
 
 function PlayViewContent({
   isSignedIn,
+  isAdmin,
   playIntentUnavailableAudienceMessage,
   discordAutoPromptPlayIntent,
   discordAutoPromptPlayIntentSaving,
@@ -178,6 +187,8 @@ function PlayViewContent({
   closePlayIntentComposer,
   canPostPlayIntent,
   playIntentFilteredAudienceMessage,
+  playIntentIncludeSelf,
+  onPlayIntentIncludeSelfChange,
   playIntentNotifyScope,
   onPlayIntentNotifyScopeChange,
   playIntentFriendOptions,
@@ -233,8 +244,14 @@ function PlayViewContent({
   addingLibraryGameId,
   onAddGameToLibrary,
   onToggleDiscordAutoPromptPlayIntent
+  ,
+  debugAdmin,
+  onRefreshDebug,
+  buildApiUrl,
+  parseDebugDmActionResponse
 }: {
   isSignedIn: boolean;
+  isAdmin: boolean;
   playIntentUnavailableAudienceMessage: string | null;
   discordAutoPromptPlayIntent: boolean;
   discordAutoPromptPlayIntentSaving: boolean;
@@ -244,6 +261,8 @@ function PlayViewContent({
   closePlayIntentComposer: () => void;
   canPostPlayIntent: boolean;
   playIntentFilteredAudienceMessage: string | null;
+  playIntentIncludeSelf: boolean;
+  onPlayIntentIncludeSelfChange: (nextValue: boolean) => void;
   playIntentNotifyScope: PlayIntentNotifyScope;
   onPlayIntentNotifyScopeChange: (scope: PlayIntentNotifyScope) => void;
   playIntentFriendOptions: Array<Pick<DiscoveryPerson, 'id' | 'handle' | 'displayName' | 'avatarUrl'>>;
@@ -299,9 +318,15 @@ function PlayViewContent({
   addingLibraryGameId: string | null;
   onAddGameToLibrary: (game: DashboardLibraryQuickAddGame) => Promise<void>;
   onToggleDiscordAutoPromptPlayIntent: (nextEnabled: boolean) => Promise<void>;
+  debugAdmin: ReturnType<typeof useDashboardContext>['debugViewProps']['debugAdmin'];
+  onRefreshDebug: () => Promise<void>;
+  buildApiUrl: (path: string) => string;
+  parseDebugDmActionResponse: ReturnType<typeof useDashboardContext>['debugViewProps']['parseDebugDmActionResponse'];
 }) {
   const [isUnavailableAudienceModalOpen, setIsUnavailableAudienceModalOpen] = useState(false)
+  const [selectedMailboxPlayIntentId, setSelectedMailboxPlayIntentId] = useState<string | null>(null)
   const discoveryPeopleById = new Map(discoveryPeople.map((person) => [person.id, person]))
+  const selectedMailboxPlayIntent = debugAdmin?.recentPlayIntents.find((intent) => intent.id === selectedMailboxPlayIntentId) ?? null
   const hasScheduledOwnCallToPlay = activePlayIntent ? new Date(activePlayIntent.windowStartsAt).getTime() > Date.now() + 60 * 1000 : false
   const playComposerButtonLabel = activePlayIntent
     ? hasScheduledOwnCallToPlay
@@ -354,6 +379,7 @@ function PlayViewContent({
         <OwnActivePlayIntentCard
           activePlayIntent={activePlayIntent}
           onEdit={openPlayIntentComposer}
+          onOpenDmEmulator={isAdmin && debugAdmin?.recentPlayIntents.some((intent) => intent.id === activePlayIntent.id) ? () => setSelectedMailboxPlayIntentId(activePlayIntent.id) : undefined}
           discoveryPeopleById={discoveryPeopleById}
           isSignedIn={isSignedIn}
           libraryGameIds={libraryGameIds}
@@ -396,8 +422,11 @@ function PlayViewContent({
         <DashboardModal open={isPlayIntentComposerOpen} onClose={closePlayIntentComposer} width="min(96vw, 820px)">
             <PlayIntentComposerCard
               activePlayIntent={activePlayIntent}
+              isAdmin={isAdmin}
               canPostPlayIntent={canPostPlayIntent}
               playIntentFilteredAudienceMessage={playIntentFilteredAudienceMessage}
+              playIntentIncludeSelf={playIntentIncludeSelf}
+              onPlayIntentIncludeSelfChange={onPlayIntentIncludeSelfChange}
               playIntentNotifyScope={playIntentNotifyScope}
               onPlayIntentNotifyScopeChange={onPlayIntentNotifyScopeChange}
               playIntentFriendOptions={playIntentFriendOptions}
@@ -462,6 +491,7 @@ function PlayViewContent({
               isMuted={mutedPlayIntentUserIds.has(intent.user.id)}
               onMuteCreator={onMutePlayIntentUser}
               onUnmuteCreator={onUnmutePlayIntentUser}
+              onOpenDmEmulator={isAdmin && debugAdmin?.recentPlayIntents.some((entry) => entry.id === intent.id) ? () => setSelectedMailboxPlayIntentId(intent.id) : undefined}
             />
           ))}
         </Stack>
@@ -477,12 +507,22 @@ function PlayViewContent({
           }
         />
       )}
+
+      <CtpDmInboxDialog
+        open={selectedMailboxPlayIntent != null}
+        onClose={() => setSelectedMailboxPlayIntentId(null)}
+        ctp={selectedMailboxPlayIntent}
+        formatDateTime={(value) => value ? new Date(value).toLocaleString() : 'Not available'}
+        buildApiUrl={buildApiUrl}
+        onRefreshDebug={onRefreshDebug}
+        parseDebugDmActionResponse={parseDebugDmActionResponse}
+      />
     </Stack>
   )
 }
 
 export function PlayView() {
-  const { playViewProps } = useDashboardContext()
+  const { playViewProps, debugViewProps } = useDashboardContext()
 
-  return <PlayViewContent {...playViewProps} />
+  return <PlayViewContent {...playViewProps} {...debugViewProps} />
 }
