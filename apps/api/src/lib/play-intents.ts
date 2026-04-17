@@ -664,7 +664,9 @@ export async function clearCurrentPlayIntent(userId: string) {
     }
   })
 
-  await expirePendingPlayIntentNotifications(activeIntentIds)
+  await expirePendingPlayIntentNotifications(activeIntentIds, {
+    notifyAudienceOnEnd: true
+  })
 }
 
 export async function upsertCurrentPlayIntent(
@@ -865,7 +867,20 @@ export async function upsertCurrentPlayIntent(
           userId: true,
           respondedAt: true,
           responseChoice: true,
-          createdAt: true
+          createdAt: true,
+          user: {
+            select: {
+              displayName: true,
+              identities: {
+                where: {
+                  provider: AuthProvider.DISCORD
+                },
+                select: {
+                  providerUserId: true
+                }
+              }
+            }
+          }
         },
         orderBy: {
           createdAt: 'desc'
@@ -876,16 +891,23 @@ export async function upsertCurrentPlayIntent(
   const priorRecipientStatusByUserId = new Map<string, {
     respondedAt: Date | null;
     responseChoice: NotificationResponseChoice | null;
+    interestedUserLabel: string;
   }>()
   for (const notification of priorRecipientNotifications) {
     if (!priorRecipientStatusByUserId.has(notification.userId)) {
       priorRecipientStatusByUserId.set(notification.userId, {
         respondedAt: notification.respondedAt,
-        responseChoice: notification.responseChoice
+        responseChoice: notification.responseChoice,
+        interestedUserLabel: notification.user?.identities[0]?.providerUserId
+          ? `<@${notification.user.identities[0].providerUserId}>`
+          : (notification.user?.displayName ?? notification.userId)
       })
     }
   }
   const priorNotifiedRecipientUserIds = new Set(priorRecipientStatusByUserId.keys())
+  const priorInterestedUserLabels = [...priorRecipientStatusByUserId.values()]
+    .filter((status) => status.responseChoice === NotificationResponseChoice.JOIN)
+    .map((status) => status.interestedUserLabel)
   const updatedFields = latestSupersededIntent
     ? getUpdatedPlayIntentFields({
       previousIntent: latestSupersededIntent,
@@ -1101,7 +1123,15 @@ export async function upsertCurrentPlayIntent(
         return {
           notificationId: notification.id,
           discordUserId,
-          content: buildPlayIntentDirectMessage(notification.title, notification.body, creatorDiscordUserId, sender.displayName, voiceChannel),
+          content: buildPlayIntentDirectMessage(
+            notification.title,
+            notification.body,
+            creatorDiscordUserId,
+            sender.displayName,
+            voiceChannel,
+            priorInterestedUserLabels.length > 0 ? priorInterestedUserLabels.length : undefined,
+            priorInterestedUserLabels
+          ),
           embeds: dmGameEmbeds.length > 0
             ? dmGameEmbeds
             : undefined

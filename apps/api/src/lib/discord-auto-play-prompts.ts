@@ -58,7 +58,7 @@ function getAutoPlayPromptCooldownCutoff(referenceTime: Date) {
 function buildLinkRow() {
   return new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
     new ButtonBuilder()
-      .setLabel("Open in Game's Up")
+      .setLabel('Open in App')
       .setStyle(ButtonStyle.Link)
       .setURL(buildPlayUrl())
   )
@@ -120,7 +120,7 @@ function buildAudienceMessage(gameTitle: string, durationMinutes: number, friend
 function buildDeclinedMessage(gameTitle: string) {
   return [
     `No problem. I will leave ${gameTitle} alone for now.`,
-    "You can still open Game's Up any time to create a call to play manually."
+    'You can still open the app any time to create a call to play manually.'
   ].join('\n\n')
 }
   function buildSettlePromptMessage(gameTitle: string) {
@@ -141,7 +141,7 @@ function buildDeclinedMessage(gameTitle: string) {
   function buildSettleDeclinedMessage() {
     return [
       "No problem. Your call to play stays open across all your selected games.",
-      "Open Game's Up to edit it manually any time."
+      'Open the app to edit it manually any time.'
     ].join('\n\n')
   }
 
@@ -165,7 +165,7 @@ function buildExpiredMessage(reason: string) {
   return [
     'This prompt is no longer available.',
     reason,
-    "Open Game's Up if you still want to create or edit a call to play."
+    'Open the app if you still want to create or edit a call to play.'
   ].join('\n\n')
 }
 

@@ -1157,7 +1157,7 @@ export async function buildDebugAdminSnapshot() {
           ],
           [
             {
-              label: "Open in Game's Up",
+              label: 'Open in App',
               style: 'link' as const,
               disabled: false,
               url: new URL('/play', env.CLIENT_ORIGIN).toString(),

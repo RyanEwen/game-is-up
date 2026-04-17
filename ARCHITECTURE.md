@@ -57,15 +57,15 @@ Play-intent feed and current-intent payloads now also include lightweight intere
 
 Scheduled calls to play now add a second-stage check-in flow. The audience is still notified immediately at creation time, but the creator receives an explicit confirmation prompt when the scheduled start time arrives. If confirmed, accepted recipients receive a go-time update, unanswered recipients receive one follow-up reminder, and prior decliners remain opted out.
 
-Creators also receive a persistent Discord DM summary for each live call to play. That summary is edited in place as recipient responses change, and in the gateway-owning environment it can expose creator-only actions such as canceling the call directly from Discord.
+Creators also receive a persistent Discord DM summary for each live call to play. Meaningful live updates replace that DM with a fresh message so Discord sends a notification, while quiet expiry or archive cleanup falls back to edit-in-place behavior. In the gateway-owning environment it can expose creator-only actions such as canceling the call directly from Discord.
 
 Admin users also have a self-only test path in the Play composer. That path still creates the normal creator summary DM, but it overrides recipient selection so the audience-facing notification flow targets only the creator instead of combining the creator with the selected audience.
 
-Notification and auto-play prompt rows also store the Discord DM message reference when the bot delivers an interactive DM. That allows the API to edit stale bot prompts in place when a play intent expires or an observed Discord activity ends, rather than leaving outdated buttons behind in the user's DM history.
+Notification and auto-play prompt rows also store the Discord DM message reference when the bot delivers an interactive DM. That allows the API to edit stale bot prompts in place when a play intent expires or an observed Discord activity ends, and to decide between edit-in-place or full replacement when a live call-to-play update should trigger a fresh Discord notification.
 
 The admin debug snapshot now also exposes serialized DM previews and derived revision history for tracked call-to-play threads. Those revisions are reconstructed from play-intent and notification lifecycle timestamps instead of being stored in a separate message-history table, which keeps Discord as the single live message surface while still giving the web emulator historical states to inspect.
 
-Tracked Discord DM channels now also participate in a retention sweep: the API periodically pages through known DM channels, deletes bot-authored messages older than 6 hours, and clears stale stored message references after the sweep.
+Tracked Discord DM rows also participate in retention cleanup. Auto-play prompts can still be removed after they age out, while call-to-play threads now retain one ended-history DM per user and per call to play; manual cancellations can replace the prior audience message with a fresh ended-summary DM so the audience is notified immediately.
 
 The Discord bot runtime is now intentionally split by environment. Exactly one environment should run the live Discord gateway connection for presence tracking and interactive Discord buttons, while other environments can reuse the same bot token in a REST-only mode for DM send/edit plus read-only server-member browsing without competing for gateway ownership.
 

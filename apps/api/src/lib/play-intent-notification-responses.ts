@@ -10,7 +10,13 @@ import {
   NotificationResponseChoice,
   NotificationType
 } from '@prisma/client'
-import { editDiscordDirectMessage, sendDiscordDirectMessages, supportsDiscordInteractiveMessages } from './discord-bot-runtime.js'
+import { archivePlayIntentDirectMessages } from './discord-dm-cleanup.js'
+import {
+  deleteDiscordDirectMessage,
+  editDiscordDirectMessage,
+  sendDiscordDirectMessages,
+  supportsDiscordInteractiveMessages
+} from './discord-bot-runtime.js'
 import { env } from './env.js'
 import { prisma } from './prisma.js'
 import { normalizeTimezoneId } from './timezone-label.js'
@@ -106,7 +112,15 @@ type CreatorPlayIntentSummarySnapshot = {
     responseChoice: NotificationResponseChoice | null;
     deliveredAt: Date | null;
     createdAt: Date;
+    user?: {
+      displayName: string;
+      identities?: { providerUserId: string }[];
+    };
   }[];
+}
+
+type ExpirePendingPlayIntentNotificationsOptions = {
+  notifyAudienceOnEnd?: boolean;
 }
 
 export class PlayIntentNotificationResponseError extends Error {
@@ -146,7 +160,7 @@ function replaceDisplayNameWithMention(text: string, displayName: string, discor
 function buildLinkRow() {
   return new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
     new ButtonBuilder()
-      .setLabel("Open in Game's Up")
+      .setLabel('Open in App')
       .setStyle(ButtonStyle.Link)
       .setURL(buildPlayUrl())
   )
@@ -156,22 +170,37 @@ function buildCreatorSummaryActionRow(playIntentId: string) {
   return new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
     new ButtonBuilder()
       .setCustomId(`${creatorPlayIntentSummaryPrefix}:${playIntentId}:cancel`)
-      .setLabel('Cancel CTP')
+      .setLabel('Cancel call to play')
       .setStyle(ButtonStyle.Danger)
   )
 }
 
-function buildResponseRow(notificationId: string) {
-  return new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
-    new ButtonBuilder()
-      .setCustomId(`${playIntentNotificationPrefix}:${notificationId}:join`)
-      .setLabel('I\'m interested')
-      .setStyle(ButtonStyle.Primary),
-    new ButtonBuilder()
-      .setCustomId(`${playIntentNotificationPrefix}:${notificationId}:pass`)
-      .setLabel('Pass')
-      .setStyle(ButtonStyle.Secondary)
-  )
+function buildResponseRow(notificationId: string, responseChoice?: NotificationResponseChoice | null) {
+  const buttons: MessageActionRowComponentBuilder[] = []
+
+  if (responseChoice !== NotificationResponseChoice.JOIN) {
+    buttons.push(
+      new ButtonBuilder()
+        .setCustomId(`${playIntentNotificationPrefix}:${notificationId}:join`)
+        .setLabel('I\'m interested')
+        .setStyle(ButtonStyle.Primary)
+    )
+  }
+
+  if (responseChoice !== NotificationResponseChoice.DECLINE) {
+    buttons.push(
+      new ButtonBuilder()
+        .setCustomId(`${playIntentNotificationPrefix}:${notificationId}:pass`)
+        .setLabel('Pass')
+        .setStyle(ButtonStyle.Secondary)
+    )
+  }
+
+  if (buttons.length === 0) {
+    return null
+  }
+
+  return new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(...buttons)
 }
 
 function buildMuteLabel(creatorDisplayName: string) {
@@ -214,7 +243,9 @@ export function buildPlayIntentDirectMessage(
   creatorDiscordUserId?: string | null,
   creatorDisplayName?: string | null,
   voiceChannel?: { channelId: string | null; channelName: string | null; recipientSharesServer: boolean } | null,
-  joinCount?: number
+  joinCount?: number,
+  interestedUserLabels?: string[],
+  includeInterestPrompt = true
 ) {
   const titleWithCreatorMention = creatorDisplayName
     ? replaceDisplayNameWithMention(title, creatorDisplayName, creatorDiscordUserId)
@@ -236,15 +267,22 @@ export function buildPlayIntentDirectMessage(
     ? `${joinCount} ${joinCount === 1 ? 'person is' : 'people are'} showing interest.`
     : null
 
+  const interestedUsersLine = interestedUserLabels && interestedUserLabels.length > 0
+    ? `Confirmed interested: ${formatInterestedUserLabelSummary(interestedUserLabels)}`
+    : null
+
   return [
     `**${titleWithCreatorMention}**`,
     bodyWithCreatorMention,
     voiceChannelLine,
     joinCountLine,
-    supportsDiscordInteractiveMessages()
+    interestedUsersLine,
+    includeInterestPrompt && supportsDiscordInteractiveMessages()
       ? 'Are you interested?'
-      : 'Open Game\'s Up to say whether you\'re interested.',
-    supportsDiscordInteractiveMessages()
+      : includeInterestPrompt
+        ? 'Open the app to say whether you\'re interested.'
+        : null,
+    includeInterestPrompt && supportsDiscordInteractiveMessages()
       ? 'Use the buttons below to answer.'
       : null
   ].filter((part): part is string => Boolean(part)).join('\n\n')
@@ -253,9 +291,16 @@ export function buildPlayIntentDirectMessage(
 export function buildPlayIntentNotificationComponents(
   notificationId: string,
   creatorUserId?: string,
-  creatorDisplayName?: string
+  creatorDisplayName?: string,
+  responseChoice?: NotificationResponseChoice | null
 ) {
-  const rows = [buildResponseRow(notificationId)]
+  const rows: ActionRowBuilder<MessageActionRowComponentBuilder>[] = []
+  const responseRow = buildResponseRow(notificationId, responseChoice)
+
+  if (responseRow) {
+    rows.push(responseRow)
+  }
+
   if (creatorUserId && creatorDisplayName) {
     rows.push(buildMuteRow(creatorUserId, creatorDisplayName))
   }
@@ -282,6 +327,7 @@ export function buildNotificationDirectMessagePreview(options: {
   playIntentIsActive?: boolean;
   voiceChannel?: { channelId: string | null; channelName: string | null; recipientSharesServer: boolean } | null;
   joinCount?: number;
+  interestedUserLabels?: string[];
 }): DirectMessagePreviewPayload {
   const creatorLabel = options.creatorDisplayName
     ? buildDiscordUserLabel(options.creatorDisplayName, options.creatorDiscordUserId)
@@ -331,7 +377,8 @@ export function buildNotificationDirectMessagePreview(options: {
           components: buildPlayIntentNotificationComponents(
             options.notificationId,
             options.creatorUserId ?? undefined,
-            options.creatorDisplayName ?? undefined
+            options.creatorDisplayName ?? undefined,
+            options.responseChoice
           )
         }
       }
@@ -342,7 +389,8 @@ export function buildNotificationDirectMessagePreview(options: {
           components: buildPlayIntentNotificationComponents(
             options.notificationId,
             options.creatorUserId ?? undefined,
-            options.creatorDisplayName ?? undefined
+            options.creatorDisplayName ?? undefined,
+            options.responseChoice
           )
         }
       }
@@ -362,14 +410,17 @@ export function buildNotificationDirectMessagePreview(options: {
         options.creatorDiscordUserId,
         options.creatorDisplayName,
         options.voiceChannel,
-        options.joinCount
+        options.joinCount,
+        options.interestedUserLabels,
+        options.notificationType === NotificationType.FRIEND_PLAYING
       ),
       components: options.notificationType === NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED
         ? [buildLinkRow()]
         : buildPlayIntentNotificationComponents(
             options.notificationId,
             options.creatorUserId ?? undefined,
-            options.creatorDisplayName ?? undefined
+            options.creatorDisplayName ?? undefined,
+            options.responseChoice
           )
     }
   }
@@ -439,6 +490,16 @@ function summarizeCreatorGames(snapshot: CreatorPlayIntentSummarySnapshot) {
   return `Games: ${titles.slice(0, 4).join(', ')} +${titles.length - 4} more`
 }
 
+function formatInterestedUserLabelSummary(labels: string[]) {
+  const sortedLabels = [...labels].sort((left, right) => left.localeCompare(right))
+
+  if (sortedLabels.length <= 5) {
+    return sortedLabels.join(', ')
+  }
+
+  return `${sortedLabels.slice(0, 5).join(', ')} +${sortedLabels.length - 5} more`
+}
+
 function getCreatorSummaryRecipientStats(snapshot: CreatorPlayIntentSummarySnapshot) {
   const relevantNotifications = snapshot.notifications.filter((notification) =>
     notification.type === NotificationType.FRIEND_PLAYING || notification.type === NotificationType.SCHEDULED_PLAY_INTENT_REMINDER
@@ -447,6 +508,7 @@ function getCreatorSummaryRecipientStats(snapshot: CreatorPlayIntentSummarySnaps
   const latestByUserId = new Map<string, {
     respondedAt: Date | null;
     responseChoice: NotificationResponseChoice | null;
+    interestedUserLabel: string;
   }>()
   const deliveredUserIds = new Set<string>()
 
@@ -458,7 +520,10 @@ function getCreatorSummaryRecipientStats(snapshot: CreatorPlayIntentSummarySnaps
     if (!latestByUserId.has(notification.userId)) {
       latestByUserId.set(notification.userId, {
         respondedAt: notification.respondedAt,
-        responseChoice: notification.responseChoice
+        responseChoice: notification.responseChoice,
+        interestedUserLabel: notification.user
+          ? buildDiscordUserLabel(notification.user.displayName, notification.user.identities?.[0]?.providerUserId)
+          : notification.userId
       })
     }
   }
@@ -466,10 +531,12 @@ function getCreatorSummaryRecipientStats(snapshot: CreatorPlayIntentSummarySnaps
   let interestedCount = 0
   let passedCount = 0
   let waitingCount = 0
+  const interestedUserLabels: string[] = []
 
   for (const status of latestByUserId.values()) {
     if (status.responseChoice === NotificationResponseChoice.JOIN) {
       interestedCount += 1
+      interestedUserLabels.push(status.interestedUserLabel)
       continue
     }
 
@@ -487,6 +554,7 @@ function getCreatorSummaryRecipientStats(snapshot: CreatorPlayIntentSummarySnaps
     matchedCount: latestByUserId.size,
     deliveredCount: deliveredUserIds.size,
     interestedCount,
+    interestedUserLabels,
     passedCount,
     waitingCount
   }
@@ -520,12 +588,12 @@ function buildCreatorPlayIntentSummaryMessage(snapshot: CreatorPlayIntentSummary
   const endsAtLabel = formatSummaryDateTime(snapshot.windowEndsAt, snapshot.user.timezoneId)
   const guidance = snapshot.expiresAt > currentTime
     ? supportsDiscordInteractiveMessages()
-      ? 'Use the buttons below to open Game\'s Up or cancel this call to play.'
-      : 'Open Game\'s Up below if you want to edit or cancel this call to play.'
-    : 'Open Game\'s Up below if you want to post another call to play.'
+      ? 'Use the buttons below to open the app or cancel this call to play.'
+      : 'Open the app below if you want to edit or cancel this call to play.'
+    : 'Open the app below if you want to post another call to play.'
 
   return [
-    '**CTP summary**',
+    `**Your call to play for ${startsAtLabel}**`,
     getCreatorSummaryStatus(snapshot, currentTime),
     `Title: ${snapshot.headline}`,
     summarizeCreatorGames(snapshot),
@@ -539,6 +607,9 @@ function buildCreatorPlayIntentSummaryMessage(snapshot: CreatorPlayIntentSummary
       `Passed: ${stats.passedCount}`,
       `Waiting: ${stats.waitingCount}`
     ].join('\n'),
+    stats.interestedUserLabels.length > 0
+      ? `Confirmed interested: ${formatInterestedUserLabelSummary(stats.interestedUserLabels)}`
+      : 'Confirmed interested: No one yet.',
     stats.matchedCount > 0
       ? `Reach: ${stats.deliveredCount} of ${stats.matchedCount} matched players received a Discord DM.`
       : 'Reach: No matching players were found yet.',
@@ -581,6 +652,10 @@ export function buildCreatorPlayIntentSummaryPreview(snapshot: {
     responseChoice: NotificationResponseChoice | null;
     deliveredAt: Date | null;
     createdAt: Date;
+    user?: {
+      displayName: string;
+      identities?: { providerUserId: string }[];
+    };
   }[];
   currentTime?: Date;
 }): DirectMessagePreviewPayload {
@@ -674,7 +749,20 @@ async function getCreatorPlayIntentSummarySnapshot(playIntentId: string) {
           respondedAt: true,
           responseChoice: true,
           deliveredAt: true,
-          createdAt: true
+          createdAt: true,
+          user: {
+            select: {
+              displayName: true,
+              identities: {
+                where: {
+                  provider: AuthProvider.DISCORD
+                },
+                select: {
+                  providerUserId: true
+                }
+              }
+            }
+          }
         }
       }
     }
@@ -694,8 +782,49 @@ async function sendOrEditCreatorPlayIntentSummary(playIntentId: string) {
     return
   }
 
+  const isActive = snapshot.expiresAt > new Date()
   const content = buildCreatorPlayIntentSummaryMessage(snapshot)
-  const components = buildCreatorPlayIntentSummaryComponents(playIntentId, snapshot.expiresAt > new Date())
+  const components = buildCreatorPlayIntentSummaryComponents(playIntentId, isActive)
+
+  // Active summary changes should trigger a fresh Discord notification.
+  // Closed/archive states are allowed to fall back to quiet edit-in-place updates.
+  if (isActive) {
+    const dmResult = (await sendDiscordDirectMessages([
+      {
+        discordUserId: creatorDiscordUserId,
+        content,
+        components
+      }
+    ]))[0]
+
+    if (dmResult?.status === 'sent') {
+      if (dmResult.emulated) {
+        return
+      }
+
+      if (!dmResult.channelId || !dmResult.messageId) {
+        return
+      }
+
+      if (snapshot.creatorDiscordDmChannelId && snapshot.creatorDiscordDmMessageId) {
+        await deleteDiscordDirectMessage({
+          channelId: snapshot.creatorDiscordDmChannelId,
+          messageId: snapshot.creatorDiscordDmMessageId
+        })
+      }
+
+      await prisma.playIntent.update({
+        where: {
+          id: playIntentId
+        },
+        data: {
+          creatorDiscordDmChannelId: dmResult.channelId,
+          creatorDiscordDmMessageId: dmResult.messageId
+        }
+      })
+      return
+    }
+  }
 
   if (snapshot.creatorDiscordDmChannelId && snapshot.creatorDiscordDmMessageId) {
     const editResult = await editDiscordDirectMessage({
@@ -749,19 +878,20 @@ function buildExpiredMessage(reason: string) {
   return [
     'This call-to-play prompt is no longer available.',
     reason,
-    "Open Game's Up if you still want to coordinate or post your own call to play."
+    'Open the app if you still want to coordinate or post your own call to play.'
   ].join('\n\n')
 }
 
 function buildJoinAcceptedMessage(creatorLabel: string) {
   return [
-    `I marked you as interested in ${creatorLabel}'s call to play.`
+    `I marked you as interested in ${creatorLabel}'s call to play and let them know.`
   ].join('\n\n')
 }
 
 function buildPassAcceptedMessage() {
   return [
     'Got it. I marked this call to play as passed for now.',
+    'Passing is anonymous.',
     "You can still switch to \"I'm interested\" later."
   ].join('\n\n')
 }
@@ -777,7 +907,7 @@ function buildCreatorCheckInPromptMessage(creatorLabel: string) {
     `Your scheduled call to play is starting now, ${creatorLabel}.`,
     supportsDiscordInteractiveMessages()
       ? 'Is this call to play still on?'
-      : 'Open Game\'s Up to confirm whether this call to play is still on.'
+      : 'Open the app to confirm whether this call to play is still on.'
   ].join('\n\n')
 }
 
@@ -809,16 +939,20 @@ function buildCreatorCheckInAlreadyHandledMessage(responseChoice: NotificationRe
 
 function buildGoTimeConfirmedCopy(creatorDisplayName: string) {
   return {
-    title: `${creatorDisplayName} confirmed the call to play is on`,
-    body: `${creatorDisplayName} confirmed the call to play is still on. It is go time.`
+    title: `${creatorDisplayName} confirmed the session is on`,
+    body: `${creatorDisplayName} confirmed the session is still on. It is go time.`
   }
 }
 
 function buildGoTimeReminderCopy(creatorDisplayName: string) {
   return {
-    title: `${creatorDisplayName} confirmed the call to play is on`,
-    body: `${creatorDisplayName} confirmed this call to play is still on. Are you interested?`
+    title: `${creatorDisplayName} confirmed the session is on`,
+    body: `${creatorDisplayName} confirmed this session is still on.`
   }
+}
+
+function buildAnonymousPassResultMessage(message: string) {
+  return [message, 'Passing is anonymous.'].join('\n\n')
 }
 
 function parseAction(customId: string): PlayIntentNotificationAction | null {
@@ -952,14 +1086,14 @@ async function applyRecipientResponseToPlayIntentNotification(options: {
 
     return {
       content: previousChoice === NotificationResponseChoice.JOIN
-        ? `Understood. I marked you as passing on ${playIntent.user.displayName}'s call to play.`
+        ? buildAnonymousPassResultMessage(`Understood. I marked you as passing on ${playIntent.user.displayName}'s call to play.`)
         : previousChoice === NotificationResponseChoice.DECLINE
-          ? 'You are still marked as passed on this call to play.'
+          ? buildAnonymousPassResultMessage('You are still marked as passed on this call to play.')
           : buildPassAcceptedMessage(),
       discordContent: previousChoice === NotificationResponseChoice.JOIN
-        ? `Understood. I marked you as passing on ${creatorDiscordLabel}'s call to play.`
+        ? buildAnonymousPassResultMessage(`Understood. I marked you as passing on ${creatorDiscordLabel}'s call to play.`)
         : previousChoice === NotificationResponseChoice.DECLINE
-          ? 'You are still marked as passed on this call to play.'
+          ? buildAnonymousPassResultMessage('You are still marked as passed on this call to play.')
           : buildPassAcceptedMessage()
     }
   }
@@ -1222,7 +1356,10 @@ export async function sweepScheduledPlayIntentCreatorCheckIns() {
   }
 }
 
-export async function expirePendingPlayIntentNotifications(playIntentIds: string[]) {
+export async function expirePendingPlayIntentNotifications(
+  playIntentIds: string[],
+  options: ExpirePendingPlayIntentNotificationsOptions = {}
+) {
   if (playIntentIds.length === 0) {
     return
   }
@@ -1304,6 +1441,10 @@ export async function expirePendingPlayIntentNotifications(playIntentIds: string
   }))
 
   await syncCreatorPlayIntentSummaryMessages(playIntentIds)
+  await archivePlayIntentDirectMessages({
+    playIntentIds,
+    replaceRecipientMessages: options.notifyAudienceOnEnd === true
+  })
 }
 
 export async function handleScheduledPlayIntentCheckInInteraction(interaction: ButtonInteraction) {
@@ -1423,7 +1564,9 @@ export async function handleScheduledPlayIntentCheckInInteraction(interaction: B
     })
 
     if (cancellation.notificationCanceled && notification.playIntentId) {
-      await expirePendingPlayIntentNotifications([notification.playIntentId])
+      await expirePendingPlayIntentNotifications([notification.playIntentId], {
+        notifyAudienceOnEnd: true
+      })
     }
 
     await interaction.update({
@@ -1432,8 +1575,6 @@ export async function handleScheduledPlayIntentCheckInInteraction(interaction: B
         : buildCreatorCheckInAlreadyHandledMessage(NotificationResponseChoice.CANCELED),
       components: [buildLinkRow()]
     })
-
-    await syncCreatorPlayIntentSummaryMessages(notification.playIntentId ? [notification.playIntentId] : [])
     return
   }
 
@@ -1547,7 +1688,8 @@ export async function handleScheduledPlayIntentCheckInInteraction(interaction: B
 
     return {
       createdNotifications: [...confirmedNotifications, ...reminderNotifications],
-      priorAcceptedCount: acceptedUserIds.length
+      priorAcceptedCount: acceptedUserIds.length,
+      acceptedUserIds
     }
   })
 
@@ -1559,7 +1701,7 @@ export async function handleScheduledPlayIntentCheckInInteraction(interaction: B
     return
   }
 
-  const [recipientIdentities, creatorIdentity] = await Promise.all([
+  const [recipientIdentities, creatorIdentity, acceptedUsers] = await Promise.all([
     prisma.userIdentity.findMany({
       where: {
         provider: AuthProvider.DISCORD,
@@ -1580,10 +1722,30 @@ export async function handleScheduledPlayIntentCheckInInteraction(interaction: B
       select: {
         providerUserId: true
       }
+    }),
+    prisma.user.findMany({
+      where: {
+        id: {
+          in: result.acceptedUserIds
+        }
+      },
+      select: {
+        id: true,
+        displayName: true,
+        identities: {
+          where: {
+            provider: AuthProvider.DISCORD
+          },
+          select: {
+            providerUserId: true
+          }
+        }
+      }
     })
   ])
   const creatorDiscordUserId = creatorIdentity?.providerUserId ?? null
   const discordUserIdByUserId = new Map(recipientIdentities.map((identityEntry) => [identityEntry.userId, identityEntry.providerUserId]))
+  const acceptedUserLabels = acceptedUsers.map((user) => buildDiscordUserLabel(user.displayName, user.identities[0]?.providerUserId))
 
   const dmTargets = result.createdNotifications
     .map((createdNotification) => {
@@ -1602,7 +1764,9 @@ export async function handleScheduledPlayIntentCheckInInteraction(interaction: B
           creatorDiscordUserId,
           playIntent.user.displayName,
           null,
-          createdNotification.type === NotificationType.SCHEDULED_PLAY_INTENT_REMINDER ? result.priorAcceptedCount : undefined
+          result.priorAcceptedCount,
+          acceptedUserLabels,
+          false
         ),
         components: createdNotification.type === NotificationType.SCHEDULED_PLAY_INTENT_REMINDER
           ? buildPlayIntentNotificationComponents(createdNotification.id, playIntent.userId, playIntent.user.displayName)
@@ -1752,7 +1916,7 @@ export async function handlePlayIntentNotificationInteraction(interaction: Butto
 
   await interaction.update({
     content: result.discordContent ?? result.content,
-    components: buildPlayIntentNotificationComponents(notification.id, playIntent.user.id, playIntent.user.displayName)
+    components: buildPlayIntentNotificationComponents(notification.id, playIntent.user.id, playIntent.user.displayName, action.response)
   })
 }
 
@@ -1822,7 +1986,7 @@ async function handlePlayIntentMuteInteraction(interaction: ButtonInteraction, a
   }
 
   await interaction.update({
-    content: `Muted ${buildDiscordUserLabel(creatorUser.displayName, creatorUser.identities[0]?.providerUserId)}'s CTPs. You won't see their calls to play in your feed.`,
+    content: `Muted ${buildDiscordUserLabel(creatorUser.displayName, creatorUser.identities[0]?.providerUserId)}'s calls to play. You won't see them in your feed.`,
     components: [buildLinkRow()]
   })
 }
@@ -1860,7 +2024,7 @@ export async function handleCreatorPlayIntentSummaryInteraction(interaction: But
 
   if (!playIntent || !identity || identity.userId !== playIntent.userId) {
     await interaction.update({
-      content: 'This CTP summary is not available for your account anymore.',
+      content: 'This call-to-play summary is not available for your account anymore.',
       components: [buildLinkRow()]
     })
     return
@@ -1879,7 +2043,9 @@ export async function handleCreatorPlayIntentSummaryInteraction(interaction: But
       }
     })
 
-    await expirePendingPlayIntentNotifications([playIntent.id])
+    await expirePendingPlayIntentNotifications([playIntent.id], {
+      notifyAudienceOnEnd: true
+    })
   } else {
     await syncCreatorPlayIntentSummaryMessages([playIntent.id])
   }
