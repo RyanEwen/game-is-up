@@ -362,8 +362,16 @@ export function useDashboardApp() {
       }
 
       if (debugResponse) {
-        const debugJson = await debugResponse.json()
-        debugAdmin = debugAdminResponseSchema.parse(debugJson)
+        if (debugResponse.ok) {
+          try {
+            const debugJson = await debugResponse.json()
+            debugAdmin = debugAdminResponseSchema.parse(debugJson)
+          } catch (error) {
+            console.error('Debug admin payload parse failed', error)
+          }
+        } else {
+          console.error('Debug admin request failed', debugResponse.status, debugResponse.statusText)
+        }
       }
 
       setState({

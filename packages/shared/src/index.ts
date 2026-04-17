@@ -510,7 +510,7 @@ export const debugDmPreviewButtonSchema = z.object({
   label: z.string().min(1),
   style: debugDmPreviewButtonStyleSchema,
   disabled: z.boolean(),
-  url: z.string().url().nullable(),
+  url: z.string().min(1).nullable(),
   customId: z.string().min(1).nullable()
 })
 
@@ -526,8 +526,8 @@ export const debugDmPreviewEmbedSchema = z.object({
   color: z.number().int().nonnegative().nullable(),
   fields: z.array(debugDmPreviewEmbedFieldSchema),
   footerText: z.string().nullable(),
-  imageUrl: z.string().url().nullable(),
-  thumbnailUrl: z.string().url().nullable()
+  imageUrl: z.string().min(1).nullable(),
+  thumbnailUrl: z.string().min(1).nullable()
 })
 
 export const debugDmPreviewSchema = z.object({
