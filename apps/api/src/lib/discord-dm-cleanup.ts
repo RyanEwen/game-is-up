@@ -1,4 +1,5 @@
 import { AuthProvider, NotificationType } from '@prisma/client'
+import { NotificationResponseChoice } from '@prisma/client'
 import { deleteDiscordDirectMessage, editDiscordDirectMessage, sendDiscordDirectMessages } from './discord-bot-runtime.js'
 import { prisma } from './prisma.js'
 import { normalizeTimezoneId } from './timezone-label.js'
@@ -69,13 +70,32 @@ function buildArchivedPlayIntentMessage(
   },
   timezoneId: string
 ) {
+  const summary = buildArchivedPlayIntentSummary(playIntent, timezoneId)
+
+  return [
+    `**${summary.title}**`,
+    summary.body
+  ].join('\n\n')
+}
+
+function buildArchivedPlayIntentSummary(
+  playIntent: {
+    selectionMode: 'ENTIRE_LIBRARY' | 'SELECTED_GAMES';
+    windowStartsAt: Date;
+    user: {
+      displayName: string;
+    };
+    games: { game: { title: string } }[];
+  },
+  timezoneId: string
+) {
   const gamesLabel = summarizeArchivedPlayIntentGames(playIntent)
   const startsAtLabel = formatArchivedPlayIntentDate(playIntent.windowStartsAt, timezoneId)
 
-  return [
-    '**Call to play ended**',
-    `The call to play from ${playIntent.user.displayName} for ${gamesLabel} on ${startsAtLabel} has ended.`
-  ].join('\n\n')
+  return {
+    title: 'Call to play ended',
+    body: `The call to play from ${playIntent.user.displayName} for ${gamesLabel} on ${startsAtLabel} has ended.`
+  }
 }
 
 function getNotificationArchivePriority(type: NotificationType) {
@@ -283,6 +303,8 @@ export async function archivePlayIntentDirectMessages(options: {
           id: true,
           userId: true,
           type: true,
+          createdAt: true,
+          responseChoice: true,
           discordDmChannelId: true,
           discordDmMessageId: true,
           user: {
@@ -308,6 +330,18 @@ export async function archivePlayIntentDirectMessages(options: {
   const playIntentIdsToClear = new Set<string>()
 
   for (const playIntent of playIntents) {
+    const mutedRecipientUserIds = new Set((await prisma.playIntentMute.findMany({
+      where: {
+        mutedUserId: playIntent.user.id,
+        userId: {
+          in: [...new Set(playIntent.notifications.map((notification) => notification.userId).filter((userId) => userId !== playIntent.user.id))]
+        }
+      },
+      select: {
+        userId: true
+      }
+    })).map((mute) => mute.userId))
+
     const creatorArchiveContent = buildArchivedPlayIntentMessage(playIntent, playIntent.user.timezoneId)
     const creatorCandidates: ArchivedCreatorCandidate[] = []
 
@@ -379,6 +413,10 @@ export async function archivePlayIntentDirectMessages(options: {
         continue
       }
 
+      const latestAudienceNotification = [...notifications]
+        .sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime())[0] ?? null
+      const recipientPassed = latestAudienceNotification?.responseChoice === NotificationResponseChoice.DECLINE
+      const recipientMutedCreator = mutedRecipientUserIds.has(userId)
       const archiveContent = buildArchivedPlayIntentMessage(playIntent, notifications[0]?.user.timezoneId ?? playIntent.user.timezoneId)
       const candidates = notifications
         .map<ArchivedNotificationCandidate | null>((notification) => {
@@ -402,10 +440,25 @@ export async function archivePlayIntentDirectMessages(options: {
 
       // Quiet expiry/archive edits the existing tracked DM in place.
       // Manual cancel paths opt into replacement so Discord emits a fresh notification.
-      if (options.replaceRecipientMessages) {
+      if (options.replaceRecipientMessages && !recipientPassed && !recipientMutedCreator) {
         const recipientDiscordUserId = notifications[0]?.user.identities[0]?.providerUserId
+        const archiveSummary = buildArchivedPlayIntentSummary(playIntent, notifications[0]?.user.timezoneId ?? playIntent.user.timezoneId)
 
         if (recipientDiscordUserId) {
+          const archivedNotification = await prisma.notification.create({
+            data: {
+              userId,
+              triggeredByUserId: playIntent.user.id,
+              playIntentId: playIntent.id,
+              type: NotificationType.SYSTEM,
+              title: archiveSummary.title,
+              body: archiveSummary.body
+            },
+            select: {
+              id: true
+            }
+          })
+
           const dmResult = (await sendDiscordDirectMessages([
             {
               discordUserId: recipientDiscordUserId,
@@ -414,7 +467,20 @@ export async function archivePlayIntentDirectMessages(options: {
             }
           ]))[0]
 
-          if (dmResult?.status === 'sent' && !dmResult.emulated && dmResult.channelId && dmResult.messageId) {
+          if (dmResult?.status === 'sent') {
+            if (!dmResult.emulated && dmResult.channelId && dmResult.messageId) {
+              await prisma.notification.update({
+                where: {
+                  id: archivedNotification.id
+                },
+                data: {
+                  deliveredAt: new Date(),
+                  discordDmChannelId: dmResult.channelId,
+                  discordDmMessageId: dmResult.messageId
+                }
+              })
+            }
+
             for (const candidate of candidates) {
               if (await tryDeleteDirectMessage(candidate.channelId, candidate.messageId)) {
                 notificationIdsToClear.add(candidate.notificationId)

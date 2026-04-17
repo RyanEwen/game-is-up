@@ -81,7 +81,11 @@ async function ensureDebugPlayableNotification(options: {
         where: {
           userId: options.actingUserId,
           type: {
-            in: [NotificationType.FRIEND_PLAYING, NotificationType.SCHEDULED_PLAY_INTENT_REMINDER]
+            in: [
+              NotificationType.FRIEND_PLAYING,
+              NotificationType.SCHEDULED_PLAY_INTENT_REMINDER,
+              NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED
+            ]
           }
         },
         orderBy: {

@@ -323,7 +323,11 @@ function getInterestedCountBeforeNotification(
 
   const sortedNotifications = notifications
     .filter((notification) =>
-      (notification.type === NotificationType.FRIEND_PLAYING || notification.type === NotificationType.SCHEDULED_PLAY_INTENT_REMINDER)
+      (
+        notification.type === NotificationType.FRIEND_PLAYING
+        || notification.type === NotificationType.SCHEDULED_PLAY_INTENT_REMINDER
+        || notification.type === NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED
+      )
       && notification.createdAt.getTime() < cutoff.getTime()
     )
     .sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime())
@@ -386,6 +390,8 @@ function toInboxMessageLabel(notificationType: NotificationType) {
       return 'Go-time confirmed'
     case NotificationType.SCHEDULED_PLAY_INTENT_REMINDER:
       return 'Go-time reminder'
+    case NotificationType.SYSTEM:
+      return 'Ended notice'
     default:
       return 'Call to play'
   }
@@ -963,7 +969,7 @@ export async function buildDebugAdminSnapshot() {
     const creatorServerIds = creatorServerIdsByUserId.get(intent.user.id)
     const creatorMessages: Array<{
       id: string;
-      kind: 'creator-summary' | 'scheduled-check-in';
+      kind: 'creator-summary' | 'scheduled-check-in' | 'call-to-play';
       label: string;
       sentAt: string;
       deliveryState: 'emulated' | 'stored-only' | 'dm-delivered';
@@ -1007,6 +1013,32 @@ export async function buildDebugAdminSnapshot() {
       })
     }
 
+    const creatorSystemNotifications = intent.notifications
+      .filter((notification) => notification.userId === intent.user.id && notification.type === NotificationType.SYSTEM)
+      .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime())
+
+    for (const notification of creatorSystemNotifications) {
+      const revisions = buildNotificationMessageRevisions({
+        messageId: `notification:${notification.id}`,
+        notification,
+        creatorUserId: intent.user.id,
+        creatorDiscordUserId,
+        creatorDisplayName: intent.user.displayName,
+        gameTitle: notification.game?.title ?? null,
+        voiceChannel: null
+      })
+
+      creatorMessages.push({
+        id: `notification:${notification.id}`,
+        kind: 'call-to-play',
+        label: notification.title,
+        sentAt: notification.createdAt.toISOString(),
+        deliveryState: toDebugDmDeliveryState(notification.deliveredAt, areDiscordDirectMessagesEmulated()),
+        preview: getLatestRevisionPreview(revisions),
+        revisions
+      })
+    }
+
     const audienceNotificationsByUserId = new Map<string, typeof intent.notifications>()
 
     for (const notification of intent.notifications) {
@@ -1014,6 +1046,7 @@ export async function buildDebugAdminSnapshot() {
         notification.type !== NotificationType.FRIEND_PLAYING
         && notification.type !== NotificationType.SCHEDULED_PLAY_INTENT_REMINDER
         && notification.type !== NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED
+        && notification.type !== NotificationType.SYSTEM
       ) {
         continue
       }
@@ -1066,7 +1099,10 @@ export async function buildDebugAdminSnapshot() {
                   recipientSharesServer
                 }
               : null,
-            joinCount: notification.type === NotificationType.SCHEDULED_PLAY_INTENT_REMINDER
+            joinCount: (
+              notification.type === NotificationType.SCHEDULED_PLAY_INTENT_REMINDER
+              || notification.type === NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED
+            )
               ? getInterestedCountBeforeNotification(
                   intent.notifications.map((entry) => ({
                     userId: entry.userId,
@@ -1305,7 +1341,10 @@ export async function buildDebugAdminSnapshot() {
             recipientSharesServer
           }
         : null,
-      joinCount: notification.type === NotificationType.SCHEDULED_PLAY_INTENT_REMINDER && playIntent
+      joinCount: (
+        notification.type === NotificationType.SCHEDULED_PLAY_INTENT_REMINDER
+        || notification.type === NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED
+      ) && playIntent
         ? getInterestedCountBeforeNotification(playIntent.notifications, notification.createdAt)
         : undefined
     })

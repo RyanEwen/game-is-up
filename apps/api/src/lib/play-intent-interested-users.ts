@@ -11,7 +11,8 @@ type InterestedPlayIntentUser = {
 
 const joinResponseNotificationTypes = [
   NotificationType.FRIEND_PLAYING,
-  NotificationType.SCHEDULED_PLAY_INTENT_REMINDER
+  NotificationType.SCHEDULED_PLAY_INTENT_REMINDER,
+  NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED
 ] as NotificationType[]
 
 export async function getInterestedUsersByPlayIntentId(playIntentIds: string[]) {

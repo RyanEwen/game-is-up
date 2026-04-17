@@ -165,7 +165,11 @@ export async function buildPlayIntentFeed(viewerId?: string | null): Promise<Pla
             where: {
               responseChoice: NotificationResponseChoice.JOIN,
               type: {
-                in: [NotificationType.FRIEND_PLAYING, NotificationType.SCHEDULED_PLAY_INTENT_REMINDER] as NotificationType[]
+                in: [
+                  NotificationType.FRIEND_PLAYING,
+                  NotificationType.SCHEDULED_PLAY_INTENT_REMINDER,
+                  NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED
+                ] as NotificationType[]
               }
             }
           }
@@ -177,7 +181,7 @@ export async function buildPlayIntentFeed(viewerId?: string | null): Promise<Pla
     }
   })
 
-  const recipientResponseByPlayIntentId = intents.length > 0
+  const recipientNotificationStateByPlayIntentId = intents.length > 0
     ? await prisma.notification.findMany({
         where: {
           userId: viewer.id,
@@ -185,10 +189,11 @@ export async function buildPlayIntentFeed(viewerId?: string | null): Promise<Pla
             in: intents.map((intent) => intent.id)
           },
           type: {
-            in: [NotificationType.FRIEND_PLAYING, NotificationType.SCHEDULED_PLAY_INTENT_REMINDER]
-          },
-          responseChoice: {
-            in: [NotificationResponseChoice.JOIN, NotificationResponseChoice.DECLINE]
+            in: [
+              NotificationType.FRIEND_PLAYING,
+              NotificationType.SCHEDULED_PLAY_INTENT_REMINDER,
+              NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED
+            ]
           }
         },
         select: {
@@ -199,23 +204,42 @@ export async function buildPlayIntentFeed(viewerId?: string | null): Promise<Pla
           createdAt: 'desc'
         }
       }).then((rows) => {
-        const map = new Map<string, 'join' | 'decline'>()
+        const map = new Map<string, {
+          isNotified: true;
+          responseChoice: 'join' | 'decline' | null;
+        }>()
 
         for (const row of rows) {
           if (!row.playIntentId || map.has(row.playIntentId)) {
             continue
           }
 
-          map.set(row.playIntentId, row.responseChoice === NotificationResponseChoice.JOIN ? 'join' : 'decline')
+          map.set(row.playIntentId, {
+            isNotified: true,
+            responseChoice: row.responseChoice === NotificationResponseChoice.JOIN
+              ? 'join'
+              : row.responseChoice === NotificationResponseChoice.DECLINE
+                ? 'decline'
+                : null
+          })
         }
 
         return map
       })
-    : new Map<string, 'join' | 'decline'>()
+    : new Map<string, {
+        isNotified: true;
+        responseChoice: 'join' | 'decline' | null;
+      }>()
   const interestedUsersByPlayIntentId = await getInterestedUsersByPlayIntentId(intents.map((intent) => intent.id))
 
   const previews = intents
     .map<PlayIntentPreview | null>((intent) => {
+      const recipientNotificationState = recipientNotificationStateByPlayIntentId.get(intent.id)
+
+      if (!recipientNotificationState) {
+        return null
+      }
+
       const isExplicitFriend = friendUserIds.includes(intent.userId)
       const isInDiscoveryAudience = discoveryAudienceUserIds.includes(intent.userId)
 
@@ -281,7 +305,7 @@ export async function buildPlayIntentFeed(viewerId?: string | null): Promise<Pla
         note: intent.note,
         voiceChannelId: intent.voiceChannelId,
         voiceChannelName: intent.voiceChannelName,
-        viewerResponseChoice: recipientResponseByPlayIntentId.get(intent.id) ?? null,
+        viewerResponseChoice: recipientNotificationState.responseChoice,
         interestedUsers,
         joinCount: interestedUsers.length,
         availabilityWindow: {

@@ -76,7 +76,11 @@ const activePlayIntentInclude = Prisma.validator<Prisma.PlayIntentInclude>()({
         where: {
           responseChoice: NotificationResponseChoice.JOIN,
           type: {
-            in: [NotificationType.FRIEND_PLAYING, NotificationType.SCHEDULED_PLAY_INTENT_REMINDER] as NotificationType[]
+            in: [
+              NotificationType.FRIEND_PLAYING,
+              NotificationType.SCHEDULED_PLAY_INTENT_REMINDER,
+              NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED
+            ] as NotificationType[]
           }
         }
       }

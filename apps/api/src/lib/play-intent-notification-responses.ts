@@ -303,7 +303,7 @@ export function buildPlayIntentNotificationComponents(
     rows.push(responseRow)
   }
 
-  if (creatorUserId && creatorDisplayName) {
+  if (responseChoice === NotificationResponseChoice.DECLINE && creatorUserId && creatorDisplayName) {
     rows.push(buildMuteRow(creatorUserId, creatorDisplayName))
   }
   rows.push(buildLinkRow())
@@ -372,36 +372,34 @@ export function buildNotificationDirectMessagePreview(options: {
     || options.notificationType === NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED
     || options.notificationType === NotificationType.SCHEDULED_PLAY_INTENT_REMINDER
   ) {
-    if (options.notificationType !== NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED) {
-      if (options.responseChoice === NotificationResponseChoice.JOIN) {
-        return {
-          content: buildJoinAcceptedMessage(creatorLabel),
-          components: buildPlayIntentNotificationComponents(
-            options.notificationId,
-            options.creatorUserId ?? undefined,
-            options.creatorDisplayName ?? undefined,
-            options.responseChoice
-          )
-        }
+    if (options.responseChoice === NotificationResponseChoice.JOIN) {
+      return {
+        content: buildJoinAcceptedMessage(creatorLabel),
+        components: buildPlayIntentNotificationComponents(
+          options.notificationId,
+          options.creatorUserId ?? undefined,
+          options.creatorDisplayName ?? undefined,
+          options.responseChoice
+        )
       }
+    }
 
-      if (options.responseChoice === NotificationResponseChoice.DECLINE) {
-        return {
-          content: buildPassAcceptedMessage(),
-          components: buildPlayIntentNotificationComponents(
-            options.notificationId,
-            options.creatorUserId ?? undefined,
-            options.creatorDisplayName ?? undefined,
-            options.responseChoice
-          )
-        }
+    if (options.responseChoice === NotificationResponseChoice.DECLINE) {
+      return {
+        content: buildPassAcceptedMessage(),
+        components: buildPlayIntentNotificationComponents(
+          options.notificationId,
+          options.creatorUserId ?? undefined,
+          options.creatorDisplayName ?? undefined,
+          options.responseChoice
+        )
       }
+    }
 
-      if (options.responseChoice === NotificationResponseChoice.EXPIRED || options.playIntentIsActive === false) {
-        return {
-          content: buildExpiredMessage(buildSessionEndedReason(creatorLabel, options.gameTitle ?? null)),
-          components: [buildLinkRow()]
-        }
+    if (options.responseChoice === NotificationResponseChoice.EXPIRED || options.playIntentIsActive === false) {
+      return {
+        content: buildExpiredMessage(buildSessionEndedReason(creatorLabel, options.gameTitle ?? null)),
+        components: [buildLinkRow()]
       }
     }
 
@@ -414,16 +412,21 @@ export function buildNotificationDirectMessagePreview(options: {
         options.voiceChannel,
         options.joinCount,
         options.interestedUserLabels,
-        options.notificationType === NotificationType.FRIEND_PLAYING
+        true
       ),
-      components: options.notificationType === NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED
-        ? [buildLinkRow()]
-        : buildPlayIntentNotificationComponents(
-            options.notificationId,
-            options.creatorUserId ?? undefined,
-            options.creatorDisplayName ?? undefined,
-            options.responseChoice
-          )
+      components: buildPlayIntentNotificationComponents(
+        options.notificationId,
+        options.creatorUserId ?? undefined,
+        options.creatorDisplayName ?? undefined,
+        options.responseChoice
+      )
+    }
+  }
+
+  if (options.notificationType === NotificationType.SYSTEM && options.title === 'Call to play ended') {
+    return {
+      content: [`**${options.title}**`, options.body].filter(Boolean).join('\n\n'),
+      components: []
     }
   }
 
@@ -512,7 +515,9 @@ function formatInterestedUserLabelSummary(labels: string[]) {
 
 function getCreatorSummaryRecipientStats(snapshot: CreatorPlayIntentSummarySnapshot) {
   const relevantNotifications = snapshot.notifications.filter((notification) =>
-    notification.type === NotificationType.FRIEND_PLAYING || notification.type === NotificationType.SCHEDULED_PLAY_INTENT_REMINDER
+    notification.type === NotificationType.FRIEND_PLAYING
+    || notification.type === NotificationType.SCHEDULED_PLAY_INTENT_REMINDER
+    || notification.type === NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED
   )
 
   const latestByUserId = new Map<string, {
@@ -1145,7 +1150,9 @@ async function applyRecipientResponseToPlayIntentNotification(options: {
             body: creatorNotificationCopy.body
           },
           select: {
-            id: true
+            id: true,
+            title: true,
+            body: true
           }
         })
       })
@@ -1158,19 +1165,35 @@ async function applyRecipientResponseToPlayIntentNotification(options: {
           responseChoice: NotificationResponseChoice.JOIN
         },
         select: {
-          id: true
+          id: true,
+          title: true,
+          body: true
         }
       })
 
   if (previousChoice !== NotificationResponseChoice.JOIN) {
-    await prisma.notification.update({
-      where: {
-        id: joinResult.id
-      },
-      data: {
-        deliveredAt: new Date()
+      if (creatorDiscordUserId) {
+        const dmResult = (await sendDiscordDirectMessages([
+          {
+            discordUserId: creatorDiscordUserId,
+            content: [`**${joinResult.title}**`, joinResult.body].join('\n\n'),
+            components: [buildLinkRow()]
+          }
+        ]))[0]
+
+        if (dmResult?.status === 'sent' && !dmResult.emulated) {
+          await prisma.notification.update({
+            where: {
+              id: joinResult.id
+            },
+            data: {
+              deliveredAt: new Date(),
+              discordDmChannelId: dmResult.channelId,
+              discordDmMessageId: dmResult.messageId
+            }
+          })
+        }
       }
-    })
   }
 
   await syncCreatorPlayIntentSummaryMessages([playIntent.id])
@@ -1199,7 +1222,11 @@ export async function respondToPlayIntentFromWeb(options: {
       userId: options.userId,
       playIntentId: options.playIntentId,
       type: {
-        in: [NotificationType.FRIEND_PLAYING, NotificationType.SCHEDULED_PLAY_INTENT_REMINDER]
+        in: [
+          NotificationType.FRIEND_PLAYING,
+          NotificationType.SCHEDULED_PLAY_INTENT_REMINDER,
+          NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED
+        ]
       }
     },
     select: {
@@ -1389,7 +1416,12 @@ export async function expirePendingPlayIntentNotifications(
         in: playIntentIds
       },
       type: {
-        in: [NotificationType.FRIEND_PLAYING, NotificationType.SCHEDULED_PLAY_INTENT_REMINDER, NotificationType.SCHEDULED_PLAY_INTENT_CHECK_IN]
+        in: [
+          NotificationType.FRIEND_PLAYING,
+          NotificationType.SCHEDULED_PLAY_INTENT_REMINDER,
+          NotificationType.SCHEDULED_PLAY_INTENT_CHECK_IN,
+          NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED
+        ]
       },
       respondedAt: null
     },
@@ -1621,7 +1653,11 @@ export async function handleScheduledPlayIntentCheckInInteraction(interaction: B
       where: {
         playIntentId: playIntent.id,
         type: {
-          in: [NotificationType.FRIEND_PLAYING, NotificationType.SCHEDULED_PLAY_INTENT_REMINDER]
+          in: [
+            NotificationType.FRIEND_PLAYING,
+            NotificationType.SCHEDULED_PLAY_INTENT_REMINDER,
+            NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED
+          ]
         },
         userId: {
           not: playIntent.userId
@@ -1647,11 +1683,23 @@ export async function handleScheduledPlayIntentCheckInInteraction(interaction: B
       }
     }
 
+    const mutedRecipientUserIds = new Set((await transaction.playIntentMute.findMany({
+      where: {
+        mutedUserId: playIntent.userId,
+        userId: {
+          in: [...latestRecipientStatusByUserId.keys()]
+        }
+      },
+      select: {
+        userId: true
+      }
+    })).map((mute) => mute.userId))
+
     const acceptedUserIds: string[] = []
     const unansweredUserIds: string[] = []
 
     for (const [recipientUserId, status] of latestRecipientStatusByUserId.entries()) {
-      if (status.responseChoice === NotificationResponseChoice.DECLINE) {
+      if (status.responseChoice === NotificationResponseChoice.DECLINE || mutedRecipientUserIds.has(recipientUserId)) {
         continue
       }
 
@@ -1785,11 +1833,9 @@ export async function handleScheduledPlayIntentCheckInInteraction(interaction: B
           null,
           result.priorAcceptedCount,
           acceptedUserLabels,
-          false
+          true
         ),
-        components: createdNotification.type === NotificationType.SCHEDULED_PLAY_INTENT_REMINDER
-          ? buildPlayIntentNotificationComponents(createdNotification.id, playIntent.userId, playIntent.user.displayName)
-          : [buildLinkRow()]
+        components: buildPlayIntentNotificationComponents(createdNotification.id, playIntent.userId, playIntent.user.displayName)
       }
     })
     .filter((target): target is { notificationId: string; discordUserId: string; content: string; components: ReturnType<typeof buildPlayIntentNotificationComponents> } => target != null)
