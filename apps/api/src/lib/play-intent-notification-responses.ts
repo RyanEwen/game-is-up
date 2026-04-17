@@ -17,6 +17,13 @@ import {
   sendDiscordDirectMessages,
   supportsDiscordInteractiveMessages
 } from './discord-bot-runtime.js'
+import {
+  buildDiscordBulletSection,
+  buildDiscordNotice,
+  buildDiscordSection,
+  buildDiscordSubtext,
+  formatLabeledDiscordLines
+} from './discord-dm-formatting.js'
 import { env } from './env.js'
 import { prisma } from './prisma.js'
 import { normalizeTimezoneId } from './timezone-label.js'
@@ -239,6 +246,58 @@ function buildScheduledCheckInResponseRow(notificationId: string) {
   )
 }
 
+function buildDirectMessageSectionHeading(label: string) {
+  switch (label.trim().toLowerCase()) {
+    case 'creator':
+      return '### 👤 Creator'
+    case 'title':
+      return '### 📝 Title'
+    case 'games':
+      return '### 🎯 Games'
+    case 'when':
+      return '### ⏰ When'
+    case 'audience':
+      return '### 👥 Audience'
+    case 'window':
+      return '### 🗓 Window'
+    case 'voice channel':
+      return '### 🎙 Voice Channel'
+    case 'interest':
+      return '### 👥 Interest'
+    case 'status':
+      return '### 📡 Status'
+    case 'note':
+      return '### 🗒 Note'
+    case 'confirmed interested':
+      return '### 🙋 Interested Players'
+    case 'reach':
+      return '### 📬 Reach'
+    default:
+      return `### ${label.trim()}`
+  }
+}
+
+const directMessageLineFormatting = {
+  quotedLabels: ['update'],
+  subtextLabels: ['reply']
+}
+
+function formatDirectMessageField(label: string, value: string) {
+  return buildDiscordSection(label, value, buildDirectMessageSectionHeading, directMessageLineFormatting)
+}
+
+function formatLabeledDirectMessageLines(text: string) {
+  return formatLabeledDiscordLines(text, buildDirectMessageSectionHeading, directMessageLineFormatting)
+}
+
+function buildDirectMessageBulletSection(label: string, items: string[]) {
+  return buildDiscordBulletSection(label, items, buildDirectMessageSectionHeading)
+}
+
+function buildDirectMessageNotice(title: string, sections: Array<string | null>, subtext?: string | null) {
+  return buildDiscordNotice(title, sections, subtext)
+}
+
 export function buildPlayIntentDirectMessage(
   title: string,
   body: string,
@@ -255,38 +314,41 @@ export function buildPlayIntentDirectMessage(
   const replacedBody = creatorDisplayName
     ? replaceDisplayNameWithMention(body, creatorDisplayName, creatorDiscordUserId)
     : body
-  const bodyWithCreatorMention = creatorDiscordUserId && replacedBody === body
-    ? `${replacedBody} Posted by <@${creatorDiscordUserId}>.`
-    : replacedBody
 
-  const voiceChannelLine = voiceChannel?.channelName
+  const voiceChannelValue = voiceChannel?.channelName
     ? voiceChannel.channelId && voiceChannel.recipientSharesServer
-      ? `Voice channel: <#${voiceChannel.channelId}>`
-      : `Voice channel: ${voiceChannel.channelName}`
+      ? `<#${voiceChannel.channelId}>`
+      : voiceChannel.channelName
     : null
 
-  const joinCountLine = joinCount && joinCount > 0
-    ? `${joinCount} ${joinCount === 1 ? 'person is' : 'people are'} showing interest.`
+  const interestSection = buildDirectMessageBulletSection('Interest', [
+    joinCount && joinCount > 0
+      ? `${joinCount} ${joinCount === 1 ? 'person is' : 'people are'} showing interest.`
+      : '',
+    interestedUserLabels && interestedUserLabels.length > 0
+      ? `Confirmed: ${formatInterestedUserLabelSummary(interestedUserLabels)}`
+      : ''
+  ])
+
+  const responseSubtext = includeInterestPrompt
+    ? supportsDiscordInteractiveMessages()
+      ? buildDiscordSubtext('Use the buttons below to answer.')
+      : buildDiscordSubtext('Open the app to say whether you\'re interested.')
     : null
 
-  const interestedUsersLine = interestedUserLabels && interestedUserLabels.length > 0
-    ? `Confirmed interested: ${formatInterestedUserLabelSummary(interestedUserLabels)}`
+  const postedByQuote = creatorDiscordUserId
+    && !titleWithCreatorMention.includes(`<@${creatorDiscordUserId}>`)
+    && !replacedBody.includes(`<@${creatorDiscordUserId}>`)
+    ? `> Posted by <@${creatorDiscordUserId}>`
     : null
 
   return [
-    `**${titleWithCreatorMention}**`,
-    bodyWithCreatorMention,
-    voiceChannelLine,
-    joinCountLine,
-    interestedUsersLine,
-    includeInterestPrompt && supportsDiscordInteractiveMessages()
-      ? 'Are you interested?'
-      : includeInterestPrompt
-        ? 'Open the app to say whether you\'re interested.'
-        : null,
-    includeInterestPrompt && supportsDiscordInteractiveMessages()
-      ? 'Use the buttons below to answer.'
-      : null
+    `## 🎮 ${titleWithCreatorMention}`,
+    postedByQuote,
+    ...formatLabeledDirectMessageLines(replacedBody),
+    ...(voiceChannelValue ? [formatDirectMessageField('Voice channel', voiceChannelValue)] : []),
+    interestSection,
+    responseSubtext
   ].filter((part): part is string => Boolean(part)).join('\n\n')
 }
 
@@ -425,7 +487,11 @@ export function buildNotificationDirectMessagePreview(options: {
 
   if (options.notificationType === NotificationType.SYSTEM && options.title === 'Call to play ended') {
     return {
-      content: [`**${options.title}**`, options.body].filter(Boolean).join('\n\n'),
+      content: buildDirectMessageNotice(
+        '🛑 Call to Play Ended',
+        options.body ? formatLabeledDirectMessageLines(options.body) : [],
+        null
+      ),
       components: []
     }
   }
@@ -607,29 +673,32 @@ function buildCreatorPlayIntentSummaryMessage(snapshot: CreatorPlayIntentSummary
       : 'Open the app below if you want to edit or cancel this call to play.'
     : 'Open the app below if you want to post another call to play.'
 
-  return [
-    `**Your call to play for ${startsAtLabel}**`,
-    getCreatorSummaryStatus(snapshot, currentTime),
-    `Title: ${snapshot.headline}`,
-    summarizeCreatorGames(snapshot),
-    summarizeCreatorAudience(snapshot),
-    `Window: ${startsAtLabel} to ${endsAtLabel}`,
-    snapshot.voiceChannelName ? `Voice channel: ${snapshot.voiceChannelName}` : null,
-    snapshot.note ? `Note: ${snapshot.note}` : null,
+  return buildDirectMessageNotice(
+    `🎮 Your Call to Play for ${startsAtLabel}`,
     [
-      '**Responses**',
-      `Interested: ${stats.interestedCount}`,
-      `Passed: ${stats.passedCount}`,
-      `Waiting: ${stats.waitingCount}`
-    ].join('\n'),
-    stats.interestedUserLabels.length > 0
-      ? `Confirmed interested: ${formatInterestedUserLabelSummary(stats.interestedUserLabels)}`
-      : 'Confirmed interested: No one yet.',
-    stats.matchedCount > 0
-      ? `Reach: ${stats.deliveredCount} of ${stats.matchedCount} matched players received a Discord DM.`
-      : 'Reach: No matching players were found yet.',
+      ...formatLabeledDirectMessageLines([
+        getCreatorSummaryStatus(snapshot, currentTime),
+        `Title: ${snapshot.headline}`,
+        summarizeCreatorGames(snapshot),
+        summarizeCreatorAudience(snapshot),
+        `Window: ${startsAtLabel} to ${endsAtLabel}`,
+        snapshot.voiceChannelName ? `Voice channel: ${snapshot.voiceChannelName}` : null,
+        snapshot.note ? `Note: ${snapshot.note}` : null,
+        stats.interestedUserLabels.length > 0
+          ? `Confirmed interested: ${formatInterestedUserLabelSummary(stats.interestedUserLabels)}`
+          : 'Confirmed interested: No one yet.',
+        stats.matchedCount > 0
+          ? `Reach: ${stats.deliveredCount} of ${stats.matchedCount} matched players received a Discord DM.`
+          : 'Reach: No matching players were found yet.'
+      ].filter((part): part is string => Boolean(part)).join('\n')),
+      buildDirectMessageBulletSection('Interest', [
+        `Interested: ${stats.interestedCount}`,
+        `Passed: ${stats.passedCount}`,
+        `Waiting: ${stats.waitingCount}`
+      ])
+    ],
     guidance
-  ].filter((part): part is string => Boolean(part)).join('\n\n')
+  )
 }
 
 export function buildCreatorPlayIntentSummaryPreview(snapshot: {
@@ -899,25 +968,34 @@ export async function syncCreatorPlayIntentSummaryMessages(playIntentIds: string
 }
 
 function buildExpiredMessage(reason: string) {
-  return [
-    'This call-to-play prompt is no longer available.',
-    reason,
+  return buildDirectMessageNotice(
+    '⌛ Call to Play Closed',
+    [
+      '> This call-to-play prompt is no longer available.',
+      `> ${reason}`
+    ],
     'Open the app if you still want to coordinate or post your own call to play.'
-  ].join('\n\n')
+  )
 }
 
 function buildJoinAcceptedMessage(creatorLabel: string) {
-  return [
-    `I marked you as interested in ${creatorLabel}'s call to play and let them know.`
-  ].join('\n\n')
+  return buildDirectMessageNotice(
+    '✅ You Are Marked Interested',
+    [
+      formatDirectMessageField('Status', `I marked you as interested in ${creatorLabel}'s call to play.`),
+      '> They have been notified.'
+    ]
+  )
 }
 
 function buildPassAcceptedMessage() {
-  return [
-    'Got it. I marked this call to play as passed for now.',
-    'Passing is anonymous.',
-    "You can still switch to \"I'm interested\" later."
-  ].join('\n\n')
+  return buildDirectMessageNotice(
+    '👍 Passed for Now',
+    [
+      formatDirectMessageField('Status', 'You are marked as passing for now (passing is anonymous).')
+    ],
+    'You can still switch to "I\'m interested" later.'
+  )
 }
 
 function buildSessionEndedReason(creatorLabel: string, gameTitle: string | null) {
@@ -927,56 +1005,85 @@ function buildSessionEndedReason(creatorLabel: string, gameTitle: string | null)
 }
 
 function buildCreatorCheckInPromptMessage(creatorLabel: string) {
-  return [
-    `Your scheduled call to play is starting now, ${creatorLabel}.`,
+  return buildDirectMessageNotice(
+    '⏰ Go-Time Check-In',
+    [
+      formatDirectMessageField('Status', `Your scheduled call to play is starting now, ${creatorLabel}.`)
+    ],
     supportsDiscordInteractiveMessages()
-      ? 'Is this call to play still on?'
+      ? 'Use the buttons below to confirm whether this call to play is still on.'
       : 'Open the app to confirm whether this call to play is still on.'
-  ].join('\n\n')
+  )
 }
 
 function buildCreatorConfirmedMessage() {
-  return [
-    'Perfect. I let everyone know your call to play is still on.',
-    'I also reminded anyone who had not answered yet.'
-  ].join('\n\n')
+  return buildDirectMessageNotice(
+    '✅ Call Confirmed',
+    [
+      buildDirectMessageBulletSection('Status', [
+        'I let everyone know your call to play is still on.',
+        'I reminded anyone who had not answered yet.'
+      ])
+    ]
+  )
 }
 
 function buildCreatorCanceledMessage() {
-  return [
-    'Got it. I will not send any go-time reminders for this call to play.',
+  return buildDirectMessageNotice(
+    '🛑 Call Closed',
+    [
+      buildDirectMessageBulletSection('Status', [
+        'I closed this call to play.',
+        'I let your audience know it was closed.'
+      ])
+    ],
     'You can post a fresh call to play whenever you are ready.'
-  ].join('\n\n')
+  )
 }
 
 function buildCreatorCheckInAlreadyHandledMessage(responseChoice: NotificationResponseChoice | null) {
   if (responseChoice === NotificationResponseChoice.CONFIRMED) {
-    return 'You already confirmed that this call to play is still on.'
+    return buildDirectMessageNotice(
+      'ℹ️ Already Handled',
+      ['> You already confirmed that this call to play is still on.']
+    )
   }
 
   if (responseChoice === NotificationResponseChoice.CANCELED) {
-    return 'You already marked this call to play as not happening.'
+    return buildDirectMessageNotice(
+      'ℹ️ Already Handled',
+      ['> You already marked this call to play as not happening.']
+    )
   }
 
-  return 'This check-in was already handled earlier.'
+  return buildDirectMessageNotice(
+    'ℹ️ Already Handled',
+    ['> This check-in was already handled earlier.']
+  )
 }
 
 function buildGoTimeConfirmedCopy(creatorDisplayName: string) {
   return {
     title: `${creatorDisplayName} confirmed the session is on`,
-    body: `${creatorDisplayName} confirmed the session is still on. It is go time.`
+    body: `Update: ${creatorDisplayName} confirmed the session is still on.\nWhen: Right now.`
   }
 }
 
 function buildGoTimeReminderCopy(creatorDisplayName: string) {
   return {
     title: `${creatorDisplayName} confirmed the session is on`,
-    body: `${creatorDisplayName} confirmed this session is still on.`
+    body: `Update: ${creatorDisplayName} confirmed this session is still on.\nWhen: Right now.`
   }
 }
 
 function buildAnonymousPassResultMessage(message: string) {
-  return [message, 'Passing is anonymous.'].join('\n\n')
+  return buildDirectMessageNotice(
+    '👍 Passed for Now',
+    [
+      formatDirectMessageField('Status', message)
+    ],
+    'Passing is anonymous.'
+  )
 }
 
 function parseAction(customId: string): PlayIntentNotificationAction | null {

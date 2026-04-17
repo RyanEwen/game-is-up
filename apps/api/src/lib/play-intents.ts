@@ -186,16 +186,21 @@ export function buildPlayIntentNotificationCopy(
   const updatedReason = updatedFields.length > 0
     ? `Update: ${updatedFields.join(', ')} changed.`
     : null
+  const timingLine = isScheduled
+    ? `When: Starting ${startsAtLabel} for ${durationLabel}.`
+    : `When: In the next ${durationLabel}.`
 
   if (selectionMode === 'library') {
     const title = isScheduled ? `${senderDisplayName} scheduled a call to play` : `${senderDisplayName} is looking to play`
-    const body = isScheduled
-      ? `${senderDisplayName} opened up their full library starting ${startsAtLabel} for ${durationLabel}.`
-      : `${senderDisplayName} opened up their full library for the next ${durationLabel}.`
+    const body = [
+      updatedReason,
+      'Games: Any game in their library.',
+      timingLine
+    ].filter((line): line is string => Boolean(line)).join('\n')
 
     return {
       title: updatedReason ? `Updated: ${title}` : title,
-      body: updatedReason ? `${updatedReason} ${body}` : body
+      body
     }
   }
 
@@ -203,13 +208,11 @@ export function buildPlayIntentNotificationCopy(
   const title = isScheduled
     ? `${senderDisplayName} scheduled ${summarizedTitles}`
     : `${senderDisplayName} wants to play ${summarizedTitles}`
-  const body = isScheduled
-    ? `${senderDisplayName} is planning ${summarizedTitles} starting ${startsAtLabel} for ${durationLabel}.`
-    : `${senderDisplayName} is looking for ${summarizedTitles} in the next ${durationLabel}.`
+  const body = [updatedReason, timingLine].filter((line): line is string => Boolean(line)).join('\n')
 
   return {
     title: updatedReason ? `Updated: ${title}` : title,
-    body: updatedReason ? `${updatedReason} ${body}` : body
+    body
   }
 }
 

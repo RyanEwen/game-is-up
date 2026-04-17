@@ -13,6 +13,11 @@ import {
   Prisma
 } from '@prisma/client'
 import { editDiscordDirectMessage, sendDiscordDirectMessages, supportsDiscordInteractiveMessages } from './discord-bot-runtime.js'
+import {
+  buildDiscordBulletSection,
+  buildDiscordNotice,
+  buildDiscordSection
+} from './discord-dm-formatting.js'
 import { env } from './env.js'
 import { prisma } from './prisma.js'
 import { getCurrentPlayIntent, getPlayIntentRecipientUserIds, upsertCurrentPlayIntent } from './play-intents.js'
@@ -20,14 +25,11 @@ import { getCurrentPlayIntent, getPlayIntentRecipientUserIds, upsertCurrentPlayI
 const autoPlayPromptDurations = [60, 120, 240] as const
 const autoPlayPromptCooldownMinutes = 10
 const autoPlayPromptPrefix = 'auto-play'
-const settleGamePrefix = 'settle-game'
 
 type AutoPlayPromptAction =
   | { kind: 'duration'; promptId: string; durationMinutes: number }
   | { kind: 'confirm'; promptId: string; durationMinutes: number; notifyScope: 'friends-only' | 'network' }
   | { kind: 'decline'; promptId: string }
-  | { kind: 'settle-confirm'; promptId: string }
-  | { kind: 'settle-decline'; promptId: string }
 
 type DirectMessagePreviewPayload = {
   content: string;
@@ -62,6 +64,37 @@ function buildLinkRow() {
       .setStyle(ButtonStyle.Link)
       .setURL(buildPlayUrl())
   )
+}
+
+function buildPromptSectionHeading(label: string) {
+  switch (label.trim().toLowerCase()) {
+    case 'game':
+      return '### 🎮 Game'
+    case 'duration':
+      return '### ⏰ Duration'
+    case 'audience':
+      return '### 👥 Audience'
+    case 'reach':
+      return '### 📬 Reach'
+    case 'status':
+      return '### 📡 Status'
+    case 'next step':
+      return '### 🧭 Next Step'
+    default:
+      return `### ${label.trim()}`
+  }
+}
+
+function buildPromptSection(label: string, value: string) {
+  return buildDiscordSection(label, value, buildPromptSectionHeading)
+}
+
+function buildPromptBulletSection(label: string, items: string[]) {
+  return buildDiscordBulletSection(label, items, buildPromptSectionHeading)
+}
+
+function buildPromptNotice(title: string, sections: Array<string | null>, subtext?: string | null) {
+  return buildDiscordNotice(title, sections, subtext)
 }
 
 function buildDurationRows(promptId: string) {
@@ -102,71 +135,52 @@ function buildAudienceRows(promptId: string, durationMinutes: number, friendReci
 }
 
 function buildInitialPromptMessage(gameTitle: string, networkRecipientCount: number) {
-  return [
-    `**You just started playing ${gameTitle}.**`,
-    `${networkRecipientCount} people in your network and friends could receive a call to play for it right now.`,
-    'Pick a duration and I will ask who should receive it. Open the app if you want the full composer instead.'
-  ].join('\n\n')
+  return buildPromptNotice(
+    '🎮 You Just Started Playing',
+    [
+      buildPromptSection('Game', gameTitle),
+      buildPromptSection('Reach', `${networkRecipientCount} people in your network and friends could receive a call to play for it right now.`),
+      buildPromptSection('Next step', 'Pick a duration and I will ask who should receive it.')
+    ],
+    'Open the app if you want the full composer instead.'
+  )
 }
 
 function buildAudienceMessage(gameTitle: string, durationMinutes: number, friendRecipientCount: number, networkRecipientCount: number) {
-  return [
-    `**${gameTitle} for the next ${formatDurationLabel(durationMinutes)}**`,
-    `Friends only can reach ${friendRecipientCount}. Your network plus friends can reach ${networkRecipientCount}.`,
+  return buildPromptNotice(
+    '🎯 Choose an Audience',
+    [
+      buildPromptSection('Game', gameTitle),
+      buildPromptSection('Duration', `Next ${formatDurationLabel(durationMinutes)}.`),
+      buildPromptBulletSection('Reach', [
+        `Friends only: ${friendRecipientCount}`,
+        `Your network + friends: ${networkRecipientCount}`
+      ])
+    ],
     'Choose who should receive this call to play.'
-  ].join('\n\n')
+  )
 }
 
 function buildDeclinedMessage(gameTitle: string) {
-  return [
-    `No problem. I will leave ${gameTitle} alone for now.`,
+  return buildPromptNotice(
+    '👍 Skipped for Now',
+    [
+      buildPromptSection('Game', gameTitle),
+      buildPromptSection('Status', `I will leave ${gameTitle} alone for now.`)
+    ],
     'You can still open the app any time to create a call to play manually.'
-  ].join('\n\n')
+  )
 }
-  function buildSettlePromptMessage(gameTitle: string) {
-    return [
-      `**You are playing ${gameTitle}.**`,
-      "You have an active call to play covering multiple games. Have you settled on this one?",
-      "Confirm and I will narrow your call to play to just this game and re-notify your audience."
-    ].join('\n\n')
-  }
 
-  function buildSettleConfirmedMessage(gameTitle: string) {
-    return [
-      `Your call to play has been updated to **${gameTitle}**.`,
-      "Your audience has been re-notified."
-    ].join('\n\n')
-  }
-
-  function buildSettleDeclinedMessage() {
-    return [
-      "No problem. Your call to play stays open across all your selected games.",
-      'Open the app to edit it manually any time.'
-    ].join('\n\n')
-  }
-
-  function buildSettleRows(promptId: string) {
-    return [
-      new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
-        new ButtonBuilder()
-          .setCustomId(`${settleGamePrefix}:${promptId}:confirm`)
-          .setLabel('Yes, settled on this game')
-          .setStyle(ButtonStyle.Primary),
-        new ButtonBuilder()
-          .setCustomId(`${settleGamePrefix}:${promptId}:decline`)
-          .setLabel('Still deciding')
-          .setStyle(ButtonStyle.Secondary)
-      ),
-      buildLinkRow()
-    ]
-  }
-
-function buildExpiredMessage(reason: string) {
-  return [
-    'This prompt is no longer available.',
-    reason,
+function buildExpiredMessage(gameTitle: string, reason: string) {
+  return buildPromptNotice(
+    `⌛ ${gameTitle} Prompt Closed`,
+    [
+      buildPromptSection('Game', gameTitle),
+      buildPromptSection('Status', reason)
+    ],
     'Open the app if you still want to create or edit a call to play.'
-  ].join('\n\n')
+  )
 }
 
 export async function expireDiscordAutoPlayPromptsForInactiveObservations(observationIds: string[]) {
@@ -180,12 +194,17 @@ export async function expireDiscordAutoPlayPromptsForInactiveObservations(observ
         in: observationIds
       },
       status: {
-        in: [DiscordAutoPlayPromptStatus.SENT, DiscordAutoPlayPromptStatus.SETTLE_SENT]
+        in: [DiscordAutoPlayPromptStatus.SENT]
       },
       respondedAt: null
     },
     select: {
       id: true,
+      game: {
+        select: {
+          title: true
+        }
+      },
       discordDmChannelId: true,
       discordDmMessageId: true
     }
@@ -201,7 +220,7 @@ export async function expireDiscordAutoPlayPromptsForInactiveObservations(observ
       data: {
         status: DiscordAutoPlayPromptStatus.EXPIRED,
         respondedAt: new Date(),
-        statusDetail: 'The observed Discord activity ended before the prompt was answered.'
+        statusDetail: `Closed because we are no longer seeing the user in ${prompt.game.title}.`
       }
     })
 
@@ -212,22 +231,27 @@ export async function expireDiscordAutoPlayPromptsForInactiveObservations(observ
     await editDiscordDirectMessage({
       channelId: prompt.discordDmChannelId,
       messageId: prompt.discordDmMessageId,
-      content: buildExpiredMessage('That Discord activity ended before you answered.'),
+      content: buildExpiredMessage(prompt.game.title, `This prompt was closed because we are no longer seeing you in ${prompt.game.title}.`),
       components: [buildLinkRow()]
     })
   }))
 }
 
 function buildAcceptedMessage(gameTitle: string, durationMinutes: number, notifyScope: 'friends-only' | 'network', deliveredCount: number) {
-  return [
-    `Your call to play for ${gameTitle} is live for the next ${formatDurationLabel(durationMinutes)}.`,
-    notifyScope === 'friends-only'
-      ? 'Audience: friends only.'
-      : 'Audience: your network plus friends.',
-    deliveredCount > 0
-      ? `${deliveredCount} Discord DM${deliveredCount === 1 ? ' was' : 's were'} delivered right away.`
-      : "No Discord DMs were delivered right away, but the call is active in Game's Up."
-  ].join('\n\n')
+  return buildPromptNotice(
+    '✅ Call to Play Is Live',
+    [
+      buildPromptSection('Game', gameTitle),
+      buildPromptSection('Duration', `Next ${formatDurationLabel(durationMinutes)}.`),
+      buildPromptSection('Audience', notifyScope === 'friends-only' ? 'Friends only.' : 'Your network plus friends.'),
+      buildPromptSection(
+        'Reach',
+        deliveredCount > 0
+          ? `${deliveredCount} Discord DM${deliveredCount === 1 ? ' was' : 's were'} delivered right away.`
+          : "No Discord DMs were delivered right away, but the call is active in Game's Up."
+      )
+    ]
+  )
 }
 
 export function buildDiscordAutoPlayPromptPreview(options: {
@@ -251,7 +275,7 @@ export function buildDiscordAutoPlayPromptPreview(options: {
       }
     case DiscordAutoPlayPromptStatus.EXPIRED:
       return {
-        content: buildExpiredMessage(options.statusDetail ?? 'This Discord prompt is no longer active.'),
+        content: buildExpiredMessage(options.gameTitle, options.statusDetail ?? `This ${options.gameTitle} prompt is no longer active.`),
         components: [buildLinkRow()]
       }
     case DiscordAutoPlayPromptStatus.ACCEPTED:
@@ -262,21 +286,6 @@ export function buildDiscordAutoPlayPromptPreview(options: {
           options.notifyScope === PlayIntentScope.FRIENDS_ONLY ? 'friends-only' : 'network',
           options.deliveredCount
         ),
-        components: [buildLinkRow()]
-      }
-    case DiscordAutoPlayPromptStatus.SETTLE_SENT:
-      return {
-        content: buildSettlePromptMessage(options.gameTitle),
-        components: buildSettleRows(options.promptId)
-      }
-    case DiscordAutoPlayPromptStatus.SETTLE_CONFIRMED:
-      return {
-        content: buildSettleConfirmedMessage(options.gameTitle),
-        components: [buildLinkRow()]
-      }
-    case DiscordAutoPlayPromptStatus.SETTLE_DECLINED:
-      return {
-        content: buildSettleDeclinedMessage(),
         components: [buildLinkRow()]
       }
     default:
@@ -292,18 +301,6 @@ function parseAction(customId: string): AutoPlayPromptAction | null {
   const promptId = parts[1]
 
   if (!promptId) {
-    return null
-  }
-
-  if (parts[0] === settleGamePrefix) {
-    if (parts.length === 3 && parts[2] === 'confirm') {
-      return { kind: 'settle-confirm', promptId }
-    }
-
-    if (parts.length === 3 && parts[2] === 'decline') {
-      return { kind: 'settle-decline', promptId }
-    }
-
     return null
   }
 
@@ -395,71 +392,6 @@ async function createSkippedPromptInTransaction(
 
 async function lockAutoPlayPromptWindow(transaction: Prisma.TransactionClient, userId: string, gameId: string) {
   await transaction.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${`discord-auto-play:${userId}:${gameId}`}))`
-}
-
-async function maybeSendSettleGamePrompt(options: {
-  observationId: string;
-  userId: string;
-  gameId: string;
-  gameTitle: string;
-  sourceServerId: string | null;
-  playIntentId: string;
-  discordUserId: string;
-}) {
-  const prompt = await prisma.discordAutoPlayPrompt.create({
-    data: {
-      observationId: options.observationId,
-      userId: options.userId,
-      gameId: options.gameId,
-      sourceServerId: options.sourceServerId,
-      settlePlayIntentId: options.playIntentId,
-      status: DiscordAutoPlayPromptStatus.SETTLE_SENT,
-      statusDetail: `Settle prompt DM queued for ${options.gameTitle}.`
-    },
-    select: { id: true }
-  })
-
-  const dmResult = (await sendDiscordDirectMessages([
-    {
-      discordUserId: options.discordUserId,
-      content: buildSettlePromptMessage(options.gameTitle),
-      components: buildSettleRows(prompt.id)
-    }
-  ]))[0]
-
-  if (!dmResult || dmResult.status === 'failed') {
-    await prisma.discordAutoPlayPrompt.update({
-      where: { id: prompt.id },
-      data: {
-        status: DiscordAutoPlayPromptStatus.FAILED,
-        statusDetail: 'Settle prompt DM could not be delivered.',
-        dmError: dmResult?.error ?? 'Unknown Discord DM delivery failure.'
-      }
-    })
-    return
-  }
-
-  if (dmResult.emulated) {
-    await prisma.discordAutoPlayPrompt.update({
-      where: { id: prompt.id },
-      data: {
-        statusDetail: `Settle prompt DM emulated in development for ${options.gameTitle}.`,
-        discordDmChannelId: null,
-        discordDmMessageId: null
-      }
-    })
-    return
-  }
-
-  await prisma.discordAutoPlayPrompt.update({
-    where: { id: prompt.id },
-    data: {
-      deliveredAt: new Date(),
-      statusDetail: `Settle prompt DM sent for ${options.gameTitle}.`,
-      discordDmChannelId: dmResult.channelId,
-      discordDmMessageId: dmResult.messageId
-    }
-  })
 }
 
 export async function maybeSendDiscordAutoPlayPromptForObservation(observationId: string) {
@@ -573,40 +505,14 @@ export async function maybeSendDiscordAutoPlayPromptForObservation(observationId
   ])
 
   if (activeIntent) {
-    const isMultiGameSelectedIntent = activeIntent.selectionMode === 'SELECTED_GAMES' && activeIntent.games.length > 1
-    const gameIsInIntent = isMultiGameSelectedIntent && activeIntent.games.some((g) => g.gameId === gameId)
-
-    if (!gameIsInIntent) {
-      await createSkippedPrompt({
-        observationId,
-        userId: observation.userId,
-        gameId,
-        sourceServerId: observation.sourceServerId,
-        detail: 'Skipped because the user already has an active call to play.'
-      })
-      return
-    }
-
-    // Multi-game CTP: user is now playing one of the selected games – ask if they settled on it
-    if (!discordIdentity?.providerUserId) {
-      await createSkippedPrompt({
-        observationId,
-        userId: observation.userId,
-        gameId,
-        sourceServerId: observation.sourceServerId,
-        detail: 'Skipped settle prompt because the user does not have a linked Discord identity.'
-      })
-      return
-    }
-
-    await maybeSendSettleGamePrompt({
+    await createSkippedPrompt({
       observationId,
       userId: observation.userId,
       gameId,
-      gameTitle,
       sourceServerId: observation.sourceServerId,
-      playIntentId: activeIntent.id,
-      discordUserId: discordIdentity.providerUserId
+      detail: activeIntent.selectionMode === 'SELECTED_GAMES' && activeIntent.games.some((entry) => entry.gameId === gameId)
+        ? 'Skipped because you already have an active call to play covering this game.'
+        : 'Skipped because the user already has an active call to play.'
     })
     return
   }
@@ -796,18 +702,21 @@ export async function handleDiscordAutoPlayPromptInteraction(interaction: Button
 
   if (!prompt) {
     await interaction.update({
-      content: buildExpiredMessage('The saved prompt record could not be found.'),
+      content: buildPromptNotice(
+        '⌛ Prompt Closed',
+        [buildPromptSection('Status', 'The saved prompt record could not be found.')],
+        'Open the app if you still want to create or edit a call to play.'
+      ),
       components: [buildLinkRow()]
     })
     return
   }
 
-  const isSettleAction = action.kind === 'settle-confirm' || action.kind === 'settle-decline'
-  const expectedStatus = isSettleAction ? DiscordAutoPlayPromptStatus.SETTLE_SENT : DiscordAutoPlayPromptStatus.SENT
+  const expectedStatus = DiscordAutoPlayPromptStatus.SENT
 
   if (prompt.status !== expectedStatus) {
     await interaction.update({
-      content: buildExpiredMessage(prompt.statusDetail ?? 'It was already handled earlier.'),
+      content: buildExpiredMessage(prompt.game.title, prompt.statusDetail ?? 'It was already handled earlier.'),
       components: [buildLinkRow()]
     })
     return
@@ -825,7 +734,7 @@ export async function handleDiscordAutoPlayPromptInteraction(interaction: Button
       }
     })
     await interaction.update({
-      content: buildExpiredMessage('Automatic Discord prompts are turned off in your profile now.'),
+      content: buildExpiredMessage(prompt.game.title, 'Automatic Discord prompts are turned off in your profile now.'),
       components: [buildLinkRow()]
     })
     return
@@ -839,123 +748,13 @@ export async function handleDiscordAutoPlayPromptInteraction(interaction: Button
       data: {
         status: DiscordAutoPlayPromptStatus.EXPIRED,
         respondedAt: new Date(),
-        statusDetail: 'The observed Discord activity already ended before the prompt was answered.'
+        statusDetail: `Closed because we are no longer seeing the user in ${prompt.game.title}.`
       }
     })
     await interaction.update({
-      content: buildExpiredMessage('That Discord activity is no longer active.'),
+      content: buildExpiredMessage(prompt.game.title, `This prompt was closed because we are no longer seeing you in ${prompt.game.title}.`),
       components: [buildLinkRow()]
     })
-    return
-  }
-
-  if (action.kind === 'settle-decline') {
-    await prisma.discordAutoPlayPrompt.update({
-      where: { id: prompt.id },
-      data: {
-        status: DiscordAutoPlayPromptStatus.SETTLE_DECLINED,
-        respondedAt: new Date(),
-        statusDetail: 'The user declined the settle game prompt.'
-      }
-    })
-    await interaction.update({
-      content: buildSettleDeclinedMessage(),
-      components: [buildLinkRow()]
-    })
-    return
-  }
-
-  if (action.kind === 'settle-confirm') {
-    const settlePlayIntentId = prompt.settlePlayIntentId
-
-    if (!settlePlayIntentId) {
-      await interaction.update({
-        content: buildExpiredMessage('The linked call to play could not be found.'),
-        components: [buildLinkRow()]
-      })
-      return
-    }
-
-    const settlePlayIntent = await prisma.playIntent.findUnique({
-      where: { id: settlePlayIntentId },
-      select: {
-        id: true,
-        expiresAt: true,
-        selectionMode: true,
-        scope: true,
-        targetDiscordServers: { select: { serverId: true } },
-        note: true,
-        voiceChannelId: true,
-        voiceChannelName: true,
-        games: { select: { gameId: true } },
-        platforms: { select: { platformLabel: true } },
-        targetFriends: { select: { friendUserId: true } }
-      }
-    })
-
-    if (!settlePlayIntent || settlePlayIntent.expiresAt < new Date()) {
-      await prisma.discordAutoPlayPrompt.update({
-        where: { id: prompt.id },
-        data: {
-          status: DiscordAutoPlayPromptStatus.EXPIRED,
-          respondedAt: new Date(),
-          statusDetail: 'The call to play expired before the settle was confirmed.'
-        }
-      })
-      await interaction.update({
-        content: buildExpiredMessage('That call to play has already ended.'),
-        components: [buildLinkRow()]
-      })
-      return
-    }
-
-    try {
-      const durationMinutes = Math.max(
-        15,
-        Math.ceil((settlePlayIntent.expiresAt.getTime() - Date.now()) / (60 * 1000))
-      )
-      const notifyScope = settlePlayIntent.scope === PlayIntentScope.FRIENDS_ONLY
-        ? 'friends-only' as const
-        : settlePlayIntent.scope === PlayIntentScope.SPECIFIC_DISCORD_SERVER
-          ? 'specific-discord-server' as const
-        : settlePlayIntent.scope === PlayIntentScope.SPECIFIC_FRIENDS
-          ? 'specific-friends' as const
-          : 'network' as const
-      const targetUserIds = settlePlayIntent.targetFriends.map((tf) => tf.friendUserId)
-
-      const response = await upsertCurrentPlayIntent(prompt.user.id, {
-        selectionMode: 'subset',
-        notifyScope,
-        includeSelf: false,
-        gameIds: [prompt.game.id],
-        targetUserIds,
-        targetDiscordServerIds: settlePlayIntent.targetDiscordServers.map((entry) => entry.serverId),
-        durationMinutes,
-        note: settlePlayIntent.note,
-        voiceChannelId: settlePlayIntent.voiceChannelId ?? undefined,
-        voiceChannelName: settlePlayIntent.voiceChannelName ?? undefined
-      })
-
-      await prisma.discordAutoPlayPrompt.update({
-        where: { id: prompt.id },
-        data: {
-          status: DiscordAutoPlayPromptStatus.SETTLE_CONFIRMED,
-          respondedAt: new Date(),
-          statusDetail: `Settled on ${prompt.game.title}. ${response.notifiedFriendCount} recipient(s) re-notified.`
-        }
-      })
-
-      await interaction.update({
-        content: buildSettleConfirmedMessage(prompt.game.title),
-        components: [buildLinkRow()]
-      })
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unable to update the call to play right now.'
-      await interaction.update({
-        content: buildExpiredMessage(message),
-        components: [buildLinkRow()]
-      })
-    }
     return
   }
 
@@ -991,7 +790,7 @@ export async function handleDiscordAutoPlayPromptInteraction(interaction: Button
 
   if (selectedRecipientCount === 0) {
     await interaction.update({
-      content: buildExpiredMessage('That audience no longer has anyone who overlaps on this game.'),
+      content: buildExpiredMessage(prompt.game.title, 'That audience no longer has anyone who overlaps on this game.'),
       components: [buildLinkRow()]
     })
     return
@@ -1011,7 +810,7 @@ export async function handleDiscordAutoPlayPromptInteraction(interaction: Button
       }
     })
     await interaction.update({
-      content: buildExpiredMessage('You already have an active call to play.'),
+      content: buildExpiredMessage(prompt.game.title, 'You already have an active call to play.'),
       components: [buildLinkRow()]
     })
     return
@@ -1065,7 +864,7 @@ export async function handleDiscordAutoPlayPromptInteraction(interaction: Button
     })
 
     await interaction.update({
-      content: buildExpiredMessage(message),
+      content: buildExpiredMessage(prompt.game.title, message),
       components: [buildLinkRow()]
     })
   }

@@ -70,11 +70,15 @@ function buildArchivedPlayIntentMessage(
   },
   timezoneId: string
 ) {
-  const summary = buildArchivedPlayIntentSummary(playIntent, timezoneId)
-
   return [
-    `**${summary.title}**`,
-    summary.body
+    '## 🛑 Call to Play Ended',
+    '### 👤 Creator',
+    playIntent.user.displayName,
+    '### 🎯 Games',
+    summarizeArchivedPlayIntentGames(playIntent),
+    '### 🗓 When',
+    formatArchivedPlayIntentDate(playIntent.windowStartsAt, timezoneId),
+    '-# This call to play is no longer active.'
   ].join('\n\n')
 }
 
@@ -94,7 +98,12 @@ function buildArchivedPlayIntentSummary(
 
   return {
     title: 'Call to play ended',
-    body: `The call to play from ${playIntent.user.displayName} for ${gamesLabel} on ${startsAtLabel} has ended.`
+    body: [
+      `Creator: ${playIntent.user.displayName}`,
+      `Games: ${gamesLabel}`,
+      `When: ${startsAtLabel}`,
+      'Status: This call to play is no longer active.'
+    ].join('\n')
   }
 }
 

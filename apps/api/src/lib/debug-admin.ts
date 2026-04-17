@@ -261,12 +261,6 @@ function toClientPromptStatus(status: DiscordAutoPlayPromptStatus) {
       return 'failed'
     case DiscordAutoPlayPromptStatus.SKIPPED:
       return 'skipped'
-    case DiscordAutoPlayPromptStatus.SETTLE_SENT:
-      return 'settle_sent'
-    case DiscordAutoPlayPromptStatus.SETTLE_CONFIRMED:
-      return 'settle_confirmed'
-    case DiscordAutoPlayPromptStatus.SETTLE_DECLINED:
-      return 'settle_declined'
     default:
       return 'sent'
   }

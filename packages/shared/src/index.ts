@@ -501,10 +501,7 @@ export const debugAutoPlayPromptStatusSchema = z.enum([
   'failed',
   'accepted',
   'declined',
-  'expired',
-  'settle_sent',
-  'settle_confirmed',
-  'settle_declined'
+  'expired'
 ])
 
 export const debugDmPreviewButtonStyleSchema = z.enum(['primary', 'secondary', 'danger', 'link'])
