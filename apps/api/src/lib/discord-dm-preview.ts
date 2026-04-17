@@ -1,5 +1,11 @@
 import type { DebugDmPreview } from '@game-is-up/shared'
-import { ButtonStyle, type ActionRowBuilder, type MessageActionRowComponentBuilder } from 'discord.js'
+import {
+  ButtonStyle,
+  type APIEmbed,
+  type ActionRowBuilder,
+  type MessageActionRowComponentBuilder,
+  type MessageCreateOptions
+} from 'discord.js'
 
 function toDebugButtonStyle(style: number | undefined): DebugDmPreview['buttonRows'][number][number]['style'] {
   switch (style) {
@@ -16,10 +22,44 @@ function toDebugButtonStyle(style: number | undefined): DebugDmPreview['buttonRo
 
 export function buildDebugDmPreview(
   content: string,
-  components: ReadonlyArray<ActionRowBuilder<MessageActionRowComponentBuilder>>
+  components: ReadonlyArray<ActionRowBuilder<MessageActionRowComponentBuilder>>,
+  embeds: MessageCreateOptions['embeds'] = []
 ): DebugDmPreview {
   return {
     content,
+    embeds: (embeds ?? []).map((embed) => {
+      const serializedEmbed = (typeof embed === 'object' && embed != null && 'toJSON' in embed && typeof embed.toJSON === 'function'
+        ? embed.toJSON()
+        : embed) as APIEmbed
+
+      return {
+        title: typeof serializedEmbed?.title === 'string' ? serializedEmbed.title : null,
+        description: typeof serializedEmbed?.description === 'string' ? serializedEmbed.description : null,
+        color: typeof serializedEmbed?.color === 'number' ? serializedEmbed.color : null,
+        fields: Array.isArray(serializedEmbed?.fields)
+          ? serializedEmbed.fields.flatMap((field: NonNullable<APIEmbed['fields']>[number]) => {
+              if (!field || typeof field.name !== 'string' || typeof field.value !== 'string') {
+                return []
+              }
+
+              return [{
+                name: field.name,
+                value: field.value,
+                inline: Boolean(field.inline)
+              }]
+            })
+          : [],
+        footerText: serializedEmbed?.footer && typeof serializedEmbed.footer === 'object' && typeof serializedEmbed.footer.text === 'string'
+          ? serializedEmbed.footer.text
+          : null,
+        imageUrl: serializedEmbed?.image && typeof serializedEmbed.image === 'object' && typeof serializedEmbed.image.url === 'string'
+          ? serializedEmbed.image.url
+          : null,
+        thumbnailUrl: serializedEmbed?.thumbnail && typeof serializedEmbed.thumbnail === 'object' && typeof serializedEmbed.thumbnail.url === 'string'
+          ? serializedEmbed.thumbnail.url
+          : null
+      }
+    }),
     buttonRows: components
       .map((row) => {
         const serializedRow = row.toJSON() as {

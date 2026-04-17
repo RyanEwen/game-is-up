@@ -1,3 +1,10 @@
+import {
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  type MessageActionRowComponentBuilder
+} from 'discord.js'
+
 type DiscordHeadingResolver = (label: string) => string
 
 type FormatLabeledDiscordLinesOptions = {
@@ -89,4 +96,32 @@ export function buildDiscordNotice(title: string, sections: Array<string | null>
     ...sections,
     subtext ? buildDiscordSubtext(subtext) : null
   ].filter((part): part is string => Boolean(part)).join('\n\n')
+}
+
+export function buildOpenInAppButton(url: string) {
+  return new ButtonBuilder()
+    .setLabel('Open in App')
+    .setStyle(ButtonStyle.Link)
+    .setURL(url)
+}
+
+export function appendOpenInAppButton(
+  rows: ActionRowBuilder<MessageActionRowComponentBuilder>[],
+  url: string
+) {
+  const linkButton = buildOpenInAppButton(url)
+
+  if (rows.length > 0) {
+    const firstRowComponentCount = rows[0]?.toJSON().components?.length ?? 0
+
+    if (firstRowComponentCount < 5) {
+      rows[0]?.addComponents(linkButton)
+      return rows
+    }
+  }
+
+  return [
+    ...rows,
+    new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(linkButton)
+  ]
 }

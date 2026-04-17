@@ -65,6 +65,8 @@ Notification and auto-play prompt rows also store the Discord DM message referen
 
 The admin debug snapshot now also exposes serialized DM previews and derived revision history for tracked call-to-play threads. Those revisions are reconstructed from play-intent and notification lifecycle timestamps instead of being stored in a separate message-history table, which keeps Discord as the single live message surface while still giving the web emulator historical states to inspect.
 
+Those serialized DM previews now include Discord embed payloads as well as button rows and fallback content. That keeps the debug emulator aligned with the live bot output as structured Discord flows move from markdown-heavy content blocks to embed-first layouts.
+
 Tracked Discord DM rows also participate in retention cleanup. Auto-play prompts can still be removed after they age out, while call-to-play threads now retain one ended-history DM per user and per call to play; manual cancellations can replace the prior audience message with a fresh ended-summary DM so the audience is notified immediately.
 
 The Discord bot runtime is now intentionally split by environment. Exactly one environment should run the live Discord gateway connection for presence tracking and interactive Discord buttons, while other environments can reuse the same bot token in a REST-only mode for DM send/edit plus read-only server-member browsing without competing for gateway ownership.

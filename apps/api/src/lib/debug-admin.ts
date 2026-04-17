@@ -14,7 +14,12 @@ import { areDiscordDirectMessagesEmulated, getDiscordPresenceBotState } from './
 import { env } from './env.js'
 import { getPlayIntentRecipientUserIdsForDebug } from './play-intents.js'
 import { buildPlayIntentNotificationCopy } from './play-intents.js'
-import { buildCreatorPlayIntentSummaryPreview, buildNotificationDirectMessagePreview, buildPlayIntentDirectMessage } from './play-intent-notification-responses.js'
+import {
+  buildCreatorPlayIntentSummaryPreview,
+  buildNotificationDirectMessagePreview,
+  buildPlayIntentDirectMessage,
+  buildPlayIntentDirectMessageEmbeds
+} from './play-intent-notification-responses.js'
 import { prisma } from './prisma.js'
 
 type DebugDmPreviewPayload = ReturnType<typeof buildDebugDmPreview>
@@ -25,7 +30,9 @@ type DebugDmRevisionDraft = {
 }
 
 function areDebugDmPreviewsEqual(left: DebugDmPreviewPayload, right: DebugDmPreviewPayload) {
-  return left.content === right.content && JSON.stringify(left.buttonRows) === JSON.stringify(right.buttonRows)
+  return left.content === right.content
+    && JSON.stringify(left.embeds) === JSON.stringify(right.embeds)
+    && JSON.stringify(left.buttonRows) === JSON.stringify(right.buttonRows)
 }
 
 function finalizeDmRevisions(baseId: string, revisions: DebugDmRevisionDraft[]) {
@@ -177,7 +184,7 @@ function buildCreatorSummaryRevisions(intent: {
 
         return {
           occurredAt: currentTime.toISOString(),
-          preview: buildDebugDmPreview(previewPayload.content, previewPayload.components)
+          preview: buildDebugDmPreview(previewPayload.content, previewPayload.components, previewPayload.embeds)
         }
       })
   )
@@ -219,18 +226,15 @@ function buildNotificationMessageRevisions(options: {
   }
   const revisions: DebugDmRevisionDraft[] = [{
     occurredAt: options.notification.createdAt.toISOString(),
-    preview: buildDebugDmPreview(
-      buildNotificationDirectMessagePreview({
+    preview: (() => {
+      const previewPayload = buildNotificationDirectMessagePreview({
         ...basePreviewOptions,
         responseChoice: null,
         playIntentIsActive: true
-      }).content,
-      buildNotificationDirectMessagePreview({
-        ...basePreviewOptions,
-        responseChoice: null,
-        playIntentIsActive: true
-      }).components
-    )
+      })
+
+      return buildDebugDmPreview(previewPayload.content, previewPayload.components, previewPayload.embeds)
+    })()
   }]
 
   if (options.notification.responseChoice && options.notification.respondedAt) {
@@ -242,7 +246,7 @@ function buildNotificationMessageRevisions(options: {
 
     revisions.push({
       occurredAt: options.notification.respondedAt.toISOString(),
-      preview: buildDebugDmPreview(resolvedPreview.content, resolvedPreview.components)
+      preview: buildDebugDmPreview(resolvedPreview.content, resolvedPreview.components, resolvedPreview.embeds)
     })
   }
 
@@ -976,7 +980,7 @@ export async function buildDebugAdminSnapshot() {
         label: 'CTP summary',
         sentAt: creatorSummaryRevisions[0]?.occurredAt ?? intent.createdAt.toISOString(),
         deliveryState: toDebugDmDeliveryState(null, true),
-        preview: creatorPreview ?? buildDebugDmPreview('', [] as never),
+        preview: creatorPreview ?? buildDebugDmPreview('', [] as never, []),
         revisions: creatorSummaryRevisions
       }
     ]
@@ -1177,6 +1181,19 @@ export async function buildDebugAdminSnapshot() {
               }
             : null
         ),
+        embeds: buildPlayIntentDirectMessageEmbeds(
+          notificationCopy.title,
+          notificationCopy.body,
+          creatorDiscordUserId,
+          intent.user.displayName,
+          previewIntent && (previewIntent.voiceChannelId || previewIntent.voiceChannelName)
+            ? {
+                channelId: previewIntent.voiceChannelId,
+                channelName: previewIntent.voiceChannelName,
+                recipientSharesServer: false
+              }
+            : null
+        ),
         buttonRows: [
           [
             {
@@ -1306,7 +1323,7 @@ export async function buildDebugAdminSnapshot() {
       createdPlayIntentId: prompt.createdPlayIntentId,
       user: prompt.user,
       game: prompt.game,
-      dmPreview: previewPayload ? buildDebugDmPreview(previewPayload.content, previewPayload.components) : null
+      dmPreview: previewPayload ? buildDebugDmPreview(previewPayload.content, previewPayload.components, previewPayload.embeds) : null
     }
   })
 
@@ -1352,7 +1369,7 @@ export async function buildDebugAdminSnapshot() {
       gameTitle: notification.game?.title ?? null,
       recipient: notification.user,
       triggeredBy: notification.triggeredByUserId ? (triggeredByUserMap.get(notification.triggeredByUserId) ?? null) : null,
-      dmPreview: buildDebugDmPreview(previewPayload.content, previewPayload.components)
+      dmPreview: buildDebugDmPreview(previewPayload.content, previewPayload.components, previewPayload.embeds)
     }
   })
 

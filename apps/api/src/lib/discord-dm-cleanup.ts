@@ -1,4 +1,5 @@
 import { AuthProvider, NotificationType } from '@prisma/client'
+import { EmbedBuilder } from 'discord.js'
 import { NotificationResponseChoice } from '@prisma/client'
 import { deleteDiscordDirectMessage, editDiscordDirectMessage, sendDiscordDirectMessages } from './discord-bot-runtime.js'
 import { prisma } from './prisma.js'
@@ -59,29 +60,6 @@ function summarizeArchivedPlayIntentGames(playIntent: {
   return `${titles.slice(0, 4).join(', ')} +${titles.length - 4} more`
 }
 
-function buildArchivedPlayIntentMessage(
-  playIntent: {
-    selectionMode: 'ENTIRE_LIBRARY' | 'SELECTED_GAMES';
-    windowStartsAt: Date;
-    user: {
-      displayName: string;
-    };
-    games: { game: { title: string } }[];
-  },
-  timezoneId: string
-) {
-  return [
-    '## 🛑 Call to Play Ended',
-    '### 👤 Creator',
-    playIntent.user.displayName,
-    '### 🎯 Games',
-    summarizeArchivedPlayIntentGames(playIntent),
-    '### 🗓 When',
-    formatArchivedPlayIntentDate(playIntent.windowStartsAt, timezoneId),
-    '-# This call to play is no longer active.'
-  ].join('\n\n')
-}
-
 function buildArchivedPlayIntentSummary(
   playIntent: {
     selectionMode: 'ENTIRE_LIBRARY' | 'SELECTED_GAMES';
@@ -107,6 +85,33 @@ function buildArchivedPlayIntentSummary(
   }
 }
 
+function buildArchivedPlayIntentEmbeds(summaryBody: string) {
+  const fields = summaryBody
+    .split('\n')
+    .map((line) => line.trim())
+    .flatMap((line) => {
+      const labeledMatch = /^([A-Za-z][A-Za-z ]{0,40}):\s+(.+)$/.exec(line)
+
+      if (!labeledMatch || !labeledMatch[1] || !labeledMatch[2]) {
+        return []
+      }
+
+      return [{
+        name: labeledMatch[1].trim(),
+        value: labeledMatch[2].trim(),
+        inline: labeledMatch[1].trim().toLowerCase() !== 'games'
+      }]
+    })
+
+  return [
+    new EmbedBuilder()
+      .setColor(0xef4444)
+      .setTitle('Call to Play Ended')
+      .addFields(fields)
+      .setFooter({ text: 'This call to play is no longer active.' })
+  ]
+}
+
 function getNotificationArchivePriority(type: NotificationType) {
   switch (type) {
     case NotificationType.FRIEND_PLAYING:
@@ -122,12 +127,13 @@ function getNotificationArchivePriority(type: NotificationType) {
   }
 }
 
-async function tryArchiveDirectMessage(candidates: ArchivedDirectMessageCandidate[], content: string) {
+async function tryArchiveDirectMessage(candidates: ArchivedDirectMessageCandidate[], content: string, embeds: ReturnType<typeof buildArchivedPlayIntentEmbeds>) {
   for (const candidate of candidates) {
     const result = await editDiscordDirectMessage({
       channelId: candidate.channelId,
       messageId: candidate.messageId,
       content,
+      embeds,
       components: []
     })
 
@@ -351,7 +357,7 @@ export async function archivePlayIntentDirectMessages(options: {
       }
     })).map((mute) => mute.userId))
 
-    const creatorArchiveContent = buildArchivedPlayIntentMessage(playIntent, playIntent.user.timezoneId)
+    const creatorArchiveEmbeds = buildArchivedPlayIntentEmbeds(buildArchivedPlayIntentSummary(playIntent, playIntent.user.timezoneId).body)
     const creatorCandidates: ArchivedCreatorCandidate[] = []
 
     if (playIntent.creatorDiscordDmChannelId && playIntent.creatorDiscordDmMessageId) {
@@ -391,7 +397,7 @@ export async function archivePlayIntentDirectMessages(options: {
     creatorCandidates.sort((left, right) => left.priority - right.priority)
 
     const keptCreatorMessageId = creatorCandidates.length > 0
-      ? await tryArchiveDirectMessage(creatorCandidates, creatorArchiveContent)
+      ? await tryArchiveDirectMessage(creatorCandidates, '', creatorArchiveEmbeds)
       : null
 
     if (keptCreatorMessageId) {
@@ -426,7 +432,7 @@ export async function archivePlayIntentDirectMessages(options: {
         .sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime())[0] ?? null
       const recipientPassed = latestAudienceNotification?.responseChoice === NotificationResponseChoice.DECLINE
       const recipientMutedCreator = mutedRecipientUserIds.has(userId)
-      const archiveContent = buildArchivedPlayIntentMessage(playIntent, notifications[0]?.user.timezoneId ?? playIntent.user.timezoneId)
+      const archiveEmbeds = buildArchivedPlayIntentEmbeds(buildArchivedPlayIntentSummary(playIntent, notifications[0]?.user.timezoneId ?? playIntent.user.timezoneId).body)
       const candidates = notifications
         .map<ArchivedNotificationCandidate | null>((notification) => {
           if (!notification.discordDmChannelId || !notification.discordDmMessageId) {
@@ -471,7 +477,8 @@ export async function archivePlayIntentDirectMessages(options: {
           const dmResult = (await sendDiscordDirectMessages([
             {
               discordUserId: recipientDiscordUserId,
-              content: archiveContent,
+              content: '',
+              embeds: archiveEmbeds,
               components: []
             }
           ]))[0]
@@ -501,7 +508,7 @@ export async function archivePlayIntentDirectMessages(options: {
         }
       }
 
-      const keptMessageId = await tryArchiveDirectMessage(candidates, archiveContent)
+      const keptMessageId = await tryArchiveDirectMessage(candidates, '', archiveEmbeds)
 
       if (!keptMessageId) {
         continue

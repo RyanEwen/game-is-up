@@ -514,8 +514,25 @@ export const debugDmPreviewButtonSchema = z.object({
   customId: z.string().min(1).nullable()
 })
 
+export const debugDmPreviewEmbedFieldSchema = z.object({
+  name: z.string().min(1),
+  value: z.string().min(1),
+  inline: z.boolean()
+})
+
+export const debugDmPreviewEmbedSchema = z.object({
+  title: z.string().nullable(),
+  description: z.string().nullable(),
+  color: z.number().int().nonnegative().nullable(),
+  fields: z.array(debugDmPreviewEmbedFieldSchema),
+  footerText: z.string().nullable(),
+  imageUrl: z.string().url().nullable(),
+  thumbnailUrl: z.string().url().nullable()
+})
+
 export const debugDmPreviewSchema = z.object({
-  content: z.string().min(1),
+  content: z.string(),
+  embeds: z.array(debugDmPreviewEmbedSchema),
   buttonRows: z.array(z.array(debugDmPreviewButtonSchema))
 })
 

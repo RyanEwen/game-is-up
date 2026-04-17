@@ -34,6 +34,7 @@ export type DiscordDirectMessageEditPayload = {
   messageId: string;
   content: string;
   components?: MessageCreateOptions['components'];
+  embeds?: MessageCreateOptions['embeds'];
 };
 
 export type DiscordDirectMessageEditResult = {
@@ -345,7 +346,8 @@ export async function editDiscordDirectMessage(message: DiscordDirectMessageEdit
     await discordBotRest.patch(Routes.channelMessage(message.channelId, message.messageId), {
       body: {
         content: message.content,
-        components: toDiscordApiComponents(message.components) ?? []
+        components: toDiscordApiComponents(message.components) ?? [],
+        embeds: toDiscordApiEmbeds(message.embeds) ?? []
       }
     })
 

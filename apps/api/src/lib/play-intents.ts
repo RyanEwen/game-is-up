@@ -24,7 +24,7 @@ import { sendDiscordDirectMessages } from './discord-bot-runtime.js'
 import { toClientGameCoverUrl, toClientAvatarUrl } from './game-media.js'
 import { getInterestedUsersByPlayIntentId } from './play-intent-interested-users.js'
 import {
-  buildPlayIntentDirectMessage,
+  buildPlayIntentDirectMessageEmbeds,
   buildPlayIntentNotificationComponents,
   expirePendingPlayIntentNotifications,
   syncCreatorPlayIntentSummaryMessages
@@ -1173,18 +1173,12 @@ export async function upsertCurrentPlayIntent(
 
     const creatorDiscordUserId = creatorIdentity?.providerUserId ?? null
     const discordUserIdByUserId = new Map(recipientIdentities.map((identity) => [identity.userId, identity.providerUserId]))
-    type DirectMessageTarget = {
-      notificationId: string;
-      discordUserId: string;
-      content: string;
-      embeds: { title: string; image: { url: string }; description?: string }[] | undefined;
-    }
     const directMessageTargets = createdNotifications
-      .map((notification) => {
+      .flatMap((notification) => {
         const discordUserId = discordUserIdByUserId.get(notification.userId)
 
         if (!discordUserId) {
-          return null
+          return []
         }
 
         const sharesServer = recipientUserIdsWithSharedServer.has(notification.userId)
@@ -1196,24 +1190,24 @@ export async function upsertCurrentPlayIntent(
             }
           : null
 
-        return {
+        return [{
           notificationId: notification.id,
           discordUserId,
-          content: buildPlayIntentDirectMessage(
-            notification.title,
-            notification.body,
-            creatorDiscordUserId,
-            sender.displayName,
-            voiceChannel,
-            priorInterestedUserLabels.length > 0 ? priorInterestedUserLabels.length : undefined,
-            priorInterestedUserLabels
-          ),
-          embeds: dmGameEmbeds.length > 0
-            ? dmGameEmbeds
-            : undefined
-        }
+          content: '',
+          embeds: [
+            ...buildPlayIntentDirectMessageEmbeds(
+              notification.title,
+              notification.body,
+              creatorDiscordUserId,
+              sender.displayName,
+              voiceChannel,
+              priorInterestedUserLabels.length > 0 ? priorInterestedUserLabels.length : undefined,
+              priorInterestedUserLabels
+            ),
+            ...dmGameEmbeds
+          ]
+        }]
       })
-          .filter((target): target is DirectMessageTarget => target != null)
 
     if (directMessageTargets.length > 0) {
       const dmResults = await sendDiscordDirectMessages(

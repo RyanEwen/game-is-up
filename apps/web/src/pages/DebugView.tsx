@@ -174,9 +174,59 @@ function DmPreviewCard({
   return (
     <Card variant="soft" sx={{ p: 2.5 }}>
       <Stack spacing={2}>
-        <Card variant="outlined" sx={{ p: 2, bgcolor: 'rgba(20, 24, 31, 0.72)' }}>
-          <DmMarkdown content={preview.content} />
-        </Card>
+        {preview.content ? (
+          <Card variant="outlined" sx={{ p: 2, bgcolor: 'rgba(20, 24, 31, 0.72)' }}>
+            <DmMarkdown content={preview.content} />
+          </Card>
+        ) : null}
+
+        {preview.embeds.map((embed, embedIndex) => (
+          <Card
+            key={`dm-preview-embed-${embedIndex}`}
+            variant="outlined"
+            sx={{
+              p: 2,
+              bgcolor: 'rgba(20, 24, 31, 0.72)',
+              borderColor: embed.color != null ? `#${embed.color.toString(16).padStart(6, '0')}` : 'neutral.outlinedBorder'
+            }}
+          >
+            <Stack spacing={1.5}>
+              {embed.title ? <Typography level="title-md">{embed.title}</Typography> : null}
+              {embed.description ? <DmMarkdown content={embed.description} /> : null}
+              {embed.fields.length > 0 ? (
+                <Stack spacing={1}>
+                  {embed.fields.map((field, fieldIndex) => (
+                    <Box key={`dm-preview-embed-field-${embedIndex}-${fieldIndex}`}>
+                      <Typography level="title-sm">{field.name}</Typography>
+                      <DmMarkdown content={field.value} />
+                    </Box>
+                  ))}
+                </Stack>
+              ) : null}
+              {embed.imageUrl ? (
+                <Box
+                  component="img"
+                  src={embed.imageUrl}
+                  alt={embed.title ?? 'DM embed image'}
+                  sx={{ width: '100%', maxHeight: 180, objectFit: 'cover', borderRadius: 'md' }}
+                />
+              ) : null}
+              {embed.thumbnailUrl ? (
+                <Box
+                  component="img"
+                  src={embed.thumbnailUrl}
+                  alt={embed.title ?? 'DM embed thumbnail'}
+                  sx={{ width: 72, height: 72, objectFit: 'cover', borderRadius: 'sm' }}
+                />
+              ) : null}
+              {embed.footerText ? (
+                <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
+                  {embed.footerText}
+                </Typography>
+              ) : null}
+            </Stack>
+          </Card>
+        ))}
 
         {preview.buttonRows.length > 0 ? (
           <Stack spacing={1}>
@@ -232,7 +282,7 @@ function DmPreviewCard({
           </Stack>
         ) : (
           <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
-            This DM only includes content and no interactive buttons.
+            This DM has no interactive buttons.
           </Typography>
         )}
       </Stack>

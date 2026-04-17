@@ -2,8 +2,10 @@ import {
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
+  EmbedBuilder,
   type ButtonInteraction,
-  type MessageActionRowComponentBuilder
+  type MessageActionRowComponentBuilder,
+  type MessageCreateOptions
 } from 'discord.js'
 import {
   AuthProvider,
@@ -14,9 +16,10 @@ import {
 } from '@prisma/client'
 import { editDiscordDirectMessage, sendDiscordDirectMessages, supportsDiscordInteractiveMessages } from './discord-bot-runtime.js'
 import {
-  buildDiscordBulletSection,
+  appendOpenInAppButton,
   buildDiscordNotice,
-  buildDiscordSection
+  buildDiscordSection,
+  buildOpenInAppButton
 } from './discord-dm-formatting.js'
 import { env } from './env.js'
 import { prisma } from './prisma.js'
@@ -33,6 +36,7 @@ type AutoPlayPromptAction =
 
 type DirectMessagePreviewPayload = {
   content: string;
+  embeds?: MessageCreateOptions['embeds'];
   components: ActionRowBuilder<MessageActionRowComponentBuilder>[];
 }
 
@@ -59,11 +63,32 @@ function getAutoPlayPromptCooldownCutoff(referenceTime: Date) {
 
 function buildLinkRow() {
   return new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
-    new ButtonBuilder()
-      .setLabel('Open in App')
-      .setStyle(ButtonStyle.Link)
-      .setURL(buildPlayUrl())
+    buildOpenInAppButton(buildPlayUrl())
   )
+}
+
+const autoPlayEmbedColors = {
+  info: 0x3b82f6,
+  success: 0x22c55e,
+  warning: 0xf59e0b,
+  danger: 0xef4444,
+  neutral: 0x64748b
+} as const
+
+function buildPromptEmbedFields(fields: Array<{ name: string; value: string | null | undefined; inline?: boolean }>) {
+  return fields.flatMap((field) => {
+    const trimmedValue = field.value?.trim()
+
+    if (!trimmedValue) {
+      return []
+    }
+
+    return [{
+      name: field.name,
+      value: trimmedValue.slice(0, 1024),
+      inline: field.inline ?? false
+    }]
+  })
 }
 
 function buildPromptSectionHeading(label: string) {
@@ -89,16 +114,12 @@ function buildPromptSection(label: string, value: string) {
   return buildDiscordSection(label, value, buildPromptSectionHeading)
 }
 
-function buildPromptBulletSection(label: string, items: string[]) {
-  return buildDiscordBulletSection(label, items, buildPromptSectionHeading)
-}
-
 function buildPromptNotice(title: string, sections: Array<string | null>, subtext?: string | null) {
   return buildDiscordNotice(title, sections, subtext)
 }
 
 function buildDurationRows(promptId: string) {
-  return [
+  return appendOpenInAppButton([
     new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
       ...autoPlayPromptDurations.map((durationMinutes) => new ButtonBuilder()
         .setCustomId(`${autoPlayPromptPrefix}:${promptId}:duration:${durationMinutes}`)
@@ -108,13 +129,12 @@ function buildDurationRows(promptId: string) {
         .setCustomId(`${autoPlayPromptPrefix}:${promptId}:decline`)
         .setLabel('Not now')
         .setStyle(ButtonStyle.Secondary)
-    ),
-    buildLinkRow()
-  ]
+    )
+  ], buildPlayUrl())
 }
 
 function buildAudienceRows(promptId: string, durationMinutes: number, friendRecipientCount: number, networkRecipientCount: number) {
-  return [
+  return appendOpenInAppButton([
     new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
       new ButtonBuilder()
         .setCustomId(`${autoPlayPromptPrefix}:${promptId}:confirm:friends-only:${durationMinutes}`)
@@ -129,36 +149,48 @@ function buildAudienceRows(promptId: string, durationMinutes: number, friendReci
         .setCustomId(`${autoPlayPromptPrefix}:${promptId}:decline`)
         .setLabel('Cancel')
         .setStyle(ButtonStyle.Secondary)
-    ),
-    buildLinkRow()
+    )
+  ], buildPlayUrl())
+}
+
+function buildInitialPromptEmbeds(gameTitle: string, networkRecipientCount: number) {
+  return [
+    new EmbedBuilder()
+      .setColor(autoPlayEmbedColors.info)
+      .setTitle('You Just Started Playing')
+      .addFields(buildPromptEmbedFields([
+        { name: 'Game', value: gameTitle, inline: false },
+        {
+          name: 'Reach',
+          value: `${networkRecipientCount} people in your network and friends could receive a call to play for it right now.`,
+          inline: false
+        },
+        {
+          name: 'Next Step',
+          value: 'Pick a duration and I will ask who should receive it.',
+          inline: false
+        }
+      ]))
+      .setFooter({ text: 'Open the app if you want the full composer instead.' })
   ]
 }
 
-function buildInitialPromptMessage(gameTitle: string, networkRecipientCount: number) {
-  return buildPromptNotice(
-    '🎮 You Just Started Playing',
-    [
-      buildPromptSection('Game', gameTitle),
-      buildPromptSection('Reach', `${networkRecipientCount} people in your network and friends could receive a call to play for it right now.`),
-      buildPromptSection('Next step', 'Pick a duration and I will ask who should receive it.')
-    ],
-    'Open the app if you want the full composer instead.'
-  )
-}
-
-function buildAudienceMessage(gameTitle: string, durationMinutes: number, friendRecipientCount: number, networkRecipientCount: number) {
-  return buildPromptNotice(
-    '🎯 Choose an Audience',
-    [
-      buildPromptSection('Game', gameTitle),
-      buildPromptSection('Duration', `Next ${formatDurationLabel(durationMinutes)}.`),
-      buildPromptBulletSection('Reach', [
-        `Friends only: ${friendRecipientCount}`,
-        `Your network + friends: ${networkRecipientCount}`
-      ])
-    ],
-    'Choose who should receive this call to play.'
-  )
+function buildAudienceEmbeds(gameTitle: string, durationMinutes: number, friendRecipientCount: number, networkRecipientCount: number) {
+  return [
+    new EmbedBuilder()
+      .setColor(autoPlayEmbedColors.info)
+      .setTitle('Choose an Audience')
+      .addFields(buildPromptEmbedFields([
+        { name: 'Game', value: gameTitle, inline: false },
+        { name: 'Duration', value: `Next ${formatDurationLabel(durationMinutes)}.`, inline: true },
+        {
+          name: 'Reach',
+          value: `Friends only: ${friendRecipientCount}\nYour network + friends: ${networkRecipientCount}`,
+          inline: false
+        }
+      ]))
+      .setFooter({ text: 'Choose who should receive this call to play.' })
+  ]
 }
 
 function buildDeclinedMessage(gameTitle: string) {
@@ -172,15 +204,17 @@ function buildDeclinedMessage(gameTitle: string) {
   )
 }
 
-function buildExpiredMessage(gameTitle: string, reason: string) {
-  return buildPromptNotice(
-    `⌛ ${gameTitle} Prompt Closed`,
-    [
-      buildPromptSection('Game', gameTitle),
-      buildPromptSection('Status', reason)
-    ],
-    'Open the app if you still want to create or edit a call to play.'
-  )
+function buildExpiredEmbeds(gameTitle: string, reason: string) {
+  return [
+    new EmbedBuilder()
+      .setColor(autoPlayEmbedColors.danger)
+      .setTitle(`${gameTitle} Prompt Closed`)
+      .addFields(buildPromptEmbedFields([
+        { name: 'Game', value: gameTitle, inline: false },
+        { name: 'Status', value: reason, inline: false }
+      ]))
+      .setFooter({ text: 'Open the app if you still want to create or edit a call to play.' })
+  ]
 }
 
 export async function expireDiscordAutoPlayPromptsForInactiveObservations(observationIds: string[]) {
@@ -231,27 +265,36 @@ export async function expireDiscordAutoPlayPromptsForInactiveObservations(observ
     await editDiscordDirectMessage({
       channelId: prompt.discordDmChannelId,
       messageId: prompt.discordDmMessageId,
-      content: buildExpiredMessage(prompt.game.title, `This prompt was closed because we are no longer seeing you in ${prompt.game.title}.`),
+      content: '',
+      embeds: buildExpiredEmbeds(prompt.game.title, `This prompt was closed because we are no longer seeing you in ${prompt.game.title}.`),
       components: [buildLinkRow()]
     })
   }))
 }
 
-function buildAcceptedMessage(gameTitle: string, durationMinutes: number, notifyScope: 'friends-only' | 'network', deliveredCount: number) {
-  return buildPromptNotice(
-    '✅ Call to Play Is Live',
-    [
-      buildPromptSection('Game', gameTitle),
-      buildPromptSection('Duration', `Next ${formatDurationLabel(durationMinutes)}.`),
-      buildPromptSection('Audience', notifyScope === 'friends-only' ? 'Friends only.' : 'Your network plus friends.'),
-      buildPromptSection(
-        'Reach',
-        deliveredCount > 0
-          ? `${deliveredCount} Discord DM${deliveredCount === 1 ? ' was' : 's were'} delivered right away.`
-          : "No Discord DMs were delivered right away, but the call is active in Game's Up."
-      )
-    ]
-  )
+function buildAcceptedEmbeds(gameTitle: string, durationMinutes: number, notifyScope: 'friends-only' | 'network', deliveredCount: number) {
+  return [
+    new EmbedBuilder()
+      .setColor(autoPlayEmbedColors.success)
+      .setTitle('Call to Play Is Live')
+      .addFields(buildPromptEmbedFields([
+        { name: 'Game', value: gameTitle, inline: false },
+        { name: 'Duration', value: `Next ${formatDurationLabel(durationMinutes)}.`, inline: true },
+        {
+          name: 'Audience',
+          value: notifyScope === 'friends-only' ? 'Friends only.' : 'Your network plus friends.',
+          inline: true
+        },
+        {
+          name: 'Reach',
+          value: deliveredCount > 0
+            ? `${deliveredCount} Discord DM${deliveredCount === 1 ? ' was' : 's were'} delivered right away.`
+            : "No Discord DMs were delivered right away, but the call is active in Game's Up.",
+          inline: false
+        }
+      ]))
+      .setFooter({ text: 'Open the app if you want to edit the call to play.' })
+  ]
 }
 
 export function buildDiscordAutoPlayPromptPreview(options: {
@@ -275,12 +318,14 @@ export function buildDiscordAutoPlayPromptPreview(options: {
       }
     case DiscordAutoPlayPromptStatus.EXPIRED:
       return {
-        content: buildExpiredMessage(options.gameTitle, options.statusDetail ?? `This ${options.gameTitle} prompt is no longer active.`),
+        content: '',
+        embeds: buildExpiredEmbeds(options.gameTitle, options.statusDetail ?? `This ${options.gameTitle} prompt is no longer active.`),
         components: [buildLinkRow()]
       }
     case DiscordAutoPlayPromptStatus.ACCEPTED:
       return {
-        content: buildAcceptedMessage(
+        content: '',
+        embeds: buildAcceptedEmbeds(
           options.gameTitle,
           options.durationMinutes ?? autoPlayPromptDurations[0],
           options.notifyScope === PlayIntentScope.FRIENDS_ONLY ? 'friends-only' : 'network',
@@ -290,7 +335,8 @@ export function buildDiscordAutoPlayPromptPreview(options: {
       }
     default:
       return {
-        content: buildInitialPromptMessage(options.gameTitle, options.networkRecipientCount),
+        content: '',
+        embeds: buildInitialPromptEmbeds(options.gameTitle, options.networkRecipientCount),
         components: buildDurationRows(options.promptId)
       }
   }
@@ -622,7 +668,8 @@ export async function maybeSendDiscordAutoPlayPromptForObservation(observationId
   const dmResult = (await sendDiscordDirectMessages([
     {
       discordUserId: discordIdentity.providerUserId,
-      content: buildInitialPromptMessage(observation.game.title, networkRecipients.length),
+      content: '',
+      embeds: buildInitialPromptEmbeds(observation.game.title, networkRecipients.length),
       components: buildDurationRows(prompt.id)
     }
   ]))[0]
@@ -716,7 +763,8 @@ export async function handleDiscordAutoPlayPromptInteraction(interaction: Button
 
   if (prompt.status !== expectedStatus) {
     await interaction.update({
-      content: buildExpiredMessage(prompt.game.title, prompt.statusDetail ?? 'It was already handled earlier.'),
+      content: '',
+      embeds: buildExpiredEmbeds(prompt.game.title, prompt.statusDetail ?? 'It was already handled earlier.'),
       components: [buildLinkRow()]
     })
     return
@@ -734,7 +782,8 @@ export async function handleDiscordAutoPlayPromptInteraction(interaction: Button
       }
     })
     await interaction.update({
-      content: buildExpiredMessage(prompt.game.title, 'Automatic Discord prompts are turned off in your profile now.'),
+      content: '',
+      embeds: buildExpiredEmbeds(prompt.game.title, 'Automatic Discord prompts are turned off in your profile now.'),
       components: [buildLinkRow()]
     })
     return
@@ -752,7 +801,8 @@ export async function handleDiscordAutoPlayPromptInteraction(interaction: Button
       }
     })
     await interaction.update({
-      content: buildExpiredMessage(prompt.game.title, `This prompt was closed because we are no longer seeing you in ${prompt.game.title}.`),
+      content: '',
+      embeds: buildExpiredEmbeds(prompt.game.title, `This prompt was closed because we are no longer seeing you in ${prompt.game.title}.`),
       components: [buildLinkRow()]
     })
     return
@@ -778,7 +828,8 @@ export async function handleDiscordAutoPlayPromptInteraction(interaction: Button
 
   if (action.kind === 'duration') {
     await interaction.update({
-      content: buildAudienceMessage(prompt.game.title, action.durationMinutes, prompt.friendRecipientCount, prompt.networkRecipientCount),
+      content: '',
+      embeds: buildAudienceEmbeds(prompt.game.title, action.durationMinutes, prompt.friendRecipientCount, prompt.networkRecipientCount),
       components: buildAudienceRows(prompt.id, action.durationMinutes, prompt.friendRecipientCount, prompt.networkRecipientCount)
     })
     return
@@ -790,7 +841,8 @@ export async function handleDiscordAutoPlayPromptInteraction(interaction: Button
 
   if (selectedRecipientCount === 0) {
     await interaction.update({
-      content: buildExpiredMessage(prompt.game.title, 'That audience no longer has anyone who overlaps on this game.'),
+      content: '',
+      embeds: buildExpiredEmbeds(prompt.game.title, 'That audience no longer has anyone who overlaps on this game.'),
       components: [buildLinkRow()]
     })
     return
@@ -810,7 +862,8 @@ export async function handleDiscordAutoPlayPromptInteraction(interaction: Button
       }
     })
     await interaction.update({
-      content: buildExpiredMessage(prompt.game.title, 'You already have an active call to play.'),
+      content: '',
+      embeds: buildExpiredEmbeds(prompt.game.title, 'You already have an active call to play.'),
       components: [buildLinkRow()]
     })
     return
@@ -843,7 +896,8 @@ export async function handleDiscordAutoPlayPromptInteraction(interaction: Button
     })
 
     await interaction.update({
-      content: buildAcceptedMessage(prompt.game.title, action.durationMinutes, action.notifyScope, response.notifiedFriendCount),
+      content: '',
+      embeds: buildAcceptedEmbeds(prompt.game.title, action.durationMinutes, action.notifyScope, response.notifiedFriendCount),
       components: [buildLinkRow()]
     })
   } catch (error) {
@@ -864,7 +918,8 @@ export async function handleDiscordAutoPlayPromptInteraction(interaction: Button
     })
 
     await interaction.update({
-      content: buildExpiredMessage(prompt.game.title, message),
+      content: '',
+      embeds: buildExpiredEmbeds(prompt.game.title, message),
       components: [buildLinkRow()]
     })
   }
