@@ -242,11 +242,11 @@ export function buildPlayIntentDirectMessage(
     voiceChannelLine,
     joinCountLine,
     supportsDiscordInteractiveMessages()
-      ? 'Are you planning to join this call to play?'
-      : 'Open Game\'s Up to answer this call to play.',
+      ? 'Are you interested?'
+      : 'Open Game\'s Up to say whether you\'re interested.',
     supportsDiscordInteractiveMessages()
-      ? "Use the buttons below to answer. You can still open Game's Up afterward and post your own call if you want to widen the group."
-      : "You can still open Game's Up afterward and post your own call if you want to widen the group."
+      ? 'Use the buttons below to answer.'
+      : null
   ].filter((part): part is string => Boolean(part)).join('\n\n')
 }
 
@@ -755,8 +755,7 @@ function buildExpiredMessage(reason: string) {
 
 function buildJoinAcceptedMessage(creatorLabel: string) {
   return [
-    `I marked you as interested in ${creatorLabel}'s call to play.`,
-    "If you want to widen the group, you can still open Game's Up and post your own call too."
+    `I marked you as interested in ${creatorLabel}'s call to play.`
   ].join('\n\n')
 }
 
