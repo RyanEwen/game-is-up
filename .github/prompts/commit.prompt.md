@@ -1,6 +1,6 @@
 ---
 name: "commit"
-description: "Stage, review, and commit the current changes with mandatory documentation review, a proposed message, and explicit push confirmation."
+description: "Stage, review, and commit the current changes with mandatory documentation review, a proposed message, and push behavior that follows the prompt invocation."
 argument-hint: "Optional message hint or summary of the change"
 agent: "agent"
 model: "GPT-5 (copilot)"
@@ -14,7 +14,8 @@ Requirements:
 - Perform a mandatory documentation review before committing.
 - Draft the commit message before running `git commit`.
 - Do not ask for confirmation before committing unless the user explicitly requested a confirmation step, a review-only pause, or message approval in the prompt invocation.
-- Ask separately before any `git push`.
+- If the prompt invocation explicitly requests `push`, treat that as approval to run `git push` after a successful commit.
+- Otherwise, ask separately before any `git push`.
 
 Documentation review scope:
 - `README.md` for setup, workflow, or user-visible behavior changes
@@ -33,9 +34,11 @@ Recommended steps:
 6. If the change is non-trivial, add a short body that explains why.
 7. If the user explicitly asked to confirm or review before committing, show the proposed message and pause for confirmation or adjustment.
 8. Otherwise, show the message you are using and run `git commit` without waiting for confirmation.
-9. If the user wants to push, ask again and only then run `git push`.
+9. If the prompt invocation explicitly includes `push`, run `git push` after the commit succeeds.
+10. Otherwise, if the user wants to push, ask again and only then run `git push`.
 
 Notes:
 - This repository already runs validation in the Git commit workflow. If the commit hook fails, fix the issue and retry.
 - If docs were updated as part of the same change, reflect that in the commit message when it improves clarity.
 - Treat phrases such as `confirm first`, `ask before committing`, `show me the message first`, or `review before commit` in the invocation as explicit requests to pause before `git commit`.
+- Treat an explicit `push` request in the prompt invocation as approval to push without a second confirmation step.
