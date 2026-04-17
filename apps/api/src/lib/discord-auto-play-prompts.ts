@@ -883,7 +883,7 @@ export async function handleDiscordAutoPlayPromptInteraction(interaction: Button
         expiresAt: true,
         selectionMode: true,
         scope: true,
-        targetDiscordServerId: true,
+        targetDiscordServers: { select: { serverId: true } },
         note: true,
         voiceChannelId: true,
         voiceChannelName: true,
@@ -929,7 +929,7 @@ export async function handleDiscordAutoPlayPromptInteraction(interaction: Button
         includeSelf: false,
         gameIds: [prompt.game.id],
         targetUserIds,
-        targetDiscordServerId: settlePlayIntent.targetDiscordServerId ?? undefined,
+        targetDiscordServerIds: settlePlayIntent.targetDiscordServers.map((entry) => entry.serverId),
         durationMinutes,
         note: settlePlayIntent.note,
         voiceChannelId: settlePlayIntent.voiceChannelId ?? undefined,
@@ -1024,6 +1024,7 @@ export async function handleDiscordAutoPlayPromptInteraction(interaction: Button
       includeSelf: false,
       gameIds: [prompt.game.id],
       targetUserIds: [],
+      targetDiscordServerIds: [],
       durationMinutes: action.durationMinutes,
       note: ''
     })

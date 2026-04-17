@@ -91,9 +91,11 @@ type CreatorPlayIntentSummarySnapshot = {
     timezoneId: string;
     identities: { providerUserId: string }[];
   };
-  targetDiscordServer: {
-    name: string;
-  } | null;
+  targetDiscordServers: {
+    server: {
+      name: string;
+    };
+  }[];
   targetFriends: {
     friendUser: {
       displayName: string;
@@ -453,8 +455,16 @@ function formatSummaryDateTime(date: Date, timezoneId: string) {
 }
 
 function summarizeCreatorAudience(snapshot: CreatorPlayIntentSummarySnapshot) {
-  if (snapshot.scope === 'SPECIFIC_DISCORD_SERVER' && snapshot.targetDiscordServer) {
-    return `Audience: Discord server ${snapshot.targetDiscordServer.name}`
+  if (snapshot.scope === 'SPECIFIC_DISCORD_SERVER' && snapshot.targetDiscordServers.length > 0) {
+    const names = snapshot.targetDiscordServers
+      .map((entry) => entry.server.name)
+      .sort((left, right) => left.localeCompare(right))
+
+    if (names.length <= 4) {
+      return `Audience: Discord servers ${names.join(', ')}`
+    }
+
+    return `Audience: Discord servers ${names.slice(0, 4).join(', ')} +${names.length - 4} more`
   }
 
   if (snapshot.scope === 'SPECIFIC_FRIENDS') {
@@ -631,9 +641,11 @@ export function buildCreatorPlayIntentSummaryPreview(snapshot: {
     displayName: string;
     timezoneId: string;
   };
-  targetDiscordServer: {
-    name: string;
-  } | null;
+  targetDiscordServers: {
+    server: {
+      name: string;
+    };
+  }[];
   targetFriends: {
     friendUser: {
       displayName: string;
@@ -699,9 +711,16 @@ async function getCreatorPlayIntentSummarySnapshot(playIntentId: string) {
           }
         }
       },
-      targetDiscordServer: {
+      targetDiscordServers: {
         select: {
-          name: true
+          server: {
+            select: {
+              name: true
+            }
+          }
+        },
+        orderBy: {
+          createdAt: 'asc'
         }
       },
       targetFriends: {

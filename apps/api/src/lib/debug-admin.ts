@@ -108,9 +108,11 @@ function buildCreatorSummaryRevisions(intent: {
     displayName: string;
     timezoneId: string;
   };
-  targetDiscordServer: {
-    name: string;
-  } | null;
+  targetDiscordServers: Array<{
+    server: {
+      name: string;
+    };
+  }>;
   targetFriends: Array<{
     friendUser: {
       displayName: string;
@@ -166,7 +168,7 @@ function buildCreatorSummaryRevisions(intent: {
           expiresAt: intent.expiresAt,
           voiceChannelName: intent.voiceChannelName,
           user: intent.user,
-          targetDiscordServer: intent.targetDiscordServer,
+          targetDiscordServers: intent.targetDiscordServers,
           targetFriends: intent.targetFriends,
           games: intent.games,
           notifications: toCreatorSummaryNotificationsAtTime(intent.notifications, currentTime),
@@ -483,10 +485,17 @@ export async function buildDebugAdminSnapshot() {
             timezoneId: true
           }
         },
-        targetDiscordServer: {
-          select: {
-            id: true,
-            name: true
+        targetDiscordServers: {
+          include: {
+            server: {
+              select: {
+                id: true,
+                name: true
+              }
+            }
+          },
+          orderBy: {
+            createdAt: 'asc'
           }
         },
         games: {
@@ -1032,7 +1041,7 @@ export async function buildDebugAdminSnapshot() {
       overlappingGameIds,
       targetUserIds: intent.targetFriends.map((entry) => entry.friendUser.id),
       includeSelf,
-      targetDiscordServerId: intent.targetDiscordServer?.id ?? null
+      targetDiscordServerIds: intent.targetDiscordServers.map((entry) => entry.server.id)
     })
 
     const audienceParticipants = [...audienceNotificationsByUserId.entries()].map(([recipientUserId, notifications]) => {

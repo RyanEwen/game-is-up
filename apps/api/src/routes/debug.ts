@@ -57,7 +57,11 @@ async function ensureDebugPlayableNotification(options: {
           displayName: true
         }
       },
-      targetDiscordServerId: true,
+      targetDiscordServers: {
+        select: {
+          serverId: true
+        }
+      },
       targetFriends: {
         select: {
           friendUserId: true
@@ -117,7 +121,7 @@ async function ensureDebugPlayableNotification(options: {
     overlappingGameIds,
     targetUserIds: playIntent.targetFriends.map((entry) => entry.friendUserId),
     includeSelf: options.actingUserId === playIntent.userId,
-    targetDiscordServerId: playIntent.targetDiscordServerId
+    targetDiscordServerIds: playIntent.targetDiscordServers.map((entry) => entry.serverId)
   })
 
   if (!allowedAudienceUserIds.includes(options.actingUserId)) {

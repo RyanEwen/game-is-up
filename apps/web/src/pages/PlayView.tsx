@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Avatar, Box, Button, Chip, DialogContent, DialogTitle, Card, Stack, Switch, Typography } from '@mui/joy'
+import { Avatar, Box, Button, Chip, Card, Stack, Switch, Typography } from '@mui/joy'
 import type {
   ActivePlayIntent,
   DiscordServerPreference,
@@ -14,7 +14,6 @@ import type {
 import { EmptyStateCard } from '../components/dashboard/EmptyStateCard'
 import { InterestedPlayerList } from '../components/dashboard/InterestedPlayerList'
 import { DashboardModal } from '../components/dashboard/DashboardModal'
-import { DashboardModalActionBar } from '../components/dashboard/DashboardModalActionBar'
 import { PlayIntentCard, PlayIntentGameList } from '../components/dashboard/PlayIntentCard'
 import { PlayIntentComposerCard } from '../components/dashboard/PlayIntentComposerCard'
 import { CtpDmInboxDialog } from './DebugView'
@@ -120,16 +119,19 @@ function OwnActivePlayIntentCard({
           <Chip size="sm" color="neutral" variant="outlined">
             {formatNotifyScopeLabel(activePlayIntent.notifyScope)}
           </Chip>
-          {activePlayIntent.notifyScope === 'specific-discord-server' && activePlayIntent.targetServer ? (
-            <Chip
-              size="sm"
-              color="neutral"
-              variant="outlined"
-              startDecorator={<Avatar src={activePlayIntent.targetServer.iconUrl ?? undefined} alt={activePlayIntent.targetServer.name} size="sm" variant="soft" />}
-            >
-              {activePlayIntent.targetServer.name}
-            </Chip>
-          ) : null}
+          {activePlayIntent.notifyScope === 'specific-discord-server'
+            ? activePlayIntent.targetServers.map((server) => (
+                <Chip
+                  key={server.id}
+                  size="sm"
+                  color="neutral"
+                  variant="outlined"
+                  startDecorator={<Avatar src={server.iconUrl ?? undefined} alt={server.name} size="sm" variant="soft" />}
+                >
+                  {server.name}
+                </Chip>
+              ))
+            : null}
           {activePlayIntent.platforms.map((platform: string) => (
             <Chip key={platform} size="sm" color="neutral" variant="outlined">
               {platform}
@@ -178,21 +180,19 @@ function OwnActivePlayIntentCard({
 function PlayViewContent({
   isSignedIn,
   isAdmin,
-  playIntentUnavailableAudienceMessage,
   discordAutoPromptPlayIntent,
   discordAutoPromptPlayIntentSaving,
   activePlayIntent,
   isPlayIntentComposerOpen,
   openPlayIntentComposer,
   closePlayIntentComposer,
-  canPostPlayIntent,
   playIntentFilteredAudienceMessage,
   playIntentNotifyScope,
   onPlayIntentNotifyScopeChange,
   playIntentFriendOptions,
   playIntentDiscordServerOptions,
-  selectedPlayIntentTargetDiscordServerId,
-  onPlayIntentTargetDiscordServerChange,
+  selectedPlayIntentTargetDiscordServerIds,
+  onTogglePlayIntentTargetDiscordServer,
   selectedPlayIntentTargetUserIds,
   onTogglePlayIntentTargetUser,
   playIntentSelectionMode,
@@ -251,21 +251,19 @@ function PlayViewContent({
 }: {
   isSignedIn: boolean;
   isAdmin: boolean;
-  playIntentUnavailableAudienceMessage: string | null;
   discordAutoPromptPlayIntent: boolean;
   discordAutoPromptPlayIntentSaving: boolean;
   activePlayIntent: ActivePlayIntent | null;
   isPlayIntentComposerOpen: boolean;
   openPlayIntentComposer: () => void;
   closePlayIntentComposer: () => void;
-  canPostPlayIntent: boolean;
   playIntentFilteredAudienceMessage: string | null;
   playIntentNotifyScope: PlayIntentNotifyScope;
   onPlayIntentNotifyScopeChange: (scope: PlayIntentNotifyScope) => void;
   playIntentFriendOptions: Array<Pick<DiscoveryPerson, 'id' | 'handle' | 'displayName' | 'avatarUrl'>>;
   playIntentDiscordServerOptions: DiscordServerPreference[];
-  selectedPlayIntentTargetDiscordServerId: string;
-  onPlayIntentTargetDiscordServerChange: (serverId: string) => void;
+  selectedPlayIntentTargetDiscordServerIds: string[];
+  onTogglePlayIntentTargetDiscordServer: (serverId: string) => void;
   selectedPlayIntentTargetUserIds: string[];
   onTogglePlayIntentTargetUser: (userId: string) => void;
   playIntentSelectionMode: PlayIntentSelectionMode;
@@ -321,7 +319,6 @@ function PlayViewContent({
   buildApiUrl: (path: string) => string;
   parseDebugDmActionResponse: ReturnType<typeof useDashboardContext>['debugViewProps']['parseDebugDmActionResponse'];
 }) {
-  const [isUnavailableAudienceModalOpen, setIsUnavailableAudienceModalOpen] = useState(false)
   const [selectedMailboxPlayIntentId, setSelectedMailboxPlayIntentId] = useState<string | null>(null)
   const discoveryPeopleById = new Map(discoveryPeople.map((person) => [person.id, person]))
   const selectedMailboxPlayIntent = debugAdmin?.recentPlayIntents.find((intent) => intent.id === selectedMailboxPlayIntentId) ?? null
@@ -331,23 +328,6 @@ function PlayViewContent({
       ? 'Manage scheduled call to play'
       : 'Manage live call to play'
     : 'Create call to play'
-  const playIntentUnavailableMessage = !activePlayIntent && !canPostPlayIntent
-    ? 'You do not have any games in your library yet, so nobody can be matched with your call to play. Add at least one game first.'
-    : playIntentUnavailableAudienceMessage
-  const playIntentUnavailableTitle = !activePlayIntent && !canPostPlayIntent
-    ? 'Add A Game First'
-    : 'Nobody Can Receive This Yet'
-  const playIntentUnavailableCardTitle = !activePlayIntent && !canPostPlayIntent
-    ? 'Your library is still empty'
-    : 'Nobody can receive a call to play yet'
-  const handleOpenPlayIntent = () => {
-    if (!activePlayIntent && !canPostPlayIntent && playIntentUnavailableMessage) {
-      setIsUnavailableAudienceModalOpen(true)
-      return
-    }
-
-    openPlayIntentComposer()
-  }
 
   return (
     <Stack spacing={2}>
@@ -359,7 +339,7 @@ function PlayViewContent({
           </Typography>
         </Box>
         {isSignedIn ? (
-          <Button color="primary" onClick={handleOpenPlayIntent}>
+          <Button color="primary" onClick={openPlayIntentComposer}>
             {playComposerButtonLabel}
           </Button>
         ) : null}
@@ -389,46 +369,17 @@ function PlayViewContent({
       ) : null}
 
       {isSignedIn ? (
-        <DashboardModal open={isUnavailableAudienceModalOpen} onClose={() => setIsUnavailableAudienceModalOpen(false)} width="min(96vw, 560px)">
-          <DialogTitle sx={{ pr: 6 }}>{playIntentUnavailableTitle}</DialogTitle>
-          <DialogContent
-            sx={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 2,
-              pr: 0.5,
-              overscrollBehavior: 'contain',
-              WebkitOverflowScrolling: 'touch'
-            }}
-          >
-            <EmptyStateCard
-              title={playIntentUnavailableCardTitle}
-              body={playIntentUnavailableMessage ?? 'There is nobody available to receive a call to play right now.'}
-            />
-          </DialogContent>
-          <DashboardModalActionBar
-            cancelAction={(
-              <Button size="lg" variant="outlined" color="neutral" onClick={() => setIsUnavailableAudienceModalOpen(false)} sx={{ minHeight: 52 }}>
-                Close
-              </Button>
-            )}
-          />
-        </DashboardModal>
-      ) : null}
-
-      {isSignedIn ? (
         <DashboardModal open={isPlayIntentComposerOpen} onClose={closePlayIntentComposer} width="min(96vw, 820px)">
             <PlayIntentComposerCard
               activePlayIntent={activePlayIntent}
               isAdmin={isAdmin}
-              canPostPlayIntent={canPostPlayIntent}
               playIntentFilteredAudienceMessage={playIntentFilteredAudienceMessage}
               playIntentNotifyScope={playIntentNotifyScope}
               onPlayIntentNotifyScopeChange={onPlayIntentNotifyScopeChange}
               playIntentFriendOptions={playIntentFriendOptions}
               playIntentDiscordServerOptions={playIntentDiscordServerOptions}
-              selectedPlayIntentTargetDiscordServerId={selectedPlayIntentTargetDiscordServerId}
-              onPlayIntentTargetDiscordServerChange={onPlayIntentTargetDiscordServerChange}
+              selectedPlayIntentTargetDiscordServerIds={selectedPlayIntentTargetDiscordServerIds}
+              onTogglePlayIntentTargetDiscordServer={onTogglePlayIntentTargetDiscordServer}
               selectedPlayIntentTargetUserIds={selectedPlayIntentTargetUserIds}
               onTogglePlayIntentTargetUser={onTogglePlayIntentTargetUser}
               playIntentSelectionMode={playIntentSelectionMode}

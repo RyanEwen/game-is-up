@@ -50,6 +50,14 @@ function serializeTargetDiscordServer(targetDiscordServer: { id: string; name: s
   }
 }
 
+function serializeTargetDiscordServers(
+  targetDiscordServers: Array<{ server: { id: string; name: string; iconHash: string | null } }>
+) {
+  return targetDiscordServers
+    .map((entry) => serializeTargetDiscordServer(entry.server))
+    .filter((server): server is NonNullable<ReturnType<typeof serializeTargetDiscordServer>> => server !== null)
+}
+
 export async function buildPlayIntentFeed(viewerId?: string | null): Promise<PlayIntentFeed> {
   const viewer = await getViewer(viewerId)
   const now = new Date()
@@ -131,11 +139,18 @@ export async function buildPlayIntentFeed(viewerId?: string | null): Promise<Pla
           friendUserId: true
         }
       },
-      targetDiscordServer: {
-        select: {
-          id: true,
-          name: true,
-          iconHash: true
+      targetDiscordServers: {
+        include: {
+          server: {
+            select: {
+              id: true,
+              name: true,
+              iconHash: true
+            }
+          }
+        },
+        orderBy: {
+          createdAt: 'asc'
         }
       },
       games: {
@@ -216,7 +231,9 @@ export async function buildPlayIntentFeed(viewerId?: string | null): Promise<Pla
         return null
       }
 
-      if (intent.scope === PlayIntentScope.SPECIFIC_DISCORD_SERVER && !viewerServerIds.includes(intent.targetDiscordServerId ?? '')) {
+      const targetServerIds = intent.targetDiscordServers.map((entry) => entry.serverId)
+
+      if (intent.scope === PlayIntentScope.SPECIFIC_DISCORD_SERVER && !targetServerIds.some((serverId) => viewerServerIds.includes(serverId))) {
         return null
       }
 
@@ -245,6 +262,8 @@ export async function buildPlayIntentFeed(viewerId?: string | null): Promise<Pla
 
       const interestedUsers = interestedUsersByPlayIntentId.get(intent.id) ?? []
 
+      const targetServers = serializeTargetDiscordServers(intent.targetDiscordServers)
+
       return {
         id: intent.id,
         title: intent.headline,
@@ -256,7 +275,7 @@ export async function buildPlayIntentFeed(viewerId?: string | null): Promise<Pla
         },
         selectionMode: toSelectionMode(intent.selectionMode),
         notifyScope: toNotifyScope(intent.scope),
-        targetServer: serializeTargetDiscordServer(intent.targetDiscordServer),
+        targetServers,
         platforms: intent.platforms.map((platform) => platform.platformLabel).sort((left, right) => left.localeCompare(right)),
         games: intent.selectionMode === PlayIntentSelectionMode.ENTIRE_LIBRARY ? [] : selectedGames,
         note: intent.note,

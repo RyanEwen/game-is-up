@@ -136,7 +136,7 @@ model DiscordServer {
   updatedAt     DateTime                 @updatedAt
   memberships   DiscordServerMembership[]
   preferences   DiscordServerPreference[]
-  targetedPlayIntents PlayIntent[]       @relation("play_intent_target_discord_server")
+  playIntentTargetSelections PlayIntentTargetDiscordServer[]
   activityObservations DiscordActivityObservation[]
   observedGames DiscordObservedGame[]
   autoPlayPrompts DiscordAutoPlayPrompt[]
@@ -282,14 +282,13 @@ model PlayIntent {
   voiceChannelName String?
   creatorDiscordDmChannelId String?
   creatorDiscordDmMessageId String?
-  targetDiscordServerId String?
   windowStartsAt DateTime
   windowEndsAt   DateTime
   scope          PlayIntentScope         @default(MUTUAL_FRIENDS)
   createdAt      DateTime                @default(now())
   expiresAt      DateTime
   user           User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  targetDiscordServer DiscordServer?     @relation("play_intent_target_discord_server", fields: [targetDiscordServerId], references: [id], onDelete: SetNull)
+  targetDiscordServers PlayIntentTargetDiscordServer[]
   games          PlayIntentGame[]
   platforms      PlayIntentPlatform[]
   targetFriends  PlayIntentTargetFriend[]
@@ -299,7 +298,18 @@ model PlayIntent {
 
   @@index([userId, expiresAt])
   @@index([selectionMode, expiresAt])
-  @@index([targetDiscordServerId, expiresAt])
+}
+
+model PlayIntentTargetDiscordServer {
+  id           String        @id @default(uuid())
+  playIntentId String
+  serverId     String
+  createdAt    DateTime      @default(now())
+  playIntent   PlayIntent    @relation(fields: [playIntentId], references: [id], onDelete: Cascade)
+  server       DiscordServer @relation(fields: [serverId], references: [id], onDelete: Cascade)
+
+  @@unique([playIntentId, serverId])
+  @@index([serverId])
 }
 
 model PlayIntentTargetFriend {

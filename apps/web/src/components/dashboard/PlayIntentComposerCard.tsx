@@ -17,21 +17,19 @@ import {
   minimumPlayIntentDurationMinutes,
   playIntentPresetDurations
 } from './dashboardUtils'
-import { DiscordServerPicker } from './DiscordServerPicker'
 import { DashboardModalActionBar } from './DashboardModalActionBar'
 import type { PlayIntentStartMode, PlayIntentTimingMode } from './types'
 
 export function PlayIntentComposerCard({
   activePlayIntent,
   isAdmin,
-  canPostPlayIntent,
   playIntentFilteredAudienceMessage,
   playIntentNotifyScope,
   onPlayIntentNotifyScopeChange,
   playIntentFriendOptions,
   playIntentDiscordServerOptions,
-  selectedPlayIntentTargetDiscordServerId,
-  onPlayIntentTargetDiscordServerChange,
+  selectedPlayIntentTargetDiscordServerIds,
+  onTogglePlayIntentTargetDiscordServer,
   selectedPlayIntentTargetUserIds,
   onTogglePlayIntentTargetUser,
   playIntentSelectionMode,
@@ -73,14 +71,13 @@ export function PlayIntentComposerCard({
 }: {
   activePlayIntent: ActivePlayIntent | null;
   isAdmin: boolean;
-  canPostPlayIntent: boolean;
   playIntentFilteredAudienceMessage: string | null;
   playIntentNotifyScope: PlayIntentNotifyScope;
   onPlayIntentNotifyScopeChange: (scope: PlayIntentNotifyScope) => void;
   playIntentFriendOptions: Array<Pick<DiscoveryPerson, 'id' | 'handle' | 'displayName' | 'avatarUrl'>>;
   playIntentDiscordServerOptions: DiscordServerPreference[];
-  selectedPlayIntentTargetDiscordServerId: string;
-  onPlayIntentTargetDiscordServerChange: (serverId: string) => void;
+  selectedPlayIntentTargetDiscordServerIds: string[];
+  onTogglePlayIntentTargetDiscordServer: (serverId: string) => void;
   selectedPlayIntentTargetUserIds: string[];
   onTogglePlayIntentTargetUser: (userId: string) => void;
   playIntentSelectionMode: PlayIntentSelectionMode;
@@ -140,6 +137,10 @@ export function PlayIntentComposerCard({
         ? 'Schedule call to play'
         : 'Post call to play'
   const saveToSelfButtonLabel = activePlayIntent ? 'Update for me only' : 'Post to me only'
+  const blockingMessageTitle = activePlayIntent
+    ? 'This call to play cannot be updated yet'
+    : 'This call to play cannot be posted yet'
+  const isPrimaryActionBlocked = Boolean(playIntentFilteredAudienceMessage)
   const voiceChannelsByServer = playIntentVoiceChannelOptions.reduce<Array<{
       serverId: string;
       serverName: string;
@@ -161,6 +162,7 @@ export function PlayIntentComposerCard({
       })
       return groups
     }, [])
+  const activeTargetServers = activePlayIntent?.targetServers ?? []
 
   return (
     <>
@@ -176,14 +178,8 @@ export function PlayIntentComposerCard({
         }}
       >
         <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
-          Let others know when you want to play, whether that is now or later. The app only notifies users with the same games in their libraries.
+          Let others with matching games know you want to play, whether that is now or later.
         </Typography>
-
-        {playIntentFilteredAudienceMessage ? (
-          <Card color="warning" variant="soft" sx={{ p: 2 }}>
-            <Typography level="body-sm">{playIntentFilteredAudienceMessage}</Typography>
-          </Card>
-        ) : null}
 
         {activePlayIntent ? (
           <Card color="success" variant="soft" sx={{ p: 2 }}>
@@ -214,15 +210,20 @@ export function PlayIntentComposerCard({
               <Typography level="body-xs" sx={{ color: 'neutral.300' }}>
                 {formatNotifyScopeDescription(activePlayIntent.notifyScope)}
               </Typography>
-              {activePlayIntent.notifyScope === 'specific-discord-server' && activePlayIntent.targetServer ? (
-                <Chip
-                  size="sm"
-                  variant="outlined"
-                  color="neutral"
-                  startDecorator={<Avatar src={activePlayIntent.targetServer.iconUrl ?? undefined} alt={activePlayIntent.targetServer.name} size="sm" variant="soft" />}
-                >
-                  {activePlayIntent.targetServer.name}
-                </Chip>
+              {activePlayIntent.notifyScope === 'specific-discord-server' && activeTargetServers.length > 0 ? (
+                <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+                  {activeTargetServers.map((server) => (
+                    <Chip
+                      key={server.id}
+                      size="sm"
+                      variant="outlined"
+                      color="neutral"
+                      startDecorator={<Avatar src={server.iconUrl ?? undefined} alt={server.name} size="sm" variant="soft" />}
+                    >
+                      {server.name}
+                    </Chip>
+                  ))}
+                </Stack>
               ) : null}
               {activePlayIntent.notifyScope === 'specific-friends' && activePlayIntent.targetedFriends.length > 0 ? (
                 <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
@@ -248,14 +249,8 @@ export function PlayIntentComposerCard({
           </Card>
         ) : null}
 
-        {!canPostPlayIntent ? (
-          <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
-            Add at least one game to your library before posting a call to play.
-          </Typography>
-        ) : null}
-
         <Stack spacing={1}>
-          <Typography level="title-sm">Title</Typography>
+          <Typography level="title-sm">Title (optional)</Typography>
           <Input
             placeholder="Call to play"
             value={playIntentTitle}
@@ -266,9 +261,6 @@ export function PlayIntentComposerCard({
               }
             }}
           />
-          <Typography level="body-xs" sx={{ color: 'neutral.300' }}>
-            Leave this blank to use Call to play.
-          </Typography>
         </Stack>
 
         <Stack spacing={1}>
@@ -280,7 +272,6 @@ export function PlayIntentComposerCard({
                 size="sm"
                 variant={playIntentSelectionMode === selectionMode ? 'solid' : 'outlined'}
                 color={playIntentSelectionMode === selectionMode ? 'primary' : 'neutral'}
-                disabled={!canPostPlayIntent}
                 onClick={() => onPlayIntentSelectionModeChange(selectionMode)}
               >
                 {formatPlayIntentSelectionModeLabel(selectionMode)}
@@ -299,7 +290,6 @@ export function PlayIntentComposerCard({
                   size="sm"
                   variant={selectedPlayIntentGameIds.includes(entry.gameId) ? 'solid' : 'outlined'}
                   color={selectedPlayIntentGameIds.includes(entry.gameId) ? 'primary' : 'neutral'}
-                  disabled={!canPostPlayIntent}
                   onClick={() => onTogglePlayIntentGame(entry.gameId)}
                 >
                   {entry.title}
@@ -365,16 +355,31 @@ export function PlayIntentComposerCard({
           {playIntentNotifyScope === 'specific-discord-server' ? (
             playIntentDiscordServerOptions.length > 0 ? (
               <Stack spacing={1}>
-                <DiscordServerPicker
-                  options={playIntentDiscordServerOptions}
-                  value={selectedPlayIntentTargetDiscordServerId}
-                  placeholder="Pick a Discord server"
-                  onChange={onPlayIntentTargetDiscordServerChange}
-                />
+                <Typography level="body-xs" sx={{ color: 'neutral.300' }}>
+                  Choose which Discord servers should see this call to play.
+                </Typography>
+                <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+                  {playIntentDiscordServerOptions.map((server) => {
+                    const isSelected = selectedPlayIntentTargetDiscordServerIds.includes(server.id)
+
+                    return (
+                      <Button
+                        key={server.id}
+                        size="sm"
+                        variant={isSelected ? 'solid' : 'outlined'}
+                        color={isSelected ? 'primary' : 'neutral'}
+                        startDecorator={<Avatar src={server.iconUrl ?? undefined} alt={server.name} size="sm" variant="soft" />}
+                        onClick={() => onTogglePlayIntentTargetDiscordServer(server.id)}
+                      >
+                        {server.name}
+                      </Button>
+                    )
+                  })}
+                </Stack>
               </Stack>
             ) : (
               <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
-                Select a Discord server in your network settings first to target one server.
+                Select Discord servers in your network settings first to target them here.
               </Typography>
             )
           ) : null}
@@ -484,7 +489,7 @@ export function PlayIntentComposerCard({
         </Stack>
 
         <Stack spacing={1}>
-          <Typography level="title-sm">Note</Typography>
+          <Typography level="title-sm">Note (optional)</Typography>
           <Input
             placeholder="Example: voice chat on, happy to fill support"
             value={playIntentNote}
@@ -517,6 +522,24 @@ export function PlayIntentComposerCard({
             ])}
           </Select>
         </Stack>
+
+        {playIntentFilteredAudienceMessage ? (
+          <Card
+            color="warning"
+            variant="soft"
+            sx={{
+              p: 2,
+              border: '1px solid',
+              borderColor: 'warning.700',
+              boxShadow: '0 12px 24px rgba(114, 67, 13, 0.18)'
+            }}
+          >
+            <Stack spacing={0.75}>
+              <Typography level="title-sm">{blockingMessageTitle}</Typography>
+              <Typography level="body-sm">{playIntentFilteredAudienceMessage}</Typography>
+            </Stack>
+          </Card>
+        ) : null}
       </DialogContent>
       <DashboardModalActionBar
         secondaryAction={isAdmin || activePlayIntent ? (
@@ -525,7 +548,7 @@ export function PlayIntentComposerCard({
               <Button
                 variant="soft"
                 color="primary"
-                disabled={playIntentSaving || !canPostPlayIntent}
+                disabled={playIntentSaving}
                 onClick={() => void onSavePlayIntentToSelf()}
                 sx={{ minHeight: 46 }}
               >
@@ -554,7 +577,7 @@ export function PlayIntentComposerCard({
           <Button
             size="lg"
             color="success"
-            disabled={playIntentSaving || !canPostPlayIntent}
+            disabled={playIntentSaving || isPrimaryActionBlocked}
             onClick={() => void onSavePlayIntent()}
             sx={{
               flex: 1,

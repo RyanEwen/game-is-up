@@ -374,7 +374,9 @@ async function main() {
       headline: 'Co-op Corner only tonight',
       note: 'Keeping this one to the Co-op Corner regulars.',
       scope: PlayIntentScope.SPECIFIC_DISCORD_SERVER,
-      targetDiscordServerId: coopCorner.id,
+      targetDiscordServers: {
+        create: [{ serverId: coopCorner.id }]
+      },
       windowStartsAt: hoursFromNow(2),
       windowEndsAt: hoursFromNow(6),
       expiresAt: hoursFromNow(6),

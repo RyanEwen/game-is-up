@@ -544,9 +544,19 @@ export async function getDiscordMembershipServerIds(userId: string): Promise<str
 }
 
 export async function getTargetDiscordServerAudienceUserIds(userId: string, serverId: string): Promise<string[]> {
+  return getTargetDiscordServersAudienceUserIds(userId, [serverId])
+}
+
+export async function getTargetDiscordServersAudienceUserIds(userId: string, serverIds: string[]): Promise<string[]> {
+  if (serverIds.length === 0) {
+    return []
+  }
+
   const memberships = await prisma.discordServerMembership.findMany({
     where: {
-      serverId,
+      serverId: {
+        in: [...new Set(serverIds)]
+      },
       userId: {
         not: userId
       }

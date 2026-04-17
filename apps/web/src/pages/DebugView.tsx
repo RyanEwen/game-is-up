@@ -774,7 +774,7 @@ function CtpTableSection({
             <Option value="network">Network</Option>
             <Option value="friends-only">Friends only</Option>
             <Option value="specific-friends">Specific friends</Option>
-            <Option value="specific-discord-server">Specific Discord server</Option>
+            <Option value="specific-discord-server">Specific Discord servers</Option>
           </Select>
         </Stack>
 

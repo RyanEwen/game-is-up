@@ -217,18 +217,35 @@ export async function ensureDevelopmentSamplePlayIntentTargets(user: { id: strin
   const selectedRealBotVisibleServerIds = membershipServerIds.filter((serverId) => botPresentServerIds.has(serverId) && selectedServerIdSet.has(serverId))
   const fallbackBotVisibleServerIds = membershipServerIds.filter((serverId) => botPresentServerIds.has(serverId))
   const primaryTargetServerId = selectedRealBotVisibleServerIds[0] ?? fallbackBotVisibleServerIds[0] ?? null
-
-  if (primaryTargetServerId) {
-    await prisma.playIntent.updateMany({
-      where: {
-        userId: {
-          in: sampleUserIds
-        },
-        scope: PlayIntentScope.SPECIFIC_DISCORD_SERVER
+  const specificDiscordServerIntents = await prisma.playIntent.findMany({
+    where: {
+      userId: {
+        in: sampleUserIds
       },
-      data: {
-        targetDiscordServerId: primaryTargetServerId
+      scope: PlayIntentScope.SPECIFIC_DISCORD_SERVER
+    },
+    select: {
+      id: true
+    }
+  })
+
+  if (primaryTargetServerId && specificDiscordServerIntents.length > 0) {
+    const specificDiscordServerIntentIds = specificDiscordServerIntents.map((intent) => intent.id)
+
+    await prisma.playIntentTargetDiscordServer.deleteMany({
+      where: {
+        playIntentId: {
+          in: specificDiscordServerIntentIds
+        }
       }
+    })
+
+    await prisma.playIntentTargetDiscordServer.createMany({
+      data: specificDiscordServerIntentIds.map((playIntentId) => ({
+        playIntentId,
+        serverId: primaryTargetServerId
+      })),
+      skipDuplicates: true
     })
   }
 

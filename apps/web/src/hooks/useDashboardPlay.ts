@@ -58,8 +58,8 @@ export type DashboardPlayViewProps = {
   onPlayIntentNotifyScopeChange: (scope: PlayIntentNotifyScope) => void;
   playIntentFriendOptions: Array<Pick<DiscoveryPerson, 'id' | 'handle' | 'displayName' | 'avatarUrl'>>;
   playIntentDiscordServerOptions: DiscordServerPreference[];
-  selectedPlayIntentTargetDiscordServerId: string;
-  onPlayIntentTargetDiscordServerChange: (serverId: string) => void;
+  selectedPlayIntentTargetDiscordServerIds: string[];
+  onTogglePlayIntentTargetDiscordServer: (serverId: string) => void;
   selectedPlayIntentTargetUserIds: string[];
   onTogglePlayIntentTargetUser: (userId: string) => void;
   playIntentSelectionMode: PlayIntentSelectionMode;
@@ -150,7 +150,7 @@ export function useDashboardPlay({
   const [playIntentVoiceChannelName, setPlayIntentVoiceChannelName] = useState('')
   const [playIntentVoiceChannelOptions, setPlayIntentVoiceChannelOptions] = useState<DiscordVoiceChannel[]>([])
   const [selectedPlayIntentGameIds, setSelectedPlayIntentGameIds] = useState<string[]>([])
-  const [selectedPlayIntentTargetDiscordServerId, setSelectedPlayIntentTargetDiscordServerId] = useState('')
+  const [selectedPlayIntentTargetDiscordServerIds, setSelectedPlayIntentTargetDiscordServerIds] = useState<string[]>([])
   const [selectedPlayIntentTargetUserIds, setSelectedPlayIntentTargetUserIds] = useState<string[]>([])
   const [mutedPlayIntentUserIds, setMutedPlayIntentUserIds] = useState<Set<string>>(new Set())
   const [playIntentResponsePendingIntentId, setPlayIntentResponsePendingIntentId] = useState<string | null>(null)
@@ -193,24 +193,24 @@ export function useDashboardPlay({
         ? 'the friends you selected'
         : 'that Discord server'
   const playIntentFilteredAudienceMessage = !canPostPlayIntent
-    ? null
+    ? 'You must have at least one game in your library before you can post a call to play.'
     : playIntentNotifyScope === 'specific-friends' && selectedPlayIntentTargetUserIds.length === 0
-      ? 'Choose at least one friend before posting a specific-friends call to play. Without a selection, nobody will receive it.'
-      : playIntentNotifyScope === 'specific-discord-server' && !selectedPlayIntentTargetDiscordServerId
-        ? 'Choose one Discord server before posting a server-targeted call to play.'
+      ? 'You must choose at least one friend before posting a friend-specific call to play.'
+      : playIntentNotifyScope === 'specific-discord-server' && selectedPlayIntentTargetDiscordServerIds.length === 0
+        ? 'You must choose at least one Discord server before posting a server-specific call to play.'
       : playIntentSelectionMode === 'subset' && selectedPlayIntentGameIds.length === 0
-        ? 'Pick at least one game before posting a selected-games call to play. Without a selection, nobody will receive it.'
+        ? 'You must choose at least one game before posting a game-specific call to play.'
         : playIntentNotifyScope === 'specific-discord-server'
           ? null
         : currentRecipientCount > 0
           ? null
           : playIntentSelectionMode === 'subset' && currentScopeLibraryRecipients.length > 0
-            ? 'With these game choices, nobody in your network matches right now. Pick different games or switch back to any game in your library.'
+            ? 'With this game selection, nobody in your network matches. Choose different games.'
             : playIntentNotifyScope === 'specific-friends' && friendRecipientsForCurrentSelection.length > 0
-              ? 'The friends you selected are not a match for this call to play right now. Pick different friends or widen the audience.'
+              ? 'None of the friends you selected are a match for the selected games. Choose different games, friends or widen the audience.'
               : playIntentNotifyScope === 'friends-only' && networkRecipientsForCurrentSelection.length > 0
-                ? 'With friends-only selected, nobody in your network is a match right now. Switch back to your network or add friends who have games in their library that match yours.'
-                : `No one in ${currentAudienceLabel} can currently receive this call to play.`
+                ? 'None of your friends are a match right now for the selected games. Choose different games, friends, or widen the audience.'
+                : `No one in ${currentAudienceLabel} has matching games right now. Choose different games, friends, or widen the audience.`
   const now = Date.now()
   const parsedPlayIntentStartAt = parseLocalDateTimeInput(playIntentStartAtInput)
   const parsedPlayIntentCustomDurationMinutes = parsePlayIntentDurationMinutes(playIntentCustomDurationInput)
@@ -263,13 +263,13 @@ export function useDashboardPlay({
   const playIntentStartHelperText = playIntentStartValidationMessage
     ? playIntentStartValidationMessage
     : playIntentStartMode === 'scheduled' && resolvedPlayIntentStartAt
-      ? `Starts ${resolvedPlayIntentStartAt.toLocaleString([], {
+      ? `Matches can see this call to play as soon as you post it. We'll ask you to confirm it at ${resolvedPlayIntentStartAt.toLocaleString([], {
           month: 'short',
           day: 'numeric',
           hour: 'numeric',
           minute: '2-digit'
-        })}.`
-      : 'Friends can see this call to play as soon as you post it.'
+        })}, then remind matches once you confirm.`
+      : 'Matches can see this call to play as soon as you post it.'
   const playIntentStartHasError = playIntentStartValidationMessage != null
   const playIntentTimingHelperText = playIntentTimingValidationMessage
     ? playIntentTimingValidationMessage
@@ -385,7 +385,7 @@ export function useDashboardPlay({
       setPlayIntentVoiceChannelId('')
       setPlayIntentVoiceChannelName('')
       setSelectedPlayIntentGameIds([])
-      setSelectedPlayIntentTargetDiscordServerId('')
+      setSelectedPlayIntentTargetDiscordServerIds([])
       setSelectedPlayIntentTargetUserIds([])
       return
     }
@@ -413,7 +413,7 @@ export function useDashboardPlay({
     setPlayIntentVoiceChannelId(activePlayIntent.voiceChannelId ?? '')
     setPlayIntentVoiceChannelName(activePlayIntent.voiceChannelName ?? '')
     setSelectedPlayIntentGameIds(activePlayIntent.games.map((game) => game.id))
-    setSelectedPlayIntentTargetDiscordServerId(activePlayIntent.targetServer?.id ?? '')
+    setSelectedPlayIntentTargetDiscordServerIds(activePlayIntent.targetServers.map((server) => server.id))
     setSelectedPlayIntentTargetUserIds(activePlayIntent.targetedFriends.map((friend) => friend.id))
   }, [activePlayIntent])
 
@@ -441,7 +441,7 @@ export function useDashboardPlay({
     if (!canPostPlayIntent) {
       setPlayIntentNotice({
         tone: 'danger',
-        message: 'Add at least one game to your library before posting a call to play.'
+        message: 'You must have at least one game in your library before you can post a call to play.'
       })
       return
     }
@@ -449,7 +449,7 @@ export function useDashboardPlay({
     if (playIntentSelectionMode === 'subset' && selectedPlayIntentGameIds.length === 0) {
       setPlayIntentNotice({
         tone: 'danger',
-        message: 'Pick at least one game before posting a selected-games call to play.'
+        message: 'You must choose at least one game before posting a game-specific call to play.'
       })
       return
     }
@@ -457,15 +457,15 @@ export function useDashboardPlay({
     if (playIntentNotifyScope === 'specific-friends' && selectedPlayIntentTargetUserIds.length === 0) {
       setPlayIntentNotice({
         tone: 'danger',
-        message: 'Choose at least one friend before posting a specific-friends call to play.'
+        message: 'You must choose at least one friend before posting a friend-specific call to play.'
       })
       return
     }
 
-    if (playIntentNotifyScope === 'specific-discord-server' && !selectedPlayIntentTargetDiscordServerId) {
+    if (playIntentNotifyScope === 'specific-discord-server' && selectedPlayIntentTargetDiscordServerIds.length === 0) {
       setPlayIntentNotice({
         tone: 'danger',
-        message: 'Choose one Discord server before posting a server-targeted call to play.'
+        message: 'You must choose at least one Discord server before posting a server-specific call to play.'
       })
       return
     }
@@ -523,9 +523,9 @@ export function useDashboardPlay({
           voiceChannelName: playIntentVoiceChannelName.trim() || undefined,
           gameIds: playIntentSelectionMode === 'subset' ? selectedPlayIntentGameIds : [],
           targetUserIds: playIntentNotifyScope === 'specific-friends' ? selectedPlayIntentTargetUserIds : [],
-          targetDiscordServerId: playIntentNotifyScope === 'specific-discord-server'
-            ? selectedPlayIntentTargetDiscordServerId
-            : undefined
+          targetDiscordServerIds: playIntentNotifyScope === 'specific-discord-server'
+            ? selectedPlayIntentTargetDiscordServerIds
+            : []
         })
       })
 
@@ -591,7 +591,7 @@ export function useDashboardPlay({
     parsedPlayIntentStartAt,
     resolvedPlayIntentDurationMinutes,
     selectedPlayIntentGameIds,
-    selectedPlayIntentTargetDiscordServerId,
+    selectedPlayIntentTargetDiscordServerIds,
     selectedPlayIntentTargetUserIds,
     setActivePlayIntent,
     setPlayIntentNotice
@@ -646,8 +646,12 @@ export function useDashboardPlay({
     setPlayIntentNotice(null)
   }, [setPlayIntentNotice])
 
-  const handlePlayIntentTargetDiscordServerChange = useCallback((serverId: string) => {
-    setSelectedPlayIntentTargetDiscordServerId(serverId)
+  const handleTogglePlayIntentTargetDiscordServer = useCallback((serverId: string) => {
+    setSelectedPlayIntentTargetDiscordServerIds((current) =>
+      current.includes(serverId)
+        ? current.filter((entry) => entry !== serverId)
+        : [...current, serverId]
+    )
     setPlayIntentNotice(null)
   }, [setPlayIntentNotice])
 
@@ -868,8 +872,8 @@ export function useDashboardPlay({
     onPlayIntentNotifyScopeChange: handlePlayIntentNotifyScopeChange,
     playIntentFriendOptions,
     playIntentDiscordServerOptions,
-    selectedPlayIntentTargetDiscordServerId,
-    onPlayIntentTargetDiscordServerChange: handlePlayIntentTargetDiscordServerChange,
+    selectedPlayIntentTargetDiscordServerIds,
+    onTogglePlayIntentTargetDiscordServer: handleTogglePlayIntentTargetDiscordServer,
     selectedPlayIntentTargetUserIds,
     onTogglePlayIntentTargetUser: handleTogglePlayIntentTargetUser,
     playIntentSelectionMode,

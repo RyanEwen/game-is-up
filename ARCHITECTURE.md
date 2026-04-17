@@ -47,7 +47,7 @@ Play intent is represented as a call-to-play aggregate rather than a single game
 
 This keeps the schema aligned with the product requirement that users can say “I’m up for anything tonight” without creating one event per game.
 
-Play intents can notify either explicit friends only, a specific hand-picked set of friends, the broader discovery audience formed by opted-in shared Discord servers plus explicit friends, or one specific opted-in Discord server that narrows that broader discovery audience down to a single shared server.
+Play intents can notify either explicit friends only, a specific hand-picked set of friends, the broader discovery audience formed by opted-in shared Discord servers plus explicit friends, or one or more specific opted-in Discord servers that narrow that broader discovery audience down to selected shared servers.
 
 The scheduling model uses an explicit start and end window so the same aggregate supports both live-now calls to play and scheduled future sessions without a second entity type.
 

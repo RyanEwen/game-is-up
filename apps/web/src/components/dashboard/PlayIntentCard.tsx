@@ -154,26 +154,30 @@ export function PlayIntentCard({
               {intent.joinCount} {intent.joinCount === 1 ? 'person interested' : 'people interested'}
             </Chip>
           ) : null}
-          <Button
-            variant={viewerResponseChoice === 'join' ? 'solid' : 'outlined'}
-            color={viewerResponseChoice === 'join' ? 'primary' : 'neutral'}
-            size="sm"
-            disabled={!canAddToLibrary || responsePending}
-            onClick={() => void onRespondToIntent(intent.id, 'join')}
-            sx={actionButtonSx}
-          >
-            I'm interested
-          </Button>
-          <Button
-            variant={viewerResponseChoice === 'decline' ? 'soft' : 'outlined'}
-            color="neutral"
-            size="sm"
-            disabled={!canAddToLibrary || responsePending}
-            onClick={() => void onRespondToIntent(intent.id, 'decline')}
-            sx={actionButtonSx}
-          >
-            Pass
-          </Button>
+          {viewerResponseChoice !== 'join' ? (
+            <Button
+              variant="outlined"
+              color="neutral"
+              size="sm"
+              disabled={!canAddToLibrary || responsePending}
+              onClick={() => void onRespondToIntent(intent.id, 'join')}
+              sx={actionButtonSx}
+            >
+              I'm interested
+            </Button>
+          ) : null}
+          {viewerResponseChoice !== 'decline' ? (
+            <Button
+              variant="outlined"
+              color="neutral"
+              size="sm"
+              disabled={!canAddToLibrary || responsePending}
+              onClick={() => void onRespondToIntent(intent.id, 'decline')}
+              sx={actionButtonSx}
+            >
+              Pass
+            </Button>
+          ) : null}
           <Button
             variant={isMuted ? 'soft' : 'outlined'}
             color="neutral"
@@ -221,9 +225,9 @@ export function PlayIntentCard({
         </Typography>
       ) : null}
 
-      {intent.notifyScope === 'specific-discord-server' && intent.targetServer ? (
+      {intent.notifyScope === 'specific-discord-server' && intent.targetServers.length > 0 ? (
         <Typography level="body-sm" sx={{ mb: 1.5, color: 'neutral.300' }}>
-          Target Discord server: {intent.targetServer.name}
+          Target Discord servers: {intent.targetServers.map((server) => server.name).join(', ')}
         </Typography>
       ) : null}
 

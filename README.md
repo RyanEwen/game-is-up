@@ -233,7 +233,7 @@ Calls to play can also control who sees them:
 - explicit friends only
 - the broader discovery audience formed by opted-in shared Discord servers, plus friends
 - a specific hand-picked set of friends
-- one specific opted-in Discord server within that broader discovery audience
+- one or more specific opted-in Discord servers within that broader discovery audience
 
 Calls to play can start immediately or be scheduled for later, and they remain visible until the configured end time.
 

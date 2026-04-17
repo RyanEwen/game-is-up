@@ -219,7 +219,7 @@ export const playIntentPreviewSchema = z.object({
   user: playIntentPreviewUserSchema,
   selectionMode: playIntentSelectionModeSchema,
   notifyScope: playIntentNotifyScopeSchema,
-  targetServer: playIntentTargetDiscordServerSchema.nullable().default(null),
+  targetServers: z.array(playIntentTargetDiscordServerSchema).default([]),
   platforms: z.array(z.string()).min(1),
   games: z.array(playIntentGameSchema),
   note: z.string().max(140),
@@ -241,7 +241,7 @@ export const activePlayIntentSchema = z.object({
   title: z.string().min(1),
   selectionMode: playIntentSelectionModeSchema,
   notifyScope: playIntentNotifyScopeSchema,
-  targetServer: playIntentTargetDiscordServerSchema.nullable().default(null),
+  targetServers: z.array(playIntentTargetDiscordServerSchema).default([]),
   targetedFriends: z.array(playIntentPreviewUserSchema),
   platforms: z.array(platformLabelSchema).min(1),
   games: z.array(playIntentGameSchema),
@@ -283,7 +283,7 @@ export const upsertPlayIntentRequestSchema = z.object({
   endAt: z.string().datetime().optional(),
   gameIds: z.array(z.string().uuid()).default([]),
   targetUserIds: z.array(z.string().uuid()).max(25).default([]),
-  targetDiscordServerId: z.string().trim().min(1).max(64).optional()
+  targetDiscordServerIds: z.array(z.string().trim().min(1).max(64)).max(25).default([])
 }).superRefine((value, context) => {
   if ((value.durationMinutes == null) === (value.endAt == null)) {
     context.addIssue({
@@ -309,19 +309,19 @@ export const upsertPlayIntentRequestSchema = z.object({
     })
   }
 
-  if (value.notifyScope === 'specific-discord-server' && !value.targetDiscordServerId) {
+  if (value.notifyScope === 'specific-discord-server' && value.targetDiscordServerIds.length === 0) {
     context.addIssue({
       code: z.ZodIssueCode.custom,
-      message: 'Choose a Discord server for a specific Discord server call to play.',
-      path: ['targetDiscordServerId']
+      message: 'Choose at least one Discord server for a specific Discord server call to play.',
+      path: ['targetDiscordServerIds']
     })
   }
 
-  if (value.notifyScope !== 'specific-discord-server' && value.targetDiscordServerId) {
+  if (value.notifyScope !== 'specific-discord-server' && value.targetDiscordServerIds.length > 0) {
     context.addIssue({
       code: z.ZodIssueCode.custom,
-      message: 'A target Discord server is only valid for the specific Discord server audience.',
-      path: ['targetDiscordServerId']
+      message: 'Target Discord servers are only valid for the specific Discord server audience.',
+      path: ['targetDiscordServerIds']
     })
   }
 })
