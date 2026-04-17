@@ -92,7 +92,7 @@ export function buildDiscordBulletSection(label: string, items: string[], resolv
 
 export function buildDiscordNotice(title: string, sections: Array<string | null>, subtext?: string | null) {
   return [
-    `## ${title}`,
+    `### ${title}`,
     ...sections,
     subtext ? buildDiscordSubtext(subtext) : null
   ].filter((part): part is string => Boolean(part)).join('\n\n')

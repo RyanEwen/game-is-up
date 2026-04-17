@@ -329,9 +329,55 @@ function buildDiscordEmbedFields(fields: DiscordEmbedFieldInput[]) {
     return [{
       name: field.name,
       value: sanitizeDiscordEmbedValue(trimmedValue),
-      inline: field.inline ?? false
+      inline: false
     }]
   })
+}
+
+function formatPlayIntentEmbedFieldName(label: string) {
+  switch (label.trim().toLowerCase()) {
+    case 'creator':
+      return '👤 Creator'
+    case 'title':
+      return '📝 Title'
+    case 'games':
+      return '🎯 Games'
+    case 'when':
+      return '⏰ When'
+    case 'audience':
+      return '👥 Audience'
+    case 'window':
+      return '🗓 Window'
+    case 'voice channel':
+      return '🎙 Voice Channel'
+    case 'interest':
+      return '👥 Interest'
+    case 'status':
+      return '📡 Status'
+    case 'note':
+      return '🗒 Note'
+    case 'interested players':
+    case 'confirmed interested':
+      return '🙋 Interested Players'
+    case 'responses':
+      return '🧾 Responses'
+    case 'reach':
+      return '📬 Reach'
+    default:
+      return label.trim()
+  }
+}
+
+export function buildPlayIntentDirectMessageHeading(
+  title: string,
+  creatorDiscordUserId?: string | null,
+  creatorDisplayName?: string | null
+) {
+  const titleWithCreatorMention = creatorDisplayName
+    ? replaceDisplayNameWithMention(title, creatorDisplayName, creatorDiscordUserId)
+    : title
+
+  return `### 🎮 ${titleWithCreatorMention}`
 }
 
 function extractLabeledFields(text: string) {
@@ -361,9 +407,9 @@ export function buildPlayIntentDirectMessageEmbeds(
   joinCount?: number,
   interestedUserLabels?: string[]
 ) {
-  const titleWithCreatorMention = creatorDisplayName
-    ? replaceDisplayNameWithMention(title, creatorDisplayName, creatorDiscordUserId)
-    : title
+  const creatorLabel = creatorDisplayName
+    ? buildDiscordUserLabel(creatorDisplayName, creatorDiscordUserId)
+    : null
   const replacedBody = creatorDisplayName
     ? replaceDisplayNameWithMention(body, creatorDisplayName, creatorDiscordUserId)
     : body
@@ -380,20 +426,24 @@ export function buildPlayIntentDirectMessageEmbeds(
     : null
   const embed = new EmbedBuilder()
     .setColor(dmEmbedColors.info)
-    .setTitle(titleWithCreatorMention)
     .addFields(buildDiscordEmbedFields([
+      {
+        name: formatPlayIntentEmbedFieldName('Creator'),
+        value: creatorLabel,
+        inline: true
+      },
       ...detailFields.map((field) => ({
-        name: field.label,
+        name: formatPlayIntentEmbedFieldName(field.label),
         value: field.value,
         inline: field.label.trim().toLowerCase() !== 'games'
       })),
       {
-        name: 'Voice Channel',
+        name: formatPlayIntentEmbedFieldName('Voice Channel'),
         value: voiceChannelValue,
         inline: true
       },
       {
-        name: 'Interest',
+        name: formatPlayIntentEmbedFieldName('Interest'),
         value: [
           joinCount && joinCount > 0
             ? `${joinCount} ${joinCount === 1 ? 'person is' : 'people are'} showing interest.`
@@ -418,11 +468,11 @@ function buildScheduledCheckInEmbeds(creatorLabel: string) {
   return [
     new EmbedBuilder()
       .setColor(dmEmbedColors.warning)
-      .setTitle('Go-Time Check-In')
+      .setTitle('⏰ Go-Time Check-In')
       .setDescription(`Your scheduled call to play is starting now, ${creatorLabel}.`)
       .addFields(buildDiscordEmbedFields([
         {
-          name: 'Status',
+          name: formatPlayIntentEmbedFieldName('Status'),
           value: 'Confirm that you are still on, or close the call if plans changed.',
           inline: false
         }
@@ -435,10 +485,10 @@ function buildArchivedPlayIntentEmbeds(body: string) {
   return [
     new EmbedBuilder()
       .setColor(dmEmbedColors.danger)
-      .setTitle('Call to Play Ended')
+      .setTitle('🛑 Call to Play Ended')
       .addFields(buildDiscordEmbedFields(
         extractLabeledFields(body).map((field) => ({
-          name: field.label,
+          name: formatPlayIntentEmbedFieldName(field.label),
           value: field.value,
           inline: field.label.trim().toLowerCase() !== 'games'
         }))
@@ -492,7 +542,7 @@ export function buildPlayIntentDirectMessage(
     : null
 
   return [
-    `## 🎮 ${titleWithCreatorMention}`,
+    buildPlayIntentDirectMessageHeading(title, creatorDiscordUserId, creatorDisplayName),
     postedByQuote,
     ...formatLabeledDirectMessageLines(replacedBody),
     ...(voiceChannelValue ? [formatDirectMessageField('Voice channel', voiceChannelValue)] : []),
@@ -620,7 +670,11 @@ export function buildNotificationDirectMessagePreview(options: {
     }
 
     return {
-      content: '',
+      content: buildPlayIntentDirectMessageHeading(
+        options.title,
+        options.creatorDiscordUserId,
+        options.creatorDisplayName
+      ),
       embeds: buildPlayIntentDirectMessageEmbeds(
         options.title,
         options.body,
@@ -661,8 +715,12 @@ function buildCreatorPlayIntentSummaryComponents(playIntentId: string, isActive:
   return appendOpenInAppButton([buildCreatorSummaryActionRow(playIntentId)], buildPlayUrl())
 }
 
+function resolveSummaryTimezoneId(timezoneId: string) {
+  return normalizeTimezoneId(timezoneId) ?? 'Etc/UTC'
+}
+
 function formatSummaryDateTime(date: Date, timezoneId: string) {
-  const normalizedTimezoneId = normalizeTimezoneId(timezoneId) ?? 'Etc/UTC'
+  const normalizedTimezoneId = resolveSummaryTimezoneId(timezoneId)
 
   return new Intl.DateTimeFormat('en-US', {
     timeZone: normalizedTimezoneId,
@@ -672,6 +730,46 @@ function formatSummaryDateTime(date: Date, timezoneId: string) {
     minute: '2-digit',
     timeZoneName: 'short'
   }).format(date)
+}
+
+function formatSummaryTime(date: Date, timezoneId: string) {
+  const normalizedTimezoneId = resolveSummaryTimezoneId(timezoneId)
+
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone: normalizedTimezoneId,
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZoneName: 'short'
+  }).format(date)
+}
+
+function buildSummaryDayKey(date: Date, timezoneId: string) {
+  const normalizedTimezoneId = resolveSummaryTimezoneId(timezoneId)
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: normalizedTimezoneId,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).formatToParts(date)
+
+  const month = parts.find((part) => part.type === 'month')?.value ?? '00'
+  const day = parts.find((part) => part.type === 'day')?.value ?? '00'
+  const year = parts.find((part) => part.type === 'year')?.value ?? '0000'
+
+  return `${year}-${month}-${day}`
+}
+
+function formatSummaryWindow(startsAt: Date, endsAt: Date, timezoneId: string) {
+  const startsAtLabel = formatSummaryDateTime(startsAt, timezoneId)
+  const endsAtLabel = buildSummaryDayKey(startsAt, timezoneId) === buildSummaryDayKey(endsAt, timezoneId)
+    ? formatSummaryTime(endsAt, timezoneId)
+    : formatSummaryDateTime(endsAt, timezoneId)
+
+  return {
+    startsAtLabel,
+    endsAtLabel,
+    windowLabel: `${startsAtLabel} to ${endsAtLabel}`
+  }
 }
 
 function summarizeCreatorAudience(snapshot: CreatorPlayIntentSummarySnapshot) {
@@ -819,8 +917,11 @@ function buildCreatorPlayIntentSummaryEmbeds(
   currentTime = new Date()
 ) {
   const stats = getCreatorSummaryRecipientStats(snapshot)
-  const startsAtLabel = formatSummaryDateTime(snapshot.windowStartsAt, snapshot.user.timezoneId)
-  const endsAtLabel = formatSummaryDateTime(snapshot.windowEndsAt, snapshot.user.timezoneId)
+  const { startsAtLabel, windowLabel } = formatSummaryWindow(
+    snapshot.windowStartsAt,
+    snapshot.windowEndsAt,
+    snapshot.user.timezoneId
+  )
   const statusLabel = getCreatorSummaryStatus(snapshot, currentTime).replace(/^Status:\s*/, '')
   const statusColor = statusLabel === 'Closed'
     ? dmEmbedColors.danger
@@ -833,55 +934,55 @@ function buildCreatorPlayIntentSummaryEmbeds(
   return [
     new EmbedBuilder()
       .setColor(statusColor)
-      .setTitle(`Your Call to Play for ${startsAtLabel}`)
+      .setTitle(`🎮 Your Call to Play for ${startsAtLabel}`)
       .setDescription(snapshot.headline)
       .addFields(buildDiscordEmbedFields([
         {
-          name: 'Status',
+          name: formatPlayIntentEmbedFieldName('Status'),
           value: statusLabel,
           inline: true
         },
         {
-          name: 'Window',
-          value: `${startsAtLabel} to ${endsAtLabel}`,
+          name: formatPlayIntentEmbedFieldName('Window'),
+          value: windowLabel,
           inline: true
         },
         {
-          name: 'Games',
+          name: formatPlayIntentEmbedFieldName('Games'),
           value: summarizeCreatorGames(snapshot).replace(/^Games:\s*/, ''),
           inline: false
         },
         {
-          name: 'Audience',
+          name: formatPlayIntentEmbedFieldName('Audience'),
           value: summarizeCreatorAudience(snapshot).replace(/^Audience:\s*/, ''),
           inline: false
         },
         {
-          name: 'Voice Channel',
+          name: formatPlayIntentEmbedFieldName('Voice Channel'),
           value: snapshot.voiceChannelName,
           inline: true
         },
         {
-          name: 'Interested Players',
+          name: formatPlayIntentEmbedFieldName('Interested Players'),
           value: stats.interestedUserLabels.length > 0
             ? formatInterestedUserLabelSummary(stats.interestedUserLabels)
             : 'No one yet.',
           inline: false
         },
         {
-          name: 'Responses',
+          name: formatPlayIntentEmbedFieldName('Responses'),
           value: `Interested: ${stats.interestedCount}\nPassed: ${stats.passedCount}\nWaiting: ${stats.waitingCount}`,
           inline: true
         },
         {
-          name: 'Reach',
+          name: formatPlayIntentEmbedFieldName('Reach'),
           value: stats.matchedCount > 0
             ? `${stats.deliveredCount} of ${stats.matchedCount} matched players received a Discord DM.`
             : 'No matching players were found yet.',
           inline: true
         },
         {
-          name: 'Note',
+          name: formatPlayIntentEmbedFieldName('Note'),
           value: snapshot.note,
           inline: false
         }
@@ -1178,10 +1279,10 @@ function buildExpiredMessage(reason: string) {
 
 function buildJoinAcceptedMessage(creatorLabel: string) {
   return buildDirectMessageNotice(
-    '✅ You Are Marked Interested',
+    '✅ You\'re In',
     [
-      formatDirectMessageField('Status', `I marked you as interested in ${creatorLabel}'s call to play.`),
-      '> They have been notified.'
+      formatDirectMessageField('Status', 'You are marked as interested.'),
+      `> ${creatorLabel} has been notified.`
     ]
   )
 }
@@ -1360,12 +1461,10 @@ function buildCreatorJoinNotification(notification: {
   recipientDisplayName: string;
   gameTitle: string | null;
 }) {
-  const title = notification.gameTitle
-    ? `${notification.recipientDisplayName} is interested in ${notification.gameTitle}`
-    : `${notification.recipientDisplayName} is interested in your call to play`
+  const title = 'Interest update'
   const body = notification.gameTitle
-    ? `${notification.recipientDisplayName} marked themselves as interested in your ${notification.gameTitle} call to play.`
-    : `${notification.recipientDisplayName} marked themselves as interested in your call to play.`
+    ? `${notification.recipientDisplayName} is interested in ${notification.gameTitle}.`
+    : `${notification.recipientDisplayName} is interested in your call to play.`
 
   return {
     title,
@@ -1464,32 +1563,30 @@ async function applyRecipientResponseToPlayIntentNotification(options: {
         }
       })
 
-  if (previousChoice !== NotificationResponseChoice.JOIN) {
-      if (creatorDiscordUserId) {
-        const dmResult = (await sendDiscordDirectMessages([
-          {
-            discordUserId: creatorDiscordUserId,
-            content: [`**${joinResult.title}**`, joinResult.body].join('\n\n'),
-            components: [buildLinkRow()]
-          }
-        ]))[0]
-
-        if (dmResult?.status === 'sent' && !dmResult.emulated) {
-          await prisma.notification.update({
-            where: {
-              id: joinResult.id
-            },
-            data: {
-              deliveredAt: new Date(),
-              discordDmChannelId: dmResult.channelId,
-              discordDmMessageId: dmResult.messageId
-            }
-          })
-        }
-      }
-  }
-
   await syncCreatorPlayIntentSummaryMessages([playIntent.id])
+
+  if (previousChoice !== NotificationResponseChoice.JOIN && creatorDiscordUserId) {
+    const dmResult = (await sendDiscordDirectMessages([
+      {
+        discordUserId: creatorDiscordUserId,
+        content: [`**${joinResult.title}**`, joinResult.body].join('\n\n'),
+        components: [buildLinkRow()]
+      }
+    ]))[0]
+
+    if (dmResult?.status === 'sent' && !dmResult.emulated) {
+      await prisma.notification.update({
+        where: {
+          id: joinResult.id
+        },
+        data: {
+          deliveredAt: new Date(),
+          discordDmChannelId: dmResult.channelId,
+          discordDmMessageId: dmResult.messageId
+        }
+      })
+    }
+  }
 
   return {
     content: previousChoice === NotificationResponseChoice.DECLINE
@@ -2119,7 +2216,11 @@ export async function handleScheduledPlayIntentCheckInInteraction(interaction: B
       return [{
         notificationId: createdNotification.id,
         discordUserId,
-        content: '',
+        content: buildPlayIntentDirectMessageHeading(
+          createdNotification.title,
+          creatorDiscordUserId,
+          playIntent.user.displayName
+        ),
         embeds: buildPlayIntentDirectMessageEmbeds(
           createdNotification.title,
           createdNotification.body,

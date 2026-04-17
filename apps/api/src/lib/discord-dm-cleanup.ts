@@ -96,8 +96,19 @@ function buildArchivedPlayIntentEmbeds(summaryBody: string) {
         return []
       }
 
+      const label = labeledMatch[1].trim()
+      const emojiLabel = label.toLowerCase() === 'creator'
+        ? '👤 Creator'
+        : label.toLowerCase() === 'games'
+          ? '🎯 Games'
+          : label.toLowerCase() === 'when'
+            ? '⏰ When'
+            : label.toLowerCase() === 'status'
+              ? '📡 Status'
+              : label
+
       return [{
-        name: labeledMatch[1].trim(),
+        name: emojiLabel,
         value: labeledMatch[2].trim(),
         inline: labeledMatch[1].trim().toLowerCase() !== 'games'
       }]
@@ -106,7 +117,7 @@ function buildArchivedPlayIntentEmbeds(summaryBody: string) {
   return [
     new EmbedBuilder()
       .setColor(0xef4444)
-      .setTitle('Call to Play Ended')
+      .setTitle('🛑 Call to Play Ended')
       .addFields(fields)
       .setFooter({ text: 'This call to play is no longer active.' })
   ]

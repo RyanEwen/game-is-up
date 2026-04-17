@@ -24,6 +24,7 @@ import { sendDiscordDirectMessages } from './discord-bot-runtime.js'
 import { toClientGameCoverUrl, toClientAvatarUrl } from './game-media.js'
 import { getInterestedUsersByPlayIntentId } from './play-intent-interested-users.js'
 import {
+  buildPlayIntentDirectMessageHeading,
   buildPlayIntentDirectMessageEmbeds,
   buildPlayIntentNotificationComponents,
   expirePendingPlayIntentNotifications,
@@ -1193,7 +1194,11 @@ export async function upsertCurrentPlayIntent(
         return [{
           notificationId: notification.id,
           discordUserId,
-          content: '',
+          content: buildPlayIntentDirectMessageHeading(
+            notification.title,
+            creatorDiscordUserId,
+            sender.displayName
+          ),
           embeds: [
             ...buildPlayIntentDirectMessageEmbeds(
               notification.title,

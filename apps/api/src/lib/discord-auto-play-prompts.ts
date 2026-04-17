@@ -86,9 +86,28 @@ function buildPromptEmbedFields(fields: Array<{ name: string; value: string | nu
     return [{
       name: field.name,
       value: trimmedValue.slice(0, 1024),
-      inline: field.inline ?? false
+      inline: false
     }]
   })
+}
+
+function formatPromptEmbedFieldName(label: string) {
+  switch (label.trim().toLowerCase()) {
+    case 'game':
+      return '🎮 Game'
+    case 'duration':
+      return '⏰ Duration'
+    case 'audience':
+      return '👥 Audience'
+    case 'reach':
+      return '📬 Reach'
+    case 'status':
+      return '📡 Status'
+    case 'next step':
+      return '🧭 Next Step'
+    default:
+      return label.trim()
+  }
 }
 
 function buildPromptSectionHeading(label: string) {
@@ -157,16 +176,16 @@ function buildInitialPromptEmbeds(gameTitle: string, networkRecipientCount: numb
   return [
     new EmbedBuilder()
       .setColor(autoPlayEmbedColors.info)
-      .setTitle('You Just Started Playing')
+      .setTitle('🎮 You Just Started Playing')
       .addFields(buildPromptEmbedFields([
-        { name: 'Game', value: gameTitle, inline: false },
+        { name: formatPromptEmbedFieldName('Game'), value: gameTitle, inline: false },
         {
-          name: 'Reach',
+          name: formatPromptEmbedFieldName('Reach'),
           value: `${networkRecipientCount} people in your network and friends could receive a call to play for it right now.`,
           inline: false
         },
         {
-          name: 'Next Step',
+          name: formatPromptEmbedFieldName('Next Step'),
           value: 'Pick a duration and I will ask who should receive it.',
           inline: false
         }
@@ -179,12 +198,12 @@ function buildAudienceEmbeds(gameTitle: string, durationMinutes: number, friendR
   return [
     new EmbedBuilder()
       .setColor(autoPlayEmbedColors.info)
-      .setTitle('Choose an Audience')
+      .setTitle('👥 Choose an Audience')
       .addFields(buildPromptEmbedFields([
-        { name: 'Game', value: gameTitle, inline: false },
-        { name: 'Duration', value: `Next ${formatDurationLabel(durationMinutes)}.`, inline: true },
+        { name: formatPromptEmbedFieldName('Game'), value: gameTitle, inline: false },
+        { name: formatPromptEmbedFieldName('Duration'), value: `Next ${formatDurationLabel(durationMinutes)}.`, inline: true },
         {
-          name: 'Reach',
+          name: formatPromptEmbedFieldName('Reach'),
           value: `Friends only: ${friendRecipientCount}\nYour network + friends: ${networkRecipientCount}`,
           inline: false
         }
@@ -208,10 +227,10 @@ function buildExpiredEmbeds(gameTitle: string, reason: string) {
   return [
     new EmbedBuilder()
       .setColor(autoPlayEmbedColors.danger)
-      .setTitle(`${gameTitle} Prompt Closed`)
+      .setTitle(`🛑 ${gameTitle} Prompt Closed`)
       .addFields(buildPromptEmbedFields([
-        { name: 'Game', value: gameTitle, inline: false },
-        { name: 'Status', value: reason, inline: false }
+        { name: formatPromptEmbedFieldName('Game'), value: gameTitle, inline: false },
+        { name: formatPromptEmbedFieldName('Status'), value: reason, inline: false }
       ]))
       .setFooter({ text: 'Open the app if you still want to create or edit a call to play.' })
   ]
@@ -276,17 +295,17 @@ function buildAcceptedEmbeds(gameTitle: string, durationMinutes: number, notifyS
   return [
     new EmbedBuilder()
       .setColor(autoPlayEmbedColors.success)
-      .setTitle('Call to Play Is Live')
+      .setTitle('✅ Call to Play Is Live')
       .addFields(buildPromptEmbedFields([
-        { name: 'Game', value: gameTitle, inline: false },
-        { name: 'Duration', value: `Next ${formatDurationLabel(durationMinutes)}.`, inline: true },
+        { name: formatPromptEmbedFieldName('Game'), value: gameTitle, inline: false },
+        { name: formatPromptEmbedFieldName('Duration'), value: `Next ${formatDurationLabel(durationMinutes)}.`, inline: true },
         {
-          name: 'Audience',
+          name: formatPromptEmbedFieldName('Audience'),
           value: notifyScope === 'friends-only' ? 'Friends only.' : 'Your network plus friends.',
           inline: true
         },
         {
-          name: 'Reach',
+          name: formatPromptEmbedFieldName('Reach'),
           value: deliveredCount > 0
             ? `${deliveredCount} Discord DM${deliveredCount === 1 ? ' was' : 's were'} delivered right away.`
             : "No Discord DMs were delivered right away, but the call is active in Game's Up.",

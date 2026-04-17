@@ -16,8 +16,8 @@ import { getPlayIntentRecipientUserIdsForDebug } from './play-intents.js'
 import { buildPlayIntentNotificationCopy } from './play-intents.js'
 import {
   buildCreatorPlayIntentSummaryPreview,
+  buildPlayIntentDirectMessageHeading,
   buildNotificationDirectMessagePreview,
-  buildPlayIntentDirectMessage,
   buildPlayIntentDirectMessageEmbeds
 } from './play-intent-notification-responses.js'
 import { prisma } from './prisma.js'
@@ -612,9 +612,9 @@ export async function buildDebugAdminSnapshot() {
         select: {
           id: true,
           userId: true,
+          expiresAt: true,
           voiceChannelId: true,
           voiceChannelName: true,
-          expiresAt: true,
           user: {
             select: {
               displayName: true,
@@ -1168,18 +1168,10 @@ export async function buildDebugAdminSnapshot() {
         recipient.timezoneId
       )
       const syntheticPreview = {
-        content: buildPlayIntentDirectMessage(
+        content: buildPlayIntentDirectMessageHeading(
           notificationCopy.title,
-          notificationCopy.body,
           creatorDiscordUserId,
-          intent.user.displayName,
-          previewIntent && (previewIntent.voiceChannelId || previewIntent.voiceChannelName)
-            ? {
-                channelId: previewIntent.voiceChannelId,
-                channelName: previewIntent.voiceChannelName,
-                recipientSharesServer: false
-              }
-            : null
+          intent.user.displayName
         ),
         embeds: buildPlayIntentDirectMessageEmbeds(
           notificationCopy.title,
