@@ -160,6 +160,10 @@ function getDmInboxParticipantKey(participant: DebugDmInboxParticipant) {
   return `${participant.role}:${participant.user.id}`
 }
 
+function formatDiscordEmbedColor(color: number | null) {
+  return color != null ? `#${color.toString(16).padStart(6, '0')}` : 'rgba(255, 255, 255, 0.16)'
+}
+
 function DmPreviewCard({
   preview,
   onButtonClick,
@@ -185,44 +189,92 @@ function DmPreviewCard({
             key={`dm-preview-embed-${embedIndex}`}
             variant="outlined"
             sx={{
-              p: 2,
-              bgcolor: 'rgba(20, 24, 31, 0.72)',
-              borderColor: embed.color != null ? `#${embed.color.toString(16).padStart(6, '0')}` : 'neutral.outlinedBorder'
+              p: 0,
+              overflow: 'hidden',
+              bgcolor: 'rgba(16, 19, 25, 0.94)',
+              borderColor: 'rgba(255, 255, 255, 0.08)',
+              boxShadow: `inset 4px 0 0 ${formatDiscordEmbedColor(embed.color)}`
             }}
           >
-            <Stack spacing={1.5}>
-              {embed.title ? <Typography level="title-md">{embed.title}</Typography> : null}
-              {embed.description ? <DmMarkdown content={embed.description} /> : null}
-              {embed.fields.length > 0 ? (
-                <Stack spacing={1}>
-                  {embed.fields.map((field, fieldIndex) => (
-                    <Box key={`dm-preview-embed-field-${embedIndex}-${fieldIndex}`}>
-                      <Typography level="title-sm">{field.name}</Typography>
-                      <DmMarkdown content={field.value} />
+            <Stack spacing={1.5} sx={{ p: 2 }}>
+              <Stack direction="row" spacing={1.5} sx={{ alignItems: 'flex-start' }}>
+                <Stack spacing={1.5} sx={{ flex: 1, minWidth: 0 }}>
+                  {embed.title ? (
+                    <Typography level="title-md" sx={{ color: '#fff', lineHeight: 1.3 }}>
+                      {embed.title}
+                    </Typography>
+                  ) : null}
+                  {embed.description ? <DmMarkdown content={embed.description} /> : null}
+                  {embed.fields.length > 0 ? (
+                    <Box
+                      sx={{
+                        display: 'grid',
+                        gridTemplateColumns: { xs: 'minmax(0, 1fr)', sm: 'repeat(2, minmax(0, 1fr))' },
+                        gap: 1.25
+                      }}
+                    >
+                      {embed.fields.map((field, fieldIndex) => (
+                        <Box
+                          key={`dm-preview-embed-field-${embedIndex}-${fieldIndex}`}
+                          sx={{
+                            minWidth: 0,
+                            gridColumn: field.inline ? 'span 1' : '1 / -1'
+                          }}
+                        >
+                          <Typography
+                            level="body-xs"
+                            sx={{
+                              color: '#fff',
+                              fontWeight: 700,
+                              letterSpacing: '0.02em',
+                              textTransform: 'uppercase',
+                              mb: 0.5
+                            }}
+                          >
+                            {field.name}
+                          </Typography>
+                          <DmMarkdown content={field.value} />
+                        </Box>
+                      ))}
                     </Box>
-                  ))}
+                  ) : null}
                 </Stack>
-              ) : null}
+                {embed.thumbnailUrl ? (
+                  <Box
+                    component="img"
+                    src={embed.thumbnailUrl}
+                    alt={embed.title ?? 'DM embed thumbnail'}
+                    sx={{
+                      width: 80,
+                      height: 80,
+                      flexShrink: 0,
+                      objectFit: 'cover',
+                      borderRadius: 'sm',
+                      border: '1px solid rgba(255, 255, 255, 0.08)'
+                    }}
+                  />
+                ) : null}
+              </Stack>
               {embed.imageUrl ? (
                 <Box
                   component="img"
                   src={embed.imageUrl}
                   alt={embed.title ?? 'DM embed image'}
-                  sx={{ width: '100%', maxHeight: 180, objectFit: 'cover', borderRadius: 'md' }}
-                />
-              ) : null}
-              {embed.thumbnailUrl ? (
-                <Box
-                  component="img"
-                  src={embed.thumbnailUrl}
-                  alt={embed.title ?? 'DM embed thumbnail'}
-                  sx={{ width: 72, height: 72, objectFit: 'cover', borderRadius: 'sm' }}
+                  sx={{
+                    width: '100%',
+                    maxHeight: 220,
+                    objectFit: 'cover',
+                    borderRadius: 'md',
+                    border: '1px solid rgba(255, 255, 255, 0.08)'
+                  }}
                 />
               ) : null}
               {embed.footerText ? (
-                <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
-                  {embed.footerText}
-                </Typography>
+                <Box sx={{ pt: 0.5, borderTop: '1px solid rgba(255, 255, 255, 0.06)' }}>
+                  <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
+                    {embed.footerText}
+                  </Typography>
+                </Box>
               ) : null}
             </Stack>
           </Card>
