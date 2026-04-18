@@ -2,6 +2,7 @@ import { AuthProvider, NotificationType } from '@prisma/client'
 import { EmbedBuilder } from 'discord.js'
 import { NotificationResponseChoice } from '@prisma/client'
 import { deleteDiscordDirectMessage, editDiscordDirectMessage, sendDiscordDirectMessages } from './discord-bot-runtime.js'
+import { buildDiscordMessageHeading } from './discord-dm-formatting.js'
 import { prisma } from './prisma.js'
 import { normalizeTimezoneId } from './timezone-label.js'
 
@@ -117,7 +118,6 @@ function buildArchivedPlayIntentEmbeds(summaryBody: string) {
   return [
     new EmbedBuilder()
       .setColor(0xef4444)
-      .setTitle('🛑 Call to Play Ended')
       .addFields(fields)
       .setFooter({ text: 'This call to play is no longer active.' })
   ]
@@ -488,7 +488,7 @@ export async function archivePlayIntentDirectMessages(options: {
           const dmResult = (await sendDiscordDirectMessages([
             {
               discordUserId: recipientDiscordUserId,
-              content: '',
+              content: buildDiscordMessageHeading('🛑 Call to Play Ended'),
               embeds: archiveEmbeds,
               components: []
             }
@@ -519,7 +519,7 @@ export async function archivePlayIntentDirectMessages(options: {
         }
       }
 
-      const keptMessageId = await tryArchiveDirectMessage(candidates, '', archiveEmbeds)
+      const keptMessageId = await tryArchiveDirectMessage(candidates, buildDiscordMessageHeading('🛑 Call to Play Ended'), archiveEmbeds)
 
       if (!keptMessageId) {
         continue

@@ -92,10 +92,20 @@ export function buildDiscordBulletSection(label: string, items: string[], resolv
 
 export function buildDiscordNotice(title: string, sections: Array<string | null>, subtext?: string | null) {
   return [
-    `### ${title}`,
+    title.trim(),
     ...sections,
     subtext ? buildDiscordSubtext(subtext) : null
   ].filter((part): part is string => Boolean(part)).join('\n\n')
+}
+
+export function buildDiscordMessageHeading(title: string) {
+  const trimmed = title.trim()
+
+  if (trimmed.length === 0) {
+    return ''
+  }
+
+  return trimmed.replace(/^###\s+/u, '')
 }
 
 export function buildOpenInAppButton(url: string) {

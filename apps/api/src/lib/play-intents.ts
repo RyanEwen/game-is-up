@@ -1194,11 +1194,7 @@ export async function upsertCurrentPlayIntent(
         return [{
           notificationId: notification.id,
           discordUserId,
-          content: buildPlayIntentDirectMessageHeading(
-            notification.title,
-            creatorDiscordUserId,
-            sender.displayName
-          ),
+          content: buildPlayIntentDirectMessageHeading(notification.title),
           embeds: [
             ...buildPlayIntentDirectMessageEmbeds(
               notification.title,

@@ -536,6 +536,20 @@ export const debugDmPreviewSchema = z.object({
   buttonRows: z.array(z.array(debugDmPreviewButtonSchema))
 })
 
+export const debugDmTemplateEntrySchema = z.object({
+  id: z.string().min(1),
+  label: z.string().min(1),
+  description: z.string().nullable(),
+  preview: debugDmPreviewSchema
+})
+
+export const debugDmTemplateGroupSchema = z.object({
+  id: z.string().min(1),
+  label: z.string().min(1),
+  description: z.string().nullable(),
+  entries: z.array(debugDmTemplateEntrySchema).min(1)
+})
+
 export const debugAutoPlayPromptSchema = z.object({
   id: z.string().uuid(),
   createdAt: z.string().datetime(),
@@ -695,6 +709,7 @@ export const debugErrorLogSchema = z.object({
 export const debugAdminResponseSchema = z.object({
   generatedAt: z.string().datetime(),
   bot: debugDiscordBotStateSchema,
+  dmTemplates: z.array(debugDmTemplateGroupSchema),
   recentAutoPlayPrompts: z.array(debugAutoPlayPromptSchema),
   recentNotifications: z.array(debugNotificationDeliverySchema),
   recentPlayIntents: z.array(debugPlayIntentSummarySchema),
@@ -829,6 +844,8 @@ export type DebugAutoPlayPromptStatus = z.infer<typeof debugAutoPlayPromptStatus
 export type DebugDmPreviewButtonStyle = z.infer<typeof debugDmPreviewButtonStyleSchema>;
 export type DebugDmPreviewButton = z.infer<typeof debugDmPreviewButtonSchema>;
 export type DebugDmPreview = z.infer<typeof debugDmPreviewSchema>;
+export type DebugDmTemplateEntry = z.infer<typeof debugDmTemplateEntrySchema>;
+export type DebugDmTemplateGroup = z.infer<typeof debugDmTemplateGroupSchema>;
 export type DebugDmInboxRole = z.infer<typeof debugDmInboxRoleSchema>;
 export type DebugDmInboxDeliveryState = z.infer<typeof debugDmInboxDeliveryStateSchema>;
 export type DebugDmInboxMessageKind = z.infer<typeof debugDmInboxMessageKindSchema>;

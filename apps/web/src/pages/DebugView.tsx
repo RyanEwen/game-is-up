@@ -959,6 +959,105 @@ function CtpTableSection({
   )
 }
 
+function DmTemplateLibrarySection({ debugAdmin }: { debugAdmin: DebugAdminResponse }) {
+  const [query, setQuery] = useState('')
+
+  const filteredGroups = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase()
+
+    if (!normalizedQuery) {
+      return debugAdmin.dmTemplates
+    }
+
+    return debugAdmin.dmTemplates
+      .map((group) => {
+        const groupMatches = group.label.toLowerCase().includes(normalizedQuery)
+          || (group.description ?? '').toLowerCase().includes(normalizedQuery)
+        const matchingEntries = group.entries.filter((entry) => (
+          entry.label.toLowerCase().includes(normalizedQuery)
+          || (entry.description ?? '').toLowerCase().includes(normalizedQuery)
+        ))
+
+        if (groupMatches) {
+          return group
+        }
+
+        if (matchingEntries.length === 0) {
+          return null
+        }
+
+        return {
+          ...group,
+          entries: matchingEntries
+        }
+      })
+      .filter((group): group is DebugAdminResponse['dmTemplates'][number] => group != null)
+  }, [debugAdmin.dmTemplates, query])
+
+  return (
+    <Card variant="outlined" sx={{ p: 2 }}>
+      <Stack spacing={2}>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }}>
+          <Box>
+            <Typography level="title-lg">DM template library</Typography>
+            <Typography level="body-sm" sx={{ color: 'neutral.400', mt: 0.5 }}>
+              Read-only previews for each major Discord DM flow, using the same builders as the live bot output.
+            </Typography>
+          </Box>
+          <Input
+            size="sm"
+            placeholder="Filter templates"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            sx={{ minWidth: { sm: 240 } }}
+          />
+        </Stack>
+
+        {filteredGroups.length > 0 ? (
+          <Stack spacing={2}>
+            {filteredGroups.map((group) => (
+              <Card key={group.id} variant="soft" sx={{ p: 2 }}>
+                <Stack spacing={1.5}>
+                  <Box>
+                    <Typography level="title-md">{group.label}</Typography>
+                    {group.description ? (
+                      <Typography level="body-sm" sx={{ color: 'neutral.400', mt: 0.5 }}>
+                        {group.description}
+                      </Typography>
+                    ) : null}
+                  </Box>
+
+                  {group.entries.map((entry) => (
+                    <Card key={entry.id} variant="outlined" sx={{ p: 1.5 }}>
+                      <Stack spacing={1.25}>
+                        <Box>
+                          <Typography level="title-sm">{entry.label}</Typography>
+                          {entry.description ? (
+                            <Typography level="body-xs" sx={{ color: 'neutral.500', mt: 0.35 }}>
+                              {entry.description}
+                            </Typography>
+                          ) : null}
+                        </Box>
+                        <DmPreviewCard preview={entry.preview} isInteractive={false} />
+                      </Stack>
+                    </Card>
+                  ))}
+                </Stack>
+              </Card>
+            ))}
+          </Stack>
+        ) : (
+          <EmptyStateCard
+            title="No DM templates match this filter"
+            body="Try a broader search to browse the available read-only Discord DM templates."
+            chips={['DM templates', 'Read-only', 'Admin only']}
+          />
+        )}
+      </Stack>
+    </Card>
+  )
+}
+
 function ErrorTableSection({
   rows,
   formatDateTime
@@ -1634,6 +1733,7 @@ function DebugViewContent({
               mb={0}
               sections={[
                 { id: 'bot-status', label: 'Bot' },
+                { id: 'templates', label: 'DM templates', count: debugAdmin.dmTemplates.length },
                 { id: 'ctps', label: 'CTPs', count: debugAdmin.recentPlayIntents.length },
                 { id: 'prompts', label: 'Prompts', count: debugAdmin.recentAutoPlayPrompts.length },
                 { id: 'notifications', label: 'Notifications', count: debugAdmin.recentNotifications.length },
@@ -1643,6 +1743,10 @@ function DebugViewContent({
 
             <Box id="bot-status" sx={{ scrollMarginTop: sectionScrollMarginTop }}>
               <BotStateCard debugAdmin={debugAdmin} formatDateTime={formatDateTime} />
+            </Box>
+
+            <Box id="templates" sx={{ scrollMarginTop: sectionScrollMarginTop }}>
+              <DmTemplateLibrarySection debugAdmin={debugAdmin} />
             </Box>
 
             <Box id="ctps" sx={{ scrollMarginTop: sectionScrollMarginTop }}>

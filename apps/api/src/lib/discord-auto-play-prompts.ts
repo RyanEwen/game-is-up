@@ -17,6 +17,7 @@ import {
 import { editDiscordDirectMessage, sendDiscordDirectMessages, supportsDiscordInteractiveMessages } from './discord-bot-runtime.js'
 import {
   appendOpenInAppButton,
+  buildDiscordMessageHeading,
   buildDiscordNotice,
   buildDiscordSection,
   buildOpenInAppButton
@@ -176,7 +177,6 @@ function buildInitialPromptEmbeds(gameTitle: string, networkRecipientCount: numb
   return [
     new EmbedBuilder()
       .setColor(autoPlayEmbedColors.info)
-      .setTitle('🎮 You Just Started Playing')
       .addFields(buildPromptEmbedFields([
         { name: formatPromptEmbedFieldName('Game'), value: gameTitle, inline: false },
         {
@@ -198,7 +198,6 @@ function buildAudienceEmbeds(gameTitle: string, durationMinutes: number, friendR
   return [
     new EmbedBuilder()
       .setColor(autoPlayEmbedColors.info)
-      .setTitle('👥 Choose an Audience')
       .addFields(buildPromptEmbedFields([
         { name: formatPromptEmbedFieldName('Game'), value: gameTitle, inline: false },
         { name: formatPromptEmbedFieldName('Duration'), value: `Next ${formatDurationLabel(durationMinutes)}.`, inline: true },
@@ -227,7 +226,6 @@ function buildExpiredEmbeds(gameTitle: string, reason: string) {
   return [
     new EmbedBuilder()
       .setColor(autoPlayEmbedColors.danger)
-      .setTitle(`🛑 ${gameTitle} Prompt Closed`)
       .addFields(buildPromptEmbedFields([
         { name: formatPromptEmbedFieldName('Game'), value: gameTitle, inline: false },
         { name: formatPromptEmbedFieldName('Status'), value: reason, inline: false }
@@ -284,7 +282,7 @@ export async function expireDiscordAutoPlayPromptsForInactiveObservations(observ
     await editDiscordDirectMessage({
       channelId: prompt.discordDmChannelId,
       messageId: prompt.discordDmMessageId,
-      content: '',
+      content: buildDiscordMessageHeading(`🛑 ${prompt.game.title} Prompt Closed`),
       embeds: buildExpiredEmbeds(prompt.game.title, `This prompt was closed because we are no longer seeing you in ${prompt.game.title}.`),
       components: [buildLinkRow()]
     })
@@ -295,7 +293,6 @@ function buildAcceptedEmbeds(gameTitle: string, durationMinutes: number, notifyS
   return [
     new EmbedBuilder()
       .setColor(autoPlayEmbedColors.success)
-      .setTitle('✅ Call to Play Is Live')
       .addFields(buildPromptEmbedFields([
         { name: formatPromptEmbedFieldName('Game'), value: gameTitle, inline: false },
         { name: formatPromptEmbedFieldName('Duration'), value: `Next ${formatDurationLabel(durationMinutes)}.`, inline: true },
@@ -337,13 +334,13 @@ export function buildDiscordAutoPlayPromptPreview(options: {
       }
     case DiscordAutoPlayPromptStatus.EXPIRED:
       return {
-        content: '',
+        content: buildDiscordMessageHeading(`🛑 ${options.gameTitle} Prompt Closed`),
         embeds: buildExpiredEmbeds(options.gameTitle, options.statusDetail ?? `This ${options.gameTitle} prompt is no longer active.`),
         components: [buildLinkRow()]
       }
     case DiscordAutoPlayPromptStatus.ACCEPTED:
       return {
-        content: '',
+        content: buildDiscordMessageHeading('✅ Call to Play Is Live'),
         embeds: buildAcceptedEmbeds(
           options.gameTitle,
           options.durationMinutes ?? autoPlayPromptDurations[0],
@@ -353,8 +350,26 @@ export function buildDiscordAutoPlayPromptPreview(options: {
         components: [buildLinkRow()]
       }
     default:
+      if (options.durationMinutes != null) {
+        return {
+          content: buildDiscordMessageHeading('👥 Choose an Audience'),
+          embeds: buildAudienceEmbeds(
+            options.gameTitle,
+            options.durationMinutes,
+            options.friendRecipientCount,
+            options.networkRecipientCount
+          ),
+          components: buildAudienceRows(
+            options.promptId,
+            options.durationMinutes,
+            options.friendRecipientCount,
+            options.networkRecipientCount
+          )
+        }
+      }
+
       return {
-        content: '',
+        content: buildDiscordMessageHeading('🎮 You Just Started Playing'),
         embeds: buildInitialPromptEmbeds(options.gameTitle, options.networkRecipientCount),
         components: buildDurationRows(options.promptId)
       }
@@ -687,7 +702,7 @@ export async function maybeSendDiscordAutoPlayPromptForObservation(observationId
   const dmResult = (await sendDiscordDirectMessages([
     {
       discordUserId: discordIdentity.providerUserId,
-      content: '',
+      content: buildDiscordMessageHeading('🎮 You Just Started Playing'),
       embeds: buildInitialPromptEmbeds(observation.game.title, networkRecipients.length),
       components: buildDurationRows(prompt.id)
     }
@@ -782,7 +797,7 @@ export async function handleDiscordAutoPlayPromptInteraction(interaction: Button
 
   if (prompt.status !== expectedStatus) {
     await interaction.update({
-      content: '',
+      content: buildDiscordMessageHeading(`🛑 ${prompt.game.title} Prompt Closed`),
       embeds: buildExpiredEmbeds(prompt.game.title, prompt.statusDetail ?? 'It was already handled earlier.'),
       components: [buildLinkRow()]
     })
@@ -801,7 +816,7 @@ export async function handleDiscordAutoPlayPromptInteraction(interaction: Button
       }
     })
     await interaction.update({
-      content: '',
+      content: buildDiscordMessageHeading(`🛑 ${prompt.game.title} Prompt Closed`),
       embeds: buildExpiredEmbeds(prompt.game.title, 'Automatic Discord prompts are turned off in your profile now.'),
       components: [buildLinkRow()]
     })
@@ -820,7 +835,7 @@ export async function handleDiscordAutoPlayPromptInteraction(interaction: Button
       }
     })
     await interaction.update({
-      content: '',
+      content: buildDiscordMessageHeading(`🛑 ${prompt.game.title} Prompt Closed`),
       embeds: buildExpiredEmbeds(prompt.game.title, `This prompt was closed because we are no longer seeing you in ${prompt.game.title}.`),
       components: [buildLinkRow()]
     })
@@ -847,7 +862,7 @@ export async function handleDiscordAutoPlayPromptInteraction(interaction: Button
 
   if (action.kind === 'duration') {
     await interaction.update({
-      content: '',
+      content: buildDiscordMessageHeading('👥 Choose an Audience'),
       embeds: buildAudienceEmbeds(prompt.game.title, action.durationMinutes, prompt.friendRecipientCount, prompt.networkRecipientCount),
       components: buildAudienceRows(prompt.id, action.durationMinutes, prompt.friendRecipientCount, prompt.networkRecipientCount)
     })
@@ -860,7 +875,7 @@ export async function handleDiscordAutoPlayPromptInteraction(interaction: Button
 
   if (selectedRecipientCount === 0) {
     await interaction.update({
-      content: '',
+      content: buildDiscordMessageHeading(`🛑 ${prompt.game.title} Prompt Closed`),
       embeds: buildExpiredEmbeds(prompt.game.title, 'That audience no longer has anyone who overlaps on this game.'),
       components: [buildLinkRow()]
     })
@@ -881,7 +896,7 @@ export async function handleDiscordAutoPlayPromptInteraction(interaction: Button
       }
     })
     await interaction.update({
-      content: '',
+      content: buildDiscordMessageHeading(`🛑 ${prompt.game.title} Prompt Closed`),
       embeds: buildExpiredEmbeds(prompt.game.title, 'You already have an active call to play.'),
       components: [buildLinkRow()]
     })
@@ -915,7 +930,7 @@ export async function handleDiscordAutoPlayPromptInteraction(interaction: Button
     })
 
     await interaction.update({
-      content: '',
+      content: buildDiscordMessageHeading('✅ Call to Play Is Live'),
       embeds: buildAcceptedEmbeds(prompt.game.title, action.durationMinutes, action.notifyScope, response.notifiedFriendCount),
       components: [buildLinkRow()]
     })
@@ -937,7 +952,7 @@ export async function handleDiscordAutoPlayPromptInteraction(interaction: Button
     })
 
     await interaction.update({
-      content: '',
+      content: buildDiscordMessageHeading(`🛑 ${prompt.game.title} Prompt Closed`),
       embeds: buildExpiredEmbeds(prompt.game.title, message),
       components: [buildLinkRow()]
     })

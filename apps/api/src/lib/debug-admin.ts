@@ -24,6 +24,12 @@ import { prisma } from './prisma.js'
 
 type DebugDmPreviewPayload = ReturnType<typeof buildDebugDmPreview>
 
+type DebugDmTemplatePreviewPayload = {
+  content: string;
+  components: Parameters<typeof buildDebugDmPreview>[1];
+  embeds?: Parameters<typeof buildDebugDmPreview>[2];
+}
+
 type DebugDmRevisionDraft = {
   occurredAt: string;
   preview: DebugDmPreviewPayload;
@@ -68,6 +74,487 @@ function getLatestRevisionPreview(revisions: Array<{ preview: DebugDmPreviewPayl
   }
 
   return latestRevision.preview
+}
+
+function buildDebugDmTemplateEntry(
+  id: string,
+  label: string,
+  description: string,
+  previewPayload: DebugDmTemplatePreviewPayload
+) {
+  return {
+    id,
+    label,
+    description,
+    preview: buildDebugDmPreview(previewPayload.content, previewPayload.components, previewPayload.embeds)
+  }
+}
+
+function buildDebugDmTemplates(now: Date) {
+  const creatorDisplayName = 'Avery'
+  const creatorDiscordUserId = '149608971072831489'
+  const creatorTimezoneId = 'America/Vancouver'
+  const gameTitle = 'The Crew: Motorfest'
+  const alternateGameTitle = 'Forza Horizon 5'
+  const templateVoiceChannel = {
+    channelId: '424242424242424242',
+    channelName: 'Motorfest pit lane',
+    recipientSharesServer: true
+  }
+  const templateArchivedBody = [
+    `Creator: ${creatorDisplayName}`,
+    `Games: ${gameTitle}, ${alternateGameTitle}`,
+    'When: Apr 17, 7:00 PM PDT',
+    'Status: This call to play is no longer active.'
+  ].join('\n')
+  const liveInviteCopy = buildPlayIntentNotificationCopy(
+    creatorDisplayName,
+    'subset',
+    [gameTitle],
+    120,
+    new Date(now.getTime() - 15 * 60 * 1000),
+    now,
+    creatorTimezoneId
+  )
+  const updatedInviteCopy = buildPlayIntentNotificationCopy(
+    creatorDisplayName,
+    'subset',
+    [gameTitle],
+    90,
+    new Date(now.getTime() + 90 * 60 * 1000),
+    now,
+    creatorTimezoneId,
+    ['time', 'game selection']
+  )
+  const confirmedUpdate = {
+    title: `${creatorDisplayName} confirmed the session is on`,
+    body: `Update: ${creatorDisplayName} confirmed the session is still on.\nWhen: Right now.`
+  }
+  const reminderUpdate = {
+    title: `${creatorDisplayName} confirmed the session is on`,
+    body: `Update: ${creatorDisplayName} confirmed this session is still on.\nWhen: Right now.`
+  }
+  const liveSummaryNotifications = [
+    {
+      userId: 'template-user-1',
+      type: NotificationType.FRIEND_PLAYING,
+      respondedAt: new Date(now.getTime() - 20 * 60 * 1000),
+      responseChoice: NotificationResponseChoice.JOIN,
+      deliveredAt: new Date(now.getTime() - 35 * 60 * 1000),
+      createdAt: new Date(now.getTime() - 35 * 60 * 1000),
+      user: {
+        displayName: 'Jordan',
+        identities: [{ providerUserId: '200000000000000001' }]
+      }
+    },
+    {
+      userId: 'template-user-2',
+      type: NotificationType.FRIEND_PLAYING,
+      respondedAt: new Date(now.getTime() - 10 * 60 * 1000),
+      responseChoice: NotificationResponseChoice.DECLINE,
+      deliveredAt: new Date(now.getTime() - 30 * 60 * 1000),
+      createdAt: new Date(now.getTime() - 30 * 60 * 1000),
+      user: {
+        displayName: 'Sam',
+        identities: [{ providerUserId: '200000000000000002' }]
+      }
+    },
+    {
+      userId: 'template-user-3',
+      type: NotificationType.FRIEND_PLAYING,
+      respondedAt: null,
+      responseChoice: null,
+      deliveredAt: new Date(now.getTime() - 25 * 60 * 1000),
+      createdAt: new Date(now.getTime() - 25 * 60 * 1000),
+      user: {
+        displayName: 'Riley',
+        identities: [{ providerUserId: '200000000000000003' }]
+      }
+    }
+  ]
+  const liveSummaryPreview = buildCreatorPlayIntentSummaryPreview({
+    id: 'template-live-summary',
+    headline: 'Looking for a crew and happy to hop into voice.',
+    note: 'Starting from the downtown playlist. Jump in when ready.',
+    selectionMode: 'SELECTED_GAMES',
+    scope: 'SPECIFIC_DISCORD_SERVER',
+    windowStartsAt: new Date(now.getTime() - 30 * 60 * 1000),
+    windowEndsAt: new Date(now.getTime() + 90 * 60 * 1000),
+    expiresAt: new Date(now.getTime() + 90 * 60 * 1000),
+    voiceChannelName: 'Motorfest pit lane',
+    user: {
+      displayName: creatorDisplayName,
+      timezoneId: creatorTimezoneId
+    },
+    targetDiscordServers: [{ server: { name: 'Racing Night' } }],
+    targetFriends: [],
+    games: [
+      { game: { title: gameTitle } },
+      { game: { title: alternateGameTitle } }
+    ],
+    notifications: liveSummaryNotifications,
+    currentTime: now
+  })
+  const scheduledSummaryPreview = buildCreatorPlayIntentSummaryPreview({
+    id: 'template-scheduled-summary',
+    headline: 'Planning ahead for tonight.',
+    note: 'Will confirm once dinner wraps up.',
+    selectionMode: 'ENTIRE_LIBRARY',
+    scope: 'FRIENDS_ONLY',
+    windowStartsAt: new Date(now.getTime() + 2 * 60 * 60 * 1000),
+    windowEndsAt: new Date(now.getTime() + 4 * 60 * 60 * 1000),
+    expiresAt: new Date(now.getTime() + 4 * 60 * 60 * 1000),
+    voiceChannelName: null,
+    user: {
+      displayName: creatorDisplayName,
+      timezoneId: creatorTimezoneId
+    },
+    targetDiscordServers: [],
+    targetFriends: [],
+    games: [],
+    notifications: [],
+    currentTime: now
+  })
+  const closedSummaryPreview = buildCreatorPlayIntentSummaryPreview({
+    id: 'template-closed-summary',
+    headline: 'Wrapped up for the night.',
+    note: 'Good run.',
+    selectionMode: 'SELECTED_GAMES',
+    scope: 'SPECIFIC_FRIENDS',
+    windowStartsAt: new Date(now.getTime() - 2 * 60 * 60 * 1000),
+    windowEndsAt: new Date(now.getTime() - 30 * 60 * 1000),
+    expiresAt: new Date(now.getTime() - 30 * 60 * 1000),
+    voiceChannelName: null,
+    user: {
+      displayName: creatorDisplayName,
+      timezoneId: creatorTimezoneId
+    },
+    targetDiscordServers: [],
+    targetFriends: [{
+      friendUser: {
+        displayName: 'Jordan',
+        identities: [{ providerUserId: '200000000000000001' }]
+      }
+    }],
+    games: [{ game: { title: gameTitle } }],
+    notifications: liveSummaryNotifications,
+    currentTime: now
+  })
+
+  return [
+    {
+      id: 'call-to-play-audience',
+      label: 'Call to Play Audience',
+      description: 'Recipient-facing Discord DM templates for initial invites, go-time updates, and resolution states.',
+      entries: [
+        buildDebugDmTemplateEntry(
+          'recipient-live-invite',
+          'Live invite',
+          'The first DM an audience member gets when a live call to play matches them.',
+          buildNotificationDirectMessagePreview({
+            notificationId: 'template-live-invite',
+            notificationType: NotificationType.FRIEND_PLAYING,
+            title: liveInviteCopy.title,
+            body: liveInviteCopy.body,
+            creatorUserId: 'template-creator',
+            creatorDiscordUserId,
+            creatorDisplayName,
+            gameTitle,
+            playIntentIsActive: true,
+            voiceChannel: templateVoiceChannel,
+            joinCount: 2,
+            interestedUserLabels: ['Jordan', 'Casey']
+          })
+        ),
+        buildDebugDmTemplateEntry(
+          'recipient-scheduled-update',
+          'Scheduled update',
+          'A refreshed invite when the scheduled time or game selection changed.',
+          buildNotificationDirectMessagePreview({
+            notificationId: 'template-scheduled-update',
+            notificationType: NotificationType.FRIEND_PLAYING,
+            title: updatedInviteCopy.title,
+            body: updatedInviteCopy.body,
+            creatorUserId: 'template-creator',
+            creatorDiscordUserId,
+            creatorDisplayName,
+            gameTitle,
+            playIntentIsActive: true,
+            voiceChannel: templateVoiceChannel,
+            joinCount: 1,
+            interestedUserLabels: ['Jordan']
+          })
+        ),
+        buildDebugDmTemplateEntry(
+          'recipient-go-time-reminder',
+          'Go-time reminder',
+          'The follow-up DM sent to unanswered recipients after the creator confirms a scheduled call is still on.',
+          buildNotificationDirectMessagePreview({
+            notificationId: 'template-go-time-reminder',
+            notificationType: NotificationType.SCHEDULED_PLAY_INTENT_REMINDER,
+            title: reminderUpdate.title,
+            body: reminderUpdate.body,
+            creatorUserId: 'template-creator',
+            creatorDiscordUserId,
+            creatorDisplayName,
+            gameTitle,
+            playIntentIsActive: true,
+            voiceChannel: templateVoiceChannel,
+            joinCount: 2,
+            interestedUserLabels: ['Jordan', 'Casey']
+          })
+        ),
+        buildDebugDmTemplateEntry(
+          'recipient-go-time-confirmed',
+          'Go-time confirmation',
+          'The follow-up DM accepted recipients receive when a scheduled call reaches go-time.',
+          buildNotificationDirectMessagePreview({
+            notificationId: 'template-go-time-confirmed',
+            notificationType: NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED,
+            title: confirmedUpdate.title,
+            body: confirmedUpdate.body,
+            creatorUserId: 'template-creator',
+            creatorDiscordUserId,
+            creatorDisplayName,
+            gameTitle,
+            playIntentIsActive: true,
+            voiceChannel: templateVoiceChannel,
+            joinCount: 2,
+            interestedUserLabels: ['Jordan', 'Casey']
+          })
+        ),
+        buildDebugDmTemplateEntry(
+          'recipient-join-confirmation',
+          'Interested confirmation',
+          'The confirmation a recipient sees after pressing I\'m interested.',
+          buildNotificationDirectMessagePreview({
+            notificationId: 'template-join-confirmation',
+            notificationType: NotificationType.FRIEND_PLAYING,
+            title: liveInviteCopy.title,
+            body: liveInviteCopy.body,
+            responseChoice: NotificationResponseChoice.JOIN,
+            creatorUserId: 'template-creator',
+            creatorDiscordUserId,
+            creatorDisplayName,
+            gameTitle,
+            playIntentIsActive: true,
+            voiceChannel: templateVoiceChannel
+          })
+        ),
+        buildDebugDmTemplateEntry(
+          'recipient-pass-confirmation',
+          'Pass confirmation',
+          'The confirmation a recipient sees after pressing Pass.',
+          buildNotificationDirectMessagePreview({
+            notificationId: 'template-pass-confirmation',
+            notificationType: NotificationType.FRIEND_PLAYING,
+            title: liveInviteCopy.title,
+            body: liveInviteCopy.body,
+            responseChoice: NotificationResponseChoice.DECLINE,
+            creatorUserId: 'template-creator',
+            creatorDiscordUserId,
+            creatorDisplayName,
+            gameTitle,
+            playIntentIsActive: true,
+            voiceChannel: templateVoiceChannel
+          })
+        ),
+        buildDebugDmTemplateEntry(
+          'recipient-ended-summary',
+          'Ended summary',
+          'The archived DM that replaces an old audience invite when the call closes.',
+          buildNotificationDirectMessagePreview({
+            notificationId: 'template-ended-summary',
+            notificationType: NotificationType.SYSTEM,
+            title: 'Call to play ended',
+            body: templateArchivedBody
+          })
+        )
+      ]
+    },
+    {
+      id: 'call-to-play-creator',
+      label: 'Call to Play Creator',
+      description: 'Creator-facing DM templates for summaries, interest updates, and scheduled check-ins.',
+      entries: [
+        buildDebugDmTemplateEntry(
+          'creator-summary-live',
+          'Live summary',
+          'The persistent creator summary while a call is currently active.',
+          liveSummaryPreview
+        ),
+        buildDebugDmTemplateEntry(
+          'creator-summary-scheduled',
+          'Scheduled summary',
+          'The creator summary for a future scheduled call before go-time.',
+          scheduledSummaryPreview
+        ),
+        buildDebugDmTemplateEntry(
+          'creator-summary-closed',
+          'Closed summary',
+          'The creator summary after the call has already ended.',
+          closedSummaryPreview
+        ),
+        buildDebugDmTemplateEntry(
+          'creator-interest-update',
+          'Interest update',
+          'The separate creator-facing DM sent when someone marks themselves interested.',
+          buildNotificationDirectMessagePreview({
+            notificationId: 'template-interest-update',
+            notificationType: NotificationType.SYSTEM,
+            title: 'Interest update',
+            body: `Jordan is interested in ${gameTitle}.`
+          })
+        ),
+        buildDebugDmTemplateEntry(
+          'creator-check-in-prompt',
+          'Go-time check-in',
+          'The prompt asking the creator whether the scheduled call is still happening.',
+          buildNotificationDirectMessagePreview({
+            notificationId: 'template-check-in',
+            notificationType: NotificationType.SCHEDULED_PLAY_INTENT_CHECK_IN,
+            title: 'Is your scheduled call to play still on?',
+            body: 'Your scheduled call to play is starting now. Confirm if it is still on.',
+            creatorDiscordUserId,
+            creatorDisplayName,
+            playIntentIsActive: true
+          })
+        ),
+        buildDebugDmTemplateEntry(
+          'creator-check-in-confirmed',
+          'Confirmed response',
+          'The confirmation the creator sees after saying the scheduled call is still on.',
+          buildNotificationDirectMessagePreview({
+            notificationId: 'template-check-in-confirmed',
+            notificationType: NotificationType.SCHEDULED_PLAY_INTENT_CHECK_IN,
+            title: 'Is your scheduled call to play still on?',
+            body: 'Your scheduled call to play is starting now. Confirm if it is still on.',
+            responseChoice: NotificationResponseChoice.CONFIRMED,
+            creatorDiscordUserId,
+            creatorDisplayName,
+            playIntentIsActive: true
+          })
+        ),
+        buildDebugDmTemplateEntry(
+          'creator-check-in-canceled',
+          'Closed response',
+          'The confirmation the creator sees after closing a scheduled call from Discord.',
+          buildNotificationDirectMessagePreview({
+            notificationId: 'template-check-in-canceled',
+            notificationType: NotificationType.SCHEDULED_PLAY_INTENT_CHECK_IN,
+            title: 'Is your scheduled call to play still on?',
+            body: 'Your scheduled call to play is starting now. Confirm if it is still on.',
+            responseChoice: NotificationResponseChoice.CANCELED,
+            creatorDiscordUserId,
+            creatorDisplayName,
+            playIntentIsActive: true
+          })
+        ),
+        buildDebugDmTemplateEntry(
+          'creator-check-in-expired',
+          'Expired check-in',
+          'The fallback state if the creator never confirms before the scheduled prompt expires.',
+          buildNotificationDirectMessagePreview({
+            notificationId: 'template-check-in-expired',
+            notificationType: NotificationType.SCHEDULED_PLAY_INTENT_CHECK_IN,
+            title: 'Is your scheduled call to play still on?',
+            body: 'Your scheduled call to play is starting now. Confirm if it is still on.',
+            responseChoice: NotificationResponseChoice.EXPIRED,
+            creatorDiscordUserId,
+            creatorDisplayName,
+            playIntentIsActive: false
+          })
+        )
+      ]
+    },
+    {
+      id: 'auto-play-prompts',
+      label: 'Auto-Play Prompts',
+      description: 'Discord DM templates for automatic prompts that appear when the bot sees someone start a game.',
+      entries: [
+        buildDebugDmTemplateEntry(
+          'auto-play-initial',
+          'Initial prompt',
+          'The first prompt offering to create a call to play from detected gameplay.',
+          buildDiscordAutoPlayPromptPreview({
+            promptId: 'template-auto-play-initial',
+            status: DiscordAutoPlayPromptStatus.SENT,
+            gameTitle,
+            durationMinutes: null,
+            notifyScope: null,
+            friendRecipientCount: 3,
+            networkRecipientCount: 7,
+            statusDetail: 'Prompt DM queued.',
+            deliveredCount: 0
+          }) ?? { content: '', components: [] }
+        ),
+        buildDebugDmTemplateEntry(
+          'auto-play-audience',
+          'Audience picker',
+          'The second prompt after the user picks a duration and needs to choose who gets the call.',
+          buildDiscordAutoPlayPromptPreview({
+            promptId: 'template-auto-play-audience',
+            status: DiscordAutoPlayPromptStatus.SENT,
+            gameTitle,
+            durationMinutes: 120,
+            notifyScope: null,
+            friendRecipientCount: 3,
+            networkRecipientCount: 7,
+            statusDetail: 'Waiting for audience selection.',
+            deliveredCount: 0
+          }) ?? { content: '', components: [] }
+        ),
+        buildDebugDmTemplateEntry(
+          'auto-play-live',
+          'Call created',
+          'The success message after accepting the auto-play prompt and creating the call.',
+          buildDiscordAutoPlayPromptPreview({
+            promptId: 'template-auto-play-live',
+            status: DiscordAutoPlayPromptStatus.ACCEPTED,
+            gameTitle,
+            durationMinutes: 120,
+            notifyScope: PlayIntentScope.MUTUAL_FRIENDS,
+            friendRecipientCount: 3,
+            networkRecipientCount: 7,
+            statusDetail: '3 Discord DMs delivered from this Discord-created call to play.',
+            deliveredCount: 3
+          }) ?? { content: '', components: [] }
+        ),
+        buildDebugDmTemplateEntry(
+          'auto-play-declined',
+          'Declined prompt',
+          'The response shown after choosing Not now.',
+          buildDiscordAutoPlayPromptPreview({
+            promptId: 'template-auto-play-declined',
+            status: DiscordAutoPlayPromptStatus.DECLINED,
+            gameTitle,
+            durationMinutes: null,
+            notifyScope: null,
+            friendRecipientCount: 3,
+            networkRecipientCount: 7,
+            statusDetail: 'The user declined the prompt from Discord.',
+            deliveredCount: 0
+          }) ?? { content: '', components: [] }
+        ),
+        buildDebugDmTemplateEntry(
+          'auto-play-expired',
+          'Closed prompt',
+          'The state shown when the prompt is no longer valid because the game activity ended or conditions changed.',
+          buildDiscordAutoPlayPromptPreview({
+            promptId: 'template-auto-play-expired',
+            status: DiscordAutoPlayPromptStatus.EXPIRED,
+            gameTitle,
+            durationMinutes: 120,
+            notifyScope: PlayIntentScope.FRIENDS_ONLY,
+            friendRecipientCount: 0,
+            networkRecipientCount: 0,
+            statusDetail: `This prompt was closed because we are no longer seeing you in ${gameTitle}.`,
+            deliveredCount: 0
+          }) ?? { content: '', components: [] }
+        )
+      ]
+    }
+  ]
 }
 
 function toCreatorSummaryNotificationsAtTime(
@@ -211,6 +698,8 @@ function buildNotificationMessageRevisions(options: {
   gameTitle: string | null;
   voiceChannel: { channelId: string | null; channelName: string | null; recipientSharesServer: boolean } | null;
   joinCount?: number;
+  actorDisplayName?: string | null;
+  actorDiscordUserId?: string | null;
 }) {
   const basePreviewOptions = {
     notificationId: options.notification.id,
@@ -222,7 +711,9 @@ function buildNotificationMessageRevisions(options: {
     creatorDisplayName: options.creatorDisplayName,
     gameTitle: options.gameTitle,
     voiceChannel: options.voiceChannel,
-    joinCount: options.joinCount
+    joinCount: options.joinCount,
+    actorDisplayName: options.actorDisplayName,
+    actorDiscordUserId: options.actorDiscordUserId
   }
   const revisions: DebugDmRevisionDraft[] = [{
     occurredAt: options.notification.createdAt.toISOString(),
@@ -709,7 +1200,15 @@ export async function buildDebugAdminSnapshot() {
         select: {
           id: true,
           handle: true,
-          displayName: true
+          displayName: true,
+          identities: {
+            where: {
+              provider: AuthProvider.DISCORD
+            },
+            select: {
+              providerUserId: true
+            }
+          }
         }
       })
     : []
@@ -1023,7 +1522,9 @@ export async function buildDebugAdminSnapshot() {
         creatorDiscordUserId,
         creatorDisplayName: intent.user.displayName,
         gameTitle: notification.game?.title ?? null,
-        voiceChannel: null
+        voiceChannel: null,
+        actorDisplayName: notification.triggeredByUserId ? (triggeredByUserMap.get(notification.triggeredByUserId)?.displayName ?? null) : null,
+        actorDiscordUserId: notification.triggeredByUserId ? (triggeredByUserMap.get(notification.triggeredByUserId)?.identities[0]?.providerUserId ?? null) : null
       })
 
       creatorMessages.push({
@@ -1168,11 +1669,7 @@ export async function buildDebugAdminSnapshot() {
         recipient.timezoneId
       )
       const syntheticPreview = {
-        content: buildPlayIntentDirectMessageHeading(
-          notificationCopy.title,
-          creatorDiscordUserId,
-          intent.user.displayName
-        ),
+        content: buildPlayIntentDirectMessageHeading(notificationCopy.title),
         embeds: buildPlayIntentDirectMessageEmbeds(
           notificationCopy.title,
           notificationCopy.body,
@@ -1344,6 +1841,8 @@ export async function buildDebugAdminSnapshot() {
             recipientSharesServer
           }
         : null,
+      actorDisplayName: notification.triggeredByUserId ? (triggeredByUserMap.get(notification.triggeredByUserId)?.displayName ?? null) : null,
+      actorDiscordUserId: notification.triggeredByUserId ? (triggeredByUserMap.get(notification.triggeredByUserId)?.identities[0]?.providerUserId ?? null) : null,
       joinCount: (
         notification.type === NotificationType.SCHEDULED_PLAY_INTENT_REMINDER
         || notification.type === NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED
@@ -1368,6 +1867,7 @@ export async function buildDebugAdminSnapshot() {
   return debugAdminResponseSchema.parse({
     generatedAt: new Date().toISOString(),
     bot: getDiscordPresenceBotState(),
+    dmTemplates: buildDebugDmTemplates(now),
     recentAutoPlayPrompts: recentAutoPlayPromptRows,
     recentNotifications: recentNotificationRows,
     recentPlayIntents: recentPlayIntentRows,
