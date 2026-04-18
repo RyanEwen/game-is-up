@@ -252,7 +252,7 @@ function buildHelpMessage() {
     '- `autoplay` shows whether Discord auto-play prompts are on.',
     '- `autoplay on` enables Discord auto-play prompts.',
     '- `autoplay off` disables Discord auto-play prompts.',
-    '- `cleanup` removes ended bot messages and settled prompts.'
+    '- `cleanup` removes old bot messages and settled prompts, keeping only the newest active tracked message.'
   ].join('\n\n')
 }
 
@@ -384,15 +384,15 @@ async function handleCleanupCommand(context: DirectMessageCommandContext, identi
     await context.reply(
       [
         buildDiscordMessageHeading('Nothing to clean up'),
-        'There are no ended bot messages or settled prompts to remove right now.'
+        'There are no older bot messages or settled prompts to remove right now.'
       ].join('\n\n')
     )
     return
   }
 
   const summary = result.deletedCount === result.attemptedCount
-    ? `Removed ${result.deletedCount} tracked Discord message${result.deletedCount === 1 ? '' : 's'}.`
-    : `Removed ${result.deletedCount} of ${result.attemptedCount} tracked Discord messages.`
+    ? `Removed ${result.deletedCount} Discord bot message${result.deletedCount === 1 ? '' : 's'}.`
+    : `Removed ${result.deletedCount} of ${result.attemptedCount} Discord bot messages.`
 
   await context.reply(
     [

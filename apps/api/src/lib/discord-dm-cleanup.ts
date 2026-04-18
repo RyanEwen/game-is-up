@@ -1,13 +1,23 @@
 import { AuthProvider, NotificationType } from '@prisma/client'
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, type MessageActionRowComponentBuilder } from 'discord.js'
 import { NotificationResponseChoice } from '@prisma/client'
-import { deleteDiscordDirectMessage, editDiscordDirectMessage, sendDiscordDirectMessages, supportsDiscordInteractiveMessages } from './discord-bot-runtime.js'
+import {
+  deleteDiscordDirectMessage,
+  editDiscordDirectMessage,
+  fetchDiscordChannelMessages,
+  getDiscordBotUserId,
+  getOrCreateDiscordDirectMessageChannel,
+  sendDiscordDirectMessages,
+  supportsDiscordInteractiveMessages
+} from './discord-bot-runtime.js'
 import { appendOpenInAppButton, buildDiscordMessageHeading } from './discord-dm-formatting.js'
 import { env } from './env.js'
 import { formatPlayIntentWindowLabel } from './play-intent-time-format.js'
 import { prisma } from './prisma.js'
 
 const discordDmRetentionMs = 12 * 60 * 60 * 1000
+const discordDmCleanupSweepPageLimit = 100
+const discordDmCleanupSweepMessageCap = 500
 const playIntentNotificationPrefix = 'play-intent-response'
 const creatorPlayIntentSummaryPrefix = 'creator-play-intent-summary'
 const archivedPlayIntentNotificationTypes = [
@@ -29,6 +39,22 @@ type ArchivedCreatorCandidate = ArchivedDirectMessageCandidate & {
 
 type ArchivedNotificationCandidate = ArchivedDirectMessageCandidate & {
   notificationId: string;
+}
+
+type TrackedDirectMessageEntry = {
+  channelId: string;
+  messageId: string;
+  sortAt: number;
+  isActive: boolean;
+  notificationIds: Set<string>;
+  promptIds: Set<string>;
+  creatorPlayIntentIds: Set<string>;
+}
+
+type TrackedDirectMessageState = {
+  discordUserId: string | null;
+  channelIds: Set<string>;
+  entries: Map<string, TrackedDirectMessageEntry>;
 }
 
 function buildPlayUrl() {
@@ -254,6 +280,301 @@ async function clearCreatorSummaryDmReferences(playIntentIds: string[]) {
       creatorDiscordDmMessageId: null
     }
   })
+}
+
+function upsertTrackedDirectMessageEntry(
+  state: TrackedDirectMessageState,
+  options: {
+    channelId: string | null;
+    messageId: string | null;
+    sortAt?: Date | null;
+    isActive?: boolean;
+    notificationId?: string;
+    promptId?: string;
+    creatorPlayIntentId?: string;
+  }
+) {
+  const { channelId, messageId } = options
+
+  if (!channelId || !messageId) {
+    return
+  }
+
+  state.channelIds.add(channelId)
+
+  const key = `${channelId}:${messageId}`
+  const entry = state.entries.get(key) ?? {
+    channelId,
+    messageId,
+    sortAt: 0,
+    isActive: false,
+    notificationIds: new Set<string>(),
+    promptIds: new Set<string>(),
+    creatorPlayIntentIds: new Set<string>()
+  }
+
+  entry.sortAt = Math.max(entry.sortAt, options.sortAt?.getTime() ?? 0)
+  entry.isActive = entry.isActive || Boolean(options.isActive)
+
+  if (options.notificationId) {
+    entry.notificationIds.add(options.notificationId)
+  }
+
+  if (options.promptId) {
+    entry.promptIds.add(options.promptId)
+  }
+
+  if (options.creatorPlayIntentId) {
+    entry.creatorPlayIntentIds.add(options.creatorPlayIntentId)
+  }
+
+  state.entries.set(key, entry)
+}
+
+async function collectTrackedDirectMessageStateForUser(userId: string, now: Date) {
+  const [discordIdentity, creatorSummaries, notifications, prompts] = await Promise.all([
+    prisma.userIdentity.findFirst({
+      where: {
+        userId,
+        provider: AuthProvider.DISCORD
+      },
+      select: {
+        providerUserId: true
+      }
+    }),
+    prisma.playIntent.findMany({
+      where: {
+        userId,
+        creatorDiscordDmChannelId: {
+          not: null
+        },
+        creatorDiscordDmMessageId: {
+          not: null
+        }
+      },
+      select: {
+        id: true,
+        createdAt: true,
+        expiresAt: true,
+        creatorDiscordDmChannelId: true,
+        creatorDiscordDmMessageId: true
+      }
+    }),
+    prisma.notification.findMany({
+      where: {
+        userId,
+        discordDmChannelId: {
+          not: null
+        },
+        discordDmMessageId: {
+          not: null
+        }
+      },
+      select: {
+        id: true,
+        createdAt: true,
+        deliveredAt: true,
+        discordDmChannelId: true,
+        discordDmMessageId: true,
+        playIntent: {
+          select: {
+            expiresAt: true
+          }
+        }
+      }
+    }),
+    prisma.discordAutoPlayPrompt.findMany({
+      where: {
+        userId,
+        discordDmChannelId: {
+          not: null
+        },
+        discordDmMessageId: {
+          not: null
+        }
+      },
+      select: {
+        id: true,
+        createdAt: true,
+        deliveredAt: true,
+        respondedAt: true,
+        createdPlayIntentId: true,
+        discordDmChannelId: true,
+        discordDmMessageId: true
+      }
+    })
+  ])
+
+  const state: TrackedDirectMessageState = {
+    discordUserId: discordIdentity?.providerUserId ?? null,
+    channelIds: new Set<string>(),
+    entries: new Map<string, TrackedDirectMessageEntry>()
+  }
+
+  for (const summary of creatorSummaries) {
+    upsertTrackedDirectMessageEntry(state, {
+      channelId: summary.creatorDiscordDmChannelId,
+      messageId: summary.creatorDiscordDmMessageId,
+      sortAt: summary.createdAt,
+      isActive: summary.expiresAt > now,
+      creatorPlayIntentId: summary.id
+    })
+  }
+
+  for (const notification of notifications) {
+    upsertTrackedDirectMessageEntry(state, {
+      channelId: notification.discordDmChannelId,
+      messageId: notification.discordDmMessageId,
+      sortAt: notification.deliveredAt ?? notification.createdAt,
+      isActive: Boolean(notification.playIntent?.expiresAt && notification.playIntent.expiresAt > now),
+      notificationId: notification.id
+    })
+  }
+
+  for (const prompt of prompts) {
+    upsertTrackedDirectMessageEntry(state, {
+      channelId: prompt.discordDmChannelId,
+      messageId: prompt.discordDmMessageId,
+      sortAt: prompt.deliveredAt ?? prompt.createdAt,
+      isActive: prompt.respondedAt == null && !prompt.createdPlayIntentId,
+      promptId: prompt.id
+    })
+  }
+
+  return state
+}
+
+async function pruneTrackedDirectMessagesForUser(state: TrackedDirectMessageState) {
+  const keeper = [...state.entries.values()]
+    .filter((entry) => entry.isActive)
+    .sort((left, right) => right.sortAt - left.sortAt)[0]
+
+  const preservedMessageIds = new Set<string>()
+
+  if (keeper) {
+    preservedMessageIds.add(keeper.messageId)
+  }
+
+  const notificationIdsToClear = new Set<string>()
+  const promptIdsToClear = new Set<string>()
+  const creatorPlayIntentIdsToClear = new Set<string>()
+  let deletedCount = 0
+  let attemptedCount = 0
+
+  for (const entry of state.entries.values()) {
+    if (keeper && entry.channelId === keeper.channelId && entry.messageId === keeper.messageId) {
+      continue
+    }
+
+    attemptedCount += 1
+
+    if (!(await tryDeleteDirectMessage(entry.channelId, entry.messageId))) {
+      preservedMessageIds.add(entry.messageId)
+      continue
+    }
+
+    deletedCount += 1
+
+    for (const notificationId of entry.notificationIds) {
+      notificationIdsToClear.add(notificationId)
+    }
+
+    for (const promptId of entry.promptIds) {
+      promptIdsToClear.add(promptId)
+    }
+
+    for (const creatorPlayIntentId of entry.creatorPlayIntentIds) {
+      creatorPlayIntentIdsToClear.add(creatorPlayIntentId)
+    }
+  }
+
+  await Promise.all([
+    clearNotificationDmReferences([...notificationIdsToClear]),
+    clearPromptDmReferences([...promptIdsToClear]),
+    clearCreatorSummaryDmReferences([...creatorPlayIntentIdsToClear])
+  ])
+
+  return {
+    discordUserId: state.discordUserId,
+    channelIds: state.channelIds,
+    preservedMessageIds,
+    deletedCount,
+    attemptedCount
+  }
+}
+
+async function deleteUntrackedDirectMessagesForUser(options: {
+  discordUserId: string | null;
+  preservedMessageIds: Set<string>;
+  channelIds: Set<string>;
+}) {
+  const botUserId = await getDiscordBotUserId()
+
+  if (!botUserId || !options.discordUserId) {
+    return {
+      deletedCount: 0,
+      attemptedCount: 0
+    }
+  }
+
+  const directMessageChannel = await getOrCreateDiscordDirectMessageChannel(options.discordUserId)
+
+  if (directMessageChannel?.id) {
+    options.channelIds.add(directMessageChannel.id)
+  }
+
+  let deletedCount = 0
+  let attemptedCount = 0
+
+  for (const channelId of options.channelIds) {
+    let before: string | undefined
+    let inspectedCount = 0
+
+    while (inspectedCount < discordDmCleanupSweepMessageCap) {
+      const messages = await fetchDiscordChannelMessages({
+        channelId,
+        before,
+        limit: discordDmCleanupSweepPageLimit
+      })
+
+      if (messages.length === 0) {
+        break
+      }
+
+      for (const message of messages) {
+        inspectedCount += 1
+
+        if (message.authorId !== botUserId || options.preservedMessageIds.has(message.id)) {
+          if (inspectedCount >= discordDmCleanupSweepMessageCap) {
+            break
+          }
+
+          continue
+        }
+
+        attemptedCount += 1
+
+        if (await tryDeleteDirectMessage(channelId, message.id)) {
+          deletedCount += 1
+        }
+
+        if (inspectedCount >= discordDmCleanupSweepMessageCap) {
+          break
+        }
+      }
+
+      if (messages.length < discordDmCleanupSweepPageLimit || inspectedCount >= discordDmCleanupSweepMessageCap) {
+        break
+      }
+
+      before = messages[messages.length - 1]?.id
+    }
+  }
+
+  return {
+    deletedCount,
+    attemptedCount
+  }
 }
 
 export async function deletePlayIntentDirectMessages(playIntentId: string) {
@@ -654,13 +975,21 @@ export async function deleteSettledDiscordDirectMessagesForUser(userId: string) 
 
   await clearPromptDmReferences(promptIdsToClear)
 
+  const trackedDirectMessageState = await collectTrackedDirectMessageStateForUser(userId, now)
+  const pruneResult = await pruneTrackedDirectMessagesForUser(trackedDirectMessageState)
+  const sweepResult = await deleteUntrackedDirectMessagesForUser(pruneResult)
+
   return {
     deletedCount: creatorResults.reduce((total, result) => total + result.deletedCount, 0)
       + recipientResults.reduce((total, result) => total + result.deletedCount, 0)
-      + promptDeletedCount,
+      + promptDeletedCount
+      + pruneResult.deletedCount
+      + sweepResult.deletedCount,
     attemptedCount: creatorResults.reduce((total, result) => total + result.attemptedCount, 0)
       + recipientResults.reduce((total, result) => total + result.attemptedCount, 0)
       + promptAttemptedCount
+      + pruneResult.attemptedCount
+      + sweepResult.attemptedCount
   }
 }
 

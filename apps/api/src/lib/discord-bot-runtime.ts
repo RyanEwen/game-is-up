@@ -120,6 +120,14 @@ async function createDiscordDirectMessageChannel(discordUserId: string) {
   }
 }
 
+export async function getOrCreateDiscordDirectMessageChannel(discordUserId: string) {
+  if (!discordBotRest) {
+    return null
+  }
+
+  return createDiscordDirectMessageChannel(discordUserId)
+}
+
 const discordBotRest = env.DISCORD_BOT_TOKEN
   ? new REST({ version: '10' }).setToken(env.DISCORD_BOT_TOKEN)
   : null
