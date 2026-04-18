@@ -139,10 +139,22 @@ async function resolveDiscordIdentity(discordUserId: string) {
 }
 
 async function replyToDirectMessage(message: Message, content: string) {
-  await message.reply({
+  const payload = {
     content,
     components: [buildOpenAppRow()]
-  })
+  }
+
+  try {
+    await message.reply(payload)
+    return
+  } catch {
+    if ('send' in message.channel && typeof message.channel.send === 'function') {
+      await message.channel.send(payload)
+      return
+    }
+
+    throw new Error('Discord DM channel is not sendable.')
+  }
 }
 
 async function replyWithLinkPrompt(message: Message) {

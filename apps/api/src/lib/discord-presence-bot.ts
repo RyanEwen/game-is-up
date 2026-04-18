@@ -901,7 +901,11 @@ export async function startDiscordPresenceBot() {
   })
 
   client.on(Events.MessageCreate, (message) => {
-    void handleDiscordDirectMessageCommand(message)
+    void handleDiscordDirectMessageCommand(message).catch((error) => {
+      const description = error instanceof Error ? error.message : 'Unknown Discord DM command error'
+      discordPresenceBotState.lastError = description
+      console.error('Discord DM command handler failed', error)
+    })
   })
 
   client.on('shardDisconnect', () => {
