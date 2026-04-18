@@ -9,6 +9,7 @@ import {
   GatewayDispatchEvents,
   GatewayIntentBits,
   Partials,
+  type GatewayMessageCreateDispatchData,
   type MessageActionRowComponentBuilder,
   type Presence
 } from 'discord.js'
@@ -34,7 +35,11 @@ import {
   isScheduledPlayIntentCheckInCustomId,
   isPlayIntentNotificationCustomId
 } from './play-intent-notification-responses.js'
-import { handleDiscordDirectMessageCommand } from './discord-direct-message-commands.js'
+import {
+  buildDirectMessageReplyPayload,
+  handleDiscordDirectMessageCommand,
+  handleDiscordDirectMessagePayload
+} from './discord-direct-message-commands.js'
 import { handleDiscordSlashCommand, registerDiscordSlashCommands } from './discord-slash-commands.js'
 
 type DiscordGuildMemberSummary = {
@@ -96,6 +101,34 @@ const guildMemberRequests = new Map<string, Promise<DiscordGuildMemberCacheEntry
 const guildAccessCache = new Map<string, DiscordGuildAccessCacheEntry>()
 const guildAccessRequests = new Map<string, Promise<DiscordGuildAccessCacheEntry>>()
 const guildMemberCooldowns = new Map<string, number>()
+const discordDirectMessageDedupeWindowMs = 5 * 60 * 1000
+const handledDiscordDirectMessageIds = new Map<string, NodeJS.Timeout>()
+
+function claimDiscordDirectMessage(messageId: string) {
+  const existingTimeout = handledDiscordDirectMessageIds.get(messageId)
+
+  if (existingTimeout) {
+    return false
+  }
+
+  const timeout = setTimeout(() => {
+    handledDiscordDirectMessageIds.delete(messageId)
+  }, discordDirectMessageDedupeWindowMs)
+
+  handledDiscordDirectMessageIds.set(messageId, timeout)
+  return true
+}
+
+function releaseDiscordDirectMessage(messageId: string) {
+  const existingTimeout = handledDiscordDirectMessageIds.get(messageId)
+
+  if (!existingTimeout) {
+    return
+  }
+
+  clearTimeout(existingTimeout)
+  handledDiscordDirectMessageIds.delete(messageId)
+}
 
 function isDiscordSnowflake(value: string) {
   return discordSnowflakePattern.test(value)
@@ -833,7 +866,7 @@ export async function startDiscordPresenceBot() {
       GatewayIntentBits.GuildMembers,
       GatewayIntentBits.DirectMessages
     ],
-    partials: [Partials.Channel]
+    partials: [Partials.Channel, Partials.Message, Partials.User]
   })
 
   client.ws.on(GatewayDispatchEvents.MessageCreate, (rawMessage, shardId) => {
@@ -841,20 +874,38 @@ export async function startDiscordPresenceBot() {
       return
     }
 
-    const directMessage = rawMessage as {
-      author?: { id?: string };
-      channel_id?: string;
-      content?: string;
-      guild_id?: string;
-    }
+    const directMessage = rawMessage as GatewayMessageCreateDispatchData
 
-    if (typeof directMessage.guild_id === 'string') {
+    if (typeof directMessage.guild_id === 'string' || directMessage.author.bot) {
       return
     }
 
-    console.log(
-      `Discord gateway MESSAGE_CREATE shard=${shardId}: author=${directMessage.author?.id ?? 'unknown'}; channel=${directMessage.channel_id ?? 'unknown'}; contentLength=${typeof directMessage.content === 'string' ? directMessage.content.length : 0}`
-    )
+    if (!claimDiscordDirectMessage(directMessage.id)) {
+      return
+    }
+
+    void handleDiscordDirectMessagePayload({
+      authorId: directMessage.author.id,
+      content: typeof directMessage.content === 'string' ? directMessage.content : '',
+      source: `gateway-raw:${shardId}`,
+      reply: async (content) => {
+        const [result] = await sendDiscordDirectMessages([
+          {
+            discordUserId: directMessage.author.id,
+            ...buildDirectMessageReplyPayload(content)
+          }
+        ])
+
+        if (!result || result.status !== 'sent') {
+          throw new Error(result?.error ?? 'Discord did not confirm the DM reply send.')
+        }
+      }
+    }).catch((error) => {
+      releaseDiscordDirectMessage(directMessage.id)
+      const description = error instanceof Error ? error.message : 'Unknown raw Discord DM command error'
+      discordPresenceBotState.lastError = description
+      console.error('Discord raw DM command handler failed', error)
+    })
   })
 
   setDiscordBotClient(client)
@@ -924,13 +975,15 @@ export async function startDiscordPresenceBot() {
   })
 
   client.on(Events.MessageCreate, (message) => {
-    if (!message.author.bot && !message.inGuild()) {
-      console.log(
-        `Discord MessageCreate event surfaced: author=${message.author.id}; channel=${message.channel.id}; partial=${message.partial ? 'yes' : 'no'}; contentLength=${typeof message.content === 'string' ? message.content.length : 0}`
-      )
+    if (!message.author.bot && !message.inGuild() && !claimDiscordDirectMessage(message.id)) {
+      return
     }
 
     void handleDiscordDirectMessageCommand(message).catch((error) => {
+      if (!message.author.bot && !message.inGuild()) {
+        releaseDiscordDirectMessage(message.id)
+      }
+
       const description = error instanceof Error ? error.message : 'Unknown Discord DM command error'
       discordPresenceBotState.lastError = description
       console.error('Discord DM command handler failed', error)
