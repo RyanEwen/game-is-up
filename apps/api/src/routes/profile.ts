@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import type { Request, Response } from 'express'
 import { updateUserProfileRequestSchema, userProfileResponseSchema } from '@game-is-up/shared'
+import { publishDashboardInvalidation } from '../lib/dashboard-events.js'
 import { prisma } from '../lib/prisma.js'
 import { getAuthSession } from '../lib/session.js'
 import { normalizeTimezoneId } from '../lib/timezone-label.js'
@@ -53,6 +54,11 @@ profileRouter.put('/me', async (request, response, next) => {
         ...(payload.discordAutoPromptPlayIntent != null ? { discordAutoPromptPlayIntent: payload.discordAutoPromptPlayIntent } : {}),
         ...(timezoneId ? { timezoneId } : {})
       }
+    })
+
+    publishDashboardInvalidation({
+      domains: ['auth', 'profile', 'library', 'play-intents'],
+      userIds: [userId]
     })
 
     response.json(userProfileResponseSchema.parse(user))

@@ -10,6 +10,7 @@ import {
   upsertPlayIntentRequestSchema,
   upsertPlayIntentResponseSchema
 } from '@game-is-up/shared'
+import { publishDashboardInvalidation } from '../lib/dashboard-events.js'
 import { buildPlayIntentFeed } from '../lib/play-intent-feed.js'
 import {
   clearCurrentPlayIntent,
@@ -104,7 +105,13 @@ playIntentRouter.put('/me', async (request, response, next) => {
       return
     }
 
-    response.json(upsertPlayIntentResponseSchema.parse(await upsertCurrentPlayIntent(userId, payload)))
+    const result = await upsertCurrentPlayIntent(userId, payload)
+
+    publishDashboardInvalidation({
+      domains: ['play-intents', 'discovery']
+    })
+
+    response.json(upsertPlayIntentResponseSchema.parse(result))
   } catch (error) {
     if (error instanceof PlayIntentValidationError) {
       response.status(400).json({
@@ -126,6 +133,11 @@ playIntentRouter.delete('/me', async (request, response, next) => {
 
   try {
     await clearCurrentPlayIntent(userId)
+
+    publishDashboardInvalidation({
+      domains: ['play-intents', 'discovery']
+    })
+
     response.status(204).send()
   } catch (error) {
     next(error)
@@ -254,6 +266,10 @@ playIntentRouter.post('/:playIntentId/respond', async (request, response, next) 
       response: payload.choice === 'interested' || payload.choice === 'join'
         ? NotificationResponseChoice.JOIN
         : NotificationResponseChoice.DECLINE
+    })
+
+    publishDashboardInvalidation({
+      domains: ['play-intents', 'discovery']
     })
 
     response.json(playIntentRecipientResponseResultSchema.parse(result))

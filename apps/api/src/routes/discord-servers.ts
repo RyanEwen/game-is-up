@@ -16,6 +16,7 @@ import {
   sendDiscordServerInvites,
   updateDiscordServerPreference
 } from '../lib/discord-servers.js'
+import { publishDashboardInvalidation } from '../lib/dashboard-events.js'
 
 const serverParamsSchema = z.object({
   serverId: z.string().min(1)
@@ -171,6 +172,10 @@ discordServersRouter.put('/me/:serverId', async (request, response, next) => {
       })
       return
     }
+
+    publishDashboardInvalidation({
+      domains: ['network', 'discovery', 'play-intents']
+    })
 
     response.json(discordServerPreferencesResponseSchema.parse(await buildDiscordServerPreferences(userId)))
   } catch (error) {

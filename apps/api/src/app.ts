@@ -8,6 +8,7 @@ import { authRouter } from './routes/auth.js'
 import { debugRouter } from './routes/debug.js'
 import { discoveryRouter } from './routes/discovery.js'
 import { discordServersRouter } from './routes/discord-servers.js'
+import { eventsRouter } from './routes/events.js'
 import { friendsRouter } from './routes/friends.js'
 import { healthRouter } from './routes/health.js'
 import { getAllowedClientOrigins, getApiOrigin } from './lib/origin.js'
@@ -55,6 +56,7 @@ app.use('/api/aliases', aliasesRouter)
 app.use('/api/debug', debugRouter)
 app.use('/api/discord-servers', discordServersRouter)
 app.use('/api/discovery', discoveryRouter)
+app.use('/api/events', eventsRouter)
 app.use('/api/friends', friendsRouter)
 app.use('/api/library', libraryRouter)
 app.use('/api/media', mediaRouter)

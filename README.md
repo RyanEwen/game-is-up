@@ -69,6 +69,8 @@ Optional: set `VITE_API_BASE_URL` to an explicit origin if the web app should ca
 
 The dashboard uses route-backed tabs, so the main views live at `/`, `/library`, `/discovery`, and `/play`. Admin users also get a `/debug` tab for bot, prompt, notification, DM-emulator, and invite-attribution diagnostics. Discord sign-in now preserves same-origin return URLs so a user can authenticate and land back on the view they started from, and invite links can land on a dedicated `/invite` route before handing off into Discord OAuth.
 
+Signed-in dashboard sessions now also keep themselves fresh through a same-origin Server-Sent Events invalidation stream. When impactful shared state changes land on the API, open tabs can automatically reload discovery, play, library, network, and session data without a polling loop.
+
 For a clean local reset plus startup in one command, run:
 
 ```bash
@@ -229,6 +231,7 @@ This repo now treats Prisma migrations as the source of truth for schema changes
 35. Linked-account flows like Discord sign-in and Steam linking return directly to the current web URL after the provider callback completes.
 36. Call-to-play DMs now include a clickable creator Discord mention when available.
 37. Subset call-to-play DMs can include game art for small selected-game sets: single-game calls show the chosen cover directly, and small multi-game sets show a lead cover with a short title list.
+38. Signed-in web sessions now subscribe to an authenticated dashboard SSE stream so open tabs refresh automatically after impactful changes such as play-intent updates, library edits, friend changes, Discord server selection changes, and linked-account or profile updates.
 
 ## Steam import setup
 

@@ -42,6 +42,7 @@ import {
   setAuthSession,
   setDiscordState,
 } from '../lib/session.js'
+import { publishDashboardInvalidation } from '../lib/dashboard-events.js'
 import { toClientAvatarUrl } from '../lib/game-media.js'
 
 export const authRouter = Router()
@@ -309,6 +310,9 @@ authRouter.get('/discord/callback', async (request, response) => {
     clearDiscordState(response)
 
     setAuthSession(response, userResult.user.id, 'discord')
+    publishDashboardInvalidation({
+      domains: ['auth', 'network', 'discovery', 'play-intents']
+    })
     response.redirect(buildClientRedirect('discord', redirectTarget, 'success'))
   } catch (callbackError) {
     console.error('Discord callback failed', callbackError)
@@ -362,6 +366,10 @@ authRouter.get('/steam/callback', async (request, response) => {
     const steamId = await verifySteamOpenIdResponse(query)
 
     await upsertSteamIdentity(linkState.userId, steamId)
+    publishDashboardInvalidation({
+      domains: ['auth', 'library'],
+      userIds: [linkState.userId]
+    })
 
     response.redirect(buildClientRedirect('steam', redirectTarget, 'success'))
   } catch (callbackError) {
@@ -390,13 +398,27 @@ authRouter.delete('/steam/link', async (request, response, next) => {
       }
     })
 
+    publishDashboardInvalidation({
+      domains: ['auth', 'library'],
+      userIds: [session.userId]
+    })
+
     response.status(204).send()
   } catch (error) {
     next(error)
   }
 })
 
-authRouter.post('/logout', (_request, response) => {
+authRouter.post('/logout', (request, response) => {
+  const session = getAuthSession(request)
+
+  if (session) {
+    publishDashboardInvalidation({
+      domains: ['auth'],
+      userIds: [session.userId]
+    })
+  }
+
   clearAuthSession(response)
   response.status(204).send()
 })

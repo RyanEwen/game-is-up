@@ -4,14 +4,24 @@
 
 `apps/web` is the primary product surface: a Vite-built PWA with a Joy UI interface and shared TypeScript contracts from `packages/shared`. `apps/api` exposes the typed HTTP surface for auth, discovery, and play-intent orchestration.
 
+Most client data still loads through normal HTTP requests, but signed-in dashboard sessions also hold one authenticated Server-Sent Events connection to the API. That stream carries low-detail invalidation events so the web client can re-fetch shared dashboard state when another user or another tab changes something impactful.
+
 ## Layers
 
 | Layer | Description |
 |---|---|
 | `apps/web` | Web-first client shell, discovery UI, auth entry points, and installable PWA behavior. |
-| `apps/api` | Express API, auth integration, discovery ranking, notification fan-out, and persistence orchestration around Prisma. |
-| `packages/shared` | Zod schemas, DTOs, and shared runtime validation used by both the web app and API. |
+| `apps/api` | Express API, auth integration, discovery ranking, notification fan-out, SSE invalidation publishing, and persistence orchestration around Prisma. |
+| `packages/shared` | Zod schemas, DTOs, SSE event contracts, and shared runtime validation used by both the web app and API. |
 | `apps/api/prisma` | Core relational model for users, friends, game interests, play intents, moderation, and notifications. |
+
+## Dashboard refresh flow
+
+The web app does not use client-facing WebSockets. Instead, signed-in dashboard tabs subscribe to a single authenticated SSE endpoint that publishes invalidation events for broad domains such as auth, profile, library, network, discovery, and play intents.
+
+When the API completes a mutation in one of those domains, it publishes an invalidation event and the client debounces a normal dashboard reload. That keeps transport simple while still making multi-user state feel live.
+
+The current event fan-out is process-local in the API runtime. That is sufficient for the current single-instance deployment model, but a future multi-instance deployment would need a shared pub-sub layer behind the SSE publisher.
 
 ## Discovery-first product model
 

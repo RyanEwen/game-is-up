@@ -22,6 +22,7 @@ import type {
 import {
   authProvidersResponseSchema,
   authSessionResponseSchema,
+  dashboardInvalidationEventSchema,
   debugAdminResponseSchema,
   debugDmActionResponseSchema,
   discordServerPreferencesResponseSchema,
@@ -175,6 +176,8 @@ export function useDashboardApp() {
   const [addingLibraryGameId, setAddingLibraryGameId] = useState<string | null>(null)
   const [serverPreferencePendingId, setServerPreferencePendingId] = useState<string | null>(null)
   const timezoneSyncPendingIdRef = useRef<string | null>(null)
+  const sseRefreshTimeoutIdRef = useRef<number | null>(null)
+  const sseDeferredRefreshRef = useRef(false)
   const showDebugView = Boolean(state.session?.user?.isAdmin)
   const browserTimeZoneId = getBrowserTimeZoneId()
   const isInstalledBrowserApp = getIsInstalledBrowserApp()
@@ -406,6 +409,27 @@ export function useDashboardApp() {
       }))
     }
   }, [])
+
+  const scheduleDashboardRefreshFromInvalidation = useCallback(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    if (window.navigator.onLine === false || document.visibilityState !== 'visible') {
+      sseDeferredRefreshRef.current = true
+      return
+    }
+
+    if (sseRefreshTimeoutIdRef.current != null) {
+      return
+    }
+
+    sseRefreshTimeoutIdRef.current = window.setTimeout(() => {
+      sseRefreshTimeoutIdRef.current = null
+      sseDeferredRefreshRef.current = false
+      void loadDashboard()
+    }, 250)
+  }, [loadDashboard])
 
   const updateProfile = useCallback(async (profilePatch: { usualAvailability?: string; timezoneId?: string; discordAutoPromptPlayIntent?: boolean }) => {
     const response = await fetch(buildApiUrl('/api/profile/me'), {
@@ -664,6 +688,63 @@ export function useDashboardApp() {
     availableDiscoveryServers,
     setActionNotice
   })
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && sseDeferredRefreshRef.current) {
+        scheduleDashboardRefreshFromInvalidation()
+      }
+    }
+
+    const handleOnline = () => {
+      if (sseDeferredRefreshRef.current) {
+        scheduleDashboardRefreshFromInvalidation()
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('online', handleOnline)
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('online', handleOnline)
+
+      if (sseRefreshTimeoutIdRef.current != null) {
+        window.clearTimeout(sseRefreshTimeoutIdRef.current)
+        sseRefreshTimeoutIdRef.current = null
+      }
+    }
+  }, [scheduleDashboardRefreshFromInvalidation])
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !isSignedIn) {
+      return
+    }
+
+    const eventSource = new EventSource(buildApiUrl('/api/events/dashboard'), {
+      withCredentials: true
+    })
+
+    eventSource.onmessage = (messageEvent) => {
+      try {
+        const payload = dashboardInvalidationEventSchema.parse(JSON.parse(messageEvent.data) as unknown)
+
+        if (payload.domains.length > 0) {
+          scheduleDashboardRefreshFromInvalidation()
+        }
+      } catch {
+        // Ignore malformed SSE payloads and rely on the next valid invalidation event.
+      }
+    }
+
+    return () => {
+      eventSource.close()
+    }
+  }, [isSignedIn, scheduleDashboardRefreshFromInvalidation])
 
   useEffect(() => {
     if (!isSignedIn || !browserTimeZoneId || profileSaving) {

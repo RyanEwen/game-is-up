@@ -810,6 +810,21 @@ export const clientBootstrapSchema = z.object({
   })
 })
 
+export const dashboardInvalidationDomainSchema = z.enum([
+  'auth',
+  'profile',
+  'library',
+  'network',
+  'discovery',
+  'play-intents'
+])
+
+export const dashboardInvalidationEventSchema = z.object({
+  id: z.string().min(1),
+  occurredAt: z.string().datetime(),
+  domains: z.array(dashboardInvalidationDomainSchema).min(1)
+})
+
 export const serverEnvSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   DATABASE_URL: z.string().min(1),
@@ -909,6 +924,8 @@ export type DebugPlayIntentLifecycleEvent = z.infer<typeof debugPlayIntentLifecy
 export type DebugErrorLog = z.infer<typeof debugErrorLogSchema>;
 export type DebugAdminResponse = z.infer<typeof debugAdminResponseSchema>;
 export type ClientBootstrap = z.infer<typeof clientBootstrapSchema>;
+export type DashboardInvalidationDomain = z.infer<typeof dashboardInvalidationDomainSchema>;
+export type DashboardInvalidationEvent = z.infer<typeof dashboardInvalidationEventSchema>;
 export type ServerEnv = z.infer<typeof serverEnvSchema>;
 export type UserPlatformAlias = z.infer<typeof userPlatformAliasSchema>;
 export type UserPlatformAliasesResponse = z.infer<typeof userPlatformAliasesResponseSchema>;

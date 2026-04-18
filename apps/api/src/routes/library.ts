@@ -20,6 +20,7 @@ import {
   normalizeGameTitleForMatch,
   searchGamesByTitle
 } from '../lib/game-catalog.js'
+import { publishDashboardInvalidation } from '../lib/dashboard-events.js'
 import { toClientGameCoverUrl } from '../lib/game-media.js'
 import { getNetworkTrendingGames, getObservedLibrarySuggestions } from '../lib/library-suggestions.js'
 import { prisma } from '../lib/prisma.js'
@@ -388,6 +389,10 @@ libraryRouter.post('/me', async (request, response, next) => {
       })
     })
 
+    publishDashboardInvalidation({
+      domains: ['library', 'discovery', 'play-intents']
+    })
+
     response.json(libraryResponseSchema.parse(await buildLibraryResponse(userId)))
   } catch (error) {
     next(error)
@@ -412,6 +417,10 @@ libraryRouter.post('/imports/steam', async (request, response, next) => {
     const payload = importSteamLibrarySelectionRequestSchema.parse(request.body)
 
     await importSteamGamesForUser(userId, payload.games)
+
+    publishDashboardInvalidation({
+      domains: ['library', 'discovery', 'play-intents']
+    })
 
     response.json(libraryResponseSchema.parse(await buildLibraryResponse(userId)))
   } catch (error) {
@@ -441,6 +450,10 @@ libraryRouter.delete('/me/:entryId', async (request, response, next) => {
       })
       return
     }
+
+    publishDashboardInvalidation({
+      domains: ['library', 'discovery', 'play-intents']
+    })
 
     response.status(204).send()
   } catch (error) {

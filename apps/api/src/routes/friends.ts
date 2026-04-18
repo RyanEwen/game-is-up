@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import type { Request, Response } from 'express'
 import { z } from 'zod'
+import { publishDashboardInvalidation } from '../lib/dashboard-events.js'
 import { prisma } from '../lib/prisma.js'
 import { getAuthSession } from '../lib/session.js'
 
@@ -70,6 +71,11 @@ friendsRouter.post('/:userId', async (request, response, next) => {
       }
     })
 
+    publishDashboardInvalidation({
+      domains: ['network', 'discovery', 'play-intents'],
+      userIds: [viewerUserId]
+    })
+
     response.status(204).send()
   } catch (error) {
     next(error)
@@ -91,6 +97,11 @@ friendsRouter.delete('/:userId', async (request, response, next) => {
         userId: viewerUserId,
         friendedUserId: userId
       }
+    })
+
+    publishDashboardInvalidation({
+      domains: ['network', 'discovery', 'play-intents'],
+      userIds: [viewerUserId]
     })
 
     response.status(204).send()
