@@ -1,5 +1,8 @@
 import {
   ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  type ButtonInteraction,
   type Message,
   type MessageActionRowComponentBuilder
 } from 'discord.js'
@@ -21,7 +24,11 @@ type ParsedDirectMessageCommand = {
   args: string[];
 }
 
-type DirectMessageReply = (content: string) => Promise<void>
+type DirectMessageReplyOptions = {
+  dismissButtonForUserId?: string;
+}
+
+type DirectMessageReply = (content: string, options?: DirectMessageReplyOptions) => Promise<void>
 
 type DirectMessageCommandContext = {
   authorId: string;
@@ -52,6 +59,7 @@ const directMessageCommandAliases = new Map<string, DirectMessageCommandName>([
 ])
 
 const DISCORD_DM_FETCH_TIMEOUT_MS = 5_000
+const directMessageCommandDismissPrefix = 'dm-command'
 
 function buildPlayUrl() {
   try {
@@ -67,10 +75,39 @@ function buildOpenAppRow() {
   )
 }
 
-export function buildDirectMessageReplyPayload(content: string) {
+function buildDirectMessageDismissCustomId(discordUserId: string) {
+  return `${directMessageCommandDismissPrefix}:${discordUserId}:dismiss`
+}
+
+function buildDismissAndOpenAppRow(discordUserId: string) {
+  return new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId(buildDirectMessageDismissCustomId(discordUserId))
+      .setLabel('Dismiss')
+      .setStyle(ButtonStyle.Secondary),
+    buildOpenInAppButton(buildPlayUrl())
+  )
+}
+
+export function buildDirectMessageReplyPayload(content: string, options: DirectMessageReplyOptions = {}) {
   return {
     content,
-    components: [buildOpenAppRow()]
+    components: options.dismissButtonForUserId
+      ? [buildDismissAndOpenAppRow(options.dismissButtonForUserId)]
+      : [buildOpenAppRow()]
+  }
+}
+
+function parseDirectMessageCommandButtonAction(customId: string) {
+  const [prefix, discordUserId, action] = customId.split(':')
+
+  if (prefix !== directMessageCommandDismissPrefix || !discordUserId || action !== 'dismiss') {
+    return null
+  }
+
+  return {
+    discordUserId,
+    action
   }
 }
 
@@ -216,8 +253,8 @@ async function resolveDiscordIdentity(discordUserId: string) {
   })
 }
 
-async function replyToDirectMessage(message: Message, content: string) {
-  const payload = buildDirectMessageReplyPayload(content)
+async function replyToDirectMessage(message: Message, content: string, options: DirectMessageReplyOptions = {}) {
+  const payload = buildDirectMessageReplyPayload(content, options)
 
   try {
     await message.reply(payload)
@@ -385,7 +422,10 @@ async function handleCleanupCommand(context: DirectMessageCommandContext, identi
       [
         buildDiscordMessageHeading('Nothing to clean up'),
         'There are no older bot messages or settled prompts to remove right now.'
-      ].join('\n\n')
+      ].join('\n\n'),
+      {
+        dismissButtonForUserId: context.authorId
+      }
     )
     return
   }
@@ -398,7 +438,10 @@ async function handleCleanupCommand(context: DirectMessageCommandContext, identi
     [
       buildDiscordMessageHeading('Cleanup complete'),
       summary
-    ].join('\n\n')
+    ].join('\n\n'),
+    {
+      dismissButtonForUserId: context.authorId
+    }
   )
 }
 
@@ -474,8 +517,28 @@ export async function handleDiscordDirectMessageCommand(message: Message) {
     authorId: message.author.id,
     content,
     source,
-    reply: async (replyContent) => {
-      await replyToDirectMessage(message, replyContent)
+    reply: async (replyContent, options) => {
+      await replyToDirectMessage(message, replyContent, options)
     }
   })
+}
+
+export async function handleDiscordDirectMessageButtonInteraction(interaction: ButtonInteraction) {
+  const action = parseDirectMessageCommandButtonAction(interaction.customId)
+
+  if (!action) {
+    return false
+  }
+
+  if (interaction.user.id !== action.discordUserId) {
+    await interaction.reply({
+      content: 'This message belongs to another user.',
+      allowedMentions: { parse: [] }
+    })
+    return true
+  }
+
+  await interaction.deferUpdate()
+  await interaction.message.delete().catch(() => {})
+  return true
 }

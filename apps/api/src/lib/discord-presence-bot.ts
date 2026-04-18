@@ -37,6 +37,7 @@ import {
 } from './play-intent-notification-responses.js'
 import {
   buildDirectMessageReplyPayload,
+  handleDiscordDirectMessageButtonInteraction,
   handleDiscordDirectMessageCommand,
   handleDiscordDirectMessagePayload
 } from './discord-direct-message-commands.js'
@@ -951,6 +952,11 @@ export async function startDiscordPresenceBot() {
     }
 
     if (!interaction.isButton()) {
+      return
+    }
+
+    if (interaction.customId.startsWith('dm-command:')) {
+      void handleDiscordDirectMessageButtonInteraction(interaction)
       return
     }
 
