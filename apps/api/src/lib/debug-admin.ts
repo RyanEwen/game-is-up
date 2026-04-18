@@ -8,17 +8,13 @@ import {
   PlayIntentSelectionMode
 } from '@prisma/client'
 import { buildDiscordAutoPlayPromptPreview } from './discord-auto-play-prompts.js'
-import { buildDebugPlayIntentResponseCustomId } from './debug-dm-actions.js'
 import { buildDebugDmPreview } from './discord-dm-preview.js'
 import { areDiscordDirectMessagesEmulated, getDiscordPresenceBotState } from './discord-bot-runtime.js'
-import { env } from './env.js'
 import { getPlayIntentRecipientUserIdsForDebug } from './play-intents.js'
 import { buildPlayIntentNotificationCopy } from './play-intents.js'
 import {
   buildCreatorPlayIntentSummaryPreview,
-  buildPlayIntentDirectMessageHeading,
-  buildNotificationDirectMessagePreview,
-  buildPlayIntentDirectMessageEmbeds
+  buildNotificationDirectMessagePreview
 } from './play-intent-notification-responses.js'
 import { prisma } from './prisma.js'
 
@@ -1668,49 +1664,30 @@ export async function buildDebugAdminSnapshot() {
         now,
         recipient.timezoneId
       )
-      const syntheticPreview = {
-        content: buildPlayIntentDirectMessageHeading(notificationCopy.title),
-        embeds: buildPlayIntentDirectMessageEmbeds(
-          notificationCopy.title,
-          notificationCopy.body,
-          creatorDiscordUserId,
-          intent.user.displayName,
-          previewIntent && (previewIntent.voiceChannelId || previewIntent.voiceChannelName)
-            ? {
-                channelId: previewIntent.voiceChannelId,
-                channelName: previewIntent.voiceChannelName,
-                recipientSharesServer: false
-              }
-            : null
-        ),
-        buttonRows: [
-          [
-            {
-              label: "I'm interested",
-              style: 'primary' as const,
-              disabled: false,
-              url: null,
-              customId: buildDebugPlayIntentResponseCustomId(intent.id, 'join')
-            },
-            {
-              label: 'Pass',
-              style: 'secondary' as const,
-              disabled: false,
-              url: null,
-              customId: buildDebugPlayIntentResponseCustomId(intent.id, 'pass')
+      const syntheticPreviewPayload = buildNotificationDirectMessagePreview({
+        notificationId: `synthetic-notification:${intent.id}:${recipient.id}`,
+        notificationType: NotificationType.FRIEND_PLAYING,
+        title: notificationCopy.title,
+        body: notificationCopy.body,
+        responseChoice: null,
+        creatorUserId: intent.user.id,
+        creatorDiscordUserId,
+        creatorDisplayName: intent.user.displayName,
+        gameTitle: null,
+        playIntentIsActive: true,
+        voiceChannel: previewIntent && (previewIntent.voiceChannelId || previewIntent.voiceChannelName)
+          ? {
+              channelId: previewIntent.voiceChannelId,
+              channelName: previewIntent.voiceChannelName,
+              recipientSharesServer: false
             }
-          ],
-          [
-            {
-              label: 'Open in App',
-              style: 'link' as const,
-              disabled: false,
-              url: new URL('/play', env.CLIENT_ORIGIN).toString(),
-              customId: null
-            }
-          ]
-        ]
-      }
+          : null
+      })
+      const syntheticPreview = buildDebugDmPreview(
+        syntheticPreviewPayload.content,
+        syntheticPreviewPayload.components,
+        syntheticPreviewPayload.embeds
+      )
 
       return {
         user: {
