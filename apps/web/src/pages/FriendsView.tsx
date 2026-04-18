@@ -104,14 +104,15 @@ function FriendsViewContent({
             Keep track of the people you care about most and what they are playing.
           </Typography>
         </Box>
-        {isSignedIn ? (
-          <Button color="primary" onClick={() => setIsAddFriendsModalOpen(true)}>
-            Add friends
-          </Button>
-        ) : null}
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'center' }} justifyContent={{ xs: 'stretch', sm: 'flex-end' }}>
+          {friendSortControl}
+          {isSignedIn ? (
+            <Button color="primary" onClick={() => setIsAddFriendsModalOpen(true)}>
+              Add friends
+            </Button>
+          ) : null}
+        </Stack>
       </Stack>
-
-      {friendSortControl}
 
       {error ? (
         <EmptyStateCard

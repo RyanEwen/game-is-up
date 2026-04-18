@@ -6,7 +6,7 @@ import { buildDiscordMessageHeading } from './discord-dm-formatting.js'
 import { formatPlayIntentWindowLabel } from './play-intent-time-format.js'
 import { prisma } from './prisma.js'
 
-const discordDmRetentionMs = 6 * 60 * 60 * 1000
+const discordDmRetentionMs = 12 * 60 * 60 * 1000
 const archivedPlayIntentNotificationTypes = [
   NotificationType.FRIEND_PLAYING,
   NotificationType.SCHEDULED_PLAY_INTENT_REMINDER,
