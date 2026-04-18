@@ -122,6 +122,37 @@ The repository now includes a root `compose.yml` for production-style local or s
 
 5. Open the app on `http://localhost:8080` by default. If you need a different host port, set `PORT`, for example `PORT=9090 docker compose up --build -d`.
 
+For a minimal SSH-driven deployment from your local workspace, the repo now includes:
+
+```bash
+npm run deploy:prod:ssh -- --push
+```
+
+That script:
+
+- runs `npm run validate` locally by default
+- optionally pushes local `HEAD` to the target branch when you pass `--push`
+- SSHes into the production host
+- refuses to deploy if the remote repo has uncommitted changes
+- runs `docker compose up --build -d` in the remote checkout
+- runs `npm run cache:purge:cloudflare` on the server after deploy when the remote `.env` includes the required Cloudflare values
+
+Default SSH deployment values are:
+
+- host: `deploy@server.example`
+- port: `22`
+- repo path: `/srv/game-is-up`
+- branch: `main`
+
+Override them with flags such as `--host`, `--port`, `--repo-path`, `--branch`, and `--ssh-key`, or with the env vars `DEPLOY_SSH_HOST`, `DEPLOY_SSH_PORT`, `DEPLOY_REPO_PATH`, `DEPLOY_GIT_BRANCH`, and `DEPLOY_SSH_KEY`. If you need to bypass the post-deploy purge for an emergency rollout, pass `--skip-cache-purge`.
+
+If you want a dedicated deployment key, create one locally and add the public key to `~/.ssh/authorized_keys` for the deploy user on the server:
+
+```bash
+ssh-keygen -t ed25519 -f ~/.ssh/game-is-up-prod
+npm run deploy:prod:ssh -- --push --ssh-key ~/.ssh/game-is-up-prod
+```
+
 The public container runs unprivileged Nginx on internal port `8080`, and Docker maps host port `8080` to it by default. Nginx proxies `/api/*` to the API container so browser clients can stay same-origin in production.
 
 The API container now bootstraps Prisma Migrate on startup: fresh databases get `prisma migrate deploy`, and existing pre-migrate databases are first baselined at the checked-in baseline migration and then migrated forward. The Compose stack includes a PostgreSQL service with persistent storage.
