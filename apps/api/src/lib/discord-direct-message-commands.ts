@@ -86,6 +86,50 @@ function parseDirectMessageCommand(content: string): ParsedDirectMessageCommand 
   }
 }
 
+async function resolveDirectMessageContent(message: Message) {
+  const gatewayContent = typeof message.content === 'string' ? message.content : ''
+
+  if (gatewayContent.trim().length > 0) {
+    return {
+      content: gatewayContent,
+      source: 'gateway' as const
+    }
+  }
+
+  try {
+    const fetchedMessage = await message.fetch()
+    const fetchedContent = typeof fetchedMessage.content === 'string' ? fetchedMessage.content : ''
+
+    return {
+      content: fetchedContent,
+      source: fetchedContent.trim().length > 0 ? 'fetch' as const : 'empty' as const
+    }
+  } catch (error) {
+    console.error('Failed to fetch Discord DM content', error)
+    return {
+      content: gatewayContent,
+      source: 'fetch-failed' as const
+    }
+  }
+}
+
+function summarizeDirectMessageToken(content: string) {
+  const trimmed = content.trim()
+
+  if (trimmed.length === 0) {
+    return '(empty)'
+  }
+
+  const normalized = trimmed.startsWith('/') ? trimmed.slice(1).trim() : trimmed
+
+  if (normalized.length === 0) {
+    return '/'
+  }
+
+  const [token = ''] = normalized.split(/\s+/, 1)
+  return token.toLowerCase()
+}
+
 function summarizeGames(games: { title: string }[], selectionMode: 'library' | 'subset') {
   if (selectionMode === 'library') {
     return 'Any game in your library.'
@@ -343,7 +387,12 @@ export async function handleDiscordDirectMessageCommand(message: Message) {
     return
   }
 
-  const parsedCommand = parseDirectMessageCommand(message.content)
+  const { content, source } = await resolveDirectMessageContent(message)
+  const parsedCommand = parseDirectMessageCommand(content)
+
+  console.log(
+    `Discord DM received from ${message.author.id}: source=${source}; token=${summarizeDirectMessageToken(content)}; parsed=${parsedCommand?.name ?? 'none'}`
+  )
 
   if (!parsedCommand) {
     return
