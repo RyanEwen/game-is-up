@@ -16,7 +16,7 @@ import { InterestedPlayerList } from '../components/dashboard/InterestedPlayerLi
 import { DashboardModal } from '../components/dashboard/DashboardModal'
 import { PlayIntentCard, PlayIntentGameList } from '../components/dashboard/PlayIntentCard'
 import { PlayIntentComposerCard } from '../components/dashboard/PlayIntentComposerCard'
-import { CtpDmInboxDialog } from './DebugView'
+import { CtpDmInboxDialog } from './DebugDmSurface'
 import { formatNotifyScopeLabel, formatPlayIntentSelectionModeLabel } from '../components/dashboard/dashboardUtils'
 import { useDashboardContext } from '../contexts/useDashboardContext'
 import type { DashboardLibraryQuickAddGame, FriendTarget, PlayIntentStartMode, PlayIntentTimingMode } from '../components/dashboard/types'

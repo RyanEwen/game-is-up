@@ -1,4 +1,5 @@
-import { useEffect, useRef, type RefObject } from 'react'
+import { Suspense, lazy, useEffect, useRef, type ReactNode, type RefObject } from 'react'
+import { Box, Typography } from '@mui/joy'
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { DashboardLayout } from './components/dashboard/DashboardLayout'
 import {
@@ -7,13 +8,41 @@ import {
 } from './components/dashboard/dashboardUtils'
 import { DashboardProvider } from './contexts/DashboardContext'
 import { useDashboardContext } from './contexts/useDashboardContext'
-import { InviteLandingView } from './pages/InviteLandingView'
-import { DiscoveryView } from './pages/DiscoveryView'
-import { DebugView } from './pages/DebugView'
-import { FriendsView } from './pages/FriendsView'
-import { LibraryView } from './pages/LibraryView'
-import { OverviewView } from './pages/OverviewView'
-import { PlayView } from './pages/PlayView'
+
+const InviteLandingView = lazy(async () => {
+  const module = await import('./pages/InviteLandingView')
+  return { default: module.InviteLandingView }
+})
+
+const DiscoveryView = lazy(async () => {
+  const module = await import('./pages/DiscoveryView')
+  return { default: module.DiscoveryView }
+})
+
+const DebugView = lazy(async () => {
+  const module = await import('./pages/DebugView')
+  return { default: module.DebugView }
+})
+
+const FriendsView = lazy(async () => {
+  const module = await import('./pages/FriendsView')
+  return { default: module.FriendsView }
+})
+
+const LibraryView = lazy(async () => {
+  const module = await import('./pages/LibraryView')
+  return { default: module.LibraryView }
+})
+
+const OverviewView = lazy(async () => {
+  const module = await import('./pages/OverviewView')
+  return { default: module.OverviewView }
+})
+
+const PlayView = lazy(async () => {
+  const module = await import('./pages/PlayView')
+  return { default: module.PlayView }
+})
 
 const appTitle = "Game's Up"
 
@@ -29,7 +58,14 @@ const dashboardTabTitles: Record<Exclude<ReturnType<typeof getDashboardTabFromPa
 export default function App() {
   return (
     <Routes>
-      <Route path="/invite" element={<InviteLandingView />} />
+      <Route
+        path="/invite"
+        element={(
+          <RouteSuspense>
+            <InviteLandingView />
+          </RouteSuspense>
+        )}
+      />
       <Route
         path="/*"
         element={(
@@ -65,35 +101,53 @@ function DashboardAppShell() {
       tabsAnchorRef={tabsAnchorRef}
     >
       <ScrollReset tabsAnchorRef={tabsAnchorRef} />
-      <Routes>
-        <Route
-          path={dashboardTabPaths.overview}
-          element={<OverviewView />}
-        />
-        <Route path="/overview" element={<Navigate to={dashboardTabPaths.overview} replace />} />
-        <Route
-          path={dashboardTabPaths.library}
-          element={<LibraryView />}
-        />
-        <Route
-          path={dashboardTabPaths.friends}
-          element={<FriendsView />}
-        />
-        <Route
-          path={dashboardTabPaths.play}
-          element={<PlayView />}
-        />
-        <Route
-          path={dashboardTabPaths.discovery}
-          element={<DiscoveryView />}
-        />
-        <Route
-          path={dashboardTabPaths.debug}
-          element={layoutProps.showDebugView ? <DebugView /> : <Navigate to={dashboardTabPaths.overview} replace />}
-        />
-        <Route path="*" element={<Navigate to={dashboardTabPaths.overview} replace />} />
-      </Routes>
+      <RouteSuspense>
+        <Routes>
+          <Route
+            path={dashboardTabPaths.overview}
+            element={<OverviewView />}
+          />
+          <Route path="/overview" element={<Navigate to={dashboardTabPaths.overview} replace />} />
+          <Route
+            path={dashboardTabPaths.library}
+            element={<LibraryView />}
+          />
+          <Route
+            path={dashboardTabPaths.friends}
+            element={<FriendsView />}
+          />
+          <Route
+            path={dashboardTabPaths.play}
+            element={<PlayView />}
+          />
+          <Route
+            path={dashboardTabPaths.discovery}
+            element={<DiscoveryView />}
+          />
+          <Route
+            path={dashboardTabPaths.debug}
+            element={layoutProps.showDebugView ? <DebugView /> : <Navigate to={dashboardTabPaths.overview} replace />}
+          />
+          <Route path="*" element={<Navigate to={dashboardTabPaths.overview} replace />} />
+        </Routes>
+      </RouteSuspense>
     </DashboardLayout>
+  )
+}
+
+function RouteSuspense({ children }: { children: ReactNode }) {
+  return (
+    <Suspense
+      fallback={(
+        <Box sx={{ py: 4 }}>
+          <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
+            Loading view...
+          </Typography>
+        </Box>
+      )}
+    >
+      {children}
+    </Suspense>
   )
 }
 
