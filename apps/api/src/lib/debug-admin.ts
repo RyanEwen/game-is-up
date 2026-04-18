@@ -417,7 +417,7 @@ function buildDebugDmTemplateDefinitions(now: Date): DebugDmTemplateGroupDefinit
             notificationId: 'template-creator-launched-game',
             notificationType: NotificationType.SYSTEM,
             title: 'Creator launched the game',
-            body: `${creatorDisplayName} just launched ${gameTitle} for the active call to play you joined.`,
+            body: `${creatorDisplayName} just launched ${gameTitle} for the active call to play you are interested in.`,
             actorDisplayName: creatorDisplayName,
             actorDiscordUserId: creatorDiscordUserId
           })

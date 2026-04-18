@@ -140,7 +140,7 @@ function buildPromptNotice(title: string, sections: Array<string | null>, subtex
 }
 
 function buildInitialPromptHeading() {
-  return buildDiscordMessageHeading('🎮 You Just Started Playing - do you want to send out a call to play?')
+  return buildDiscordMessageHeading('🎮 Do you want to send out a call to play?')
 }
 
 function buildDurationRows(promptId: string) {

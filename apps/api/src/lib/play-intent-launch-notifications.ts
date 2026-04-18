@@ -223,7 +223,7 @@ async function notifyAudienceWhenCreatorLaunches(observation: LaunchObservation)
         playIntentId: playIntent.id,
         gameId: observation.gameId,
         title: creatorLaunchedGameNotificationTitle,
-        body: `${observation.user.displayName} just launched ${observation.game.title} for the active call to play you joined.`
+        body: `${observation.user.displayName} just launched ${observation.game.title} for the active call to play you are interested in.`
       }))
   )))).filter((notification): notification is CreatedSystemNotification => notification != null)
 

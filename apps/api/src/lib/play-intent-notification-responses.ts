@@ -274,12 +274,16 @@ function buildMuteLabel(creatorDisplayName: string) {
   return `${baseLabel.slice(0, 77)}...`
 }
 
+function buildMuteButton(creatorUserId: string, creatorDisplayName: string) {
+  return new ButtonBuilder()
+    .setCustomId(`${playIntentMutePrefix}:${creatorUserId}`)
+    .setLabel(buildMuteLabel(creatorDisplayName))
+    .setStyle(ButtonStyle.Danger)
+}
+
 function buildMuteRow(creatorUserId: string, creatorDisplayName: string) {
   return new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
-    new ButtonBuilder()
-      .setCustomId(`${playIntentMutePrefix}:${creatorUserId}`)
-      .setLabel(buildMuteLabel(creatorDisplayName))
-      .setStyle(ButtonStyle.Danger)
+    buildMuteButton(creatorUserId, creatorDisplayName)
   )
 }
 
@@ -607,7 +611,13 @@ export function buildPlayIntentNotificationComponents(
   }
 
   if (responseChoice === NotificationResponseChoice.DECLINE && creatorUserId && creatorDisplayName) {
-    rows.push(buildMuteRow(creatorUserId, creatorDisplayName))
+    const firstRowComponentCount = responseRow?.toJSON().components?.length ?? 0
+
+    if (responseRow && firstRowComponentCount < 5) {
+      responseRow.addComponents(buildMuteButton(creatorUserId, creatorDisplayName))
+    } else {
+      rows.push(buildMuteRow(creatorUserId, creatorDisplayName))
+    }
   }
 
   if (!(options.forceInteractive ?? supportsDiscordInteractiveMessages())) {
