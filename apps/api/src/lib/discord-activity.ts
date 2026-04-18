@@ -5,6 +5,7 @@ import {
   maybeSendDiscordAutoPlayPromptForObservation
 } from './discord-auto-play-prompts.js'
 import { findOrCreateGameByTitle } from './game-catalog.js'
+import { maybeSendPlayIntentLaunchNotificationsForObservation } from './play-intent-launch-notifications.js'
 import { prisma } from './prisma.js'
 
 type DiscordPresenceActivityInput = {
@@ -206,6 +207,7 @@ export async function recordDiscordPresence(
 
     matchedObservationIds.add(createdObservation.id)
     void maybeSendDiscordAutoPlayPromptForObservation(createdObservation.id)
+    void maybeSendPlayIntentLaunchNotificationsForObservation(createdObservation.id)
   }
 
   if (!userId) {

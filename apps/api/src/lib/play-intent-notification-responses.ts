@@ -31,7 +31,7 @@ import {
 } from './discord-dm-formatting.js'
 import { env } from './env.js'
 import { prisma } from './prisma.js'
-import { normalizeTimezoneId } from './timezone-label.js'
+import { formatPlayIntentDateLabel, formatPlayIntentWindowLabel } from './play-intent-time-format.js'
 
 const playIntentNotificationPrefix = 'play-intent-response'
 const playIntentMutePrefix = 'play-intent-mute'
@@ -711,60 +711,13 @@ function buildCreatorPlayIntentSummaryComponents(playIntentId: string, isActive:
   return appendOpenInAppButton([buildCreatorSummaryActionRow(playIntentId)], buildPlayUrl())
 }
 
-function resolveSummaryTimezoneId(timezoneId: string) {
-  return normalizeTimezoneId(timezoneId) ?? 'Etc/UTC'
-}
-
-function formatSummaryDateTime(date: Date, timezoneId: string) {
-  const normalizedTimezoneId = resolveSummaryTimezoneId(timezoneId)
-
-  return new Intl.DateTimeFormat('en-US', {
-    timeZone: normalizedTimezoneId,
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-    timeZoneName: 'short'
-  }).format(date)
-}
-
-function formatSummaryTime(date: Date, timezoneId: string) {
-  const normalizedTimezoneId = resolveSummaryTimezoneId(timezoneId)
-
-  return new Intl.DateTimeFormat('en-US', {
-    timeZone: normalizedTimezoneId,
-    hour: 'numeric',
-    minute: '2-digit',
-    timeZoneName: 'short'
-  }).format(date)
-}
-
-function buildSummaryDayKey(date: Date, timezoneId: string) {
-  const normalizedTimezoneId = resolveSummaryTimezoneId(timezoneId)
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: normalizedTimezoneId,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit'
-  }).formatToParts(date)
-
-  const month = parts.find((part) => part.type === 'month')?.value ?? '00'
-  const day = parts.find((part) => part.type === 'day')?.value ?? '00'
-  const year = parts.find((part) => part.type === 'year')?.value ?? '0000'
-
-  return `${year}-${month}-${day}`
-}
-
 function formatSummaryWindow(startsAt: Date, endsAt: Date, timezoneId: string) {
-  const startsAtLabel = formatSummaryDateTime(startsAt, timezoneId)
-  const endsAtLabel = buildSummaryDayKey(startsAt, timezoneId) === buildSummaryDayKey(endsAt, timezoneId)
-    ? formatSummaryTime(endsAt, timezoneId)
-    : formatSummaryDateTime(endsAt, timezoneId)
+  const startsAtLabel = formatPlayIntentDateLabel(startsAt, timezoneId)
+  const windowLabel = formatPlayIntentWindowLabel(startsAt, endsAt, timezoneId)
 
   return {
     startsAtLabel,
-    endsAtLabel,
-    windowLabel: `${startsAtLabel} to ${endsAtLabel}`
+    windowLabel
   }
 }
 
@@ -1039,7 +992,7 @@ export function buildCreatorPlayIntentSummaryPreview(snapshot: {
   currentTime?: Date;
 }): DirectMessagePreviewPayload {
   const currentTime = snapshot.currentTime ?? new Date()
-  const startsAtLabel = formatSummaryDateTime(snapshot.windowStartsAt, snapshot.user.timezoneId)
+  const startsAtLabel = formatPlayIntentDateLabel(snapshot.windowStartsAt, snapshot.user.timezoneId)
 
   return {
     content: buildCreatorPlayIntentSummaryHeading(startsAtLabel),
@@ -1178,7 +1131,7 @@ async function sendOrEditCreatorPlayIntentSummary(
   }
 
   const isActive = snapshot.expiresAt > new Date()
-  const startsAtLabel = formatSummaryDateTime(snapshot.windowStartsAt, snapshot.user.timezoneId)
+  const startsAtLabel = formatPlayIntentDateLabel(snapshot.windowStartsAt, snapshot.user.timezoneId)
   const content = buildCreatorPlayIntentSummaryHeading(startsAtLabel)
   const embeds = buildCreatorPlayIntentSummaryEmbeds(snapshot)
   const components = buildCreatorPlayIntentSummaryComponents(playIntentId, isActive)

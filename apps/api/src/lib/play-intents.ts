@@ -31,7 +31,7 @@ import {
   syncCreatorPlayIntentSummaryMessages
 } from './play-intent-notification-responses.js'
 import { prisma } from './prisma.js'
-import { normalizeTimezoneId } from './timezone-label.js'
+import { formatPlayIntentDurationLabel, formatPlayIntentWindowLabel } from './play-intent-time-format.js'
 
 export class PlayIntentValidationError extends Error {}
 
@@ -125,28 +125,6 @@ function toPrismaNotifyScope(scope: PlayIntentNotifyScope): PlayIntentScope {
   }
 }
 
-function formatDurationLabel(durationMinutes: number) {
-  if (durationMinutes % 60 === 0) {
-    const hours = durationMinutes / 60
-    return `${hours} hour${hours === 1 ? '' : 's'}`
-  }
-
-  return `${durationMinutes} minutes`
-}
-
-function formatScheduleDateTime(date: Date, timezoneId: string | null | undefined) {
-  const normalizedTimezoneId = normalizeTimezoneId(timezoneId) ?? 'Etc/UTC'
-
-  return new Intl.DateTimeFormat('en-US', {
-    timeZone: normalizedTimezoneId,
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-    timeZoneName: 'short'
-  }).format(date)
-}
-
 function summarizeTitles(titles: string[]) {
   if (titles.length === 0) {
     return 'your games'
@@ -181,15 +159,18 @@ export function buildPlayIntentNotificationCopy(
   recipientTimezoneId: string | null | undefined,
   updatedFields: string[] = []
 ) {
-  const durationLabel = formatDurationLabel(durationMinutes)
   const isScheduled = startsAt.getTime() > now.getTime() + 60 * 1000
-  const startsAtLabel = formatScheduleDateTime(startsAt, recipientTimezoneId)
+  const windowLabel = formatPlayIntentWindowLabel(
+    startsAt,
+    new Date(startsAt.getTime() + durationMinutes * 60 * 1000),
+    recipientTimezoneId
+  )
   const updatedReason = updatedFields.length > 0
     ? `Update: ${updatedFields.join(', ')} changed.`
     : null
   const timingLine = isScheduled
-    ? `When: Starting ${startsAtLabel} for ${durationLabel}.`
-    : `When: In the next ${durationLabel}.`
+    ? `When: ${windowLabel}.`
+    : `When: In the next ${formatPlayIntentDurationLabel(durationMinutes)}.`
 
   if (selectionMode === 'library') {
     const title = isScheduled ? `${senderDisplayName} scheduled a call to play` : `${senderDisplayName} is looking to play`

@@ -886,7 +886,7 @@ function toInboxMessageLabel(notificationType: NotificationType) {
     case NotificationType.SCHEDULED_PLAY_INTENT_REMINDER:
       return 'Go-time reminder'
     case NotificationType.SYSTEM:
-      return 'Ended notice'
+      return 'System notice'
     default:
       return 'Call to play'
   }

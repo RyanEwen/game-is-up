@@ -209,15 +209,17 @@ This repo now treats Prisma migrations as the source of truth for schema changes
 17. Scheduled calls to play still notify the target audience immediately when created. At start time, the creator now gets a check-in prompt to confirm whether the plan is still on.
 18. If the creator confirms, users who already accepted get a go-time update and users who never answered get one follow-up reminder. Those go-time DMs stay actionable so recipients can still switch between Interested and Pass, include the current interested count and interested-user list where relevant, and skip recipients who already declined or muted that creator.
 19. When a call to play is created, the creator also gets a persistent Discord DM summary. Major lifecycle updates can still replace that DM with a fresh message so Discord emits a notification, but audience response updates now edit the existing summary in place because the creator also receives a separate response-notification DM. Quiet expiry or archive cleanup also falls back to edit-in-place behavior. In the gateway-owning environment, that summary includes a creator-only cancel button.
-20. Admin users can inspect a DM emulator in the debug surface and from Play cards. That emulator shows the latest thread state plus derived revisions for tracked call-to-play DMs, and the debug view now includes a read-only DM template library for the major Discord DM flows.
-21. Structured Discord DMs now prefer embed layouts where that feels natural, and the debug DM emulator mirrors those embed payloads, fields, images, and buttons so admin previews match the live bot output more closely.
-22. Admin users can also post a self-only test call to play from the Play composer. That path targets only the creator for the audience-facing DM flow instead of adding the creator onto the normally selected audience.
-23. Bot-authored Discord DMs tied to tracked call-to-play and auto-play flows still participate in retention cleanup, but call-to-play threads now retain one ended-history DM per user and per call to play instead of deleting the entire thread state.
-24. Discovery-based play-intent visibility can now include both explicit friends and users from the Discord servers you opted into discovery.
-25. Discovery remains based on opted-in shared Discord servers plus explicit in-app friendships. The Discord friend-list import path has been removed.
-26. Discord is still the only sign-in path in this scaffold.
-27. Steam can now be linked as a secondary account for library import only. It does not replace Discord auth or discovery.
-28. Linked-account flows like Discord sign-in and Steam linking return directly to the current web URL after the provider callback completes.
+20. For active single-game calls to play, the gateway-owning bot now sends one launch alert when the creator starts that game and one launch alert to the creator each time an already-interested audience member initially starts it. Those alerts are one-time per active call and reset when the call changes.
+21. Call-to-play DMs now use natural local time phrasing such as `Friday Apr 17th at 10pm, for 2 hours` instead of raw timezone-abbreviation ranges.
+22. Admin users can inspect a DM emulator in the debug surface and from Play cards. That emulator shows the latest thread state plus derived revisions for tracked call-to-play DMs, and the debug view now includes a read-only DM template library for the major Discord DM flows.
+23. Structured Discord DMs now prefer embed layouts where that feels natural, and the debug DM emulator mirrors those embed payloads, fields, images, and buttons so admin previews match the live bot output more closely.
+24. Admin users can also post a self-only test call to play from the Play composer. That path targets only the creator for the audience-facing DM flow instead of adding the creator onto the normally selected audience.
+25. Bot-authored Discord DMs tied to tracked call-to-play and auto-play flows still participate in retention cleanup, but call-to-play threads now retain one ended-history DM per user and per call to play instead of deleting the entire thread state.
+26. Discovery-based play-intent visibility can now include both explicit friends and users from the Discord servers you opted into discovery.
+27. Discovery remains based on opted-in shared Discord servers plus explicit in-app friendships. The Discord friend-list import path has been removed.
+28. Discord is still the only sign-in path in this scaffold.
+29. Steam can now be linked as a secondary account for library import only. It does not replace Discord auth or discovery.
+30. Linked-account flows like Discord sign-in and Steam linking return directly to the current web URL after the provider callback completes.
 29. Call-to-play DMs now include a clickable creator Discord mention when available.
 30. Subset call-to-play DMs include game art only for single-game calls to play.
 

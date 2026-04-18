@@ -3,8 +3,8 @@ import { EmbedBuilder } from 'discord.js'
 import { NotificationResponseChoice } from '@prisma/client'
 import { deleteDiscordDirectMessage, editDiscordDirectMessage, sendDiscordDirectMessages } from './discord-bot-runtime.js'
 import { buildDiscordMessageHeading } from './discord-dm-formatting.js'
+import { formatPlayIntentWindowLabel } from './play-intent-time-format.js'
 import { prisma } from './prisma.js'
-import { normalizeTimezoneId } from './timezone-label.js'
 
 const discordDmRetentionMs = 6 * 60 * 60 * 1000
 const archivedPlayIntentNotificationTypes = [
@@ -26,20 +26,6 @@ type ArchivedCreatorCandidate = ArchivedDirectMessageCandidate & {
 
 type ArchivedNotificationCandidate = ArchivedDirectMessageCandidate & {
   notificationId: string;
-}
-
-function formatArchivedPlayIntentDate(date: Date, timezoneId: string) {
-  const normalizedTimezoneId = normalizeTimezoneId(timezoneId) ?? 'Etc/UTC'
-
-  return new Intl.DateTimeFormat('en-US', {
-    timeZone: normalizedTimezoneId,
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-    timeZoneName: 'short'
-  }).format(date)
 }
 
 function summarizeArchivedPlayIntentGames(playIntent: {
@@ -65,6 +51,7 @@ function buildArchivedPlayIntentSummary(
   playIntent: {
     selectionMode: 'ENTIRE_LIBRARY' | 'SELECTED_GAMES';
     windowStartsAt: Date;
+    windowEndsAt: Date;
     user: {
       displayName: string;
     };
@@ -73,14 +60,14 @@ function buildArchivedPlayIntentSummary(
   timezoneId: string
 ) {
   const gamesLabel = summarizeArchivedPlayIntentGames(playIntent)
-  const startsAtLabel = formatArchivedPlayIntentDate(playIntent.windowStartsAt, timezoneId)
+  const windowLabel = formatPlayIntentWindowLabel(playIntent.windowStartsAt, playIntent.windowEndsAt, timezoneId)
 
   return {
     title: 'Call to play ended',
     body: [
       `Creator: ${playIntent.user.displayName}`,
       `Games: ${gamesLabel}`,
-      `When: ${startsAtLabel}`,
+      `When: ${windowLabel}`,
       'Status: This call to play is no longer active.'
     ].join('\n')
   }
@@ -280,6 +267,7 @@ export async function archivePlayIntentDirectMessages(options: {
       id: true,
       selectionMode: true,
       windowStartsAt: true,
+      windowEndsAt: true,
       creatorDiscordDmChannelId: true,
       creatorDiscordDmMessageId: true,
       user: {

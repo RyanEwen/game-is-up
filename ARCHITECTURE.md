@@ -73,6 +73,8 @@ The Discord bot runtime is now intentionally split by environment. Exactly one e
 
 Discord activity observations can also drive a secondary auto-prompt flow: when the presence bot sees a user start a game, the API can persist a prompt record, DM that user through the bot, and create a normal play intent if the user accepts.
 
+That same presence stream now powers one-time launch alerts for active single-game play intents: interested recipients can be notified when the creator starts the planned game, and creators can be notified when already-interested recipients initially launch it. Those alerts are keyed to the active play-intent row so they naturally reset when the call is materially changed.
+
 The API now runs a lightweight cleanup sweep for expired play intents so unanswered Discord invite prompts can be marked expired and rewritten even if the affected users do not immediately reopen the app.
 
 Discord presence tracking now also maintains a lossy observed-game history keyed by Discord identity rather than only by app user. That lets the library API return suggested games based on titles the bot has seen the user playing, while still allowing non-members to contribute to the raw observation set.
