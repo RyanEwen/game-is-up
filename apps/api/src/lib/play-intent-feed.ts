@@ -106,21 +106,24 @@ export async function buildPlayIntentFeed(viewerId?: string | null): Promise<Pla
     .filter((id) => !mutedUserIdSet.has(id))
   const viewerGameIds = viewerInterests.map((interest) => interest.gameId)
 
-  if (broadAudienceUserIds.length === 0) {
-    return {
-      generatedAt: now.toISOString(),
-      intents: []
-    }
-  }
-
   const intents = await prisma.playIntent.findMany({
     where: {
-      userId: {
-        in: broadAudienceUserIds
-      },
       expiresAt: {
         gt: recentClosedCutoff
-      }
+      },
+      OR: [
+        {
+          userId: {
+            in: broadAudienceUserIds
+          }
+        },
+        {
+          userId: viewer.id,
+          expiresAt: {
+            lte: now
+          }
+        }
+      ]
     },
     include: {
       user: {
@@ -236,6 +239,7 @@ export async function buildPlayIntentFeed(viewerId?: string | null): Promise<Pla
 
   const previews = intents
     .map<PlayIntentPreview | null>((intent) => {
+      const isOwnIntent = intent.userId === viewer.id
       const isExplicitFriend = friendUserIds.includes(intent.userId)
       const isInDiscoveryAudience = discoveryAudienceUserIds.includes(intent.userId)
 
@@ -243,21 +247,29 @@ export async function buildPlayIntentFeed(viewerId?: string | null): Promise<Pla
         return null
       }
 
-      if (intent.scope === PlayIntentScope.FRIENDS_ONLY && !isExplicitFriend) {
+      if (!isOwnIntent && intent.scope === PlayIntentScope.FRIENDS_ONLY && !isExplicitFriend) {
         return null
       }
 
-      if (intent.scope === PlayIntentScope.MUTUAL_FRIENDS && !isExplicitFriend && !isInDiscoveryAudience) {
+      if (!isOwnIntent && intent.scope === PlayIntentScope.MUTUAL_FRIENDS && !isExplicitFriend && !isInDiscoveryAudience) {
         return null
       }
 
       const targetServerIds = intent.targetDiscordServers.map((entry) => entry.serverId)
 
-      if (intent.scope === PlayIntentScope.SPECIFIC_DISCORD_SERVER && !targetServerIds.some((serverId) => viewerServerIds.includes(serverId))) {
+      if (
+        !isOwnIntent
+        && intent.scope === PlayIntentScope.SPECIFIC_DISCORD_SERVER
+        && !targetServerIds.some((serverId) => viewerServerIds.includes(serverId))
+      ) {
         return null
       }
 
-      if (intent.scope === PlayIntentScope.SPECIFIC_FRIENDS && !intent.targetFriends.some((entry) => entry.friendUserId === viewer.id)) {
+      if (
+        !isOwnIntent
+        && intent.scope === PlayIntentScope.SPECIFIC_FRIENDS
+        && !intent.targetFriends.some((entry) => entry.friendUserId === viewer.id)
+      ) {
         return null
       }
 
@@ -271,9 +283,11 @@ export async function buildPlayIntentFeed(viewerId?: string | null): Promise<Pla
         }))
         .sort((left, right) => left.title.localeCompare(right.title))
       const matchingSelectedGames = intent.games.filter((entry) => viewerGameIds.includes(entry.gameId))
-      const appliesToViewer = intent.selectionMode === PlayIntentSelectionMode.ENTIRE_LIBRARY
-        ? overlappingLibraryGames.length > 0
-        : matchingSelectedGames.length > 0
+      const appliesToViewer = isOwnIntent
+        ? true
+        : intent.selectionMode === PlayIntentSelectionMode.ENTIRE_LIBRARY
+          ? overlappingLibraryGames.length > 0
+          : matchingSelectedGames.length > 0
 
       const interestedUsers = interestedUsersByPlayIntentId.get(intent.id) ?? []
 
