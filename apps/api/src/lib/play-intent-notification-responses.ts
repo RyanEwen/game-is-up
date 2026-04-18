@@ -1471,6 +1471,27 @@ function buildCreatorJoinNotification(notification: {
   }
 }
 
+function buildCreatorPassNotification(notification: {
+  recipientDisplayName: string;
+  recipientDiscordUserId: string | null;
+  gameTitle: string | null;
+}) {
+  const title = 'Someone is no longer interested in joining'
+  const body = notification.gameTitle
+    ? `${notification.recipientDisplayName} is no longer interested in joining ${notification.gameTitle}.`
+    : `${notification.recipientDisplayName} is no longer interested in joining your call to play.`
+  const recipientDiscordLabel = buildDiscordUserLabel(notification.recipientDisplayName, notification.recipientDiscordUserId)
+  const discordBody = notification.gameTitle
+    ? `${recipientDiscordLabel} is no longer interested in joining ${notification.gameTitle}.`
+    : `${recipientDiscordLabel} is no longer interested in joining your call to play.`
+
+  return {
+    title,
+    body,
+    discordBody
+  }
+}
+
 async function applyRecipientResponseToPlayIntentNotification(options: {
   notification: ResolvablePlayIntentNotification;
   response: PlayIntentRecipientResponse;
@@ -1487,19 +1508,82 @@ async function applyRecipientResponseToPlayIntentNotification(options: {
   const creatorDiscordLabel = buildDiscordUserLabel(playIntent.user.displayName, creatorDiscordUserId)
 
   if (response === NotificationResponseChoice.DECLINE) {
-    await prisma.notification.update({
-      where: {
-        id: notification.id
-      },
-      data: {
-        respondedAt: new Date(),
-        responseChoice: NotificationResponseChoice.DECLINE
-      }
+    const creatorNotificationCopy = buildCreatorPassNotification({
+      recipientDisplayName: notification.user.displayName,
+      recipientDiscordUserId: notification.user.identities?.[0]?.providerUserId ?? null,
+      gameTitle: notification.game?.title ?? null
     })
+
+    const passResult = previousChoice === NotificationResponseChoice.JOIN
+      ? await prisma.$transaction(async (transaction) => {
+          await transaction.notification.update({
+            where: {
+              id: notification.id
+            },
+            data: {
+              respondedAt: new Date(),
+              responseChoice: NotificationResponseChoice.DECLINE
+            }
+          })
+
+          return transaction.notification.create({
+            data: {
+              userId: playIntent.user.id,
+              triggeredByUserId: notification.userId,
+              playIntentId: playIntent.id,
+              gameId: notification.gameId,
+              type: NotificationType.SYSTEM,
+              title: creatorNotificationCopy.title,
+              body: creatorNotificationCopy.body
+            },
+            select: {
+              id: true,
+              title: true,
+              body: true
+            }
+          })
+        })
+      : await prisma.notification.update({
+          where: {
+            id: notification.id
+          },
+          data: {
+            respondedAt: new Date(),
+            responseChoice: NotificationResponseChoice.DECLINE
+          },
+          select: {
+            id: true,
+            title: true,
+            body: true
+          }
+        })
 
     await syncCreatorPlayIntentSummaryMessages([playIntent.id], {
       notifyOnActiveChange: false
     })
+
+    if (previousChoice === NotificationResponseChoice.JOIN && creatorDiscordUserId) {
+      const dmResult = (await sendDiscordDirectMessages([
+        {
+          discordUserId: creatorDiscordUserId,
+          content: [buildDiscordMessageHeading(passResult.title), creatorNotificationCopy.discordBody].join('\n\n'),
+          components: [buildLinkRow()]
+        }
+      ]))[0]
+
+      if (dmResult?.status === 'sent' && !dmResult.emulated) {
+        await prisma.notification.update({
+          where: {
+            id: passResult.id
+          },
+          data: {
+            deliveredAt: new Date(),
+            discordDmChannelId: dmResult.channelId,
+            discordDmMessageId: dmResult.messageId
+          }
+        })
+      }
+    }
 
     return {
       content: previousChoice === NotificationResponseChoice.JOIN

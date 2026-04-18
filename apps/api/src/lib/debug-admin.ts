@@ -448,6 +448,19 @@ function buildDebugDmTemplates(now: Date) {
           })
         ),
         buildDebugDmTemplateEntry(
+          'creator-interest-withdrawn',
+          'Interest withdrawn',
+          'The separate creator-facing DM sent when someone who was interested changes their mind.',
+          buildNotificationDirectMessagePreview({
+            notificationId: 'template-interest-withdrawn',
+            notificationType: NotificationType.SYSTEM,
+            title: 'Someone is no longer interested in joining',
+            body: `Jordan is no longer interested in joining ${gameTitle}.`,
+            actorDisplayName: 'Jordan',
+            actorDiscordUserId: '200000000000000001'
+          })
+        ),
+        buildDebugDmTemplateEntry(
           'creator-interested-player-launched-game',
           'Interested player launched the game',
           'The one-time alert sent to the creator when an interested audience member launches the selected game.',
