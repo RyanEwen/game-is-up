@@ -44,7 +44,7 @@ async function lockLaunchNotification(
   transaction: Prisma.TransactionClient,
   key: string
 ) {
-  await transaction.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${key}))`
+  await transaction.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${key}))`
 }
 
 async function createSystemNotificationIfMissing(options: {

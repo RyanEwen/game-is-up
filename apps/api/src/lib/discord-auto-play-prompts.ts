@@ -570,7 +570,7 @@ async function createSkippedPromptInTransaction(
 }
 
 async function lockAutoPlayPromptWindow(transaction: Prisma.TransactionClient, userId: string, gameId: string) {
-  await transaction.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${`discord-auto-play:${userId}:${gameId}`}))`
+  await transaction.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`discord-auto-play:${userId}:${gameId}`}))`
 }
 
 export async function maybeSendDiscordAutoPlayPromptForObservation(observationId: string) {
