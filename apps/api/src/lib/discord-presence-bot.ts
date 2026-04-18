@@ -6,6 +6,7 @@ import {
   Client,
   EmbedBuilder,
   Events,
+  GatewayDispatchEvents,
   GatewayIntentBits,
   Partials,
   type MessageActionRowComponentBuilder,
@@ -834,6 +835,28 @@ export async function startDiscordPresenceBot() {
     ],
     partials: [Partials.Channel]
   })
+
+  client.ws.on(GatewayDispatchEvents.MessageCreate, (rawMessage, shardId) => {
+    if (rawMessage == null || typeof rawMessage !== 'object') {
+      return
+    }
+
+    const directMessage = rawMessage as {
+      author?: { id?: string };
+      channel_id?: string;
+      content?: string;
+      guild_id?: string;
+    }
+
+    if (typeof directMessage.guild_id === 'string') {
+      return
+    }
+
+    console.log(
+      `Discord gateway MESSAGE_CREATE shard=${shardId}: author=${directMessage.author?.id ?? 'unknown'}; channel=${directMessage.channel_id ?? 'unknown'}; contentLength=${typeof directMessage.content === 'string' ? directMessage.content.length : 0}`
+    )
+  })
+
   setDiscordBotClient(client)
   await registerDiscordSlashCommands()
 
@@ -901,6 +924,12 @@ export async function startDiscordPresenceBot() {
   })
 
   client.on(Events.MessageCreate, (message) => {
+    if (!message.author.bot && !message.inGuild()) {
+      console.log(
+        `Discord MessageCreate event surfaced: author=${message.author.id}; channel=${message.channel.id}; partial=${message.partial ? 'yes' : 'no'}; contentLength=${typeof message.content === 'string' ? message.content.length : 0}`
+      )
+    }
+
     void handleDiscordDirectMessageCommand(message).catch((error) => {
       const description = error instanceof Error ? error.message : 'Unknown Discord DM command error'
       discordPresenceBotState.lastError = description

@@ -37,6 +37,8 @@ const directMessageCommandAliases = new Map<string, DirectMessageCommandName>([
   ['clean', 'cleanup']
 ])
 
+const DISCORD_DM_FETCH_TIMEOUT_MS = 5_000
+
 function buildPlayUrl() {
   try {
     return new URL('/play', env.CLIENT_ORIGIN).toString()
@@ -97,7 +99,18 @@ async function resolveDirectMessageContent(message: Message) {
   }
 
   try {
-    const fetchedMessage = await message.fetch()
+    console.log(`Discord DM missing gateway content for ${message.author.id}; attempting message.fetch().`)
+
+    const fetchedMessage = await new Promise<Message>((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error(`Discord DM fetch timed out after ${DISCORD_DM_FETCH_TIMEOUT_MS}ms`))
+      }, DISCORD_DM_FETCH_TIMEOUT_MS)
+
+      void message.fetch().then(resolve, reject).finally(() => {
+        clearTimeout(timeout)
+      })
+    })
+
     const fetchedContent = typeof fetchedMessage.content === 'string' ? fetchedMessage.content : ''
 
     return {
@@ -108,7 +121,7 @@ async function resolveDirectMessageContent(message: Message) {
     console.error('Failed to fetch Discord DM content', error)
     return {
       content: gatewayContent,
-      source: 'fetch-failed' as const
+      source: error instanceof Error && error.message.includes('timed out') ? 'fetch-timeout' as const : 'fetch-failed' as const
     }
   }
 }
@@ -154,7 +167,7 @@ function describeNotifyScope(activeIntent: NonNullable<Awaited<ReturnType<typeof
         : 'Selected friends.'
     case 'specific-discord-server':
       return activeIntent.targetServers.length > 0
-        ? activeIntent.targetServers.map((server) => server.name).join(', ')
+        ? activeIntent.targetServers.map((server: { name: string }) => server.name).join(', ')
         : 'Selected Discord servers.'
     default:
       return 'Your network plus friends.'
