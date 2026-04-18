@@ -146,6 +146,8 @@ Default SSH deployment values are:
 
 Override them with flags such as `--host`, `--port`, `--repo-path`, `--branch`, `--compose-file`, and `--ssh-key`, or with the env vars `DEPLOY_SSH_HOST`, `DEPLOY_SSH_PORT`, `DEPLOY_REPO_PATH`, `DEPLOY_GIT_BRANCH`, `DEPLOY_COMPOSE_FILES`, and `DEPLOY_SSH_KEY`. Pass `--compose-file` multiple times when you need an exact Compose stack, for example `--compose-file compose.yml --compose-file compose.prod.yml`. If you need to bypass the post-deploy purge for an emergency rollout, pass `--skip-cache-purge`.
 
+If you omit `--ssh-key`, the deploy script falls back to your normal SSH authentication setup, which may use your default key or prompt for a password.
+
 If you want a dedicated deployment key, create one locally and add the public key to `~/.ssh/authorized_keys` for the deploy user on the server:
 
 ```bash

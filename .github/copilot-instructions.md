@@ -23,4 +23,5 @@
 
 - Discovery is friends-first by default; do not accidentally make profiles fully public in early slices.
 - Play intent is not restricted to one game. Model both “any game in my library” and “selected subset” flows.
+- Title-only play-intent edits are quiet changes. Do not re-notify recipients unless the audience, timing, or other substantive call-to-play details changed.
 - Keep direct messaging out of MVP unless the task explicitly adds it.
