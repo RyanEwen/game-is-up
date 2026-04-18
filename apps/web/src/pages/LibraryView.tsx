@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { Box, Button, Card, Checkbox, Chip, DialogContent, DialogTitle, Input, Sheet, Stack, Typography } from '@mui/joy'
 import type { GameSearchResponse, GameSearchResult, ImportSteamLibrarySelectionRequest, LibraryEntry, LibraryEntryIntent, LibrarySuggestedGame, SteamLibraryImportGame, SteamLibraryImportPreviewResponse, UserGameAlias, UserPlatformAlias } from '@game-is-up/shared'
@@ -19,6 +19,7 @@ const steamImportListMinHeight = 280
 const steamImportListMaxHeight = 'min(58vh, 640px)'
 const steamImportCollapsedRowEstimate = 108
 const steamImportExpandedRowEstimate = 336
+const steamImportRowGap = 10
 
 type SteamImportSelection = ImportSteamLibrarySelectionRequest['games'][number]
 
@@ -430,6 +431,7 @@ function SteamImportModalPicker({
   const [selectionOptions, setSelectionOptions] = useState<Record<string, SteamImportSelection>>({})
   const [expandedSourceIds, setExpandedSourceIds] = useState<string[]>([])
   const listScrollRef = useRef<HTMLDivElement | null>(null)
+  const pendingScrollTopRef = useRef<number | null>(null)
 
   useEffect(() => {
     const importableGames = preview.games.filter((game) => !game.alreadyInLibrary)
@@ -450,31 +452,39 @@ function SteamImportModalPicker({
 
     return game.title.toLowerCase().includes(normalizedQuery)
   })
-  const selectedSourceIdSet = new Set(selectedSourceIds)
-  const expandedSourceIdSet = new Set(expandedSourceIds)
+  const selectedSourceIdSet = useMemo(() => new Set(selectedSourceIds), [selectedSourceIds])
+  const expandedSourceIdSet = useMemo(() => new Set(expandedSourceIds), [expandedSourceIds])
   const visibleImportableGames = filteredGames.filter((game) => !game.alreadyInLibrary)
   const allVisibleSelected = visibleImportableGames.length > 0 && visibleImportableGames.every((game) => selectedSourceIdSet.has(game.sourceId))
   const selectedGames = selectedSourceIds
     .map((sourceId) => selectionOptions[sourceId])
     .filter((selection): selection is SteamImportSelection => selection != null)
 
+  const getItemKey = useCallback(
+    (index: number) => filteredGames[index]?.sourceId ?? index,
+    [filteredGames]
+  )
+
+  const estimateSize = useCallback((index: number) => {
+    const game = filteredGames[index]
+
+    if (!game) {
+      return steamImportCollapsedRowEstimate
+    }
+
+    const isExpanded = selectedSourceIdSet.has(game.sourceId)
+      && !game.alreadyInLibrary
+      && expandedSourceIdSet.has(game.sourceId)
+
+    return isExpanded ? steamImportExpandedRowEstimate : steamImportCollapsedRowEstimate
+  }, [expandedSourceIdSet, filteredGames, selectedSourceIdSet])
+
   const rowVirtualizer = useVirtualizer({
     count: filteredGames.length,
     getScrollElement: () => listScrollRef.current,
-    getItemKey: (index) => filteredGames[index]?.sourceId ?? index,
-    estimateSize: (index) => {
-      const game = filteredGames[index]
-
-      if (!game) {
-        return steamImportCollapsedRowEstimate
-      }
-
-      const isExpanded = selectedSourceIdSet.has(game.sourceId)
-        && !game.alreadyInLibrary
-        && expandedSourceIdSet.has(game.sourceId)
-
-      return isExpanded ? steamImportExpandedRowEstimate : steamImportCollapsedRowEstimate
-    },
+    getItemKey,
+    estimateSize,
+    gap: steamImportRowGap,
     overscan: 8
   })
 
@@ -482,8 +492,13 @@ function SteamImportModalPicker({
     onSelectionChange(selectedGames)
   }, [onSelectionChange, selectedGames])
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     rowVirtualizer.measure()
+
+    if (pendingScrollTopRef.current != null && listScrollRef.current) {
+      listScrollRef.current.scrollTop = pendingScrollTopRef.current
+      pendingScrollTopRef.current = null
+    }
   }, [expandedSourceIds, selectedSourceIds, rowVirtualizer])
 
   useEffect(() => {
@@ -512,6 +527,8 @@ function SteamImportModalPicker({
     if (game.alreadyInLibrary) {
       return
     }
+
+    pendingScrollTopRef.current = listScrollRef.current?.scrollTop ?? null
 
     const isSelected = selectedSourceIdSet.has(game.sourceId)
 
@@ -566,6 +583,8 @@ function SteamImportModalPicker({
   }
 
   const toggleExpanded = (sourceId: string) => {
+    pendingScrollTopRef.current = listScrollRef.current?.scrollTop ?? null
+
     setExpandedSourceIds((current) => current.includes(sourceId)
       ? current.filter((entry) => entry !== sourceId)
       : [...current, sourceId])
@@ -626,8 +645,7 @@ function SteamImportModalPicker({
                       top: 0,
                       left: 0,
                       width: '100%',
-                      transform: `translateY(${virtualRow.start}px)`,
-                      pb: 1.25
+                      transform: `translateY(${virtualRow.start}px)`
                     }}
                   >
                     <SteamImportVirtualizedRow
