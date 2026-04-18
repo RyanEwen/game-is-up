@@ -423,7 +423,7 @@ export function buildPlayIntentDirectMessageEmbeds(
   const updateField = fieldsFromBody.find((field) => field.label.trim().toLowerCase() === 'update')
   const detailFields = fieldsFromBody.filter((field) => field.label.trim().toLowerCase() !== 'update')
   const interestedSummary = interestedUserLabels && interestedUserLabels.length > 0
-    ? `Confirmed: ${formatInterestedUserLabelSummary(interestedUserLabels)}`
+    ? `Interested: ${formatInterestedUserLabelSummary(interestedUserLabels)}`
     : null
   const embed = new EmbedBuilder()
     .setColor(dmEmbedColors.info)
@@ -524,7 +524,7 @@ export function buildPlayIntentDirectMessage(
       ? `${joinCount} ${joinCount === 1 ? 'person is' : 'people are'} showing interest.`
       : '',
     interestedUserLabels && interestedUserLabels.length > 0
-      ? `Confirmed: ${formatInterestedUserLabelSummary(interestedUserLabels)}`
+      ? `Interested: ${formatInterestedUserLabelSummary(interestedUserLabels)}`
       : ''
   ])
 
@@ -555,7 +555,10 @@ export function buildPlayIntentNotificationComponents(
   creatorUserId?: string,
   creatorDisplayName?: string,
   responseChoice?: NotificationResponseChoice | null,
-  notificationType: NotificationType = NotificationType.FRIEND_PLAYING
+  notificationType: NotificationType = NotificationType.FRIEND_PLAYING,
+  options: {
+    forceInteractive?: boolean;
+  } = {}
 ) {
   const rows: ActionRowBuilder<MessageActionRowComponentBuilder>[] = []
   const responseRow = buildResponseRow(notificationId, responseChoice, notificationType)
@@ -568,15 +571,20 @@ export function buildPlayIntentNotificationComponents(
     rows.push(buildMuteRow(creatorUserId, creatorDisplayName))
   }
 
-  if (!supportsDiscordInteractiveMessages()) {
+  if (!(options.forceInteractive ?? supportsDiscordInteractiveMessages())) {
     return [buildLinkRow()]
   }
 
   return appendOpenInAppButton(rows, buildPlayUrl())
 }
 
-export function buildScheduledPlayIntentCheckInComponents(notificationId: string) {
-  return supportsDiscordInteractiveMessages()
+export function buildScheduledPlayIntentCheckInComponents(
+  notificationId: string,
+  options: {
+    forceInteractive?: boolean;
+  } = {}
+) {
+  return (options.forceInteractive ?? supportsDiscordInteractiveMessages())
     ? appendOpenInAppButton([buildScheduledCheckInResponseRow(notificationId)], buildPlayUrl())
     : [buildLinkRow()]
 }
@@ -635,7 +643,9 @@ export function buildNotificationDirectMessagePreview(options: {
     return {
       content: buildDiscordMessageHeading('⏰ Go-Time Check-In'),
       embeds: buildScheduledCheckInEmbeds(creatorMention),
-      components: buildScheduledPlayIntentCheckInComponents(options.notificationId)
+      components: buildScheduledPlayIntentCheckInComponents(options.notificationId, {
+        forceInteractive: true
+      })
     }
   }
 
@@ -652,7 +662,10 @@ export function buildNotificationDirectMessagePreview(options: {
           options.creatorUserId ?? undefined,
           options.creatorDisplayName ?? undefined,
           options.responseChoice,
-          options.notificationType
+          options.notificationType,
+          {
+            forceInteractive: true
+          }
         )
       }
     }
@@ -665,7 +678,10 @@ export function buildNotificationDirectMessagePreview(options: {
           options.creatorUserId ?? undefined,
           options.creatorDisplayName ?? undefined,
           options.responseChoice,
-          options.notificationType
+          options.notificationType,
+          {
+            forceInteractive: true
+          }
         )
       }
     }
@@ -693,7 +709,10 @@ export function buildNotificationDirectMessagePreview(options: {
         options.creatorUserId ?? undefined,
         options.creatorDisplayName ?? undefined,
         options.responseChoice,
-        options.notificationType
+        options.notificationType,
+        {
+          forceInteractive: true
+        }
       )
     }
   }
@@ -712,8 +731,14 @@ export function buildNotificationDirectMessagePreview(options: {
   }
 }
 
-function buildCreatorPlayIntentSummaryComponents(playIntentId: string, isActive: boolean) {
-  if (!isActive || !supportsDiscordInteractiveMessages()) {
+function buildCreatorPlayIntentSummaryComponents(
+  playIntentId: string,
+  isActive: boolean,
+  options: {
+    forceInteractive?: boolean;
+  } = {}
+) {
+  if (!isActive || !(options.forceInteractive ?? supportsDiscordInteractiveMessages())) {
     return [buildLinkRow()]
   }
 
@@ -904,11 +929,6 @@ function buildCreatorPlayIntentSummaryEmbeds(
           inline: true
         },
         {
-          name: formatPlayIntentEmbedFieldName('Window'),
-          value: windowLabel,
-          inline: true
-        },
-        {
           name: formatPlayIntentEmbedFieldName('Games'),
           value: summarizeCreatorGames(snapshot).replace(/^Games:\s*/, ''),
           inline: false
@@ -919,8 +939,13 @@ function buildCreatorPlayIntentSummaryEmbeds(
           inline: false
         },
         {
-          name: formatPlayIntentEmbedFieldName('Voice Channel'),
-          value: snapshot.voiceChannelName,
+          name: formatPlayIntentEmbedFieldName('Window'),
+          value: windowLabel,
+          inline: true
+        },
+        {
+          name: formatPlayIntentEmbedFieldName('Responses'),
+          value: `Interested: ${stats.interestedCount}\nPassed: ${stats.passedCount}\nWaiting: ${stats.waitingCount}`,
           inline: true
         },
         {
@@ -929,11 +954,6 @@ function buildCreatorPlayIntentSummaryEmbeds(
             ? formatInterestedUserLabelSummary(stats.interestedUserLabels)
             : 'No one yet.',
           inline: false
-        },
-        {
-          name: formatPlayIntentEmbedFieldName('Responses'),
-          value: `Interested: ${stats.interestedCount}\nPassed: ${stats.passedCount}\nWaiting: ${stats.waitingCount}`,
-          inline: true
         },
         {
           name: formatPlayIntentEmbedFieldName('Reach'),
@@ -1006,7 +1026,9 @@ export function buildCreatorPlayIntentSummaryPreview(snapshot: {
   return {
     content: buildCreatorPlayIntentSummaryHeading(startsAtLabel),
     embeds: buildCreatorPlayIntentSummaryEmbeds(snapshot as CreatorPlayIntentSummarySnapshot, currentTime),
-    components: buildCreatorPlayIntentSummaryComponents(snapshot.id, snapshot.expiresAt > currentTime)
+    components: buildCreatorPlayIntentSummaryComponents(snapshot.id, snapshot.expiresAt > currentTime, {
+      forceInteractive: true
+    })
   }
 }
 
@@ -1255,7 +1277,7 @@ function buildJoinAcceptedMessage(creatorLabel: string) {
   return buildDirectMessageNotice(
     '✅ You\'re In',
     [
-      formatDirectMessageField('Status', 'You are marked as interested.'),
+      '> You are marked as interested.',
       `> ${creatorLabel} has been notified.`
     ]
   )
@@ -1265,7 +1287,8 @@ function buildPassAcceptedMessage() {
   return buildDirectMessageNotice(
     '👍 Passed for Now',
     [
-      formatDirectMessageField('Status', 'You are marked as passing for now (passing is anonymous).')
+      '> You are marked as passing for now.',
+      '> Passing is anonymous.'
     ],
     'You can still switch to "I\'m interested" later.'
   )
@@ -1281,10 +1304,8 @@ function buildCreatorConfirmedMessage() {
   return buildDirectMessageNotice(
     '✅ Call Confirmed',
     [
-      buildDirectMessageBulletSection('Status', [
-        'I let everyone know your call to play is still on.',
-        'I reminded anyone who had not answered yet.'
-      ])
+      '> I let everyone know your call to play is still on.',
+      '> I reminded anyone who had not answered yet.'
     ]
   )
 }
@@ -1293,10 +1314,8 @@ function buildCreatorCanceledMessage() {
   return buildDirectMessageNotice(
     '🛑 Call Closed',
     [
-      buildDirectMessageBulletSection('Status', [
-        'I closed this call to play.',
-        'I let your audience know it was closed.'
-      ])
+      '> I closed this call to play.',
+      '> I let your audience know it was closed.'
     ],
     'You can post a fresh call to play whenever you are ready.'
   )
@@ -1341,7 +1360,7 @@ function buildAnonymousPassResultMessage(message: string) {
   return buildDirectMessageNotice(
     '👍 Passed for Now',
     [
-      formatDirectMessageField('Status', message)
+      `> ${message}`
     ],
     'Passing is anonymous.'
   )
@@ -1436,14 +1455,14 @@ function buildCreatorJoinNotification(notification: {
   recipientDiscordUserId: string | null;
   gameTitle: string | null;
 }) {
-  const title = 'Interest update'
+  const title = 'Someone is interested in joining'
   const body = notification.gameTitle
-    ? `${notification.recipientDisplayName} is interested in ${notification.gameTitle}.`
-    : `${notification.recipientDisplayName} is interested in your call to play.`
+    ? `${notification.recipientDisplayName} is interested in joining ${notification.gameTitle}.`
+    : `${notification.recipientDisplayName} is interested in joining your call to play.`
   const recipientDiscordLabel = buildDiscordUserLabel(notification.recipientDisplayName, notification.recipientDiscordUserId)
   const discordBody = notification.gameTitle
-    ? `${recipientDiscordLabel} is interested in ${notification.gameTitle}.`
-    : `${recipientDiscordLabel} is interested in your call to play.`
+    ? `${recipientDiscordLabel} is interested in joining ${notification.gameTitle}.`
+    : `${recipientDiscordLabel} is interested in joining your call to play.`
 
   return {
     title,
@@ -2293,6 +2312,7 @@ export async function handlePlayIntentNotificationInteraction(interaction: Butto
       },
       select: {
         id: true,
+        type: true,
         userId: true,
         triggeredByUserId: true,
         playIntentId: true,
@@ -2379,7 +2399,13 @@ export async function handlePlayIntentNotificationInteraction(interaction: Butto
 
   await interaction.update({
     content: result.discordContent ?? result.content,
-    components: buildPlayIntentNotificationComponents(notification.id, playIntent.user.id, playIntent.user.displayName, action.response)
+    components: buildPlayIntentNotificationComponents(
+      notification.id,
+      playIntent.user.id,
+      playIntent.user.displayName,
+      action.response,
+      notification.type
+    )
   })
 }
 

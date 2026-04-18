@@ -677,7 +677,10 @@ export async function clearCurrentPlayIntent(userId: string) {
 
 export async function upsertCurrentPlayIntent(
   userId: string,
-  payload: UpsertPlayIntentRequest
+  payload: UpsertPlayIntentRequest,
+  options: {
+    skipCreatorSummarySync?: boolean;
+  } = {}
 ): Promise<UpsertPlayIntentResponse> {
   const [sender, outgoingFriends, libraryEntries] = await Promise.all([
     prisma.user.findUnique({
@@ -1230,7 +1233,7 @@ export async function upsertCurrentPlayIntent(
     }
   }
 
-  if (activeIntentId) {
+  if (activeIntentId && !options.skipCreatorSummarySync) {
     await syncCreatorPlayIntentSummaryMessages([activeIntentId])
   }
 

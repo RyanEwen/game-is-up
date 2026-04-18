@@ -23,6 +23,7 @@ import {
   buildOpenInAppButton
 } from './discord-dm-formatting.js'
 import { env } from './env.js'
+import { syncCreatorPlayIntentSummaryMessages } from './play-intent-notification-responses.js'
 import { prisma } from './prisma.js'
 import { getCurrentPlayIntent, getPlayIntentRecipientUserIds, upsertCurrentPlayIntent } from './play-intents.js'
 
@@ -136,6 +137,10 @@ function buildPromptSection(label: string, value: string) {
 
 function buildPromptNotice(title: string, sections: Array<string | null>, subtext?: string | null) {
   return buildDiscordNotice(title, sections, subtext)
+}
+
+function buildInitialPromptHeading() {
+  return buildDiscordMessageHeading('🎮 You Just Started Playing - do you want to send out a call to play?')
 }
 
 function buildDurationRows(promptId: string) {
@@ -369,7 +374,7 @@ export function buildDiscordAutoPlayPromptPreview(options: {
       }
 
       return {
-        content: buildDiscordMessageHeading('🎮 You Just Started Playing'),
+        content: buildInitialPromptHeading(),
         embeds: buildInitialPromptEmbeds(options.gameTitle, options.networkRecipientCount),
         components: buildDurationRows(options.promptId)
       }
@@ -702,7 +707,7 @@ export async function maybeSendDiscordAutoPlayPromptForObservation(observationId
   const dmResult = (await sendDiscordDirectMessages([
     {
       discordUserId: discordIdentity.providerUserId,
-      content: buildDiscordMessageHeading('🎮 You Just Started Playing'),
+      content: buildInitialPromptHeading(),
       embeds: buildInitialPromptEmbeds(observation.game.title, networkRecipients.length),
       components: buildDurationRows(prompt.id)
     }
@@ -903,6 +908,8 @@ export async function handleDiscordAutoPlayPromptInteraction(interaction: Button
     return
   }
 
+  await interaction.deferUpdate()
+
   try {
     const response = await upsertCurrentPlayIntent(prompt.user.id, {
       selectionMode: 'subset',
@@ -913,6 +920,8 @@ export async function handleDiscordAutoPlayPromptInteraction(interaction: Button
       targetDiscordServerIds: [],
       durationMinutes: action.durationMinutes,
       note: ''
+    }, {
+      skipCreatorSummarySync: true
     })
 
     await prisma.discordAutoPlayPrompt.update({
@@ -929,11 +938,23 @@ export async function handleDiscordAutoPlayPromptInteraction(interaction: Button
       }
     })
 
-    await interaction.update({
-      content: buildDiscordMessageHeading('✅ Call to Play Is Live'),
-      embeds: buildAcceptedEmbeds(prompt.game.title, action.durationMinutes, action.notifyScope, response.notifiedFriendCount),
-      components: [buildLinkRow()]
-    })
+    if (prompt.discordDmChannelId && prompt.discordDmMessageId) {
+      await prisma.playIntent.update({
+        where: {
+          id: response.activeIntent.id
+        },
+        data: {
+          creatorDiscordDmChannelId: prompt.discordDmChannelId,
+          creatorDiscordDmMessageId: prompt.discordDmMessageId
+        }
+      })
+
+      await syncCreatorPlayIntentSummaryMessages([response.activeIntent.id], {
+        notifyOnActiveChange: false
+      })
+    } else {
+      await syncCreatorPlayIntentSummaryMessages([response.activeIntent.id])
+    }
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unable to create a call to play from Discord right now.'
 
@@ -951,7 +972,7 @@ export async function handleDiscordAutoPlayPromptInteraction(interaction: Button
       }
     })
 
-    await interaction.update({
+    await interaction.editReply({
       content: buildDiscordMessageHeading(`🛑 ${prompt.game.title} Prompt Closed`),
       embeds: buildExpiredEmbeds(prompt.game.title, message),
       components: [buildLinkRow()]

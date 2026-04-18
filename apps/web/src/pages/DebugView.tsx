@@ -85,6 +85,8 @@ function formatDeliveryStateLabel(deliveryState: 'emulated' | 'stored-only' | 'd
 }
 
 function DmMarkdown({ content }: { content: string }) {
+  const normalizedContent = content.replace(/(^|\n)-#\s+/g, '$1> ')
+
   return (
     <Box
       sx={{
@@ -151,7 +153,7 @@ function DmMarkdown({ content }: { content: string }) {
           }
         }}
       >
-        {content}
+        {normalizedContent}
       </ReactMarkdown>
     </Box>
   )
@@ -553,7 +555,7 @@ export function CtpDmInboxDialog({
       <DialogTitle sx={{ pr: 6 }}>DM emulator: {ctp.headline}</DialogTitle>
       <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, minHeight: 0, overflow: 'auto' }}>
         <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
-          Latest mailbox state for the creator and each audience member tied to this call to play. Each card represents the latest state of a real DM thread, not every intermediate edit.
+          Latest mailbox state for the creator and each audience member tied to this call to play. Each card represents the latest state of one tracked DM message, not every intermediate edit.
         </Typography>
 
         {actionNotice ? (
@@ -589,11 +591,11 @@ export function CtpDmInboxDialog({
                             {participant.role}
                           </Chip>
                           <Chip size="sm" variant="outlined" color="neutral">
-                            {participant.messages.length} {participant.messages.length === 1 ? 'thread' : 'threads'}
+                            {participant.messages.length} {participant.messages.length === 1 ? 'message' : 'messages'}
                           </Chip>
                           {participant.messages.length === 0 ? (
                             <Chip size="sm" variant="outlined" color="warning">
-                              No DM thread yet
+                              No DM message yet
                             </Chip>
                           ) : null}
                         </Stack>
@@ -626,8 +628,8 @@ export function CtpDmInboxDialog({
                     />
                   )) : (
                     <EmptyStateCard
-                      title="No DM threads for this user"
-                      body="This participant is part of the computed audience, but no call-to-play DM thread exists for them in the current snapshot yet."
+                      title="No DM messages for this user"
+                      body="This participant is part of the computed audience, but no call-to-play DM messages exist for them in the current snapshot yet."
                       chips={['CTP mailbox', 'Latest state']}
                     />
                   )}
@@ -635,7 +637,7 @@ export function CtpDmInboxDialog({
               ) : (
                 <EmptyStateCard
                   title="No user selected"
-                  body="Choose a user from the left side to inspect their latest DM threads for this call to play."
+                  body="Choose a user from the left side to inspect their latest DM messages for this call to play."
                   chips={['CTP mailbox', 'User picker']}
                 />
               )}
@@ -644,7 +646,7 @@ export function CtpDmInboxDialog({
         ) : (
           <EmptyStateCard
             title="No mailbox data for this call to play"
-            body="No creator or recipient DM threads were found for the current snapshot."
+            body="No creator or recipient DM messages were found for the current snapshot."
             chips={['CTP mailbox', 'Admin only']}
           />
         )}

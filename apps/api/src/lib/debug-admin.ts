@@ -246,6 +246,26 @@ function buildDebugDmTemplates(now: Date) {
     notifications: liveSummaryNotifications,
     currentTime: now
   })
+  const autoPlayCreatedSummaryPreview = buildCreatorPlayIntentSummaryPreview({
+    id: 'template-auto-play-created-summary',
+    headline: 'Picked up from Discord auto-play.',
+    note: '',
+    selectionMode: 'SELECTED_GAMES',
+    scope: 'MUTUAL_FRIENDS',
+    windowStartsAt: now,
+    windowEndsAt: new Date(now.getTime() + 2 * 60 * 60 * 1000),
+    expiresAt: new Date(now.getTime() + 2 * 60 * 60 * 1000),
+    voiceChannelName: null,
+    user: {
+      displayName: creatorDisplayName,
+      timezoneId: creatorTimezoneId
+    },
+    targetDiscordServers: [],
+    targetFriends: [],
+    games: [{ game: { title: gameTitle } }],
+    notifications: [],
+    currentTime: now
+  })
 
   return [
     {
@@ -375,6 +395,19 @@ function buildDebugDmTemplates(now: Date) {
             title: 'Call to play ended',
             body: templateArchivedBody
           })
+        ),
+        buildDebugDmTemplateEntry(
+          'recipient-creator-launched-game',
+          'Creator launched the game',
+          'The one-time alert sent to interested audience members when the creator launches the selected game.',
+          buildNotificationDirectMessagePreview({
+            notificationId: 'template-creator-launched-game',
+            notificationType: NotificationType.SYSTEM,
+            title: 'Creator launched the game',
+            body: `${creatorDisplayName} just launched ${gameTitle} for the active call to play you joined.`,
+            actorDisplayName: creatorDisplayName,
+            actorDiscordUserId: creatorDiscordUserId
+          })
         )
       ]
     },
@@ -408,8 +441,23 @@ function buildDebugDmTemplates(now: Date) {
           buildNotificationDirectMessagePreview({
             notificationId: 'template-interest-update',
             notificationType: NotificationType.SYSTEM,
-            title: 'Interest update',
-            body: `Jordan is interested in ${gameTitle}.`
+            title: 'Someone is interested in joining',
+            body: `Jordan is interested in joining ${gameTitle}.`,
+            actorDisplayName: 'Jordan',
+            actorDiscordUserId: '200000000000000001'
+          })
+        ),
+        buildDebugDmTemplateEntry(
+          'creator-interested-player-launched-game',
+          'Interested player launched the game',
+          'The one-time alert sent to the creator when an interested audience member launches the selected game.',
+          buildNotificationDirectMessagePreview({
+            notificationId: 'template-interested-player-launched-game',
+            notificationType: NotificationType.SYSTEM,
+            title: 'Interested player launched the game',
+            body: `Jordan just launched ${gameTitle} for your active call to play.`,
+            actorDisplayName: 'Jordan',
+            actorDiscordUserId: '200000000000000001'
           })
         ),
         buildDebugDmTemplateEntry(
@@ -513,18 +561,8 @@ function buildDebugDmTemplates(now: Date) {
         buildDebugDmTemplateEntry(
           'auto-play-live',
           'Call created',
-          'The success message after accepting the auto-play prompt and creating the call.',
-          buildDiscordAutoPlayPromptPreview({
-            promptId: 'template-auto-play-live',
-            status: DiscordAutoPlayPromptStatus.ACCEPTED,
-            gameTitle,
-            durationMinutes: 120,
-            notifyScope: PlayIntentScope.MUTUAL_FRIENDS,
-            friendRecipientCount: 3,
-            networkRecipientCount: 7,
-            statusDetail: '3 Discord DMs delivered from this Discord-created call to play.',
-            deliveredCount: 3
-          }) ?? { content: '', components: [] }
+          'The regular creator summary that replaces the auto-play prompt after the call is created.',
+          autoPlayCreatedSummaryPreview
         ),
         buildDebugDmTemplateEntry(
           'auto-play-declined',
@@ -1556,6 +1594,10 @@ export async function buildDebugAdminSnapshot() {
         continue
       }
 
+      if (notification.userId === intent.user.id && notification.type === NotificationType.SYSTEM) {
+        continue
+      }
+
       const existingNotifications = audienceNotificationsByUserId.get(notification.userId) ?? []
       existingNotifications.push(notification)
       audienceNotificationsByUserId.set(notification.userId, existingNotifications)
@@ -1689,7 +1731,7 @@ export async function buildDebugAdminSnapshot() {
           ),
           new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
             new ButtonBuilder()
-              .setLabel('Open in App')
+              .setLabel('Open App')
               .setStyle(ButtonStyle.Link)
               .setURL(new URL('/play', env.CLIENT_ORIGIN).toString())
           )
@@ -1779,6 +1821,10 @@ export async function buildDebugAdminSnapshot() {
     }
   }))
 
+  const creatorSummaryPreviewByPlayIntentId = new Map(
+    recentPlayIntentRows.flatMap((intent) => intent.creatorDmPreview ? [[intent.id, intent.creatorDmPreview]] : [])
+  )
+
   const recentAutoPlayPromptRows = recentAutoPlayPrompts.map((prompt) => {
     const previewPayload = buildDiscordAutoPlayPromptPreview({
       promptId: prompt.id,
@@ -1791,6 +1837,12 @@ export async function buildDebugAdminSnapshot() {
       statusDetail: prompt.statusDetail,
       deliveredCount: prompt.createdPlayIntent?.notifications.length ?? 0
     })
+    const dmPreview = prompt.status === DiscordAutoPlayPromptStatus.ACCEPTED && prompt.createdPlayIntentId
+      ? creatorSummaryPreviewByPlayIntentId.get(prompt.createdPlayIntentId)
+        ?? (previewPayload ? buildDebugDmPreview(previewPayload.content, previewPayload.components, previewPayload.embeds) : null)
+      : previewPayload
+        ? buildDebugDmPreview(previewPayload.content, previewPayload.components, previewPayload.embeds)
+        : null
 
     return {
       id: prompt.id,
@@ -1809,7 +1861,7 @@ export async function buildDebugAdminSnapshot() {
       createdPlayIntentId: prompt.createdPlayIntentId,
       user: prompt.user,
       game: prompt.game,
-      dmPreview: previewPayload ? buildDebugDmPreview(previewPayload.content, previewPayload.components, previewPayload.embeds) : null
+      dmPreview
     }
   })
 

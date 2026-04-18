@@ -110,7 +110,7 @@ export function buildDiscordMessageHeading(title: string) {
 
 export function buildOpenInAppButton(url: string) {
   return new ButtonBuilder()
-    .setLabel('Open in App')
+    .setLabel('Open App')
     .setStyle(ButtonStyle.Link)
     .setURL(url)
 }
