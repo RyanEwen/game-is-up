@@ -92,32 +92,6 @@ body {
   }
 }
 
-@keyframes ambientSpectrumPanDuo {
-  0% {
-    background-position: center, 0% 50%;
-  }
-
-  20% {
-    background-position: center, 24% 46%;
-  }
-
-  40% {
-    background-position: center, 50% 52%;
-  }
-
-  65% {
-    background-position: center, 82% 48%;
-  }
-
-  82% {
-    background-position: center, 100% 50%;
-  }
-
-  100% {
-    background-position: center, 0% 50%;
-  }
-}
-
 @keyframes ambientSpectrumPulse {
   0% {
     opacity: 0.18;

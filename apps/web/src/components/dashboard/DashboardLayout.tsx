@@ -87,21 +87,6 @@ export const DashboardLayout = ({
           sx={{
             position: 'fixed',
             inset: 0,
-            background: [
-              'linear-gradient(180deg, rgba(7, 11, 20, 0.14) 0%, rgba(7, 11, 20, 0.2) 18%, rgba(7, 11, 20, 0.34) 34%, rgba(7, 11, 20, 0.58) 50%, rgba(7, 11, 20, 0.8) 66%, rgba(7, 11, 20, 0.94) 82%, rgba(7, 11, 20, 1) 100%)',
-              'radial-gradient(circle at 50% 120%, rgba(4, 7, 16, 0.98), transparent 50%)'
-            ].join(','),
-            mixBlendMode: 'multiply',
-            pointerEvents: 'none',
-            zIndex: 0
-          }}
-        />
-
-        <Box
-          aria-hidden="true"
-          sx={{
-            position: 'fixed',
-            inset: 0,
             backgroundImage: [
               'radial-gradient(circle at 50% 12%, rgba(255, 255, 255, 0.36), transparent 40%)',
               'radial-gradient(circle at 16% 20%, rgba(255, 255, 255, 0.22), transparent 26%)',
@@ -112,8 +97,6 @@ export const DashboardLayout = ({
             backgroundSize: 'auto, auto, auto, 220% 220%',
             backgroundPosition: 'center top, left top, right top, 0% 50%',
             opacity: 0.08,
-            WebkitMaskImage: 'linear-gradient(180deg, rgba(0, 0, 0, 1) 0%, rgba(0, 0, 0, 0.96) 22%, rgba(0, 0, 0, 0.82) 44%, rgba(0, 0, 0, 0.52) 66%, rgba(0, 0, 0, 0.18) 86%, rgba(0, 0, 0, 0.06) 100%)',
-            maskImage: 'linear-gradient(180deg, rgba(0, 0, 0, 1) 0%, rgba(0, 0, 0, 0.96) 22%, rgba(0, 0, 0, 0.82) 44%, rgba(0, 0, 0, 0.52) 66%, rgba(0, 0, 0, 0.18) 86%, rgba(0, 0, 0, 0.06) 100%)',
             transformOrigin: '50% 18%',
             willChange: 'transform, background-position, opacity',
             animation: [
@@ -350,9 +333,8 @@ export const DashboardLayout = ({
                     '0 14px 26px -18px rgba(0, 0, 0, 0.92)',
                     '0 1px 0 rgba(160, 202, 255, 0.24)',
                     'inset 0 1px 0 rgba(255, 255, 255, 0.05)',
-                    '0 0 0 1px rgba(94, 144, 206, 0.18)',
-                    // '0 0 34px rgba(42, 112, 189, 0.16)'
-                  ].join(', '),
+                    '0 0 0 1px rgba(94, 144, 206, 0.18)'
+                  ].join(', ')
                 }}
               >
                 {dashboardTabs.map((tab) => (
@@ -361,7 +343,6 @@ export const DashboardLayout = ({
                   </Tab>
                 ))}
               </TabList>
-
             </Box>
 
             <Box sx={{ pt: 3 }}>{children}</Box>

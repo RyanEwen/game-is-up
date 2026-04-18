@@ -55,9 +55,9 @@ export const theme = extendTheme({
           body: '#070b14',
           surface: 'rgba(11, 16, 32, 0.84)',
           popup: '#121927',
-          level1: 'rgba(18, 25, 39, 0.84)',
-          level2: '#111826',
-          level3: '#1a2334'
+          level1: 'rgba(15, 22, 34, 0.9)',
+          level2: '#22324f',
+          level3: '#355076'
         }
       }
     }
