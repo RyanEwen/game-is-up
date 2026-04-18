@@ -133,7 +133,7 @@ That script:
 - runs `npm run validate` locally by default
 - optionally pushes local `HEAD` to the target branch when you pass `--push`
 - SSHes into the production host
-- refuses to deploy if the remote repo has uncommitted changes
+- refuses to deploy if the remote repo has tracked uncommitted changes
 - runs `docker compose up --build -d` in the remote checkout
 - runs `npm run cache:purge:cloudflare` on the server after deploy when the remote `.env` includes the required Cloudflare values
 

@@ -4,18 +4,12 @@ import { useEffect, useRef, useState } from 'react'
 // Tab bar pill bottom = sticky-top + margin(4) + border(1) + padding + tab-minHeight + padding + border(1)
 // xs: 12 + 4 + 1 + 6 + 44 + 6 + 1 = 74px
 // md: 16 + 4 + 1 + 8 + 52 + 8 + 1 = 90px
-export const sectionNavTop = {
+const sectionNavTop = {
   xs: 'calc(var(--app-top-inset, 0px) + 73px)',
   md: 'calc(var(--app-top-inset, 0px) + 89px)'
 } as const
 
-// scroll-margin-top = nav top + nav height (~48px) + 8px gap
-export const sectionScrollMarginTop = {
-  xs: 'calc(var(--app-top-inset, 0px) + 132px)',
-  md: 'calc(var(--app-top-inset, 0px) + 152px)'
-} as const
-
-export function scrollToSection(id: string) {
+function scrollToSection(id: string) {
   document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
 
