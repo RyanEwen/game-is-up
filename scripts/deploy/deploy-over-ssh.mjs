@@ -9,6 +9,7 @@ const repoRoot = path.resolve(scriptDir, '../..')
 function parseArgs(argv) {
   const options = {
     branch: process.env.DEPLOY_GIT_BRANCH?.trim() || 'main',
+    composeFiles: parseComposeFiles(process.env.DEPLOY_COMPOSE_FILES),
     dryRun: false,
     host: process.env.DEPLOY_SSH_HOST?.trim() || 'deploy@server.example',
     port: process.env.DEPLOY_SSH_PORT?.trim() || '22',
@@ -111,6 +112,22 @@ function parseArgs(argv) {
       continue
     }
 
+    if (argument === '--compose-file') {
+      const value = argv[index + 1]
+      if (!value) {
+        throw new Error('Missing value for --compose-file.')
+      }
+
+      options.composeFiles.push(value)
+      index += 1
+      continue
+    }
+
+    if (argument.startsWith('--compose-file=')) {
+      options.composeFiles.push(argument.slice('--compose-file='.length))
+      continue
+    }
+
     if (argument === '--ssh-key') {
       const value = argv[index + 1]
       if (!value) {
@@ -134,7 +151,15 @@ function parseArgs(argv) {
 }
 
 function printHelp() {
-  process.stdout.write(`Usage: npm run deploy:prod:ssh -- [options]\n\nOptions:\n  --push                Push local HEAD to origin/<branch> before deploying\n  --skip-validate       Skip local npm run validate before deployment\n  --skip-cache-purge    Skip the post-deploy Cloudflare cache purge\n  --host <value>        SSH host, default deploy@server.example\n  --port <value>        SSH port, default 22\n  --repo-path <path>    Remote repo path, default /srv/game-is-up\n  --branch <name>       Git branch to deploy, default main\n  --ssh-key <path>      SSH private key to use for the connection\n  --dry-run             Print the planned commands without running them\n  --help                Show this message\n`)
+  process.stdout.write(`Usage: npm run deploy:prod:ssh -- [options]\n\nOptions:\n  --push                Push local HEAD to origin/<branch> before deploying\n  --skip-validate       Skip local npm run validate before deployment\n  --skip-cache-purge    Skip the post-deploy Cloudflare cache purge\n  --host <value>        SSH host, default deploy@server.example\n  --port <value>        SSH port, default 22\n  --repo-path <path>    Remote repo path, default /srv/game-is-up\n  --branch <name>       Git branch to deploy, default main\n  --compose-file <path> Repeatable Docker Compose file override; defaults to compose.yml and auto-adds compose.prod.yml when present on the server\n  --ssh-key <path>      SSH private key to use for the connection\n  --dry-run             Print the planned commands without running them\n  --help                Show this message\n`)
+}
+
+function parseComposeFiles(value) {
+  return value
+    ?.split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+    ?? []
 }
 
 function shellQuote(value) {
@@ -178,10 +203,20 @@ function buildRemoteDeployCommand(options) {
   const branch = shellQuote(options.branch)
   const repoPath = shellQuote(options.repoPath)
   const shouldPurgeCache = !options.skipCachePurge
+  const composeFileCommands = options.composeFiles.length > 0
+    ? options.composeFiles.map((composeFile) => `compose_args+=("-f" ${shellQuote(composeFile)})`)
+    : [
+        'compose_args+=("-f" "compose.yml")',
+        'if [[ -f compose.prod.yml ]]; then',
+        '  compose_args+=("-f" "compose.prod.yml")',
+        'fi'
+      ]
 
   return [
     'set -euo pipefail',
     `cd ${repoPath}`,
+    'compose_args=()',
+    ...composeFileCommands,
     'git rev-parse --is-inside-work-tree >/dev/null',
     'if [[ -n "$(git status --short --untracked-files=no)" ]]; then',
     '  printf "%s\n" "Refusing to deploy: remote repository has tracked changes." >&2',
@@ -191,7 +226,7 @@ function buildRemoteDeployCommand(options) {
     `git fetch origin ${branch}`,
     `git checkout ${branch}`,
     `git pull --ff-only origin ${branch}`,
-    'docker compose up --build -d',
+    'docker compose "${compose_args[@]}" up --build -d',
     ...(shouldPurgeCache
       ? [
           'if [[ -f .env ]] && grep -Eq "^(export[[:space:]]+)?CLOUDFLARE_API_TOKEN=" .env && grep -Eq "^(export[[:space:]]+)?CLOUDFLARE_ZONE_ID=" .env && grep -Eq "^(export[[:space:]]+)?(CLOUDFLARE_PURGE_BASE_URL|VITE_PUBLIC_APP_URL|CLIENT_ORIGIN)=" .env; then',
@@ -201,9 +236,17 @@ function buildRemoteDeployCommand(options) {
           'fi'
         ]
       : []),
-    'docker compose ps',
+    'docker compose "${compose_args[@]}" ps',
     'printf "%s %s\n" "Deployed commit:" "$(git rev-parse --short HEAD)"'
   ].join('\n')
+}
+
+function describeComposeFiles(options) {
+  if (options.composeFiles.length > 0) {
+    return options.composeFiles.join(', ')
+  }
+
+  return 'compose.yml, plus compose.prod.yml when present on the server'
 }
 
 function main() {
@@ -223,6 +266,7 @@ function main() {
     process.stdout.write(`Remote host: ${options.host}:${options.port}\n`)
     process.stdout.write(`Remote repo: ${options.repoPath}\n`)
     process.stdout.write(`Branch: ${options.branch}\n`)
+    process.stdout.write(`Compose files: ${describeComposeFiles(options)}\n`)
     process.stdout.write(`Will push first: ${options.push ? 'yes' : 'no'}\n`)
     process.stdout.write(`Will validate first: ${options.skipValidate ? 'no' : 'yes'}\n`)
     process.stdout.write(`Will purge Cloudflare cache: ${options.skipCachePurge ? 'no' : 'yes, when configured on the server'}\n`)

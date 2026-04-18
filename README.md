@@ -134,7 +134,7 @@ That script:
 - optionally pushes local `HEAD` to the target branch when you pass `--push`
 - SSHes into the production host
 - refuses to deploy if the remote repo has tracked uncommitted changes
-- runs `docker compose up --build -d` in the remote checkout
+- runs `docker compose -f compose.yml -f compose.prod.yml up --build -d` in the remote checkout when `compose.prod.yml` exists there
 - runs `npm run cache:purge:cloudflare` on the server after deploy when the remote `.env` includes the required Cloudflare values
 
 Default SSH deployment values are:
@@ -144,7 +144,7 @@ Default SSH deployment values are:
 - repo path: `/srv/game-is-up`
 - branch: `main`
 
-Override them with flags such as `--host`, `--port`, `--repo-path`, `--branch`, and `--ssh-key`, or with the env vars `DEPLOY_SSH_HOST`, `DEPLOY_SSH_PORT`, `DEPLOY_REPO_PATH`, `DEPLOY_GIT_BRANCH`, and `DEPLOY_SSH_KEY`. If you need to bypass the post-deploy purge for an emergency rollout, pass `--skip-cache-purge`.
+Override them with flags such as `--host`, `--port`, `--repo-path`, `--branch`, `--compose-file`, and `--ssh-key`, or with the env vars `DEPLOY_SSH_HOST`, `DEPLOY_SSH_PORT`, `DEPLOY_REPO_PATH`, `DEPLOY_GIT_BRANCH`, `DEPLOY_COMPOSE_FILES`, and `DEPLOY_SSH_KEY`. Pass `--compose-file` multiple times when you need an exact Compose stack, for example `--compose-file compose.yml --compose-file compose.prod.yml`. If you need to bypass the post-deploy purge for an emergency rollout, pass `--skip-cache-purge`.
 
 If you want a dedicated deployment key, create one locally and add the public key to `~/.ssh/authorized_keys` for the deploy user on the server:
 
