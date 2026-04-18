@@ -240,7 +240,7 @@ function buildResponseRow(
   if (!isGoTimeConfirmed && responseChoice !== NotificationResponseChoice.JOIN) {
     buttons.push(
       new ButtonBuilder()
-        .setCustomId(`${playIntentNotificationPrefix}:${notificationId}:join`)
+        .setCustomId(`${playIntentNotificationPrefix}:${notificationId}:interested`)
         .setLabel('I\'m interested')
         .setStyle(ButtonStyle.Primary)
     )
@@ -446,7 +446,7 @@ export function buildPlayIntentDirectMessageEmbeds(
   creatorDiscordUserId?: string | null,
   creatorDisplayName?: string | null,
   voiceChannel?: { channelId: string | null; channelName: string | null; recipientSharesServer: boolean } | null,
-  joinCount?: number,
+  interestedCount?: number,
   interestedUserLabels?: string[],
   options: {
     includeUpdateDescription?: boolean;
@@ -490,8 +490,8 @@ export function buildPlayIntentDirectMessageEmbeds(
       {
         name: formatPlayIntentEmbedFieldName('Interest'),
         value: [
-          joinCount && joinCount > 0
-            ? `${joinCount} ${joinCount === 1 ? 'person is' : 'people are'} showing interest.`
+          interestedCount && interestedCount > 0
+            ? `${interestedCount} ${interestedCount === 1 ? 'person is' : 'people are'} showing interest.`
             : null,
           interestedSummary
         ].filter((part): part is string => Boolean(part)).join('\n'),
@@ -545,7 +545,7 @@ export function buildPlayIntentDirectMessage(
   creatorDiscordUserId?: string | null,
   creatorDisplayName?: string | null,
   voiceChannel?: { channelId: string | null; channelName: string | null; recipientSharesServer: boolean } | null,
-  joinCount?: number,
+  interestedCount?: number,
   interestedUserLabels?: string[],
   includeInterestPrompt = true
 ) {
@@ -563,8 +563,8 @@ export function buildPlayIntentDirectMessage(
     : null
 
   const interestSection = buildDirectMessageBulletSection('Interest', [
-    joinCount && joinCount > 0
-      ? `${joinCount} ${joinCount === 1 ? 'person is' : 'people are'} showing interest.`
+    interestedCount && interestedCount > 0
+      ? `${interestedCount} ${interestedCount === 1 ? 'person is' : 'people are'} showing interest.`
       : '',
     interestedUserLabels && interestedUserLabels.length > 0
       ? `Interested: ${formatInterestedUserLabelSummary(interestedUserLabels)}`
@@ -650,7 +650,7 @@ export function buildNotificationDirectMessagePreview(options: {
   gameTitle?: string | null;
   playIntentIsActive?: boolean;
   voiceChannel?: { channelId: string | null; channelName: string | null; recipientSharesServer: boolean } | null;
-  joinCount?: number;
+  interestedCount?: number;
   interestedUserLabels?: string[];
   actorDisplayName?: string | null;
   actorDiscordUserId?: string | null;
@@ -705,7 +705,7 @@ export function buildNotificationDirectMessagePreview(options: {
   ) {
     if (options.responseChoice === NotificationResponseChoice.JOIN) {
       return {
-        content: buildJoinAcceptedMessage(creatorLabel),
+        content: buildInterestedAcceptedMessage(creatorLabel),
         components: buildPlayIntentNotificationComponents(
           options.notificationId,
           options.creatorUserId ?? undefined,
@@ -750,7 +750,7 @@ export function buildNotificationDirectMessagePreview(options: {
         options.creatorDiscordUserId,
         options.creatorDisplayName,
         options.voiceChannel,
-        options.joinCount,
+        options.interestedCount,
         options.interestedUserLabels,
         {
           includeUpdateDescription: options.notificationType !== NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED
@@ -1549,7 +1549,7 @@ export async function refreshTrackedPlayIntentNotificationDirectMessages() {
       gameTitle: notification.game?.title ?? null,
       playIntentIsActive: playIntent ? playIntent.expiresAt > now : false,
       voiceChannel,
-      joinCount: interestedUsers.length > 0 ? interestedUsers.length : undefined,
+      interestedCount: interestedUsers.length > 0 ? interestedUsers.length : undefined,
       interestedUserLabels: interestedUsers.map((user) => user.displayName),
       actorDisplayName: actor?.displayName ?? null,
       actorDiscordUserId: actor?.identities[0]?.providerUserId ?? null
@@ -1597,7 +1597,7 @@ function buildExpiredMessage(reason: string) {
   )
 }
 
-function buildJoinAcceptedMessage(creatorLabel: string) {
+function buildInterestedAcceptedMessage(creatorLabel: string) {
   return buildDiscordPlainMessage(
     '✅ You\'re In',
     [
@@ -1748,21 +1748,14 @@ function parseAction(customId: string): PlayIntentNotificationAction | null {
     return null
   }
 
-  if (parts[2] === 'join') {
+  if (parts[2] === 'interested' || parts[2] === 'join') {
     return {
       notificationId: parts[1],
       response: NotificationResponseChoice.JOIN
     }
   }
 
-  if (parts[2] === 'decline') {
-    return {
-      notificationId: parts[1],
-      response: NotificationResponseChoice.DECLINE
-    }
-  }
-
-  if (parts[2] === 'pass') {
+  if (parts[2] === 'decline' || parts[2] === 'pass') {
     return {
       notificationId: parts[1],
       response: NotificationResponseChoice.DECLINE
@@ -1837,19 +1830,19 @@ function parseCreatorPlayIntentSummaryAction(customId: string): CreatorPlayInten
   }
 }
 
-function buildCreatorJoinNotification(notification: {
+function buildCreatorInterestedNotification(notification: {
   recipientDisplayName: string;
   recipientDiscordUserId: string | null;
   gameTitle: string | null;
 }) {
-  const title = 'Someone is interested in joining'
+  const title = 'Someone is interested'
   const body = notification.gameTitle
-    ? `${notification.recipientDisplayName} is interested in joining ${notification.gameTitle}.`
-    : `${notification.recipientDisplayName} is interested in joining your call to play.`
+    ? `${notification.recipientDisplayName} is interested in playing ${notification.gameTitle}.`
+    : `${notification.recipientDisplayName} is interested in your call to play.`
   const recipientDiscordLabel = buildDiscordUserLabel(notification.recipientDisplayName, notification.recipientDiscordUserId)
   const discordBody = notification.gameTitle
-    ? `${recipientDiscordLabel} is interested in joining ${notification.gameTitle}.`
-    : `${recipientDiscordLabel} is interested in joining your call to play.`
+    ? `${recipientDiscordLabel} is interested in playing ${notification.gameTitle}.`
+    : `${recipientDiscordLabel} is interested in your call to play.`
 
   return {
     title,
@@ -1863,14 +1856,14 @@ function buildCreatorPassNotification(notification: {
   recipientDiscordUserId: string | null;
   gameTitle: string | null;
 }) {
-  const title = 'Someone is no longer interested in joining'
+  const title = 'Someone passed'
   const body = notification.gameTitle
-    ? `${notification.recipientDisplayName} is no longer interested in joining ${notification.gameTitle}.`
-    : `${notification.recipientDisplayName} is no longer interested in joining your call to play.`
+    ? `${notification.recipientDisplayName} passed on ${notification.gameTitle}.`
+    : `${notification.recipientDisplayName} passed on your call to play.`
   const recipientDiscordLabel = buildDiscordUserLabel(notification.recipientDisplayName, notification.recipientDiscordUserId)
   const discordBody = notification.gameTitle
-    ? `${recipientDiscordLabel} is no longer interested in joining ${notification.gameTitle}.`
-    : `${recipientDiscordLabel} is no longer interested in joining your call to play.`
+    ? `${recipientDiscordLabel} passed on ${notification.gameTitle}.`
+    : `${recipientDiscordLabel} passed on your call to play.`
 
   return {
     title,
@@ -1989,13 +1982,13 @@ async function applyRecipientResponseToPlayIntentNotification(options: {
     }
   }
 
-  const creatorNotificationCopy = buildCreatorJoinNotification({
+  const creatorNotificationCopy = buildCreatorInterestedNotification({
     recipientDisplayName: notification.user.displayName,
     recipientDiscordUserId: notification.user.identities?.[0]?.providerUserId ?? null,
     gameTitle: notification.game?.title ?? null
   })
 
-  const joinResult = previousChoice !== NotificationResponseChoice.JOIN
+  const interestedResult = previousChoice !== NotificationResponseChoice.JOIN
     ? await prisma.$transaction(async (transaction) => {
         await transaction.notification.update({
           where: {
@@ -2048,7 +2041,7 @@ async function applyRecipientResponseToPlayIntentNotification(options: {
       {
         discordUserId: creatorDiscordUserId,
         content: buildDiscordPlainMessage(
-          buildDiscordMessageHeading(joinResult.title),
+          buildDiscordMessageHeading(interestedResult.title),
           [creatorNotificationCopy.discordBody]
         ),
         components: [buildLinkRow()]
@@ -2058,7 +2051,7 @@ async function applyRecipientResponseToPlayIntentNotification(options: {
     if (dmResult?.status === 'sent' && !dmResult.emulated) {
       await prisma.notification.update({
         where: {
-          id: joinResult.id
+          id: interestedResult.id
         },
         data: {
           deliveredAt: new Date(),
@@ -2074,12 +2067,12 @@ async function applyRecipientResponseToPlayIntentNotification(options: {
       ? `Nice. I marked you as interested in ${playIntent.user.displayName}'s call to play and let them know.`
       : previousChoice === NotificationResponseChoice.JOIN
         ? 'You are still marked as interested in this call to play.'
-        : buildJoinAcceptedMessage(playIntent.user.displayName),
+        : buildInterestedAcceptedMessage(playIntent.user.displayName),
     discordContent: previousChoice === NotificationResponseChoice.DECLINE
       ? `Nice. I marked you as interested in ${creatorDiscordLabel}'s call to play and let them know.`
       : previousChoice === NotificationResponseChoice.JOIN
         ? 'You are still marked as interested in this call to play.'
-        : buildJoinAcceptedMessage(creatorDiscordLabel)
+        : buildInterestedAcceptedMessage(creatorDiscordLabel)
   }
 }
 
@@ -2163,7 +2156,7 @@ export async function respondToPlayIntentFromWeb(options: {
   })
 
   return {
-    responseChoice: options.response === NotificationResponseChoice.JOIN ? 'join' : 'decline',
+    responseChoice: options.response === NotificationResponseChoice.JOIN ? 'interested' : 'pass',
     message: result.content
   }
 }

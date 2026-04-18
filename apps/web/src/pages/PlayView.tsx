@@ -185,9 +185,9 @@ function OwnActivePlayIntentCard({
               {platform}
             </Chip>
           ))}
-          {activePlayIntent.joinCount > 0 ? (
+          {activePlayIntent.interestedCount > 0 ? (
             <Chip size="sm" color="success" variant="soft">
-              {activePlayIntent.joinCount} {activePlayIntent.joinCount === 1 ? 'person interested' : 'people interested'}
+              {activePlayIntent.interestedCount} {activePlayIntent.interestedCount === 1 ? 'person interested' : 'people interested'}
             </Chip>
           ) : null}
         </Stack>

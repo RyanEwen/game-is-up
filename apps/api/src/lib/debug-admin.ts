@@ -299,7 +299,7 @@ function buildDebugDmTemplateDefinitions(now: Date): DebugDmTemplateGroupDefinit
             gameTitle,
             playIntentIsActive: true,
             voiceChannel: templateVoiceChannel,
-            joinCount: 2,
+            interestedCount: 2,
             interestedUserLabels: ['Jordan', 'Casey']
           })
         },
@@ -318,7 +318,7 @@ function buildDebugDmTemplateDefinitions(now: Date): DebugDmTemplateGroupDefinit
             gameTitle,
             playIntentIsActive: true,
             voiceChannel: templateVoiceChannel,
-            joinCount: 1,
+            interestedCount: 1,
             interestedUserLabels: ['Jordan']
           })
         },
@@ -337,7 +337,7 @@ function buildDebugDmTemplateDefinitions(now: Date): DebugDmTemplateGroupDefinit
             gameTitle,
             playIntentIsActive: true,
             voiceChannel: templateVoiceChannel,
-            joinCount: 2,
+            interestedCount: 2,
             interestedUserLabels: ['Jordan', 'Casey']
           })
         },
@@ -356,7 +356,7 @@ function buildDebugDmTemplateDefinitions(now: Date): DebugDmTemplateGroupDefinit
             gameTitle,
             playIntentIsActive: true,
             voiceChannel: templateVoiceChannel,
-            joinCount: 2,
+            interestedCount: 2,
             interestedUserLabels: ['Jordan', 'Casey']
           })
         },
@@ -454,8 +454,8 @@ function buildDebugDmTemplateDefinitions(now: Date): DebugDmTemplateGroupDefinit
           previewPayload: buildNotificationDirectMessagePreview({
             notificationId: 'template-interest-update',
             notificationType: NotificationType.SYSTEM,
-            title: 'Someone is interested in joining',
-            body: `Jordan is interested in joining ${gameTitle}.`,
+            title: 'Someone is interested',
+            body: `Jordan is interested in playing ${gameTitle}.`,
             actorDisplayName: 'Jordan',
             actorDiscordUserId: '200000000000000001'
           })
@@ -467,8 +467,8 @@ function buildDebugDmTemplateDefinitions(now: Date): DebugDmTemplateGroupDefinit
           previewPayload: buildNotificationDirectMessagePreview({
             notificationId: 'template-interest-withdrawn',
             notificationType: NotificationType.SYSTEM,
-            title: 'Someone is no longer interested in joining',
-            body: `Jordan is no longer interested in joining ${gameTitle}.`,
+            title: 'Someone passed',
+            body: `Jordan passed on ${gameTitle}.`,
             actorDisplayName: 'Jordan',
             actorDiscordUserId: '200000000000000001'
           })
@@ -792,7 +792,7 @@ function buildNotificationMessageRevisions(options: {
   creatorDisplayName: string;
   gameTitle: string | null;
   voiceChannel: { channelId: string | null; channelName: string | null; recipientSharesServer: boolean } | null;
-  joinCount?: number;
+  interestedCount?: number;
   actorDisplayName?: string | null;
   actorDiscordUserId?: string | null;
 }) {
@@ -806,7 +806,7 @@ function buildNotificationMessageRevisions(options: {
     creatorDisplayName: options.creatorDisplayName,
     gameTitle: options.gameTitle,
     voiceChannel: options.voiceChannel,
-    joinCount: options.joinCount,
+    interestedCount: options.interestedCount,
     actorDisplayName: options.actorDisplayName,
     actorDiscordUserId: options.actorDiscordUserId
   }
@@ -1719,7 +1719,7 @@ export async function buildDebugAdminSnapshot() {
                   recipientSharesServer
                 }
               : null,
-            joinCount: (
+            interestedCount: (
               notification.type === NotificationType.SCHEDULED_PLAY_INTENT_REMINDER
               || notification.type === NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED
             )
@@ -1794,7 +1794,7 @@ export async function buildDebugAdminSnapshot() {
         [
           new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
             new ButtonBuilder()
-              .setCustomId(buildDebugPlayIntentResponseCustomId(intent.id, 'join'))
+              .setCustomId(buildDebugPlayIntentResponseCustomId(intent.id, 'interested'))
               .setLabel("I'm interested")
               .setStyle(ButtonStyle.Primary),
             new ButtonBuilder()
@@ -1965,7 +1965,7 @@ export async function buildDebugAdminSnapshot() {
         : null,
       actorDisplayName: notification.triggeredByUserId ? (triggeredByUserMap.get(notification.triggeredByUserId)?.displayName ?? null) : null,
       actorDiscordUserId: notification.triggeredByUserId ? (triggeredByUserMap.get(notification.triggeredByUserId)?.identities[0]?.providerUserId ?? null) : null,
-      joinCount: (
+      interestedCount: (
         notification.type === NotificationType.SCHEDULED_PLAY_INTENT_REMINDER
         || notification.type === NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED
       ) && playIntent

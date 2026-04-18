@@ -190,9 +190,9 @@ async function handleStatusCommand(message: Message, identity: NonNullable<Await
     new Date(activeIntent.windowEndsAt),
     identity.user.timezoneId
   )
-  const interestedSummary = activeIntent.joinCount === 0
+  const interestedSummary = activeIntent.interestedCount === 0
     ? 'Nobody has responded yet.'
-    : `${activeIntent.joinCount} ${activeIntent.joinCount === 1 ? 'person is' : 'people are'} interested.`
+    : `${activeIntent.interestedCount} ${activeIntent.interestedCount === 1 ? 'person is' : 'people are'} interested.`
 
   await replyToDirectMessage(
     message,

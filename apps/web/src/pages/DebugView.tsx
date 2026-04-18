@@ -85,6 +85,25 @@ function formatDeliveryStateLabel(deliveryState: 'emulated' | 'stored-only' | 'd
   }
 }
 
+function formatAutoPlayPromptStatusLabel(status: DebugAutoPlayPrompt['status']) {
+  switch (status) {
+    case 'accepted':
+      return 'Created call'
+    case 'declined':
+      return 'Passed'
+    case 'expired':
+      return 'Expired'
+    case 'failed':
+      return 'Failed'
+    case 'sent':
+      return 'Sent'
+    case 'skipped':
+      return 'Skipped'
+    default:
+      return status
+  }
+}
+
 function DmMarkdown({ content }: { content: string }) {
   const blocks = content
     .split(/\n\n+/)
@@ -1660,8 +1679,8 @@ function PromptLogCard({
             <Option value="all">All statuses</Option>
             <Option value="sent">Sent</Option>
             <Option value="skipped">Skipped</Option>
-            <Option value="accepted">Accepted</Option>
-            <Option value="declined">Declined</Option>
+            <Option value="accepted">Created call</Option>
+            <Option value="declined">Passed</Option>
             <Option value="expired">Expired</Option>
             <Option value="settle_sent">Settle prompt</Option>
             <Option value="settle_confirmed">Settled</Option>
@@ -1704,7 +1723,7 @@ function PromptLogCard({
                           variant="soft"
                           color={prompt.status === 'accepted' ? 'success' : prompt.status === 'declined' || prompt.status === 'failed' ? 'danger' : prompt.status === 'expired' ? 'warning' : 'neutral'}
                         >
-                          {prompt.status}
+                          {formatAutoPlayPromptStatusLabel(prompt.status)}
                         </Chip>
                       </td>
                       <td>

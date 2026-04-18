@@ -349,7 +349,7 @@ debugRouter.post('/admin/dm-action', async (request, response, next) => {
       const result = await respondToPlayIntentFromWeb({
         userId: payload.actingUserId,
         playIntentId: syntheticResponseAction.playIntentId,
-        response: syntheticResponseAction.response === 'join' ? NotificationResponseChoice.JOIN : NotificationResponseChoice.DECLINE
+        response: syntheticResponseAction.response === 'interested' ? NotificationResponseChoice.JOIN : NotificationResponseChoice.DECLINE
       })
 
       updatedMessage = result.message

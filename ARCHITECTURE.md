@@ -22,7 +22,7 @@ The product loop is intentionally narrow:
 3. Users add people they want to keep track of as friends.
 4. A play intent can target either the full library or a chosen subset.
 5. Notifications trigger when a friend or opted-in shared-server user expresses intent that overlaps with the recipient.
-6. Discord-delivered call-to-play notifications can capture an explicit join response from the recipient and fan a confirmation back to the original creator.
+6. Discord-delivered call-to-play notifications can capture an explicit interested response from the recipient and fan a confirmation back to the original creator.
 
 Game catalog search is provider-backed rather than store-specific. The current implementation targets a broad catalog source and normalizes platform labels so the product can treat a title as one canonical game with multiple supported platforms.
 
@@ -53,7 +53,7 @@ The scheduling model uses an explicit start and end window so the same aggregate
 
 Notification rows can now also track whether a recipient explicitly said they would join from a Discord DM prompt. That keeps the response flow attached to the original play intent instead of introducing a second RSVP-specific entity.
 
-Play-intent feed and current-intent payloads now also include lightweight interested-user previews derived from join responses. That lets the web app render interested-player summaries directly on the Play view without a second lookup for basic identity data.
+Play-intent feed and current-intent payloads now also include lightweight interested-user previews derived from interested responses. That lets the web app render interested-player summaries directly on the Play view without a second lookup for basic identity data.
 
 Feed previews now also expose a lightweight status (`active` or `closed`) plus an `appliesToViewer` flag. The web client uses those fields to keep recently ended calls visible for a short history window without leaving stale response actions enabled for calls that no longer match the viewer's library or have already ended.
 

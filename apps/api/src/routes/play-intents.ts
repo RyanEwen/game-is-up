@@ -6,7 +6,6 @@ import {
   playIntentCurrentResponseSchema,
   playIntentFeedSchema,
   playIntentMutesResponseSchema,
-  playIntentRecipientResponseRequestSchema,
   playIntentRecipientResponseResultSchema,
   upsertPlayIntentRequestSchema,
   upsertPlayIntentResponseSchema
@@ -24,6 +23,10 @@ import { prisma } from '../lib/prisma.js'
 import { getAuthSession } from '../lib/session.js'
 
 export const playIntentRouter = Router()
+
+const playIntentRecipientResponseInputSchema = z.object({
+  choice: z.enum(['interested', 'pass', 'join', 'decline'])
+})
 
 function requireSignedInUserId(request: Request, response: Response): string | null {
   const session = getAuthSession(request)
@@ -244,11 +247,13 @@ playIntentRouter.post('/:playIntentId/respond', async (request, response, next) 
   }
 
   try {
-    const payload = playIntentRecipientResponseRequestSchema.parse(request.body)
+    const payload = playIntentRecipientResponseInputSchema.parse(request.body)
     const result = await respondToPlayIntentFromWeb({
       userId,
       playIntentId: paramsParse.data.playIntentId,
-      response: payload.choice === 'join' ? NotificationResponseChoice.JOIN : NotificationResponseChoice.DECLINE
+      response: payload.choice === 'interested' || payload.choice === 'join'
+        ? NotificationResponseChoice.JOIN
+        : NotificationResponseChoice.DECLINE
     })
 
     response.json(playIntentRecipientResponseResultSchema.parse(result))

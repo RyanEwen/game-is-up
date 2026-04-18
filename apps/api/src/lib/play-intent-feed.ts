@@ -212,7 +212,7 @@ export async function buildPlayIntentFeed(viewerId?: string | null): Promise<Pla
       }).then((rows) => {
         const map = new Map<string, {
           isNotified: true;
-          responseChoice: 'join' | 'decline' | null;
+          responseChoice: 'interested' | 'pass' | null;
         }>()
 
         for (const row of rows) {
@@ -223,9 +223,9 @@ export async function buildPlayIntentFeed(viewerId?: string | null): Promise<Pla
           map.set(row.playIntentId, {
             isNotified: true,
             responseChoice: row.responseChoice === NotificationResponseChoice.JOIN
-              ? 'join'
+              ? 'interested'
               : row.responseChoice === NotificationResponseChoice.DECLINE
-                ? 'decline'
+                ? 'pass'
                 : null
           })
         }
@@ -233,7 +233,7 @@ export async function buildPlayIntentFeed(viewerId?: string | null): Promise<Pla
         return map
       })
     : new Map<string, {
-        responseChoice: 'join' | 'decline' | null;
+        responseChoice: 'interested' | 'pass' | null;
       }>()
   const interestedUsersByPlayIntentId = await getInterestedUsersByPlayIntentId(intents.map((intent) => intent.id))
 
@@ -315,7 +315,7 @@ export async function buildPlayIntentFeed(viewerId?: string | null): Promise<Pla
         voiceChannelName: intent.voiceChannelName,
         viewerResponseChoice: recipientNotificationState?.responseChoice ?? null,
         interestedUsers,
-        joinCount: interestedUsers.length,
+        interestedCount: interestedUsers.length,
         availabilityWindow: {
           label: formatAvailabilityLabel(intent.user.displayName, intent.windowStartsAt, now),
           startsAt: intent.windowStartsAt.toISOString(),

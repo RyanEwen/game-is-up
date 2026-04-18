@@ -161,30 +161,30 @@ export function PlayIntentCard({
               Does not match your library
             </Chip>
           ) : null}
-          {intent.joinCount > 0 ? (
+          {intent.interestedCount > 0 ? (
             <Chip size="sm" color="success" variant="soft">
-              {intent.joinCount} {intent.joinCount === 1 ? 'person interested' : 'people interested'}
+              {intent.interestedCount} {intent.interestedCount === 1 ? 'person interested' : 'people interested'}
             </Chip>
           ) : null}
-          {canRespondToIntent && viewerResponseChoice !== 'join' ? (
+          {canRespondToIntent && viewerResponseChoice !== 'interested' ? (
             <Button
               variant="outlined"
               color="neutral"
               size="sm"
               disabled={!canAddToLibrary || responsePending}
-              onClick={() => void onRespondToIntent(intent.id, 'join')}
+              onClick={() => void onRespondToIntent(intent.id, 'interested')}
               sx={actionButtonSx}
             >
               I'm interested
             </Button>
           ) : null}
-          {canRespondToIntent && viewerResponseChoice !== 'decline' ? (
+          {canRespondToIntent && viewerResponseChoice !== 'pass' ? (
             <Button
               variant="outlined"
               color="neutral"
               size="sm"
               disabled={!canAddToLibrary || responsePending}
-              onClick={() => void onRespondToIntent(intent.id, 'decline')}
+              onClick={() => void onRespondToIntent(intent.id, 'pass')}
               sx={actionButtonSx}
             >
               Pass
@@ -226,8 +226,8 @@ export function PlayIntentCard({
       ) : null}
 
       {viewerResponseChoice ? (
-        <Typography level="body-xs" sx={{ mb: 1.5, color: viewerResponseChoice === 'join' ? 'success.300' : 'neutral.400' }}>
-          {viewerResponseChoice === 'join' ? 'You are marked as interested in this call to play.' : 'You are marked as passed on this call to play.'}
+        <Typography level="body-xs" sx={{ mb: 1.5, color: viewerResponseChoice === 'interested' ? 'success.300' : 'neutral.400' }}>
+          {viewerResponseChoice === 'interested' ? 'You are marked as interested in this call to play.' : 'You are marked as passed on this call to play.'}
         </Typography>
       ) : null}
 

@@ -1,6 +1,6 @@
 const debugPlayIntentResponsePrefix = 'debug-play-intent-response'
 
-export function buildDebugPlayIntentResponseCustomId(playIntentId: string, response: 'join' | 'pass') {
+export function buildDebugPlayIntentResponseCustomId(playIntentId: string, response: 'interested' | 'pass') {
   return `${debugPlayIntentResponsePrefix}:${playIntentId}:${response}`
 }
 
@@ -11,12 +11,12 @@ export function parseDebugPlayIntentResponseCustomId(customId: string) {
     return null
   }
 
-  if (parts[2] !== 'join' && parts[2] !== 'pass') {
+  if (parts[2] !== 'interested' && parts[2] !== 'join' && parts[2] !== 'pass') {
     return null
   }
 
   return {
     playIntentId: parts[1],
-    response: parts[2]
+    response: parts[2] === 'join' ? 'interested' : parts[2]
   }
 }

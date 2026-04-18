@@ -398,7 +398,7 @@ function serializeActivePlayIntent(intent: {
     windowEndsAt: intent.windowEndsAt.toISOString(),
     expiresAt: intent.expiresAt.toISOString(),
     interestedUsers,
-    joinCount: interestedUsers.length
+    interestedCount: interestedUsers.length
   }
 }
 

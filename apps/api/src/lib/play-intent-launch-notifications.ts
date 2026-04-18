@@ -13,7 +13,7 @@ import { buildNotificationDirectMessagePreview } from './play-intent-notificatio
 const creatorLaunchedGameNotificationTitle = 'Creator launched the game'
 const interestedAudienceLaunchedGameNotificationTitle = 'Interested player launched the game'
 
-const joinResponseNotificationTypes = [
+const interestedResponseNotificationTypes = [
   NotificationType.FRIEND_PLAYING,
   NotificationType.SCHEDULED_PLAY_INTENT_REMINDER,
   NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED
@@ -273,7 +273,7 @@ async function notifyCreatorsWhenInterestedAudienceLaunches(observation: LaunchO
           userId: observation.userId,
           responseChoice: NotificationResponseChoice.JOIN,
           type: {
-            in: joinResponseNotificationTypes
+            in: interestedResponseNotificationTypes
           }
         }
       }

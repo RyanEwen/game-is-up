@@ -227,9 +227,9 @@ export const playIntentPreviewSchema = z.object({
   note: z.string().max(140),
   voiceChannelId: z.string().min(1).nullable(),
   voiceChannelName: z.string().min(1).nullable(),
-  viewerResponseChoice: z.enum(['join', 'decline']).nullable().default(null),
+  viewerResponseChoice: z.enum(['interested', 'pass']).nullable().default(null),
   interestedUsers: z.array(playIntentPreviewUserSchema).default([]),
-  joinCount: z.number().int().min(0),
+  interestedCount: z.number().int().min(0),
   availabilityWindow: availabilityWindowSchema
 })
 
@@ -254,14 +254,14 @@ export const activePlayIntentSchema = z.object({
   windowEndsAt: z.string().datetime(),
   expiresAt: z.string().datetime(),
   interestedUsers: z.array(playIntentPreviewUserSchema).default([]),
-  joinCount: z.number().int().min(0)
+  interestedCount: z.number().int().min(0)
 })
 
 export const playIntentCurrentResponseSchema = z.object({
   activeIntent: activePlayIntentSchema.nullable()
 })
 
-export const playIntentRecipientResponseChoiceSchema = z.enum(['join', 'decline'])
+export const playIntentRecipientResponseChoiceSchema = z.enum(['interested', 'pass'])
 
 export const playIntentRecipientResponseRequestSchema = z.object({
   choice: playIntentRecipientResponseChoiceSchema
