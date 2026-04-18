@@ -36,6 +36,20 @@ type DebugDmTemplatePreviewPayload = {
   embeds?: Parameters<typeof buildDebugDmPreview>[2];
 }
 
+type DebugDmTemplateDefinition = {
+  id: string;
+  label: string;
+  description: string;
+  previewPayload: DebugDmTemplatePreviewPayload;
+}
+
+type DebugDmTemplateGroupDefinition = {
+  id: string;
+  label: string;
+  description: string;
+  entries: DebugDmTemplateDefinition[];
+}
+
 type DebugDmRevisionDraft = {
   occurredAt: string;
   preview: DebugDmPreviewPayload;
@@ -83,20 +97,17 @@ function getLatestRevisionPreview(revisions: Array<{ preview: DebugDmPreviewPayl
 }
 
 function buildDebugDmTemplateEntry(
-  id: string,
-  label: string,
-  description: string,
-  previewPayload: DebugDmTemplatePreviewPayload
+  template: DebugDmTemplateDefinition
 ) {
   return {
-    id,
-    label,
-    description,
-    preview: buildDebugDmPreview(previewPayload.content, previewPayload.components, previewPayload.embeds)
+    id: template.id,
+    label: template.label,
+    description: template.description,
+    preview: buildDebugDmPreview(template.previewPayload.content, template.previewPayload.components, template.previewPayload.embeds)
   }
 }
 
-function buildDebugDmTemplates(now: Date) {
+function buildDebugDmTemplateDefinitions(now: Date): DebugDmTemplateGroupDefinition[] {
   const creatorDisplayName = 'Avery'
   const creatorDiscordUserId = '149608971072831489'
   const creatorTimezoneId = 'America/Vancouver'
@@ -273,11 +284,11 @@ function buildDebugDmTemplates(now: Date) {
       label: 'Call to Play Audience',
       description: 'Recipient-facing Discord DM templates for initial invites, go-time updates, and resolution states.',
       entries: [
-        buildDebugDmTemplateEntry(
-          'recipient-live-invite',
-          'Live invite',
-          'The first DM an audience member gets when a live call to play matches them.',
-          buildNotificationDirectMessagePreview({
+        {
+          id: 'recipient-live-invite',
+          label: 'Live invite',
+          description: 'The first DM an audience member gets when a live call to play matches them.',
+          previewPayload: buildNotificationDirectMessagePreview({
             notificationId: 'template-live-invite',
             notificationType: NotificationType.FRIEND_PLAYING,
             title: liveInviteCopy.title,
@@ -291,12 +302,12 @@ function buildDebugDmTemplates(now: Date) {
             joinCount: 2,
             interestedUserLabels: ['Jordan', 'Casey']
           })
-        ),
-        buildDebugDmTemplateEntry(
-          'recipient-scheduled-update',
-          'Scheduled update',
-          'A refreshed invite when the scheduled time or game selection changed.',
-          buildNotificationDirectMessagePreview({
+        },
+        {
+          id: 'recipient-scheduled-update',
+          label: 'Scheduled update',
+          description: 'A refreshed invite when the scheduled time or game selection changed.',
+          previewPayload: buildNotificationDirectMessagePreview({
             notificationId: 'template-scheduled-update',
             notificationType: NotificationType.FRIEND_PLAYING,
             title: updatedInviteCopy.title,
@@ -310,12 +321,12 @@ function buildDebugDmTemplates(now: Date) {
             joinCount: 1,
             interestedUserLabels: ['Jordan']
           })
-        ),
-        buildDebugDmTemplateEntry(
-          'recipient-go-time-reminder',
-          'Go-time reminder',
-          'The follow-up DM sent to unanswered recipients after the creator confirms a scheduled call is still on.',
-          buildNotificationDirectMessagePreview({
+        },
+        {
+          id: 'recipient-go-time-reminder',
+          label: 'Go-time reminder',
+          description: 'The follow-up DM sent to unanswered recipients after the creator confirms a scheduled call is still on.',
+          previewPayload: buildNotificationDirectMessagePreview({
             notificationId: 'template-go-time-reminder',
             notificationType: NotificationType.SCHEDULED_PLAY_INTENT_REMINDER,
             title: reminderUpdate.title,
@@ -329,12 +340,12 @@ function buildDebugDmTemplates(now: Date) {
             joinCount: 2,
             interestedUserLabels: ['Jordan', 'Casey']
           })
-        ),
-        buildDebugDmTemplateEntry(
-          'recipient-go-time-confirmed',
-          'Go-time confirmation',
-          'The follow-up DM accepted recipients receive when a scheduled call reaches go-time.',
-          buildNotificationDirectMessagePreview({
+        },
+        {
+          id: 'recipient-go-time-confirmed',
+          label: 'Go-time confirmation',
+          description: 'The follow-up DM accepted recipients receive when a scheduled call reaches go-time.',
+          previewPayload: buildNotificationDirectMessagePreview({
             notificationId: 'template-go-time-confirmed',
             notificationType: NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED,
             title: confirmedUpdate.title,
@@ -348,12 +359,12 @@ function buildDebugDmTemplates(now: Date) {
             joinCount: 2,
             interestedUserLabels: ['Jordan', 'Casey']
           })
-        ),
-        buildDebugDmTemplateEntry(
-          'recipient-join-confirmation',
-          'Interested confirmation',
-          'The confirmation a recipient sees after pressing I\'m interested.',
-          buildNotificationDirectMessagePreview({
+        },
+        {
+          id: 'recipient-join-confirmation',
+          label: 'Interested confirmation',
+          description: 'The confirmation a recipient sees after pressing I\'m interested.',
+          previewPayload: buildNotificationDirectMessagePreview({
             notificationId: 'template-join-confirmation',
             notificationType: NotificationType.FRIEND_PLAYING,
             title: liveInviteCopy.title,
@@ -366,12 +377,12 @@ function buildDebugDmTemplates(now: Date) {
             playIntentIsActive: true,
             voiceChannel: templateVoiceChannel
           })
-        ),
-        buildDebugDmTemplateEntry(
-          'recipient-pass-confirmation',
-          'Pass confirmation',
-          'The confirmation a recipient sees after pressing Pass.',
-          buildNotificationDirectMessagePreview({
+        },
+        {
+          id: 'recipient-pass-confirmation',
+          label: 'Pass confirmation',
+          description: 'The confirmation a recipient sees after pressing Pass.',
+          previewPayload: buildNotificationDirectMessagePreview({
             notificationId: 'template-pass-confirmation',
             notificationType: NotificationType.FRIEND_PLAYING,
             title: liveInviteCopy.title,
@@ -384,12 +395,12 @@ function buildDebugDmTemplates(now: Date) {
             playIntentIsActive: true,
             voiceChannel: templateVoiceChannel
           })
-        ),
-        buildDebugDmTemplateEntry(
-          'recipient-ended-summary',
-          'Ended summary',
-          'The archived DM that replaces an old audience invite when the call closes.',
-          buildNotificationDirectMessagePreview({
+        },
+        {
+          id: 'recipient-ended-summary',
+          label: 'Ended summary',
+          description: 'The archived DM that replaces an old audience invite when the call closes.',
+          previewPayload: buildNotificationDirectMessagePreview({
             notificationId: 'template-ended-summary',
             notificationType: NotificationType.SYSTEM,
             title: 'Call to play ended',
@@ -397,12 +408,12 @@ function buildDebugDmTemplates(now: Date) {
             actorDisplayName: creatorDisplayName,
             actorDiscordUserId: creatorDiscordUserId
           })
-        ),
-        buildDebugDmTemplateEntry(
-          'recipient-creator-launched-game',
-          'Creator launched the game',
-          'The one-time alert sent to interested audience members when the creator launches the selected game.',
-          buildNotificationDirectMessagePreview({
+        },
+        {
+          id: 'recipient-creator-launched-game',
+          label: 'Creator launched the game',
+          description: 'The one-time alert sent to interested audience members when the creator launches the selected game.',
+          previewPayload: buildNotificationDirectMessagePreview({
             notificationId: 'template-creator-launched-game',
             notificationType: NotificationType.SYSTEM,
             title: 'Creator launched the game',
@@ -410,7 +421,7 @@ function buildDebugDmTemplates(now: Date) {
             actorDisplayName: creatorDisplayName,
             actorDiscordUserId: creatorDiscordUserId
           })
-        )
+        }
       ]
     },
     {
@@ -418,29 +429,29 @@ function buildDebugDmTemplates(now: Date) {
       label: 'Call to Play Creator',
       description: 'Creator-facing DM templates for summaries, interest updates, and scheduled check-ins.',
       entries: [
-        buildDebugDmTemplateEntry(
-          'creator-summary-live',
-          'Live summary',
-          'The persistent creator summary while a call is currently active.',
-          liveSummaryPreview
-        ),
-        buildDebugDmTemplateEntry(
-          'creator-summary-scheduled',
-          'Scheduled summary',
-          'The creator summary for a future scheduled call before go-time.',
-          scheduledSummaryPreview
-        ),
-        buildDebugDmTemplateEntry(
-          'creator-summary-closed',
-          'Closed summary',
-          'The creator summary after the call has already ended.',
-          closedSummaryPreview
-        ),
-        buildDebugDmTemplateEntry(
-          'creator-interest-update',
-          'Interest update',
-          'The separate creator-facing DM sent when someone marks themselves interested.',
-          buildNotificationDirectMessagePreview({
+        {
+          id: 'creator-summary-live',
+          label: 'Live summary',
+          description: 'The persistent creator summary while a call is currently active.',
+          previewPayload: liveSummaryPreview
+        },
+        {
+          id: 'creator-summary-scheduled',
+          label: 'Scheduled summary',
+          description: 'The creator summary for a future scheduled call before go-time.',
+          previewPayload: scheduledSummaryPreview
+        },
+        {
+          id: 'creator-summary-closed',
+          label: 'Closed summary',
+          description: 'The creator summary after the call has already ended.',
+          previewPayload: closedSummaryPreview
+        },
+        {
+          id: 'creator-interest-update',
+          label: 'Interest update',
+          description: 'The separate creator-facing DM sent when someone marks themselves interested.',
+          previewPayload: buildNotificationDirectMessagePreview({
             notificationId: 'template-interest-update',
             notificationType: NotificationType.SYSTEM,
             title: 'Someone is interested in joining',
@@ -448,12 +459,12 @@ function buildDebugDmTemplates(now: Date) {
             actorDisplayName: 'Jordan',
             actorDiscordUserId: '200000000000000001'
           })
-        ),
-        buildDebugDmTemplateEntry(
-          'creator-interest-withdrawn',
-          'Interest withdrawn',
-          'The separate creator-facing DM sent when someone who was interested changes their mind.',
-          buildNotificationDirectMessagePreview({
+        },
+        {
+          id: 'creator-interest-withdrawn',
+          label: 'Interest withdrawn',
+          description: 'The separate creator-facing DM sent when someone who was interested changes their mind.',
+          previewPayload: buildNotificationDirectMessagePreview({
             notificationId: 'template-interest-withdrawn',
             notificationType: NotificationType.SYSTEM,
             title: 'Someone is no longer interested in joining',
@@ -461,12 +472,12 @@ function buildDebugDmTemplates(now: Date) {
             actorDisplayName: 'Jordan',
             actorDiscordUserId: '200000000000000001'
           })
-        ),
-        buildDebugDmTemplateEntry(
-          'creator-interested-player-launched-game',
-          'Interested player launched the game',
-          'The one-time alert sent to the creator when an interested audience member launches the selected game.',
-          buildNotificationDirectMessagePreview({
+        },
+        {
+          id: 'creator-interested-player-launched-game',
+          label: 'Interested player launched the game',
+          description: 'The one-time alert sent to the creator when an interested audience member launches the selected game.',
+          previewPayload: buildNotificationDirectMessagePreview({
             notificationId: 'template-interested-player-launched-game',
             notificationType: NotificationType.SYSTEM,
             title: 'Interested player launched the game',
@@ -474,12 +485,12 @@ function buildDebugDmTemplates(now: Date) {
             actorDisplayName: 'Jordan',
             actorDiscordUserId: '200000000000000001'
           })
-        ),
-        buildDebugDmTemplateEntry(
-          'creator-check-in-prompt',
-          'Go-time check-in',
-          'The prompt asking the creator whether the scheduled call is still happening.',
-          buildNotificationDirectMessagePreview({
+        },
+        {
+          id: 'creator-check-in-prompt',
+          label: 'Go-time check-in',
+          description: 'The prompt asking the creator whether the scheduled call is still happening.',
+          previewPayload: buildNotificationDirectMessagePreview({
             notificationId: 'template-check-in',
             notificationType: NotificationType.SCHEDULED_PLAY_INTENT_CHECK_IN,
             title: 'Is your scheduled call to play still on?',
@@ -488,12 +499,12 @@ function buildDebugDmTemplates(now: Date) {
             creatorDisplayName,
             playIntentIsActive: true
           })
-        ),
-        buildDebugDmTemplateEntry(
-          'creator-check-in-confirmed',
-          'Confirmed response',
-          'The confirmation the creator sees after saying the scheduled call is still on.',
-          buildNotificationDirectMessagePreview({
+        },
+        {
+          id: 'creator-check-in-confirmed',
+          label: 'Confirmed response',
+          description: 'The confirmation the creator sees after saying the scheduled call is still on.',
+          previewPayload: buildNotificationDirectMessagePreview({
             notificationId: 'template-check-in-confirmed',
             notificationType: NotificationType.SCHEDULED_PLAY_INTENT_CHECK_IN,
             title: 'Is your scheduled call to play still on?',
@@ -503,12 +514,12 @@ function buildDebugDmTemplates(now: Date) {
             creatorDisplayName,
             playIntentIsActive: true
           })
-        ),
-        buildDebugDmTemplateEntry(
-          'creator-check-in-canceled',
-          'Closed response',
-          'The confirmation the creator sees after closing a scheduled call from Discord.',
-          buildNotificationDirectMessagePreview({
+        },
+        {
+          id: 'creator-check-in-canceled',
+          label: 'Closed response',
+          description: 'The confirmation the creator sees after closing a scheduled call from Discord.',
+          previewPayload: buildNotificationDirectMessagePreview({
             notificationId: 'template-check-in-canceled',
             notificationType: NotificationType.SCHEDULED_PLAY_INTENT_CHECK_IN,
             title: 'Is your scheduled call to play still on?',
@@ -518,12 +529,12 @@ function buildDebugDmTemplates(now: Date) {
             creatorDisplayName,
             playIntentIsActive: true
           })
-        ),
-        buildDebugDmTemplateEntry(
-          'creator-check-in-expired',
-          'Expired check-in',
-          'The fallback state if the creator never confirms before the scheduled prompt expires.',
-          buildNotificationDirectMessagePreview({
+        },
+        {
+          id: 'creator-check-in-expired',
+          label: 'Expired check-in',
+          description: 'The fallback state if the creator never confirms before the scheduled prompt expires.',
+          previewPayload: buildNotificationDirectMessagePreview({
             notificationId: 'template-check-in-expired',
             notificationType: NotificationType.SCHEDULED_PLAY_INTENT_CHECK_IN,
             title: 'Is your scheduled call to play still on?',
@@ -533,7 +544,7 @@ function buildDebugDmTemplates(now: Date) {
             creatorDisplayName,
             playIntentIsActive: false
           })
-        )
+        }
       ]
     },
     {
@@ -541,11 +552,11 @@ function buildDebugDmTemplates(now: Date) {
       label: 'Auto-Play Prompts',
       description: 'Discord DM templates for automatic prompts that appear when the bot sees someone start a game.',
       entries: [
-        buildDebugDmTemplateEntry(
-          'auto-play-initial',
-          'Initial prompt',
-          'The first prompt offering to create a call to play from detected gameplay.',
-          buildDiscordAutoPlayPromptPreview({
+        {
+          id: 'auto-play-initial',
+          label: 'Initial prompt',
+          description: 'The first prompt offering to create a call to play from detected gameplay.',
+          previewPayload: buildDiscordAutoPlayPromptPreview({
             promptId: 'template-auto-play-initial',
             status: DiscordAutoPlayPromptStatus.SENT,
             gameTitle,
@@ -556,12 +567,12 @@ function buildDebugDmTemplates(now: Date) {
             statusDetail: 'Prompt DM queued.',
             deliveredCount: 0
           }) ?? { content: '', components: [] }
-        ),
-        buildDebugDmTemplateEntry(
-          'auto-play-audience',
-          'Audience picker',
-          'The second prompt after the user picks a duration and needs to choose who gets the call.',
-          buildDiscordAutoPlayPromptPreview({
+        },
+        {
+          id: 'auto-play-audience',
+          label: 'Audience picker',
+          description: 'The second prompt after the user picks a duration and needs to choose who gets the call.',
+          previewPayload: buildDiscordAutoPlayPromptPreview({
             promptId: 'template-auto-play-audience',
             status: DiscordAutoPlayPromptStatus.SENT,
             gameTitle,
@@ -572,18 +583,18 @@ function buildDebugDmTemplates(now: Date) {
             statusDetail: 'Waiting for audience selection.',
             deliveredCount: 0
           }) ?? { content: '', components: [] }
-        ),
-        buildDebugDmTemplateEntry(
-          'auto-play-live',
-          'Call created',
-          'The regular creator summary that replaces the auto-play prompt after the call is created.',
-          autoPlayCreatedSummaryPreview
-        ),
-        buildDebugDmTemplateEntry(
-          'auto-play-declined',
-          'Declined prompt',
-          'The response shown after choosing Not now.',
-          buildDiscordAutoPlayPromptPreview({
+        },
+        {
+          id: 'auto-play-live',
+          label: 'Call created',
+          description: 'The regular creator summary that replaces the auto-play prompt after the call is created.',
+          previewPayload: autoPlayCreatedSummaryPreview
+        },
+        {
+          id: 'auto-play-declined',
+          label: 'Declined prompt',
+          description: 'The response shown after choosing Not now.',
+          previewPayload: buildDiscordAutoPlayPromptPreview({
             promptId: 'template-auto-play-declined',
             status: DiscordAutoPlayPromptStatus.DECLINED,
             gameTitle,
@@ -594,12 +605,12 @@ function buildDebugDmTemplates(now: Date) {
             statusDetail: 'The user declined the prompt from Discord.',
             deliveredCount: 0
           }) ?? { content: '', components: [] }
-        ),
-        buildDebugDmTemplateEntry(
-          'auto-play-expired',
-          'Closed prompt',
-          'The state shown when the prompt is no longer valid because the game activity ended or conditions changed.',
-          buildDiscordAutoPlayPromptPreview({
+        },
+        {
+          id: 'auto-play-expired',
+          label: 'Closed prompt',
+          description: 'The state shown when the prompt is no longer valid because the game activity ended or conditions changed.',
+          previewPayload: buildDiscordAutoPlayPromptPreview({
             promptId: 'template-auto-play-expired',
             status: DiscordAutoPlayPromptStatus.EXPIRED,
             gameTitle,
@@ -610,10 +621,35 @@ function buildDebugDmTemplates(now: Date) {
             statusDetail: `This prompt was closed because we are no longer seeing you in ${gameTitle}.`,
             deliveredCount: 0
           }) ?? { content: '', components: [] }
-        )
+        }
       ]
     }
   ]
+}
+
+function buildDebugDmTemplates(now: Date) {
+  return buildDebugDmTemplateDefinitions(now).map((group) => ({
+    id: group.id,
+    label: group.label,
+    description: group.description,
+    entries: group.entries.map((entry) => buildDebugDmTemplateEntry(entry))
+  }))
+}
+
+export function getDebugDmTemplateSendPayload(templateId: string, now: Date = new Date()) {
+  for (const group of buildDebugDmTemplateDefinitions(now)) {
+    const template = group.entries.find((entry) => entry.id === templateId)
+
+    if (template) {
+      return {
+        groupLabel: group.label,
+        templateLabel: template.label,
+        previewPayload: template.previewPayload
+      }
+    }
+  }
+
+  return null
 }
 
 function toCreatorSummaryNotificationsAtTime(

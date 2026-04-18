@@ -1,4 +1,4 @@
-import { ActivityType, Client, Events, GatewayIntentBits, type Presence } from 'discord.js'
+import { ActivityType, Client, Events, GatewayIntentBits, Partials, type Presence } from 'discord.js'
 import { DiscordActivityType } from '@prisma/client'
 import {
   discordPresenceBotState,
@@ -20,6 +20,7 @@ import {
   isScheduledPlayIntentCheckInCustomId,
   isPlayIntentNotificationCustomId
 } from './play-intent-notification-responses.js'
+import { handleDiscordDirectMessageCommand } from './discord-direct-message-commands.js'
 
 type DiscordGuildMemberSummary = {
   id: string;
@@ -698,7 +699,13 @@ export async function startDiscordPresenceBot() {
   }
 
   const client = new Client({
-    intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildPresences, GatewayIntentBits.GuildMembers]
+    intents: [
+      GatewayIntentBits.Guilds,
+      GatewayIntentBits.GuildPresences,
+      GatewayIntentBits.GuildMembers,
+      GatewayIntentBits.DirectMessages
+    ],
+    partials: [Partials.Channel]
   })
   setDiscordBotClient(client)
 
@@ -758,6 +765,10 @@ export async function startDiscordPresenceBot() {
     if (isScheduledPlayIntentCheckInCustomId(interaction.customId)) {
       void handleScheduledPlayIntentCheckInInteraction(interaction)
     }
+  })
+
+  client.on(Events.MessageCreate, (message) => {
+    void handleDiscordDirectMessageCommand(message)
   })
 
   client.on('shardDisconnect', () => {

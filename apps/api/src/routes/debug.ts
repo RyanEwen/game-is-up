@@ -1,9 +1,10 @@
 import { Router } from 'express'
-import { debugDmActionRequestSchema, debugDmActionResponseSchema } from '@game-is-up/shared'
+import { debugDmActionRequestSchema, debugDmActionResponseSchema, debugDmTemplateSendRequestSchema } from '@game-is-up/shared'
 import type { ButtonInteraction } from 'discord.js'
 import { AuthProvider, GameIntentType, NotificationResponseChoice, NotificationType, PlayIntentScope, PlayIntentSelectionMode } from '@prisma/client'
-import { buildDebugAdminSnapshot } from '../lib/debug-admin.js'
+import { buildDebugAdminSnapshot, getDebugDmTemplateSendPayload } from '../lib/debug-admin.js'
 import { parseDebugPlayIntentResponseCustomId } from '../lib/debug-dm-actions.js'
+import { sendDiscordDirectMessages } from '../lib/discord-bot-runtime.js'
 import {
   handleCreatorPlayIntentSummaryInteraction,
   handlePlayIntentNotificationInteraction,
@@ -197,6 +198,77 @@ debugRouter.get('/admin', async (request, response, next) => {
 
   try {
     response.json(await buildDebugAdminSnapshot())
+  } catch (error) {
+    next(error)
+  }
+})
+
+debugRouter.post('/admin/dm-template-send', async (request, response, next) => {
+  const session = getAuthSession(request)
+
+  if (!session) {
+    response.status(401).json({
+      error: 'Authentication required.'
+    })
+    return
+  }
+
+  const user = await requireAdminSessionUser(session.userId)
+
+  if (!user?.isAdmin) {
+    response.status(403).json({
+      error: 'Admin access required.'
+    })
+    return
+  }
+
+  try {
+    const payload = debugDmTemplateSendRequestSchema.parse(request.body)
+    const template = getDebugDmTemplateSendPayload(payload.templateId)
+
+    if (!template) {
+      response.status(404).json({
+        error: 'That DM template is not available anymore.'
+      })
+      return
+    }
+
+    const sessionIdentity = await prisma.userIdentity.findFirst({
+      where: {
+        userId: session.userId,
+        provider: AuthProvider.DISCORD
+      },
+      select: {
+        providerUserId: true
+      }
+    })
+
+    if (!sessionIdentity?.providerUserId) {
+      response.status(409).json({
+        error: 'Link a Discord account to your admin user before sending a sample DM.'
+      })
+      return
+    }
+
+    const [result] = await sendDiscordDirectMessages([{
+      discordUserId: sessionIdentity.providerUserId,
+      content: template.previewPayload.content,
+      components: template.previewPayload.components,
+      embeds: template.previewPayload.embeds
+    }])
+
+    if (!result || result.status !== 'sent') {
+      response.status(502).json({
+        error: result?.error ?? 'Unable to send that sample DM right now.'
+      })
+      return
+    }
+
+    response.json(debugDmActionResponseSchema.parse({
+      message: result.emulated
+        ? `Sample DM for ${template.templateLabel} was emulated for your Discord account.`
+        : `Sample DM for ${template.templateLabel} was sent to your Discord account.`
+    }))
   } catch (error) {
     next(error)
   }

@@ -421,6 +421,134 @@ export async function deleteUserPlayIntentDirectMessages(playIntentId: string, u
   }
 }
 
+export async function deleteSettledDiscordDirectMessagesForUser(userId: string) {
+  const now = new Date()
+  const [creatorPlayIntents, recipientNotifications, settledPrompts] = await Promise.all([
+    prisma.playIntent.findMany({
+      where: {
+        userId,
+        expiresAt: {
+          lte: now
+        },
+        OR: [
+          {
+            creatorDiscordDmChannelId: {
+              not: null
+            },
+            creatorDiscordDmMessageId: {
+              not: null
+            }
+          },
+          {
+            notifications: {
+              some: {
+                discordDmChannelId: {
+                  not: null
+                },
+                discordDmMessageId: {
+                  not: null
+                }
+              }
+            }
+          }
+        ]
+      },
+      select: {
+        id: true
+      }
+    }),
+    prisma.notification.findMany({
+      where: {
+        userId,
+        playIntentId: {
+          not: null
+        },
+        discordDmChannelId: {
+          not: null
+        },
+        discordDmMessageId: {
+          not: null
+        },
+        playIntent: {
+          expiresAt: {
+            lte: now
+          }
+        }
+      },
+      select: {
+        playIntentId: true
+      }
+    }),
+    prisma.discordAutoPlayPrompt.findMany({
+      where: {
+        userId,
+        respondedAt: {
+          not: null
+        },
+        discordDmChannelId: {
+          not: null
+        },
+        discordDmMessageId: {
+          not: null
+        }
+      },
+      select: {
+        id: true,
+        discordDmChannelId: true,
+        discordDmMessageId: true
+      }
+    })
+  ])
+
+  const creatorPlayIntentIds = [...new Set(creatorPlayIntents.map((playIntent) => playIntent.id))]
+  const creatorPlayIntentIdSet = new Set(creatorPlayIntentIds)
+  const recipientPlayIntentIds = [...new Set(
+    recipientNotifications
+      .flatMap((notification) => {
+        const { playIntentId } = notification
+
+        return playIntentId && !creatorPlayIntentIdSet.has(playIntentId)
+          ? [playIntentId]
+          : []
+      })
+  )]
+
+  const [creatorResults, recipientResults] = await Promise.all([
+    Promise.all(creatorPlayIntentIds.map((playIntentId) => deletePlayIntentDirectMessages(playIntentId))),
+    Promise.all(recipientPlayIntentIds.map((playIntentId) => deleteUserPlayIntentDirectMessages(playIntentId, userId)))
+  ])
+
+  const promptIdsToClear: string[] = []
+  let promptDeletedCount = 0
+  let promptAttemptedCount = 0
+
+  for (const prompt of settledPrompts) {
+    if (!prompt.discordDmChannelId || !prompt.discordDmMessageId) {
+      continue
+    }
+
+    promptAttemptedCount += 1
+
+    if (!(await tryDeleteDirectMessage(prompt.discordDmChannelId, prompt.discordDmMessageId))) {
+      continue
+    }
+
+    promptDeletedCount += 1
+    promptIdsToClear.push(prompt.id)
+  }
+
+  await clearPromptDmReferences(promptIdsToClear)
+
+  return {
+    deletedCount: creatorResults.reduce((total, result) => total + result.deletedCount, 0)
+      + recipientResults.reduce((total, result) => total + result.deletedCount, 0)
+      + promptDeletedCount,
+    attemptedCount: creatorResults.reduce((total, result) => total + result.attemptedCount, 0)
+      + recipientResults.reduce((total, result) => total + result.attemptedCount, 0)
+      + promptAttemptedCount
+  }
+}
+
 export async function archivePlayIntentDirectMessages(options: {
   playIntentIds?: string[];
   deliveredBefore?: Date;

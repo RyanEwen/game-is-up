@@ -65,7 +65,7 @@ Admin users also have a self-only test path in the Play composer. That path stil
 
 Notification and auto-play prompt rows also store the Discord DM message reference when the bot delivers an interactive DM. That allows the API to edit stale bot prompts in place when a play intent expires or an observed Discord activity ends, and to decide between edit-in-place or full replacement when a live call-to-play update should trigger a fresh Discord notification.
 
-The admin debug snapshot now also exposes serialized DM previews, a read-only DM template library for the major Discord DM flows, and derived revision history for tracked call-to-play threads. Those revisions are reconstructed from play-intent and notification lifecycle timestamps instead of being stored in a separate message-history table, which keeps Discord as the single live message surface while still giving the web emulator historical states to inspect.
+The admin debug snapshot now also exposes serialized DM previews, a DM template library for the major Discord DM flows, sendable self-sample previews for those templates, and derived revision history for tracked call-to-play threads. Those revisions are reconstructed from play-intent and notification lifecycle timestamps instead of being stored in a separate message-history table, which keeps Discord as the single live message surface while still giving the web emulator historical states to inspect.
 
 Those serialized DM previews now include Discord embed payloads as well as button rows and fallback content. That keeps the debug emulator aligned with the live bot output as structured Discord flows move from markdown-heavy content blocks to embed-first layouts.
 
@@ -74,6 +74,8 @@ Tracked Discord DM rows also participate in retention cleanup. Auto-play prompts
 The Discord bot runtime is now intentionally split by environment. Exactly one environment should run the live Discord gateway connection for presence tracking and interactive Discord buttons, while other environments can reuse the same bot token in a REST-only mode for DM send/edit plus read-only server-member browsing without competing for gateway ownership.
 
 Discord activity observations can also drive a secondary auto-prompt flow: when the presence bot sees a user start a game, the API can persist a prompt record, DM that user through the bot, and create a normal play intent if the user accepts.
+
+The gateway-owning Discord bot can also react to plain DM text commands from linked users for lightweight control and cleanup. That command surface currently supports status checks, canceling the active call to play, toggling auto-play prompts, and removing settled bot-authored DM history.
 
 That same presence stream now powers one-time launch alerts for active single-game play intents: interested recipients can be notified when the creator starts the planned game, and creators can be notified when already-interested recipients initially launch it. Those alerts are keyed to the active play-intent row so they naturally reset when the call is materially changed.
 

@@ -676,6 +676,10 @@ export const debugDmActionRequestSchema = z.object({
   customId: z.string().min(1)
 })
 
+export const debugDmTemplateSendRequestSchema = z.object({
+  templateId: z.string().min(1)
+})
+
 export const debugDmActionResponseSchema = z.object({
   message: z.string().min(1)
 })
@@ -855,6 +859,7 @@ export type DebugDmInboxMessageRevision = z.infer<typeof debugDmInboxMessageRevi
 export type DebugDmInboxMessage = z.infer<typeof debugDmInboxMessageSchema>;
 export type DebugDmInboxParticipant = z.infer<typeof debugDmInboxParticipantSchema>;
 export type DebugDmActionRequest = z.infer<typeof debugDmActionRequestSchema>;
+export type DebugDmTemplateSendRequest = z.infer<typeof debugDmTemplateSendRequestSchema>;
 export type DebugDmActionResponse = z.infer<typeof debugDmActionResponseSchema>;
 export type DebugAutoPlayPrompt = z.infer<typeof debugAutoPlayPromptSchema>;
 export type DebugNotificationDelivery = z.infer<typeof debugNotificationDeliverySchema>;

@@ -981,8 +981,18 @@ function CtpTableSection({
   )
 }
 
-function DmTemplateLibrarySection({ debugAdmin }: { debugAdmin: DebugAdminResponse }) {
+function DmTemplateLibrarySection({
+  debugAdmin,
+  buildApiUrl,
+  parseDebugDmActionResponse
+}: {
+  debugAdmin: DebugAdminResponse;
+  buildApiUrl: (path: string) => string;
+  parseDebugDmActionResponse: (value: unknown) => DebugDmActionResponse;
+}) {
   const [query, setQuery] = useState('')
+  const [pendingTemplateId, setPendingTemplateId] = useState<string | null>(null)
+  const [actionNotice, setActionNotice] = useState<{ tone: 'success' | 'danger'; message: string } | null>(null)
 
   const filteredGroups = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase()
@@ -1016,6 +1026,49 @@ function DmTemplateLibrarySection({ debugAdmin }: { debugAdmin: DebugAdminRespon
       .filter((group): group is DebugAdminResponse['dmTemplates'][number] => group != null)
   }, [debugAdmin.dmTemplates, query])
 
+  const handleSendSample = async (templateId: string) => {
+    setPendingTemplateId(templateId)
+    setActionNotice(null)
+
+    try {
+      const response = await fetch(buildApiUrl('/api/debug/admin/dm-template-send'), {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          templateId
+        })
+      })
+
+      const responseBody = await response.json()
+
+      if (!response.ok) {
+        setActionNotice({
+          tone: 'danger',
+          message: typeof responseBody === 'object' && responseBody && 'error' in responseBody && typeof responseBody.error === 'string'
+            ? responseBody.error
+            : 'Unable to send that sample DM right now.'
+        })
+        return
+      }
+
+      const parsed = parseDebugDmActionResponse(responseBody)
+      setActionNotice({
+        tone: 'success',
+        message: parsed.message
+      })
+    } catch (error) {
+      setActionNotice({
+        tone: 'danger',
+        message: error instanceof Error ? error.message : 'Unable to send that sample DM right now.'
+      })
+    } finally {
+      setPendingTemplateId(null)
+    }
+  }
+
   return (
     <Card variant="outlined" sx={{ p: 2 }}>
       <Stack spacing={2}>
@@ -1035,6 +1088,12 @@ function DmTemplateLibrarySection({ debugAdmin }: { debugAdmin: DebugAdminRespon
           />
         </Stack>
 
+        {actionNotice ? (
+          <Card variant="soft" color={actionNotice.tone === 'success' ? 'success' : 'danger'} sx={{ p: 1.5 }}>
+            <Typography level="body-sm">{actionNotice.message}</Typography>
+          </Card>
+        ) : null}
+
         {filteredGroups.length > 0 ? (
           <Stack spacing={2}>
             {filteredGroups.map((group) => (
@@ -1052,14 +1111,31 @@ function DmTemplateLibrarySection({ debugAdmin }: { debugAdmin: DebugAdminRespon
                   {group.entries.map((entry) => (
                     <Card key={entry.id} variant="outlined" sx={{ p: 1.5 }}>
                       <Stack spacing={1.25}>
-                        <Box>
-                          <Typography level="title-sm">{entry.label}</Typography>
-                          {entry.description ? (
-                            <Typography level="body-xs" sx={{ color: 'neutral.500', mt: 0.35 }}>
-                              {entry.description}
-                            </Typography>
-                          ) : null}
-                        </Box>
+                        <Stack
+                          direction={{ xs: 'column', sm: 'row' }}
+                          spacing={1}
+                          justifyContent="space-between"
+                          alignItems={{ xs: 'flex-start', sm: 'flex-start' }}
+                        >
+                          <Box>
+                            <Typography level="title-sm">{entry.label}</Typography>
+                            {entry.description ? (
+                              <Typography level="body-xs" sx={{ color: 'neutral.500', mt: 0.35 }}>
+                                {entry.description}
+                              </Typography>
+                            ) : null}
+                          </Box>
+                          <Button
+                            size="sm"
+                            variant="outlined"
+                            color="neutral"
+                            loading={pendingTemplateId === entry.id}
+                            disabled={pendingTemplateId != null}
+                            onClick={() => void handleSendSample(entry.id)}
+                          >
+                            Send sample to me
+                          </Button>
+                        </Stack>
                         <DmPreviewCard preview={entry.preview} isInteractive={false} />
                       </Stack>
                     </Card>
@@ -1768,7 +1844,11 @@ function DebugViewContent({
             </Box>
 
             <Box id="templates" sx={{ scrollMarginTop: sectionScrollMarginTop }}>
-              <DmTemplateLibrarySection debugAdmin={debugAdmin} />
+              <DmTemplateLibrarySection
+                debugAdmin={debugAdmin}
+                buildApiUrl={buildApiUrl}
+                parseDebugDmActionResponse={parseDebugDmActionResponse}
+              />
             </Box>
 
             <Box id="ctps" sx={{ scrollMarginTop: sectionScrollMarginTop }}>

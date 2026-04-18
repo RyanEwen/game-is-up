@@ -1594,7 +1594,10 @@ function buildJoinAcceptedMessage(creatorLabel: string) {
     [
       'You are marked as interested.',
       `${creatorLabel} has been notified.`
-    ]
+    ],
+    {
+      trailingSubtext: 'If you change your mind you can switch to "Pass" later.'
+    }
   )
 }
 
@@ -1606,7 +1609,7 @@ function buildPassAcceptedMessage() {
       'Passing is anonymous.'
     ],
     {
-      trailingSubtext: 'You can still switch to "I\'m interested" later.'
+      trailingSubtext: 'If you change your mind you can switch to "I\'m interested" later.'
     }
   )
 }
