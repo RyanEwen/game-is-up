@@ -68,6 +68,11 @@ enum DiscordAutoPlayPromptStatus {
   EXPIRED
 }
 
+enum DiscordInviteAttributionKind {
+  DIRECT
+  SERVER
+}
+
 enum ReportReason {
   ABUSE
   SPAM
@@ -106,6 +111,8 @@ model User {
   mutesReceived     PlayIntentMute[]   @relation("mutes_received")
   notifications     Notification[]     @relation("notification_recipient")
   discordAutoPlayPrompts DiscordAutoPlayPrompt[]
+  acceptedDiscordInvites DiscordInviteAttribution[] @relation("discord_invite_acceptances")
+  sentDiscordInvites DiscordInviteAttribution[] @relation("discord_invite_senders")
   reportsFiled      Report[]           @relation("reporter")
   reportsReceived   Report[]           @relation("reported")
 }
@@ -133,10 +140,31 @@ model DiscordServer {
   updatedAt     DateTime                 @updatedAt
   memberships   DiscordServerMembership[]
   preferences   DiscordServerPreference[]
+  inviteAttributions DiscordInviteAttribution[]
   playIntentTargetSelections PlayIntentTargetDiscordServer[]
   activityObservations DiscordActivityObservation[]
   observedGames DiscordObservedGame[]
   autoPlayPrompts DiscordAutoPlayPrompt[]
+}
+
+model DiscordInviteAttribution {
+  id                    String                      @id @default(uuid())
+  acceptedUserId        String
+  inviterUserId         String?
+  inviterDiscordUserId  String?
+  inviterLabel          String?
+  serverId              String?
+  serverName            String?
+  hintedMemberCount     Int?
+  kind                  DiscordInviteAttributionKind
+  acceptedAt            DateTime                    @default(now())
+  acceptedUser          User                        @relation("discord_invite_acceptances", fields: [acceptedUserId], references: [id], onDelete: Cascade)
+  inviterUser           User?                       @relation("discord_invite_senders", fields: [inviterUserId], references: [id], onDelete: SetNull)
+  server                DiscordServer?              @relation(fields: [serverId], references: [id], onDelete: SetNull)
+
+  @@index([acceptedUserId, acceptedAt])
+  @@index([inviterUserId, acceptedAt])
+  @@index([serverId, acceptedAt])
 }
 
 model DiscordServerMembership {

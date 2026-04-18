@@ -33,6 +33,7 @@ import {
   steamLinkIntentResponseSchema,
   userProfileResponseSchema
 } from '@game-is-up/shared'
+import { Button, Card, Chip, Stack, Typography } from '@mui/joy'
 import { EmptyStateCard } from '../components/dashboard/EmptyStateCard'
 import type { DashboardLibraryQuickAddGame, FriendTarget, Notice } from '../components/dashboard/types'
 import { useDashboardInvites } from './useDashboardInvites'
@@ -52,6 +53,7 @@ const configuredApiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim()
 const apiBaseUrl = configuredApiBaseUrl != null ? configuredApiBaseUrl.replace(/\/$/, '') : ''
 const apiReconnectPollMs = 5000
 const emptyLibraryEntries: LibraryResponse['entries'] = []
+const inviteAttributionOnboardingWindowMs = 14 * 24 * 60 * 60 * 1000
 
 type LoadState = {
   activePlayIntent: ActivePlayIntent | null;
@@ -225,6 +227,15 @@ export function useDashboardApp() {
   const currentUsualAvailability = state.library?.usualAvailability ?? state.session?.user?.usualAvailability ?? null
   const friendPeople = [...discoveryPeople].filter((person) => person.isFriend).sort((left, right) => left.displayName.localeCompare(right.displayName))
   const addableFriendPeople = [...discoveryPeople].filter((person) => person.friendEligible).sort((left, right) => left.displayName.localeCompare(right.displayName))
+  const latestInviteAttribution = state.session?.inviteAttribution ?? null
+  const latestInviteAcceptedAt = latestInviteAttribution ? new Date(latestInviteAttribution.acceptedAt).getTime() : 0
+  const hasRecentInviteAttribution = latestInviteAttribution != null
+    && Number.isFinite(latestInviteAcceptedAt)
+    && Date.now() - latestInviteAcceptedAt <= inviteAttributionOnboardingWindowMs
+  const inviterAlreadyFriend = latestInviteAttribution?.inviterUserId != null
+    ? friendPeople.some((person) => person.id === latestInviteAttribution.inviterUserId)
+    : false
+  const showInviteAttributionOnboarding = isSignedIn && hasRecentInviteAttribution && (showSignedInOnboarding || !inviterAlreadyFriend)
   const toastNotices = [
     actionNotice
       ? { id: 'action', notice: actionNotice, dismiss: () => setActionNotice(null) }
@@ -905,6 +916,58 @@ export function useDashboardApp() {
     void loadDashboard()
   }, [loadDashboard])
 
+  const inviteAttributionOnboarding = showInviteAttributionOnboarding && latestInviteAttribution ? (
+    <Card
+      variant="soft"
+      sx={{
+        p: 3,
+        border: '1px solid rgba(255, 255, 255, 0.1)',
+        backgroundColor: 'rgba(9, 18, 32, 0.72)'
+      }}
+    >
+      <Stack spacing={1.5}>
+        <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+          <Chip color="primary" variant="soft">Discord invite</Chip>
+          {latestInviteAttribution.kind === 'direct' ? <Chip color="warning" variant="soft">Direct invite</Chip> : null}
+          {latestInviteAttribution.serverName ? <Chip color="neutral" variant="outlined">{latestInviteAttribution.serverName}</Chip> : null}
+          {latestInviteAttribution.memberCount != null ? (
+            <Chip color="success" variant="soft">
+              {latestInviteAttribution.memberCount} already around
+            </Chip>
+          ) : null}
+        </Stack>
+        <Typography level="title-lg">
+          {latestInviteAttribution.inviterDisplayName
+            ? `${latestInviteAttribution.inviterDisplayName} brought you in`
+            : latestInviteAttribution.serverName
+              ? `You joined through ${latestInviteAttribution.serverName}`
+              : 'You joined through a Discord invite'}
+        </Typography>
+        <Typography level="body-md" sx={{ color: 'neutral.300' }}>
+          {latestInviteAttribution.inviterDisplayName && latestInviteAttribution.serverName
+            ? `${latestInviteAttribution.inviterDisplayName} invited you through ${latestInviteAttribution.serverName}. Add your games and connect with the people already there so calls to play can start finding you.`
+            : latestInviteAttribution.inviterLabel && latestInviteAttribution.serverName
+              ? `${latestInviteAttribution.inviterLabel} invited you through ${latestInviteAttribution.serverName}. Add your games and connect with the people already there so calls to play can start finding you.`
+              : latestInviteAttribution.serverName
+                ? `You came in through ${latestInviteAttribution.serverName}. Add your games and start building connections with the people already there.`
+                : 'You arrived from a Discord invite. Add your games and connect with people already on Game\'s Up so the app can start matching you.'}
+        </Typography>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+          {!inviterAlreadyFriend && latestInviteAttribution.inviterUserId ? (
+            <Button color="primary" onClick={() => window.location.assign('/friends')}>
+              Open friends
+            </Button>
+          ) : null}
+          {!hasLibraryEntries ? (
+            <Button variant="outlined" color="neutral" onClick={() => window.location.assign('/library')}>
+              Build your library
+            </Button>
+          ) : null}
+        </Stack>
+      </Stack>
+    </Card>
+  ) : null
+
   return {
     layoutProps: {
       toastNotices,
@@ -916,11 +979,16 @@ export function useDashboardApp() {
             onInstall: handleInstallApp
           }
         : undefined,
-      onboarding: showSignedInOnboarding ? (
-        <EmptyStateCard
-          title="Your account is live, but it does not have any game data yet"
-          body="The discovery and play sections are driven by matching games between your library and the libraries of your friends and others in your network. Since your freshly created account has not added games, friends, or availability yet, those sections will be empty until you start filling out your profile."
-        />
+      onboarding: inviteAttributionOnboarding || showSignedInOnboarding ? (
+        <Stack spacing={2}>
+          {inviteAttributionOnboarding}
+          {showSignedInOnboarding ? (
+            <EmptyStateCard
+              title="Your account is live, but it does not have any game data yet"
+              body="The discovery and play sections are driven by matching games between your library and the libraries of your friends and others in your network. Since your freshly created account has not added games, friends, or availability yet, those sections will be empty until you start filling out your profile."
+            />
+          ) : null}
+        </Stack>
       ) : undefined
     },
     overviewViewProps: {

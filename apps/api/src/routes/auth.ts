@@ -21,6 +21,7 @@ import {
   upsertDiscordUser
 } from '../lib/discord-auth.js'
 import { getDiscordPresenceBotState } from '../lib/discord-bot-runtime.js'
+import { getLatestDiscordInviteAttribution, recordDiscordInviteAttribution } from '../lib/discord-invite-attribution.js'
 import {
   ensureDevelopmentSampleFriends,
   ensureDevelopmentSamplePlayIntentTargets,
@@ -184,6 +185,7 @@ authRouter.get('/me', async (request, response) => {
         authenticated: false,
         user: null,
         discordGraph: null,
+        inviteAttribution: null,
         connectedProviders: []
       })
     )
@@ -219,6 +221,7 @@ authRouter.get('/me', async (request, response) => {
         authenticated: false,
         user: null,
         discordGraph: null,
+        inviteAttribution: null,
         connectedProviders: []
       })
     )
@@ -238,7 +241,10 @@ authRouter.get('/me', async (request, response) => {
   await ensureDevelopmentSampleServerOverlap(user)
   await ensureDevelopmentSamplePlayIntentTargets(user)
 
-  const discordGraph = await buildDiscordGraphCapabilities(user.id)
+  const [discordGraph, inviteAttribution] = await Promise.all([
+    buildDiscordGraphCapabilities(user.id),
+    getLatestDiscordInviteAttribution(user.id)
+  ])
   const connectedProviders = [...new Set(user.identities.map((identity) => toSharedAuthProvider(identity.provider)).sort((left, right) => left.localeCompare(right)))]
 
   response.json(
@@ -250,6 +256,7 @@ authRouter.get('/me', async (request, response) => {
         authProvider: session.authProvider
       },
       discordGraph,
+      inviteAttribution,
       connectedProviders
     })
   )
@@ -285,15 +292,23 @@ authRouter.get('/discord/callback', async (request, response) => {
   try {
     const tokenResponse = await exchangeDiscordCode(code)
     const profile = await fetchDiscordUser(tokenResponse.access_token)
-    const user = await upsertDiscordUser(profile, tokenResponse.scope)
+    const userResult = await upsertDiscordUser(profile, tokenResponse.scope)
     const guilds = await fetchDiscordGuilds(tokenResponse.access_token)
 
-    await syncDiscordServersForUser(user.id, guilds)
-    await markDiscordGuildSync(user.id)
+    await syncDiscordServersForUser(userResult.user.id, guilds)
+    await markDiscordGuildSync(userResult.user.id)
+
+    if (userResult.isNewDiscordIdentity) {
+      await recordDiscordInviteAttribution({
+        acceptedUserId: userResult.user.id,
+        acceptedDiscordUserId: profile.id,
+        redirectTarget
+      })
+    }
 
     clearDiscordState(response)
 
-    setAuthSession(response, user.id, 'discord')
+    setAuthSession(response, userResult.user.id, 'discord')
     response.redirect(buildClientRedirect('discord', redirectTarget, 'success'))
   } catch (callbackError) {
     console.error('Discord callback failed', callbackError)

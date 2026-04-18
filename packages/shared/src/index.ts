@@ -465,6 +465,21 @@ export const authenticatedUserSchema = z.object({
   authProvider: authProviderSchema
 })
 
+export const inviteAttributionKindSchema = z.enum(['direct', 'server'])
+
+export const authSessionInviteAttributionSchema = z.object({
+  inviterUserId: z.string().uuid().nullable(),
+  inviterDiscordUserId: z.string().min(1).nullable(),
+  inviterLabel: z.string().min(1).nullable(),
+  inviterDisplayName: z.string().min(1).nullable(),
+  inviterHandle: z.string().min(1).nullable(),
+  serverId: z.string().min(1).nullable(),
+  serverName: z.string().min(1).nullable(),
+  memberCount: z.number().int().nonnegative().nullable(),
+  kind: inviteAttributionKindSchema,
+  acceptedAt: z.string().datetime()
+})
+
 export const userProfileSchema = z.object({
   timezoneId: timezoneIdSchema,
   usualAvailability: z.string().nullable(),
@@ -483,6 +498,7 @@ export const authSessionResponseSchema = z.object({
   authenticated: z.boolean(),
   user: authenticatedUserSchema.nullable(),
   discordGraph: discordGraphCapabilitiesSchema.nullable(),
+  inviteAttribution: authSessionInviteAttributionSchema.nullable(),
   connectedProviders: z.array(authProviderSchema).default([])
 })
 
@@ -598,6 +614,27 @@ export const debugNotificationDeliverySchema = z.object({
     displayName: z.string().min(2).max(60)
   }).nullable(),
   dmPreview: debugDmPreviewSchema.nullable()
+})
+
+export const debugInviteAttributionSchema = z.object({
+  id: z.string().uuid(),
+  acceptedAt: z.string().datetime(),
+  kind: inviteAttributionKindSchema,
+  serverId: z.string().min(1).nullable(),
+  serverName: z.string().min(1).nullable(),
+  memberCount: z.number().int().nonnegative().nullable(),
+  acceptedUser: z.object({
+    id: z.string().uuid(),
+    handle: z.string().min(2).max(32),
+    displayName: z.string().min(2).max(60)
+  }),
+  inviterUser: z.object({
+    id: z.string().uuid(),
+    handle: z.string().min(2).max(32),
+    displayName: z.string().min(2).max(60)
+  }).nullable(),
+  inviterDiscordUserId: z.string().min(1).nullable(),
+  inviterLabel: z.string().min(1).nullable()
 })
 
 export const debugPlayIntentStatusSchema = z.enum(['active', 'ended'])
@@ -717,6 +754,7 @@ export const debugAdminResponseSchema = z.object({
   bot: debugDiscordBotStateSchema,
   dmTemplates: z.array(debugDmTemplateGroupSchema),
   recentAutoPlayPrompts: z.array(debugAutoPlayPromptSchema),
+  recentInviteAttributions: z.array(debugInviteAttributionSchema),
   recentNotifications: z.array(debugNotificationDeliverySchema),
   recentPlayIntents: z.array(debugPlayIntentSummarySchema),
   playIntentLifecycleEvents: z.array(debugPlayIntentLifecycleEventSchema),
@@ -862,6 +900,7 @@ export type DebugDmActionRequest = z.infer<typeof debugDmActionRequestSchema>;
 export type DebugDmTemplateSendRequest = z.infer<typeof debugDmTemplateSendRequestSchema>;
 export type DebugDmActionResponse = z.infer<typeof debugDmActionResponseSchema>;
 export type DebugAutoPlayPrompt = z.infer<typeof debugAutoPlayPromptSchema>;
+export type DebugInviteAttribution = z.infer<typeof debugInviteAttributionSchema>;
 export type DebugNotificationDelivery = z.infer<typeof debugNotificationDeliverySchema>;
 export type DebugPlayIntentStatus = z.infer<typeof debugPlayIntentStatusSchema>;
 export type DebugPlayIntentSummary = z.infer<typeof debugPlayIntentSummarySchema>;

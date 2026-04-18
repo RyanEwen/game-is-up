@@ -38,6 +38,7 @@ import { useDashboardContext } from '../contexts/useDashboardContext'
 type SortDirection = 'asc' | 'desc'
 type CtpSortKey = 'createdAt' | 'windowStartsAt' | 'creator' | 'status' | 'notificationCount' | 'errorCount'
 type ErrorSortKey = 'occurredAt' | 'source' | 'message'
+type InviteAttributionSortKey = 'acceptedAt' | 'acceptedUser' | 'inviter' | 'server' | 'kind'
 type PromptSortKey = 'createdAt' | 'user' | 'game' | 'status' | 'deliveredAt' | 'respondedAt'
 type NotificationSortKey = 'createdAt' | 'recipient' | 'game' | 'triggeredBy' | 'deliveredAt'
 
@@ -1333,6 +1334,215 @@ function BotStateCard({ debugAdmin, formatDateTime }: { debugAdmin: DebugAdminRe
   )
 }
 
+function InviteAttributionLogCard({
+  debugAdmin,
+  formatDateTime
+}: {
+  debugAdmin: DebugAdminResponse;
+  formatDateTime: (value: string | null) => string;
+}) {
+  const [query, setQuery] = useState('')
+  const [kindFilter, setKindFilter] = useState<'all' | 'direct' | 'server'>('all')
+  const [sortKey, setSortKey] = useState<InviteAttributionSortKey>('acceptedAt')
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
+  const [page, setPage] = useState(1)
+
+  const filteredRows = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase()
+
+    const rows = debugAdmin.recentInviteAttributions.filter((attribution) => {
+      if (kindFilter !== 'all' && attribution.kind !== kindFilter) {
+        return false
+      }
+
+      if (!normalizedQuery) {
+        return true
+      }
+
+      return [
+        attribution.acceptedUser.displayName,
+        attribution.acceptedUser.handle,
+        attribution.inviterUser?.displayName ?? '',
+        attribution.inviterUser?.handle ?? '',
+        attribution.inviterLabel ?? '',
+        attribution.inviterDiscordUserId ?? '',
+        attribution.serverName ?? '',
+        attribution.serverId ?? '',
+        attribution.kind,
+        attribution.id
+      ].join(' ').toLowerCase().includes(normalizedQuery)
+    })
+
+    rows.sort((left, right) => {
+      let result = 0
+
+      switch (sortKey) {
+        case 'acceptedUser':
+          result = left.acceptedUser.displayName.localeCompare(right.acceptedUser.displayName)
+          break
+        case 'inviter':
+          result = (left.inviterUser?.displayName ?? left.inviterLabel ?? left.inviterDiscordUserId ?? '').localeCompare(
+            right.inviterUser?.displayName ?? right.inviterLabel ?? right.inviterDiscordUserId ?? ''
+          )
+          break
+        case 'server':
+          result = (left.serverName ?? left.serverId ?? '').localeCompare(right.serverName ?? right.serverId ?? '')
+          break
+        case 'kind':
+          result = left.kind.localeCompare(right.kind)
+          break
+        default:
+          result = new Date(left.acceptedAt).getTime() - new Date(right.acceptedAt).getTime()
+      }
+
+      return sortDirection === 'asc' ? result : -result
+    })
+
+    return rows
+  }, [debugAdmin.recentInviteAttributions, kindFilter, query, sortDirection, sortKey])
+
+  const pageCount = Math.max(1, Math.ceil(filteredRows.length / tablePageSize))
+  const currentPage = Math.min(page, pageCount)
+  const pagedRows = paginateRows(filteredRows, currentPage, tablePageSize)
+
+  const setSort = (nextKey: InviteAttributionSortKey) => {
+    if (sortKey === nextKey) {
+      setSortDirection((current) => (current === 'asc' ? 'desc' : 'asc'))
+      return
+    }
+
+    setSortKey(nextKey)
+    setSortDirection('desc')
+  }
+
+  return (
+    <Card variant="soft" sx={{ p: 3 }}>
+      <Stack spacing={1.5}>
+        <Stack spacing={0.5}>
+          <Typography level="title-lg">Recent invite attributions</Typography>
+          <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
+            Verify which accepted sign-ins were attributed to a Discord invite, including the accepted user, inviter identity, invite type, and originating server.
+          </Typography>
+        </Stack>
+
+        <Stack direction={{ xs: 'column', md: 'row' }} spacing={1}>
+          <Input
+            placeholder="Filter by accepted user, inviter, server, Discord ID, or row ID"
+            value={query}
+            onChange={(event) => {
+              setQuery(event.target.value)
+              setPage(1)
+            }}
+            sx={{ flex: 1 }}
+          />
+          <Select
+            value={kindFilter}
+            onChange={(_event, value) => {
+              if (!value) {
+                return
+              }
+
+              setKindFilter(value)
+              setPage(1)
+            }}
+            sx={{ minWidth: 170 }}
+          >
+            <Option value="all">All invite types</Option>
+            <Option value="direct">Direct invites</Option>
+            <Option value="server">Server links</Option>
+          </Select>
+        </Stack>
+
+        {filteredRows.length > 0 ? (
+          <>
+            <Box sx={{ overflowX: 'auto' }}>
+              <Table hoverRow borderAxis="bothBetween" stickyHeader>
+                <thead>
+                  <tr>
+                    <th><Button size="sm" variant="plain" onClick={() => setSort('acceptedAt')}>Accepted</Button></th>
+                    <th><Button size="sm" variant="plain" onClick={() => setSort('acceptedUser')}>Accepted user</Button></th>
+                    <th><Button size="sm" variant="plain" onClick={() => setSort('inviter')}>Inviter</Button></th>
+                    <th><Button size="sm" variant="plain" onClick={() => setSort('server')}>Server</Button></th>
+                    <th><Button size="sm" variant="plain" onClick={() => setSort('kind')}>Kind</Button></th>
+                    <th>Member hint</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pagedRows.map((attribution) => (
+                    <tr key={attribution.id}>
+                      <td>{formatDateTime(attribution.acceptedAt)}</td>
+                      <td>
+                        <Stack spacing={0.25}>
+                          <Typography level="body-sm">{attribution.acceptedUser.displayName}</Typography>
+                          <Typography level="body-xs" sx={{ color: 'neutral.400' }}>@{attribution.acceptedUser.handle}</Typography>
+                        </Stack>
+                      </td>
+                      <td>
+                        <Stack spacing={0.25}>
+                          <Typography level="body-sm">
+                            {attribution.inviterUser?.displayName ?? attribution.inviterLabel ?? 'Unknown inviter'}
+                          </Typography>
+                          <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
+                            {attribution.inviterUser
+                              ? `@${attribution.inviterUser.handle}`
+                              : attribution.inviterDiscordUserId
+                                ? `Discord ID ${attribution.inviterDiscordUserId}`
+                                : 'No linked inviter user'}
+                          </Typography>
+                        </Stack>
+                      </td>
+                      <td>
+                        <Stack spacing={0.25}>
+                          <Typography level="body-sm">{attribution.serverName ?? 'No server snapshot'}</Typography>
+                          <Typography level="body-xs" sx={{ color: 'neutral.400' }}>{attribution.serverId ?? 'No server ID stored'}</Typography>
+                        </Stack>
+                      </td>
+                      <td>
+                        <Chip size="sm" color={attribution.kind === 'direct' ? 'warning' : 'primary'} variant="soft">
+                          {attribution.kind === 'direct' ? 'Direct' : 'Server'}
+                        </Chip>
+                      </td>
+                      <td>
+                        <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
+                          {attribution.memberCount == null
+                            ? 'Not captured'
+                            : `${attribution.memberCount} ${attribution.memberCount === 1 ? 'member' : 'members'}`}
+                        </Typography>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            </Box>
+            <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1}>
+              <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
+                Showing {pagedRows.length} of {filteredRows.length} invite attribution rows
+              </Typography>
+              <Stack direction="row" spacing={1} alignItems="center">
+                <Button size="sm" variant="outlined" color="neutral" disabled={currentPage <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>
+                  Previous
+                </Button>
+                <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
+                  Page {currentPage} of {pageCount}
+                </Typography>
+                <Button size="sm" variant="outlined" color="neutral" disabled={currentPage >= pageCount} onClick={() => setPage((current) => Math.min(pageCount, current + 1))}>
+                  Next
+                </Button>
+              </Stack>
+            </Stack>
+          </>
+        ) : (
+          <EmptyStateCard
+            title="No invite attributions match these filters"
+            body="Try clearing filters or accept a Discord invite flow on a fresh account to create an attribution row."
+            chips={['Discord invite', 'OAuth callback', 'Accepted sign-in']}
+          />
+        )}
+      </Stack>
+    </Card>
+  )
+}
+
 function PromptLogCard({
   debugAdmin,
   formatDateTime,
@@ -1834,6 +2044,7 @@ function DebugViewContent({
                 { id: 'templates', label: 'DM templates', count: debugAdmin.dmTemplates.length },
                 { id: 'ctps', label: 'CTPs', count: debugAdmin.recentPlayIntents.length },
                 { id: 'prompts', label: 'Prompts', count: debugAdmin.recentAutoPlayPrompts.length },
+                { id: 'invite-attributions', label: 'Invite attributions', count: debugAdmin.recentInviteAttributions.length },
                 { id: 'notifications', label: 'Notifications', count: debugAdmin.recentNotifications.length },
                 { id: 'errors', label: 'Errors', count: debugAdmin.recentErrors.length }
               ]}
@@ -1865,6 +2076,10 @@ function DebugViewContent({
                   preview: prompt.dmPreview
                 })}
               />
+            </Box>
+
+            <Box id="invite-attributions" sx={{ scrollMarginTop: sectionScrollMarginTop }}>
+              <InviteAttributionLogCard debugAdmin={debugAdmin} formatDateTime={formatDateTime} />
             </Box>
 
             <Box id="notifications" sx={{ scrollMarginTop: sectionScrollMarginTop }}>

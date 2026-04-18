@@ -37,6 +37,26 @@ export type DiscordGuildSummary = {
   icon: string | null;
 };
 
+export type UpsertDiscordUserResult = {
+  user: {
+    id: string;
+    handle: string;
+    displayName: string;
+    email: string | null;
+    avatarUrl: string | null;
+    bio: string;
+    timezoneId: string;
+    usualAvailability: string | null;
+    discordAutoPromptPlayIntent: boolean;
+    isAdmin: boolean;
+    visibility: import('@prisma/client').ProfileVisibility;
+    lastSeenAt: Date;
+    createdAt: Date;
+    updatedAt: Date;
+  };
+  isNewDiscordIdentity: boolean;
+};
+
 function normalizeGrantedScopes(scope: string): string[] {
   return [...new Set(scope.split(/\s+/u).map((entry) => entry.trim()).filter(Boolean))].sort((left, right) => left.localeCompare(right))
 }
@@ -157,7 +177,10 @@ export async function fetchDiscordGuilds(accessToken: string): Promise<DiscordGu
   return response.json() as Promise<DiscordGuildSummary[]>
 }
 
-export async function upsertDiscordUser(profile: DiscordUserProfile, grantedScopeString = DISCORD_REQUESTED_SCOPES.join(' ')) {
+export async function upsertDiscordUser(
+  profile: DiscordUserProfile,
+  grantedScopeString = DISCORD_REQUESTED_SCOPES.join(' ')
+): Promise<UpsertDiscordUserResult> {
   const email = profile.email?.toLowerCase() ?? null
   const displayName = profile.global_name?.trim() || profile.username
   const avatarUrl = buildDiscordAvatarUrl(profile)
@@ -211,7 +234,10 @@ export async function upsertDiscordUser(profile: DiscordUserProfile, grantedScop
       }
     })
 
-    return updatedUser
+    return {
+      user: updatedUser,
+      isNewDiscordIdentity: false
+    }
   }
 
   const developmentSeededHandleAlias = getDevelopmentSeededHandleAlias(profile)
@@ -267,7 +293,10 @@ export async function upsertDiscordUser(profile: DiscordUserProfile, grantedScop
     }
   })
 
-  return user
+  return {
+    user,
+    isNewDiscordIdentity: true
+  }
 }
 
 export async function markDiscordGuildSync(userId: string) {

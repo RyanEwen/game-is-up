@@ -983,7 +983,7 @@ function toInboxMessageLabel(notificationType: NotificationType) {
 
 export async function buildDebugAdminSnapshot() {
   const now = new Date()
-  const [recentAutoPlayPrompts, recentNotifications, recentPlayIntents] = await Promise.all([
+  const [recentAutoPlayPrompts, recentInviteAttributions, recentNotifications, recentPlayIntents] = await Promise.all([
     prisma.discordAutoPlayPrompt.findMany({
       orderBy: {
         createdAt: 'desc'
@@ -1027,6 +1027,28 @@ export async function buildDebugAdminSnapshot() {
         observation: {
           select: {
             startedAt: true
+          }
+        }
+      }
+    }),
+    prisma.discordInviteAttribution.findMany({
+      orderBy: {
+        acceptedAt: 'desc'
+      },
+      take: 50,
+      include: {
+        acceptedUser: {
+          select: {
+            id: true,
+            handle: true,
+            displayName: true
+          }
+        },
+        inviterUser: {
+          select: {
+            id: true,
+            handle: true,
+            displayName: true
           }
         }
       }
@@ -1964,11 +1986,25 @@ export async function buildDebugAdminSnapshot() {
     }
   })
 
+  const recentInviteAttributionRows = recentInviteAttributions.map((attribution) => ({
+    id: attribution.id,
+    acceptedAt: attribution.acceptedAt.toISOString(),
+    kind: attribution.kind === 'DIRECT' ? 'direct' : 'server',
+    serverId: attribution.serverId,
+    serverName: attribution.serverName,
+    memberCount: attribution.hintedMemberCount,
+    acceptedUser: attribution.acceptedUser,
+    inviterUser: attribution.inviterUser,
+    inviterDiscordUserId: attribution.inviterDiscordUserId,
+    inviterLabel: attribution.inviterLabel
+  }))
+
   return debugAdminResponseSchema.parse({
     generatedAt: new Date().toISOString(),
     bot: getDiscordPresenceBotState(),
     dmTemplates: buildDebugDmTemplates(now),
     recentAutoPlayPrompts: recentAutoPlayPromptRows,
+    recentInviteAttributions: recentInviteAttributionRows,
     recentNotifications: recentNotificationRows,
     recentPlayIntents: recentPlayIntentRows,
     playIntentLifecycleEvents: lifecycleEvents,

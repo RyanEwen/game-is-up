@@ -141,7 +141,6 @@ function buildArchivedPlayIntentEmbeds(summaryBody: string) {
     new EmbedBuilder()
       .setColor(0xef4444)
       .addFields(fields)
-      .setFooter({ text: 'This call to play is no longer active.' })
   ]
 }
 

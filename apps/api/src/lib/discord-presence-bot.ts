@@ -1,4 +1,16 @@
-import { ActivityType, Client, Events, GatewayIntentBits, Partials, type Presence } from 'discord.js'
+import {
+  ActionRowBuilder,
+  ActivityType,
+  ButtonBuilder,
+  ButtonStyle,
+  Client,
+  EmbedBuilder,
+  Events,
+  GatewayIntentBits,
+  Partials,
+  type MessageActionRowComponentBuilder,
+  type Presence
+} from 'discord.js'
 import { DiscordActivityType } from '@prisma/client'
 import {
   discordPresenceBotState,
@@ -12,6 +24,7 @@ import {
 import { handleDiscordAutoPlayPromptInteraction } from './discord-auto-play-prompts.js'
 import { recordDiscordPresence } from './discord-activity.js'
 import { env } from './env.js'
+import { prisma } from './prisma.js'
 import {
   handleCreatorPlayIntentSummaryInteraction,
   handleScheduledPlayIntentCheckInInteraction,
@@ -21,6 +34,7 @@ import {
   isPlayIntentNotificationCustomId
 } from './play-intent-notification-responses.js'
 import { handleDiscordDirectMessageCommand } from './discord-direct-message-commands.js'
+import { handleDiscordSlashCommand, registerDiscordSlashCommands } from './discord-slash-commands.js'
 
 type DiscordGuildMemberSummary = {
   id: string;
@@ -84,6 +98,94 @@ const guildMemberCooldowns = new Map<string, number>()
 
 function isDiscordSnowflake(value: string) {
   return discordSnowflakePattern.test(value)
+}
+
+function buildInviteLandingUrl(options: {
+  serverId?: string | null;
+  serverName: string;
+  inviterDiscordUserId?: string | null;
+  inviterLabel?: string | null;
+  memberCount?: number | null;
+  kind?: 'direct' | 'server';
+  fallbackUrl?: string | null;
+}) {
+  try {
+    const inviteUrl = new URL('/invite', env.CLIENT_ORIGIN)
+
+    if (options.serverId?.trim()) {
+      inviteUrl.searchParams.set('serverId', options.serverId.trim())
+    }
+
+    inviteUrl.searchParams.set('server', options.serverName)
+
+    if (options.inviterDiscordUserId?.trim()) {
+      inviteUrl.searchParams.set('inviterDiscordId', options.inviterDiscordUserId.trim())
+    }
+
+    if (options.inviterLabel?.trim()) {
+      inviteUrl.searchParams.set('inviter', options.inviterLabel.trim())
+    }
+
+    if (options.memberCount != null && Number.isFinite(options.memberCount)) {
+      inviteUrl.searchParams.set('members', String(Math.max(0, Math.floor(options.memberCount))))
+    }
+
+    inviteUrl.searchParams.set('kind', options.kind ?? 'direct')
+    return inviteUrl.toString()
+  } catch {
+    return options.fallbackUrl ?? env.CLIENT_ORIGIN
+  }
+}
+
+function buildDiscordInviteComponents(inviteUrl: string) {
+  return [
+    new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
+      new ButtonBuilder()
+        .setLabel('Open Invite')
+        .setStyle(ButtonStyle.Link)
+        .setURL(inviteUrl)
+    )
+  ]
+}
+
+function buildDiscordInviteEmbeds(options: {
+  serverName: string;
+  inviterLabel: string;
+  inviteUrl: string;
+  appMemberCount: number;
+}) {
+  const reachLabel = options.appMemberCount > 0
+    ? `${options.appMemberCount} ${options.appMemberCount === 1 ? 'person from this server already uses' : 'people from this server already use'} Game's Up.`
+    : 'Be the first person from this server on Game\'s Up.'
+
+  return [
+    new EmbedBuilder()
+      .setColor(0x22c55e)
+      .setTitle(`Join Game's Up through ${options.serverName}`)
+      .setDescription([
+        `${options.inviterLabel} invited you to join Game's Up.`,
+        reachLabel,
+        'Open the invite to sign in with Discord, compare libraries, and jump into calls to play.'
+      ].join('\n\n'))
+      .addFields(
+        {
+          name: 'Server',
+          value: options.serverName,
+          inline: true
+        },
+        {
+          name: 'Already around',
+          value: options.appMemberCount > 0 ? String(options.appMemberCount) : 'Be the first',
+          inline: true
+        },
+        {
+          name: 'Invite link',
+          value: options.inviteUrl,
+          inline: false
+        }
+      )
+      .setFooter({ text: 'Game\'s Up works best when your Discord group is already there.' })
+  ]
 }
 
 function invalidateGuildMemberCache(serverId: string) {
@@ -622,9 +724,25 @@ export async function sendDiscordGuildInvites(options: {
   const { serverId, memberIds, inviterLabel, inviterDiscordUserId, inviteUrl } = options
   const memberList = await listDiscordGuildMembers(serverId)
   const memberById = new Map(memberList.members.map((member) => [member.id, member]))
+  const appUserIdentityCount = await prisma.userIdentity.count({
+    where: {
+      provider: 'DISCORD',
+      providerUserId: {
+        in: memberList.members.map((member) => member.id)
+      }
+    }
+  })
   const results: DiscordGuildInviteSendResult[] = []
   const inviteSender = inviterDiscordUserId ? `<@${inviterDiscordUserId}>` : inviterLabel
-  const inviteMessage = `${inviteSender} invited you to Game's Up from ${memberList.serverName}.\n\nJoin here: ${inviteUrl}`
+  const inviteLandingUrl = buildInviteLandingUrl({
+    serverId,
+    serverName: memberList.serverName,
+    inviterDiscordUserId,
+    inviterLabel,
+    memberCount: appUserIdentityCount,
+    kind: 'direct',
+    fallbackUrl: inviteUrl
+  })
   const inviteTargets = [...new Set(memberIds)]
     .map((memberId) => {
       const knownMember = memberById.get(memberId)
@@ -646,7 +764,14 @@ export async function sendDiscordGuildInvites(options: {
         knownMember,
         payload: {
           discordUserId: memberId,
-          content: inviteMessage
+          content: `${inviteSender} invited you to Game's Up from ${memberList.serverName}.`,
+          embeds: buildDiscordInviteEmbeds({
+            serverName: memberList.serverName,
+            inviterLabel,
+            inviteUrl: inviteLandingUrl,
+            appMemberCount: appUserIdentityCount
+          }),
+          components: buildDiscordInviteComponents(inviteLandingUrl)
         }
       }
     })
@@ -656,6 +781,8 @@ export async function sendDiscordGuildInvites(options: {
       payload: {
         discordUserId: string;
         content: string;
+        embeds: ReturnType<typeof buildDiscordInviteEmbeds>;
+        components: ReturnType<typeof buildDiscordInviteComponents>;
       };
     } => entry != null)
 
@@ -708,6 +835,7 @@ export async function startDiscordPresenceBot() {
     partials: [Partials.Channel]
   })
   setDiscordBotClient(client)
+  await registerDiscordSlashCommands()
 
   client.once(Events.ClientReady, () => {
     discordPresenceBotState.connected = true
@@ -743,6 +871,11 @@ export async function startDiscordPresenceBot() {
   })
 
   client.on(Events.InteractionCreate, (interaction) => {
+    if (interaction.isChatInputCommand()) {
+      void handleDiscordSlashCommand(interaction)
+      return
+    }
+
     if (!interaction.isButton()) {
       return
     }

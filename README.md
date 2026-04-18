@@ -67,7 +67,7 @@ Optional: set `VITE_PUBLIC_APP_URL` when you want in-app invites to point at a p
 
 Optional: set `VITE_API_BASE_URL` to an explicit origin if the web app should call an API on a different host. Leave it empty when the app is served behind a reverse proxy on the same origin.
 
-The dashboard uses route-backed tabs, so the main views live at `/`, `/library`, `/discovery`, and `/play`. Admin users also get a `/debug` tab for bot, prompt, notification, and DM-emulator diagnostics. Discord sign-in now preserves same-origin return URLs so a user can authenticate and land back on the view they started from.
+The dashboard uses route-backed tabs, so the main views live at `/`, `/library`, `/discovery`, and `/play`. Admin users also get a `/debug` tab for bot, prompt, notification, DM-emulator, and invite-attribution diagnostics. Discord sign-in now preserves same-origin return URLs so a user can authenticate and land back on the view they started from, and invite links can land on a dedicated `/invite` route before handing off into Discord OAuth.
 
 For a clean local reset plus startup in one command, run:
 
@@ -216,14 +216,17 @@ This repo now treats Prisma migrations as the source of truth for schema changes
 24. Admin users can also post a self-only test call to play from the Play composer. That path targets only the creator for the audience-facing DM flow instead of adding the creator onto the normally selected audience.
 25. Bot-authored Discord DMs tied to tracked call-to-play and auto-play flows still participate in retention cleanup, but call-to-play threads now retain one ended-history DM per user and per call to play instead of deleting the entire thread state.
 26. In the gateway-owning environment, linked users can also send the bot DM commands for lightweight control without reopening the app: `help`, `status`, `cancel`, `autoplay`, and `cleanup`.
-27. The Play view keeps recently ended calls to play visible for 24 hours as closed cards, shows whether each call currently applies to your library, and only leaves response actions enabled while the call is still active and applicable.
-28. Discovery-based play-intent visibility can now include both explicit friends and users from the Discord servers you opted into discovery.
-29. Discovery remains based on opted-in shared Discord servers plus explicit in-app friendships. The Discord friend-list import path has been removed.
-30. Discord is still the only sign-in path in this scaffold.
-31. Steam can now be linked as a secondary account for library import only. It does not replace Discord auth or discovery.
-32. Linked-account flows like Discord sign-in and Steam linking return directly to the current web URL after the provider callback completes.
-33. Call-to-play DMs now include a clickable creator Discord mention when available.
-34. Subset call-to-play DMs can include game art for small selected-game sets: single-game calls show the chosen cover directly, and small multi-game sets show a lead cover with a short title list.
+27. In that same gateway-owning environment, the bot also registers guild-only slash commands for adoption flows: `invite-user`, `invite-link`, `app-members`, and `server-ctps`.
+28. Discord invite links now open a dedicated invite landing page, preserve server and inviter context through Discord OAuth, and can attribute a first accepted sign-in back to the originating Discord invite.
+29. Admin debug now includes an invite-attribution section so recent accepted invite flows can be verified without querying the database directly.
+30. The Play view keeps recently ended calls to play visible for 24 hours as closed cards, shows whether each call currently applies to your library, and only leaves response actions enabled while the call is still active and applicable.
+31. Discovery-based play-intent visibility can now include both explicit friends and users from the Discord servers you opted into discovery.
+32. Discovery remains based on opted-in shared Discord servers plus explicit in-app friendships. The Discord friend-list import path has been removed.
+33. Discord is still the only sign-in path in this scaffold.
+34. Steam can now be linked as a secondary account for library import only. It does not replace Discord auth or discovery.
+35. Linked-account flows like Discord sign-in and Steam linking return directly to the current web URL after the provider callback completes.
+36. Call-to-play DMs now include a clickable creator Discord mention when available.
+37. Subset call-to-play DMs can include game art for small selected-game sets: single-game calls show the chosen cover directly, and small multi-game sets show a lead cover with a short title list.
 
 ## Steam import setup
 

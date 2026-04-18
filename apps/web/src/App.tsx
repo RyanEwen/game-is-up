@@ -7,6 +7,7 @@ import {
 } from './components/dashboard/dashboardUtils'
 import { DashboardProvider } from './contexts/DashboardContext'
 import { useDashboardContext } from './contexts/useDashboardContext'
+import { InviteLandingView } from './pages/InviteLandingView'
 import { DiscoveryView } from './pages/DiscoveryView'
 import { DebugView } from './pages/DebugView'
 import { FriendsView } from './pages/FriendsView'
@@ -27,9 +28,17 @@ const dashboardTabTitles: Record<Exclude<ReturnType<typeof getDashboardTabFromPa
 
 export default function App() {
   return (
-    <DashboardProvider>
-      <DashboardAppShell />
-    </DashboardProvider>
+    <Routes>
+      <Route path="/invite" element={<InviteLandingView />} />
+      <Route
+        path="/*"
+        element={(
+          <DashboardProvider>
+            <DashboardAppShell />
+          </DashboardProvider>
+        )}
+      />
+    </Routes>
   )
 }
 

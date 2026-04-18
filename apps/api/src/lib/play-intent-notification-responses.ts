@@ -532,7 +532,6 @@ function buildArchivedPlayIntentEmbeds(body: string) {
           inline: field.label.trim().toLowerCase() !== 'games'
         }))
       ))
-      .setFooter({ text: 'This call to play is no longer active.' })
   ]
 }
 

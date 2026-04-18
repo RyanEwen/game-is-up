@@ -177,14 +177,14 @@ function WhatIsGamesUpCard() {
     <Card variant="soft" sx={{ p: 3 }}>
       <Stack spacing={2}>
         <Typography level="body-md" sx={{ color: 'neutral.200' }}>
-          Game's Up is an app that helps you find people who are into the same games you are, so it is easier to spot overlap before you ask around manually.
+          Game's Up is an app that helps you find people who are into the same games you are.
         </Typography>
         <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5}>
           <Sheet variant="outlined" sx={{ p: 2, borderRadius: 'lg', flex: 1, backgroundColor: 'rgba(255,255,255,0.02)' }}>
             <Stack spacing={0.75}>
               <Typography level="title-sm">Shared-interest app</Typography>
               <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
-                Build your library, form a network from friends and Discord servers, then find the people who already overlap with your games and availability.
+                Build your game library, form a network of friends and other players from your favorite Discord servers, then discover who is interested in the same games as you.
               </Typography>
             </Stack>
           </Sheet>
@@ -192,7 +192,7 @@ function WhatIsGamesUpCard() {
             <Stack spacing={0.75}>
               <Typography level="title-sm">Matchmaking bot</Typography>
               <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
-                The Discord bot helps you matchmake faster by sending calls to play, follow-up prompts, and invite flows into the places where your group already hangs out.
+                The Discord bot helps you arrange gaming sessions by finding users interested in the same games, sending calls to play them, and following-up when necessary.
               </Typography>
             </Stack>
           </Sheet>

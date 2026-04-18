@@ -77,6 +77,10 @@ Discord activity observations can also drive a secondary auto-prompt flow: when 
 
 The gateway-owning Discord bot can also react to plain DM text commands from linked users for lightweight control and cleanup. That command surface currently supports status checks, canceling the active call to play, toggling auto-play prompts, and removing settled bot-authored DM history.
 
+The same bot surface now also supports guild-only slash commands for server adoption and discovery shortcuts. Those commands generate richer invite flows, including a dedicated web invite landing page that preserves server and inviter context through Discord OAuth instead of dropping every invite into the generic app shell.
+
+Invite acceptance attribution is persisted as its own relational record keyed to the accepted user, optional inviter identity, optional Discord server snapshot, and invite kind. The auth session can expose the latest attribution to the web app for onboarding copy, and the admin debug snapshot can expose recent attribution rows for operational verification.
+
 That same presence stream now powers one-time launch alerts for active single-game play intents: interested recipients can be notified when the creator starts the planned game, and creators can be notified when already-interested recipients initially launch it. Those alerts are keyed to the active play-intent row so they naturally reset when the call is materially changed.
 
 The API now runs a lightweight cleanup sweep for expired play intents so unanswered Discord invite prompts can be marked expired and rewritten even if the affected users do not immediately reopen the app. On process start, that same maintenance pass also refreshes tracked Discord DM content so restored environments do not leave stale buttons, embeds, or summary states behind.
