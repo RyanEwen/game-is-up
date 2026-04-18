@@ -3,7 +3,7 @@ import type { DiscoveryPerson } from '@game-is-up/shared'
 import { DashboardDeferredImage } from './DashboardDeferredImage'
 import { FriendActionPopover } from './FriendActionPopover'
 import { GameActionPopover } from './GameActionPopover'
-import { formatDiscordActivityTypeLabel, formatLibraryIntentLabel, memberGameGridSx } from './dashboardUtils'
+import { formatDiscordActivityTypeLabel, formatLibraryIntentLabel, formatRelativeTimeShort, memberGameGridSx } from './dashboardUtils'
 import type { DashboardLibraryQuickAddGame, FriendTarget } from './types'
 
 type CompactCardBadge = {
@@ -265,24 +265,38 @@ export function PersonCard({
         </Button>
       </Stack>
 
-      <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: 'wrap' }}>
-        {person.mutualServers.map((serverName) => (
-          <Chip key={serverName} size="sm" color="neutral" variant="soft">
-            {serverName}
+      <Box
+        sx={{
+          mb: 2,
+          display: 'grid',
+          gridTemplateColumns: person.mutualServers.length > 0 ? { xs: '1fr', md: 'minmax(0, 1fr) auto' } : '1fr',
+          gap: 1,
+          alignItems: 'start'
+        }}
+      >
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, minWidth: 0 }}>
+          <Chip variant="outlined" color="neutral">
+            {person.timezoneLabel}
           </Chip>
-        ))}
-        <Chip variant="outlined" color="neutral">
-          {person.timezoneLabel}
-        </Chip>
-        {person.usualAvailability ? (
-          <Chip variant="soft" color="success">
-            Usually: {person.usualAvailability}
+          {person.usualAvailability ? (
+            <Chip variant="soft" color="success">
+              Usually: {person.usualAvailability}
+            </Chip>
+          ) : null}
+          <Chip variant="soft" color="neutral">
+            {person.lastActiveLabel}
           </Chip>
+        </Box>
+        {person.mutualServers.length > 0 ? (
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, justifyContent: 'flex-end' }}>
+            {person.mutualServers.map((serverName) => (
+              <Chip key={serverName} size="sm" color="neutral" variant="soft">
+                {serverName}
+              </Chip>
+            ))}
+          </Box>
         ) : null}
-        <Chip variant="soft" color="neutral">
-          {person.lastActiveLabel}
-        </Chip>
-      </Stack>
+      </Box>
 
       {person.discordActivity ? (
         <Sheet
@@ -297,7 +311,7 @@ export function PersonCard({
             {formatDiscordActivityTypeLabel(person.discordActivity.activityType)} {person.discordActivity.title}
           </Typography>
           <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
-            Last seen {new Date(person.discordActivity.lastObservedAt).toLocaleString()}
+            Seen {formatRelativeTimeShort(person.discordActivity.lastObservedAt)}
             {person.discordActivity.sourceServerName ? ` via ${person.discordActivity.sourceServerName}` : ''}
           </Typography>
           {person.discordActivity.details || person.discordActivity.state ? (

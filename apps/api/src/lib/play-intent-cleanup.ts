@@ -1,7 +1,10 @@
 import { NotificationType } from '@prisma/client'
 import { sweepOldDiscordDirectMessages } from './discord-dm-cleanup.js'
+import { refreshTrackedDiscordAutoPlayPromptDirectMessages } from './discord-auto-play-prompts.js'
 import {
   expirePendingPlayIntentNotifications,
+  refreshTrackedCreatorPlayIntentSummaryMessages,
+  refreshTrackedPlayIntentNotificationDirectMessages,
   sweepScheduledPlayIntentCreatorCheckIns
 } from './play-intent-notification-responses.js'
 import { prisma } from './prisma.js'
@@ -12,6 +15,7 @@ const staleDiscordDmSweepIntervalMs = 60 * 60 * 1000
 let cleanupLoopStarted = false
 let cleanupInFlight = false
 let lastStaleDiscordDmSweepStartedAt = 0
+let trackedDiscordDmRefreshCompleted = false
 
 export async function sweepExpiredPlayIntentNotifications() {
   const expiredIntentIds = (await prisma.playIntent.findMany({
@@ -44,6 +48,13 @@ async function runCleanupSweep() {
   cleanupInFlight = true
 
   try {
+    if (!trackedDiscordDmRefreshCompleted) {
+      await refreshTrackedPlayIntentNotificationDirectMessages()
+      await refreshTrackedDiscordAutoPlayPromptDirectMessages()
+      await refreshTrackedCreatorPlayIntentSummaryMessages()
+      trackedDiscordDmRefreshCompleted = true
+    }
+
     await sweepScheduledPlayIntentCreatorCheckIns()
     await sweepExpiredPlayIntentNotifications()
 

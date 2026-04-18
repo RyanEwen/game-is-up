@@ -108,7 +108,7 @@ function buildDebugDmTemplates(now: Date) {
     recipientSharesServer: true
   }
   const templateArchivedBody = [
-    `Creator: ${creatorDisplayName}`,
+    `Creator: <@${creatorDiscordUserId}>`,
     `Games: ${gameTitle}, ${alternateGameTitle}`,
     'When: Apr 17, 7:00 PM PDT',
     'Status: This call to play is no longer active.'
@@ -393,7 +393,9 @@ function buildDebugDmTemplates(now: Date) {
             notificationId: 'template-ended-summary',
             notificationType: NotificationType.SYSTEM,
             title: 'Call to play ended',
-            body: templateArchivedBody
+            body: templateArchivedBody,
+            actorDisplayName: creatorDisplayName,
+            actorDiscordUserId: creatorDiscordUserId
           })
         ),
         buildDebugDmTemplateEntry(

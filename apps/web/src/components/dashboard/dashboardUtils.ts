@@ -168,3 +168,45 @@ export function parsePlayIntentEndAt(value: string): Date | null {
 export function formatDiscordActivityTypeLabel(activityType: 'playing' | 'competing'): string {
   return activityType === 'competing' ? 'Competing in' : 'Playing on Discord'
 }
+
+export function formatRelativeTimeShort(dateInput: string | Date, baseDate = new Date()): string {
+  const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput
+  const diffMs = Math.max(0, baseDate.getTime() - date.getTime())
+  const diffMinutes = Math.floor(diffMs / (60 * 1000))
+
+  if (diffMinutes < 1) {
+    return 'just now'
+  }
+
+  if (diffMinutes < 60) {
+    return `${diffMinutes}m ago`
+  }
+
+  const diffHours = Math.floor(diffMinutes / 60)
+
+  if (diffHours < 24) {
+    return `${diffHours}h ago`
+  }
+
+  const diffDays = Math.floor(diffHours / 24)
+
+  if (diffDays < 7) {
+    return `${diffDays}d ago`
+  }
+
+  const diffWeeks = Math.floor(diffDays / 7)
+
+  if (diffWeeks < 5) {
+    return `${diffWeeks}w ago`
+  }
+
+  const diffMonths = Math.floor(diffDays / 30)
+
+  if (diffMonths < 12) {
+    return `${diffMonths}mo ago`
+  }
+
+  const diffYears = Math.floor(diffDays / 365)
+
+  return `${diffYears}y ago`
+}

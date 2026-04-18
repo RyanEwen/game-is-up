@@ -59,7 +59,7 @@ Feed previews now also expose a lightweight status (`active` or `closed`) plus a
 
 Scheduled calls to play now add a second-stage check-in flow. The audience is still notified immediately at creation time, but the creator receives an explicit confirmation prompt when the scheduled start time arrives. If confirmed, accepted recipients receive a go-time update, unanswered recipients receive one follow-up reminder, those go-time messages remain actionable for later response changes, and recipients who previously declined or muted that creator remain opted out.
 
-Creators also receive a persistent Discord DM summary for each live call to play. Major lifecycle changes can still replace that DM with a fresh message so Discord sends a notification, but audience response updates now edit the existing summary in place because the creator also receives a separate response-notification DM. Quiet expiry or archive cleanup also falls back to edit-in-place behavior. In the gateway-owning environment it can expose creator-only actions such as canceling the call directly from Discord.
+Creators also receive a persistent Discord DM summary for each live call to play. Major lifecycle changes can still replace that DM with a fresh message so Discord sends a notification, but audience response updates now edit the existing summary in place because the creator also receives a separate response-notification DM. Quiet expiry or archive cleanup also falls back to edit-in-place behavior. In the gateway-owning environment it can expose creator-only actions such as canceling the call directly from Discord while active, then switch to a cleanup action after the retained summary has gone stale.
 
 Admin users also have a self-only test path in the Play composer. That path still creates the normal creator summary DM, but it overrides recipient selection so the audience-facing notification flow targets only the creator instead of combining the creator with the selected audience.
 
@@ -69,7 +69,7 @@ The admin debug snapshot now also exposes serialized DM previews, a read-only DM
 
 Those serialized DM previews now include Discord embed payloads as well as button rows and fallback content. That keeps the debug emulator aligned with the live bot output as structured Discord flows move from markdown-heavy content blocks to embed-first layouts.
 
-Tracked Discord DM rows also participate in retention cleanup. Auto-play prompts can still be removed after they age out, while call-to-play threads now retain one ended-history DM per user and per call to play; manual cancellations can replace the prior audience message with a fresh ended-summary DM so the audience is notified immediately.
+Tracked Discord DM rows also participate in retention cleanup. Auto-play prompts can still be removed after they age out, while call-to-play threads now retain one ended-history DM per user and per call to play; manual cancellations can replace the prior audience message with a fresh ended-summary DM so the audience is notified immediately, and those retained summaries can later expose an explicit cleanup action that deletes the tracked bot-authored DM history for that user or creator.
 
 The Discord bot runtime is now intentionally split by environment. Exactly one environment should run the live Discord gateway connection for presence tracking and interactive Discord buttons, while other environments can reuse the same bot token in a REST-only mode for DM send/edit plus read-only server-member browsing without competing for gateway ownership.
 
@@ -77,7 +77,7 @@ Discord activity observations can also drive a secondary auto-prompt flow: when 
 
 That same presence stream now powers one-time launch alerts for active single-game play intents: interested recipients can be notified when the creator starts the planned game, and creators can be notified when already-interested recipients initially launch it. Those alerts are keyed to the active play-intent row so they naturally reset when the call is materially changed.
 
-The API now runs a lightweight cleanup sweep for expired play intents so unanswered Discord invite prompts can be marked expired and rewritten even if the affected users do not immediately reopen the app.
+The API now runs a lightweight cleanup sweep for expired play intents so unanswered Discord invite prompts can be marked expired and rewritten even if the affected users do not immediately reopen the app. On process start, that same maintenance pass also refreshes tracked Discord DM content so restored environments do not leave stale buttons, embeds, or summary states behind.
 
 Discord presence tracking now also maintains a lossy observed-game history keyed by Discord identity rather than only by app user. That lets the library API return suggested games based on titles the bot has seen the user playing, while still allowing non-members to contribute to the raw observation set.
 

@@ -1,12 +1,14 @@
 import { AuthProvider, NotificationType } from '@prisma/client'
-import { EmbedBuilder } from 'discord.js'
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, type MessageActionRowComponentBuilder } from 'discord.js'
 import { NotificationResponseChoice } from '@prisma/client'
-import { deleteDiscordDirectMessage, editDiscordDirectMessage, sendDiscordDirectMessages } from './discord-bot-runtime.js'
+import { deleteDiscordDirectMessage, editDiscordDirectMessage, sendDiscordDirectMessages, supportsDiscordInteractiveMessages } from './discord-bot-runtime.js'
 import { buildDiscordMessageHeading } from './discord-dm-formatting.js'
 import { formatPlayIntentWindowLabel } from './play-intent-time-format.js'
 import { prisma } from './prisma.js'
 
 const discordDmRetentionMs = 12 * 60 * 60 * 1000
+const playIntentNotificationPrefix = 'play-intent-response'
+const creatorPlayIntentSummaryPrefix = 'creator-play-intent-summary'
 const archivedPlayIntentNotificationTypes = [
   NotificationType.FRIEND_PLAYING,
   NotificationType.SCHEDULED_PLAY_INTENT_REMINDER,
@@ -26,6 +28,36 @@ type ArchivedCreatorCandidate = ArchivedDirectMessageCandidate & {
 
 type ArchivedNotificationCandidate = ArchivedDirectMessageCandidate & {
   notificationId: string;
+}
+
+function buildArchivedAudienceCleanupComponents(notificationId: string) {
+  if (!supportsDiscordInteractiveMessages()) {
+    return []
+  }
+
+  return [
+    new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`${playIntentNotificationPrefix}:${notificationId}:cleanup`)
+        .setLabel('Clean up messages')
+        .setStyle(ButtonStyle.Secondary)
+    )
+  ]
+}
+
+function buildArchivedCreatorCleanupComponents(playIntentId: string) {
+  if (!supportsDiscordInteractiveMessages()) {
+    return []
+  }
+
+  return [
+    new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`${creatorPlayIntentSummaryPrefix}:${playIntentId}:cleanup`)
+        .setLabel('Clean up messages')
+        .setStyle(ButtonStyle.Secondary)
+    )
+  ]
 }
 
 function summarizeArchivedPlayIntentGames(playIntent: {
@@ -54,18 +86,21 @@ function buildArchivedPlayIntentSummary(
     windowEndsAt: Date;
     user: {
       displayName: string;
+      identities?: { providerUserId: string }[];
     };
     games: { game: { title: string } }[];
   },
   timezoneId: string
 ) {
+  const creatorDiscordUserId = playIntent.user.identities?.[0]?.providerUserId
+  const creatorLabel = creatorDiscordUserId ? `<@${creatorDiscordUserId}>` : playIntent.user.displayName
   const gamesLabel = summarizeArchivedPlayIntentGames(playIntent)
   const windowLabel = formatPlayIntentWindowLabel(playIntent.windowStartsAt, playIntent.windowEndsAt, timezoneId)
 
   return {
     title: 'Call to play ended',
     body: [
-      `Creator: ${playIntent.user.displayName}`,
+      `Creator: ${creatorLabel}`,
       `Games: ${gamesLabel}`,
       `When: ${windowLabel}`,
       'Status: This call to play is no longer active.'
@@ -125,14 +160,21 @@ function getNotificationArchivePriority(type: NotificationType) {
   }
 }
 
-async function tryArchiveDirectMessage(candidates: ArchivedDirectMessageCandidate[], content: string, embeds: ReturnType<typeof buildArchivedPlayIntentEmbeds>) {
+async function tryArchiveDirectMessage(
+  candidates: ArchivedDirectMessageCandidate[],
+  content: string,
+  embeds: ReturnType<typeof buildArchivedPlayIntentEmbeds>,
+  components:
+    | ActionRowBuilder<MessageActionRowComponentBuilder>[]
+    | ((candidate: ArchivedDirectMessageCandidate) => ActionRowBuilder<MessageActionRowComponentBuilder>[]) = []
+) {
   for (const candidate of candidates) {
     const result = await editDiscordDirectMessage({
       channelId: candidate.channelId,
       messageId: candidate.messageId,
       content,
       embeds,
-      components: []
+      components: typeof components === 'function' ? components(candidate) : components
     })
 
     if (result.status === 'edited') {
@@ -204,6 +246,179 @@ async function clearCreatorSummaryDmReferences(playIntentIds: string[]) {
       creatorDiscordDmMessageId: null
     }
   })
+}
+
+export async function deletePlayIntentDirectMessages(playIntentId: string) {
+  const [playIntent, notifications] = await Promise.all([
+    prisma.playIntent.findUnique({
+      where: {
+        id: playIntentId
+      },
+      select: {
+        id: true,
+        creatorDiscordDmChannelId: true,
+        creatorDiscordDmMessageId: true
+      }
+    }),
+    prisma.notification.findMany({
+      where: {
+        playIntentId,
+        discordDmChannelId: {
+          not: null
+        },
+        discordDmMessageId: {
+          not: null
+        }
+      },
+      select: {
+        id: true,
+        discordDmChannelId: true,
+        discordDmMessageId: true
+      }
+    })
+  ])
+
+  if (!playIntent) {
+    return {
+      deletedCount: 0,
+      attemptedCount: 0
+    }
+  }
+
+  const trackedMessages = new Map<string, {
+    channelId: string;
+    messageId: string;
+    notificationIds: string[];
+    clearsCreatorSummary: boolean;
+  }>()
+
+  if (playIntent.creatorDiscordDmChannelId && playIntent.creatorDiscordDmMessageId) {
+    trackedMessages.set(`${playIntent.creatorDiscordDmChannelId}:${playIntent.creatorDiscordDmMessageId}`, {
+      channelId: playIntent.creatorDiscordDmChannelId,
+      messageId: playIntent.creatorDiscordDmMessageId,
+      notificationIds: [],
+      clearsCreatorSummary: true
+    })
+  }
+
+  for (const notification of notifications) {
+    if (!notification.discordDmChannelId || !notification.discordDmMessageId) {
+      continue
+    }
+
+    const key = `${notification.discordDmChannelId}:${notification.discordDmMessageId}`
+    const existingMessage = trackedMessages.get(key)
+
+    if (existingMessage) {
+      existingMessage.notificationIds.push(notification.id)
+      continue
+    }
+
+    trackedMessages.set(key, {
+      channelId: notification.discordDmChannelId,
+      messageId: notification.discordDmMessageId,
+      notificationIds: [notification.id],
+      clearsCreatorSummary: false
+    })
+  }
+
+  const deletedNotificationIds = new Set<string>()
+  let clearCreatorSummary = false
+  let deletedCount = 0
+
+  for (const trackedMessage of trackedMessages.values()) {
+    if (!(await tryDeleteDirectMessage(trackedMessage.channelId, trackedMessage.messageId))) {
+      continue
+    }
+
+    deletedCount += 1
+
+    for (const notificationId of trackedMessage.notificationIds) {
+      deletedNotificationIds.add(notificationId)
+    }
+
+    if (trackedMessage.clearsCreatorSummary) {
+      clearCreatorSummary = true
+    }
+  }
+
+  await Promise.all([
+    clearNotificationDmReferences([...deletedNotificationIds]),
+    clearCreatorSummary ? clearCreatorSummaryDmReferences([playIntentId]) : Promise.resolve()
+  ])
+
+  return {
+    deletedCount,
+    attemptedCount: trackedMessages.size
+  }
+}
+
+export async function deleteUserPlayIntentDirectMessages(playIntentId: string, userId: string) {
+  const notifications = await prisma.notification.findMany({
+    where: {
+      playIntentId,
+      userId,
+      discordDmChannelId: {
+        not: null
+      },
+      discordDmMessageId: {
+        not: null
+      }
+    },
+    select: {
+      id: true,
+      discordDmChannelId: true,
+      discordDmMessageId: true
+    }
+  })
+
+  const trackedMessages = new Map<string, {
+    channelId: string;
+    messageId: string;
+    notificationIds: string[];
+  }>()
+
+  for (const notification of notifications) {
+    if (!notification.discordDmChannelId || !notification.discordDmMessageId) {
+      continue
+    }
+
+    const key = `${notification.discordDmChannelId}:${notification.discordDmMessageId}`
+    const existingMessage = trackedMessages.get(key)
+
+    if (existingMessage) {
+      existingMessage.notificationIds.push(notification.id)
+      continue
+    }
+
+    trackedMessages.set(key, {
+      channelId: notification.discordDmChannelId,
+      messageId: notification.discordDmMessageId,
+      notificationIds: [notification.id]
+    })
+  }
+
+  const deletedNotificationIds = new Set<string>()
+  let deletedCount = 0
+
+  for (const trackedMessage of trackedMessages.values()) {
+    if (!(await tryDeleteDirectMessage(trackedMessage.channelId, trackedMessage.messageId))) {
+      continue
+    }
+
+    deletedCount += 1
+
+    for (const notificationId of trackedMessage.notificationIds) {
+      deletedNotificationIds.add(notificationId)
+    }
+  }
+
+  await clearNotificationDmReferences([...deletedNotificationIds])
+
+  return {
+    deletedCount,
+    attemptedCount: trackedMessages.size
+  }
 }
 
 export async function archivePlayIntentDirectMessages(options: {
@@ -278,7 +493,15 @@ export async function archivePlayIntentDirectMessages(options: {
         select: {
           id: true,
           displayName: true,
-          timezoneId: true
+          timezoneId: true,
+          identities: {
+            where: {
+              provider: AuthProvider.DISCORD
+            },
+            select: {
+              providerUserId: true
+            }
+          }
         }
       },
       games: {
@@ -400,7 +623,7 @@ export async function archivePlayIntentDirectMessages(options: {
     creatorCandidates.sort((left, right) => left.priority - right.priority)
 
     const keptCreatorMessageId = creatorCandidates.length > 0
-      ? await tryArchiveDirectMessage(creatorCandidates, '', creatorArchiveEmbeds)
+      ? await tryArchiveDirectMessage(creatorCandidates, '', creatorArchiveEmbeds, buildArchivedCreatorCleanupComponents(playIntent.id))
       : null
 
     if (keptCreatorMessageId) {
@@ -480,7 +703,7 @@ export async function archivePlayIntentDirectMessages(options: {
               discordUserId: recipientDiscordUserId,
               content: buildDiscordMessageHeading('🛑 Call to Play Ended'),
               embeds: archiveEmbeds,
-              components: []
+              components: buildArchivedAudienceCleanupComponents(archivedNotification.id)
             }
           ]))[0]
 
@@ -517,7 +740,12 @@ export async function archivePlayIntentDirectMessages(options: {
         continue
       }
 
-      const keptMessageId = await tryArchiveDirectMessage(candidates, buildDiscordMessageHeading('🛑 Call to Play Ended'), archiveEmbeds)
+      const keptMessageId = await tryArchiveDirectMessage(
+        candidates,
+        buildDiscordMessageHeading('🛑 Call to Play Ended'),
+        archiveEmbeds,
+        (candidate) => buildArchivedAudienceCleanupComponents((candidate as ArchivedNotificationCandidate).notificationId)
+      )
 
       if (!keptMessageId) {
         continue

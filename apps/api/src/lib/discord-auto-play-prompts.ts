@@ -244,6 +244,16 @@ function buildExpiredEmbeds(gameTitle: string, reason: string) {
   ]
 }
 
+function isMissingDiscordMessageError(error: string | null | undefined) {
+  return /Unknown Message/i.test(error ?? '')
+}
+
+function parseDeliveredPromptCount(statusDetail: string | null) {
+  const match = /^(\d+) Discord DM/i.exec(statusDetail ?? '')
+
+  return match ? Number(match[1]) : 0
+}
+
 export async function expireDiscordAutoPlayPromptsForInactiveObservations(observationIds: string[]) {
   if (observationIds.length === 0) {
     return
@@ -337,6 +347,12 @@ export function buildDiscordAutoPlayPromptPreview(options: {
   switch (options.status) {
     case DiscordAutoPlayPromptStatus.SKIPPED:
       return null
+    case DiscordAutoPlayPromptStatus.FAILED:
+      return {
+        content: buildDiscordMessageHeading(`🛑 ${options.gameTitle} Prompt Closed`),
+        embeds: buildExpiredEmbeds(options.gameTitle, options.statusDetail ?? `This ${options.gameTitle} prompt could not be completed.`),
+        components: [buildLinkRow()]
+      }
     case DiscordAutoPlayPromptStatus.DECLINED:
       return {
         content: buildDeclinedMessage(options.gameTitle),
@@ -384,6 +400,78 @@ export function buildDiscordAutoPlayPromptPreview(options: {
         embeds: buildInitialPromptEmbeds(options.gameTitle, options.networkRecipientCount),
         components: buildDurationRows(options.promptId)
       }
+  }
+}
+
+export async function refreshTrackedDiscordAutoPlayPromptDirectMessages() {
+  const prompts = await prisma.discordAutoPlayPrompt.findMany({
+    where: {
+      discordDmChannelId: {
+        not: null
+      },
+      discordDmMessageId: {
+        not: null
+      }
+    },
+    select: {
+      id: true,
+      status: true,
+      statusDetail: true,
+      durationMinutes: true,
+      notifyScope: true,
+      friendRecipientCount: true,
+      networkRecipientCount: true,
+      discordDmChannelId: true,
+      discordDmMessageId: true,
+      createdPlayIntentId: true,
+      game: {
+        select: {
+          title: true
+        }
+      }
+    }
+  })
+
+  for (const prompt of prompts) {
+    if (prompt.createdPlayIntentId || !prompt.discordDmChannelId || !prompt.discordDmMessageId) {
+      continue
+    }
+
+    const preview = buildDiscordAutoPlayPromptPreview({
+      promptId: prompt.id,
+      status: prompt.status,
+      gameTitle: prompt.game.title,
+      durationMinutes: prompt.durationMinutes,
+      notifyScope: prompt.notifyScope,
+      friendRecipientCount: prompt.friendRecipientCount,
+      networkRecipientCount: prompt.networkRecipientCount,
+      statusDetail: prompt.statusDetail,
+      deliveredCount: parseDeliveredPromptCount(prompt.statusDetail)
+    })
+
+    if (!preview) {
+      continue
+    }
+
+    const result = await editDiscordDirectMessage({
+      channelId: prompt.discordDmChannelId,
+      messageId: prompt.discordDmMessageId,
+      content: preview.content,
+      embeds: preview.embeds,
+      components: preview.components
+    })
+
+    if (result.status === 'failed' && isMissingDiscordMessageError(result.error)) {
+      await prisma.discordAutoPlayPrompt.update({
+        where: {
+          id: prompt.id
+        },
+        data: {
+          discordDmChannelId: null,
+          discordDmMessageId: null
+        }
+      })
+    }
   }
 }
 

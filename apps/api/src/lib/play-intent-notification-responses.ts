@@ -12,7 +12,11 @@ import {
   NotificationResponseChoice,
   NotificationType
 } from '@prisma/client'
-import { archivePlayIntentDirectMessages } from './discord-dm-cleanup.js'
+import {
+  archivePlayIntentDirectMessages,
+  deletePlayIntentDirectMessages,
+  deleteUserPlayIntentDirectMessages
+} from './discord-dm-cleanup.js'
 import {
   deleteDiscordDirectMessage,
   editDiscordDirectMessage,
@@ -30,6 +34,8 @@ import {
   formatLabeledDiscordLines
 } from './discord-dm-formatting.js'
 import { env } from './env.js'
+import { toClientGameCoverUrl } from './game-media.js'
+import { getInterestedUsersByPlayIntentId } from './play-intent-interested-users.js'
 import { prisma } from './prisma.js'
 import { formatPlayIntentDateLabel, formatPlayIntentWindowLabel } from './play-intent-time-format.js'
 
@@ -43,6 +49,10 @@ type PlayIntentNotificationAction = {
   response: PlayIntentRecipientResponse;
 }
 
+type PlayIntentCleanupAction = {
+  notificationId: string;
+}
+
 type PlayIntentMuteAction = {
   creatorUserId: string;
 }
@@ -54,7 +64,7 @@ type ScheduledPlayIntentCheckInAction = {
 
 type CreatorPlayIntentSummaryAction = {
   playIntentId: string;
-  action: 'cancel';
+  action: 'cancel' | 'cleanup';
 }
 
 type PlayIntentRecipientResponse = 'JOIN' | 'DECLINE'
@@ -186,6 +196,37 @@ function buildCreatorSummaryActionRow(playIntentId: string) {
       .setLabel('Cancel call to play')
       .setStyle(ButtonStyle.Danger)
   )
+}
+
+function buildCreatorSummaryCleanupRow(playIntentId: string) {
+  return new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`${creatorPlayIntentSummaryPrefix}:${playIntentId}:cleanup`)
+      .setLabel('Clean up messages')
+      .setStyle(ButtonStyle.Secondary)
+  )
+}
+
+function buildArchivedPlayIntentCleanupRow(notificationId: string) {
+  return new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`${playIntentNotificationPrefix}:${notificationId}:cleanup`)
+      .setLabel('Clean up messages')
+      .setStyle(ButtonStyle.Secondary)
+  )
+}
+
+function buildArchivedPlayIntentCleanupComponents(
+  notificationId: string,
+  options: {
+    forceInteractive?: boolean;
+  } = {}
+) {
+  if (!(options.forceInteractive ?? supportsDiscordInteractiveMessages())) {
+    return []
+  }
+
+  return [buildArchivedPlayIntentCleanupRow(notificationId)]
 }
 
 function buildResponseRow(
@@ -723,8 +764,10 @@ export function buildNotificationDirectMessagePreview(options: {
   if (options.notificationType === NotificationType.SYSTEM && options.title === 'Call to play ended') {
     return {
       content: buildDiscordMessageHeading('🛑 Call to Play Ended'),
-      embeds: buildArchivedPlayIntentEmbeds(options.body),
-      components: []
+      embeds: buildArchivedPlayIntentEmbeds(previewBody),
+      components: buildArchivedPlayIntentCleanupComponents(options.notificationId, {
+        forceInteractive: true
+      })
     }
   }
 
@@ -744,11 +787,14 @@ function buildCreatorPlayIntentSummaryComponents(
     forceInteractive?: boolean;
   } = {}
 ) {
-  if (!isActive || !(options.forceInteractive ?? supportsDiscordInteractiveMessages())) {
+  if (!(options.forceInteractive ?? supportsDiscordInteractiveMessages())) {
     return [buildLinkRow()]
   }
 
-  return appendOpenInAppButton([buildCreatorSummaryActionRow(playIntentId)], buildPlayUrl())
+  return appendOpenInAppButton(
+    [isActive ? buildCreatorSummaryActionRow(playIntentId) : buildCreatorSummaryCleanupRow(playIntentId)],
+    buildPlayUrl()
+  )
 }
 
 function formatSummaryWindow(startsAt: Date, endsAt: Date, timezoneId: string) {
@@ -1268,6 +1314,267 @@ export async function syncCreatorPlayIntentSummaryMessages(
   }
 }
 
+export async function refreshTrackedCreatorPlayIntentSummaryMessages() {
+  const trackedPlayIntentIds = (await prisma.playIntent.findMany({
+    where: {
+      creatorDiscordDmChannelId: {
+        not: null
+      },
+      creatorDiscordDmMessageId: {
+        not: null
+      }
+    },
+    select: {
+      id: true
+    }
+  })).map((playIntent) => playIntent.id)
+
+  for (const playIntentId of trackedPlayIntentIds) {
+    const snapshot = await getCreatorPlayIntentSummarySnapshot(playIntentId)
+
+    if (!snapshot?.creatorDiscordDmChannelId || !snapshot.creatorDiscordDmMessageId) {
+      continue
+    }
+
+    const currentTime = new Date()
+    const startsAtLabel = formatPlayIntentDateLabel(snapshot.windowStartsAt, snapshot.user.timezoneId)
+    const result = await editDiscordDirectMessage({
+      channelId: snapshot.creatorDiscordDmChannelId,
+      messageId: snapshot.creatorDiscordDmMessageId,
+      content: buildCreatorPlayIntentSummaryHeading(startsAtLabel),
+      embeds: buildCreatorPlayIntentSummaryEmbeds(snapshot, currentTime),
+      components: buildCreatorPlayIntentSummaryComponents(snapshot.id, snapshot.expiresAt > currentTime)
+    })
+
+    if (result.status === 'failed' && isMissingDiscordMessageError(result.error)) {
+      await prisma.playIntent.update({
+        where: {
+          id: playIntentId
+        },
+        data: {
+          creatorDiscordDmChannelId: null,
+          creatorDiscordDmMessageId: null
+        }
+      })
+    }
+  }
+}
+
+export async function refreshTrackedPlayIntentNotificationDirectMessages() {
+  const notifications = await prisma.notification.findMany({
+    where: {
+      discordDmChannelId: {
+        not: null
+      },
+      discordDmMessageId: {
+        not: null
+      }
+    },
+    select: {
+      id: true,
+      userId: true,
+      triggeredByUserId: true,
+      playIntentId: true,
+      type: true,
+      title: true,
+      body: true,
+      responseChoice: true,
+      discordDmChannelId: true,
+      discordDmMessageId: true,
+      game: {
+        select: {
+          title: true
+        }
+      },
+      playIntent: {
+        select: {
+          id: true,
+          userId: true,
+          selectionMode: true,
+          expiresAt: true,
+          voiceChannelId: true,
+          voiceChannelName: true,
+          games: {
+            select: {
+              game: {
+                select: {
+                  title: true,
+                  coverUrl: true
+                }
+              }
+            }
+          },
+          user: {
+            select: {
+              id: true,
+              displayName: true,
+              identities: {
+                where: {
+                  provider: AuthProvider.DISCORD
+                },
+                select: {
+                  providerUserId: true
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    orderBy: {
+      createdAt: 'asc'
+    }
+  })
+
+  const now = new Date()
+  const playIntentIds = [...new Set(notifications.map((notification) => notification.playIntentId).filter((playIntentId): playIntentId is string => Boolean(playIntentId)))]
+  const interestedUsersByPlayIntentId = await getInterestedUsersByPlayIntentId(playIntentIds)
+  const triggeredByUserIds = [...new Set(notifications.map((notification) => notification.triggeredByUserId).filter((userId): userId is string => Boolean(userId)))]
+  const actors = triggeredByUserIds.length > 0
+    ? await prisma.user.findMany({
+        where: {
+          id: {
+            in: triggeredByUserIds
+          }
+        },
+        select: {
+          id: true,
+          displayName: true,
+          identities: {
+            where: {
+              provider: AuthProvider.DISCORD
+            },
+            select: {
+              providerUserId: true
+            }
+          }
+        }
+      })
+    : []
+  const actorByUserId = new Map(actors.map((actor) => [actor.id, actor]))
+
+  const voiceChannelNotifications = notifications.filter((notification) =>
+    notification.playIntent?.voiceChannelId && notification.playIntent.userId !== notification.userId
+  )
+  const creatorIdsWithVoiceChannels = [...new Set(voiceChannelNotifications.map((notification) => notification.playIntent?.userId).filter((userId): userId is string => Boolean(userId)))]
+  const creatorMemberships = creatorIdsWithVoiceChannels.length > 0
+    ? await prisma.discordServerMembership.findMany({
+        where: {
+          userId: {
+            in: creatorIdsWithVoiceChannels
+          }
+        },
+        select: {
+          userId: true,
+          serverId: true
+        }
+      })
+    : []
+  const creatorServerIdsByUserId = new Map<string, Set<string>>()
+
+  for (const membership of creatorMemberships) {
+    const serverIds = creatorServerIdsByUserId.get(membership.userId) ?? new Set<string>()
+    serverIds.add(membership.serverId)
+    creatorServerIdsByUserId.set(membership.userId, serverIds)
+  }
+
+  const relevantRecipientUserIds = [...new Set(voiceChannelNotifications.map((notification) => notification.userId))]
+  const relevantServerIds = [...new Set(creatorMemberships.map((membership) => membership.serverId))]
+  const recipientMemberships = relevantRecipientUserIds.length > 0 && relevantServerIds.length > 0
+    ? await prisma.discordServerMembership.findMany({
+        where: {
+          userId: {
+            in: relevantRecipientUserIds
+          },
+          serverId: {
+            in: relevantServerIds
+          }
+        },
+        select: {
+          userId: true,
+          serverId: true
+        }
+      })
+    : []
+  const recipientServerIdsByUserId = new Map<string, Set<string>>()
+
+  for (const membership of recipientMemberships) {
+    const serverIds = recipientServerIdsByUserId.get(membership.userId) ?? new Set<string>()
+    serverIds.add(membership.serverId)
+    recipientServerIdsByUserId.set(membership.userId, serverIds)
+  }
+
+  for (const notification of notifications) {
+    if (!notification.discordDmChannelId || !notification.discordDmMessageId) {
+      continue
+    }
+
+    const playIntent = notification.playIntent
+    const interestedUsers = notification.playIntentId
+      ? interestedUsersByPlayIntentId.get(notification.playIntentId) ?? []
+      : []
+    const creatorDiscordUserId = playIntent?.user.identities[0]?.providerUserId ?? null
+    const actor = notification.triggeredByUserId ? actorByUserId.get(notification.triggeredByUserId) ?? null : null
+    const creatorServerIds = playIntent?.userId ? creatorServerIdsByUserId.get(playIntent.userId) ?? new Set<string>() : new Set<string>()
+    const recipientServerIds = recipientServerIdsByUserId.get(notification.userId) ?? new Set<string>()
+    const recipientSharesServer = creatorServerIds.size > 0
+      ? [...creatorServerIds].some((serverId) => recipientServerIds.has(serverId))
+      : false
+    const voiceChannel = playIntent?.voiceChannelId || playIntent?.voiceChannelName
+      ? {
+          channelId: playIntent?.voiceChannelId ?? null,
+          channelName: playIntent?.voiceChannelName ?? null,
+          recipientSharesServer
+        }
+      : null
+
+    const preview = buildNotificationDirectMessagePreview({
+      notificationId: notification.id,
+      notificationType: notification.type,
+      title: notification.title,
+      body: notification.body,
+      responseChoice: notification.responseChoice,
+      creatorUserId: playIntent?.user.id ?? null,
+      creatorDiscordUserId,
+      creatorDisplayName: playIntent?.user.displayName ?? null,
+      gameTitle: notification.game?.title ?? null,
+      playIntentIsActive: playIntent ? playIntent.expiresAt > now : false,
+      voiceChannel,
+      joinCount: interestedUsers.length > 0 ? interestedUsers.length : undefined,
+      interestedUserLabels: interestedUsers.map((user) => user.displayName),
+      actorDisplayName: actor?.displayName ?? null,
+      actorDiscordUserId: actor?.identities[0]?.providerUserId ?? null
+    })
+
+    const embeds = notification.type === NotificationType.FRIEND_PLAYING && playIntent
+      ? [
+          ...(preview.embeds ?? []),
+          ...buildPlayIntentGameEmbeds(playIntent)
+        ]
+      : preview.embeds
+
+    const result = await editDiscordDirectMessage({
+      channelId: notification.discordDmChannelId,
+      messageId: notification.discordDmMessageId,
+      content: preview.content,
+      embeds,
+      components: preview.components
+    })
+
+    if (result.status === 'failed' && isMissingDiscordMessageError(result.error)) {
+      await prisma.notification.update({
+        where: {
+          id: notification.id
+        },
+        data: {
+          discordDmChannelId: null,
+          discordDmMessageId: null
+        }
+      })
+    }
+  }
+}
+
 function buildExpiredMessage(reason: string) {
   return buildDiscordPlainMessage(
     '⌛ Call to Play Closed',
@@ -1380,6 +1687,48 @@ function buildAnonymousPassResultMessage(message: string) {
   )
 }
 
+function isMissingDiscordMessageError(error: string | null | undefined) {
+  return /Unknown Message/i.test(error ?? '')
+}
+
+function buildPlayIntentGameEmbeds(playIntent: {
+  selectionMode: 'ENTIRE_LIBRARY' | 'SELECTED_GAMES';
+  games: { game: { title: string; coverUrl: string | null } }[];
+}) {
+  if (playIntent.selectionMode !== 'SELECTED_GAMES' || playIntent.games.length === 0 || playIntent.games.length >= 12) {
+    return []
+  }
+
+  const gamesWithCover = playIntent.games
+    .map((entry) => ({
+      title: entry.game.title,
+      coverUrl: toClientGameCoverUrl(entry.game.coverUrl)
+    }))
+    .filter((entry): entry is { title: string; coverUrl: string } => Boolean(entry.coverUrl))
+
+  if (gamesWithCover.length === 0) {
+    return []
+  }
+
+  if (gamesWithCover.length === 1) {
+    const firstGame = gamesWithCover[0]!
+
+    return [{
+      title: `Game: ${firstGame.title}`,
+      image: { url: firstGame.coverUrl }
+    }]
+  }
+
+  const firstGame = gamesWithCover[0]!
+  const bulletList = gamesWithCover.map((game) => `• ${game.title}`).join('\n')
+
+  return [{
+    title: `${gamesWithCover.length} games`,
+    description: bulletList,
+    image: { url: firstGame.coverUrl }
+  }]
+}
+
 function parseAction(customId: string): PlayIntentNotificationAction | null {
   const parts = customId.split(':')
 
@@ -1409,6 +1758,18 @@ function parseAction(customId: string): PlayIntentNotificationAction | null {
   }
 
   return null
+}
+
+function parseCleanupAction(customId: string): PlayIntentCleanupAction | null {
+  const parts = customId.split(':')
+
+  if (parts.length !== 3 || parts[0] !== playIntentNotificationPrefix || !parts[1] || parts[2] !== 'cleanup') {
+    return null
+  }
+
+  return {
+    notificationId: parts[1]
+  }
 }
 
 function parseMuteAction(customId: string): PlayIntentMuteAction | null {
@@ -1454,13 +1815,13 @@ function parseCreatorPlayIntentSummaryAction(customId: string): CreatorPlayInten
     return null
   }
 
-  if (parts[2] !== 'cancel') {
+  if (parts[2] !== 'cancel' && parts[2] !== 'cleanup') {
     return null
   }
 
   return {
     playIntentId: parts[1],
-    action: 'cancel'
+    action: parts[2]
   }
 }
 
@@ -2407,16 +2768,24 @@ export async function handlePlayIntentNotificationInteraction(interaction: Butto
     return
   }
 
+  const cleanupAction = parseCleanupAction(interaction.customId)
+
   const action = parseAction(interaction.customId)
 
-  if (!action) {
+  if (!cleanupAction && !action) {
+    return
+  }
+
+  const targetNotificationId = cleanupAction?.notificationId ?? action?.notificationId
+
+  if (!targetNotificationId) {
     return
   }
 
   const [notification, identity] = await Promise.all([
     prisma.notification.findUnique({
       where: {
-        id: action.notificationId
+        id: targetNotificationId
       },
       select: {
         id: true,
@@ -2488,6 +2857,24 @@ export async function handlePlayIntentNotificationInteraction(interaction: Butto
       content: buildExpiredMessage('This prompt is not available for your account anymore.'),
       components: [buildLinkRow()]
     })
+    return
+  }
+
+  if (cleanupAction) {
+    if (!notification.playIntentId) {
+      await interaction.update({
+        content: buildExpiredMessage('These messages are not available for cleanup anymore.'),
+        components: [buildLinkRow()]
+      })
+      return
+    }
+
+    await interaction.deferUpdate()
+    await deleteUserPlayIntentDirectMessages(notification.playIntentId, notification.userId)
+    return
+  }
+
+  if (!action) {
     return
   }
 
@@ -2624,6 +3011,20 @@ export async function handleCreatorPlayIntentSummaryInteraction(interaction: But
       content: 'This call-to-play summary is not available for your account anymore.',
       components: [buildLinkRow()]
     })
+    return
+  }
+
+  if (action.action === 'cleanup') {
+    if (playIntent.expiresAt > new Date()) {
+      await interaction.update({
+        content: 'This call to play is still active.',
+        components: [buildLinkRow()]
+      })
+      return
+    }
+
+    await interaction.deferUpdate()
+    await deletePlayIntentDirectMessages(playIntent.id)
     return
   }
 

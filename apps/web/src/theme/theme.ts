@@ -62,9 +62,4 @@ export const theme = extendTheme({
       }
     }
   },
-  radius: {
-    sm: '10px',
-    md: '18px',
-    lg: '26px'
-  }
 })
