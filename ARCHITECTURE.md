@@ -24,7 +24,7 @@ The product loop is intentionally narrow:
 5. Notifications trigger when a friend or opted-in shared-server user expresses intent that overlaps with the recipient.
 6. Discord-delivered call-to-play notifications can capture an explicit interested response from the recipient and fan a confirmation back to the original creator.
 
-Game catalog search is provider-backed rather than store-specific. The current implementation targets a broad catalog source and normalizes platform labels so the product can treat a title as one canonical game with multiple supported platforms.
+Game catalog search is provider-backed rather than store-specific. The current implementation targets a broad catalog source and normalizes platform labels so the product can treat a title as one canonical game with multiple supported platforms. Catalog lookup also normalizes storefront-only title decoration such as trademark symbols so Steam imports, manual entry, and Discord activity resolution can converge on the same canonical game row.
 
 ## Media proxy and caching
 
@@ -85,7 +85,7 @@ That same presence stream now powers one-time launch alerts for active single-ga
 
 The API now runs a lightweight cleanup sweep for expired play intents so unanswered Discord invite prompts can be marked expired and rewritten even if the affected users do not immediately reopen the app. On process start, that same maintenance pass also refreshes tracked Discord DM content so restored environments do not leave stale buttons, embeds, or summary states behind.
 
-Discord presence tracking now also maintains a lossy observed-game history keyed by Discord identity rather than only by app user. That lets the library API return suggested games based on titles the bot has seen the user playing, while still allowing non-members to contribute to the raw observation set.
+Discord presence tracking now also maintains a lossy observed-game history keyed by Discord identity rather than only by app user. That lets the library API return suggested games based on titles the bot has seen the user playing, while still allowing non-members to contribute to the raw observation set. On API startup, a lightweight maintenance pass also repairs preexisting duplicate game rows whose titles collapse to the same normalized form so older trademark-split records do not keep fragmenting library, prompt, and observation state.
 
 Discovery currently depends on explicit app friendships plus opted-in shared Discord servers. The Discord Activity-based friend import path has been removed.
 

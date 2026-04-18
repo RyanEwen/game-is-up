@@ -238,7 +238,8 @@ This repo now treats Prisma migrations as the source of truth for schema changes
 4. Sign in with Discord first, open the Library tab, then use the Add games from Steam button to connect Steam and preview owned games.
 5. Steam import respects the existing library model: the app shows a picker first and only imports the titles the user selects.
 6. Steam import normalizes punctuation, trademark markers, and similar storefront-only title differences before matching against existing catalog games, so reused RAWG-backed games can keep the Steam source plus the original Steam spelling as an alias.
-6. Steam may return no importable games when the account's game details are private or effectively unavailable to the API, so manual add should remain the fallback.
+7. The same normalized-title matching is also used when the app records Discord-observed activity, and API startup now repairs previously split duplicate game rows that only differ by storefront-only title decoration such as trademark symbols.
+8. Steam may return no importable games when the account's game details are private or effectively unavailable to the API, so manual add should remain the fallback.
 
 ## Game catalog provider
 

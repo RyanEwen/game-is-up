@@ -42,11 +42,17 @@ function normalizeTitle(title: string): string {
   return title.replace(/\s+/g, ' ').trim()
 }
 
-export function normalizeGameTitleForMatch(title: string): string {
+export function normalizeGameTitleForCatalogLookup(title: string): string {
   return normalizeTitle(title)
     .normalize('NFKD')
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/[™®©]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+export function normalizeGameTitleForMatch(title: string): string {
+  return normalizeGameTitleForCatalogLookup(title)
     .replace(/['’`]/g, '')
     .replace(/[^a-zA-Z0-9]+/g, ' ')
     .replace(/\s+/g, ' ')
@@ -69,7 +75,7 @@ function normalizeSearchResultId(source: string, sourceId: string): string {
 async function findExistingGameByTitle(title: string) {
   const normalizedTitle = normalizeTitle(title)
 
-  return prisma.game.findFirst({
+  const exactMatch = await prisma.game.findFirst({
     where: {
       OR: [
         {
@@ -91,6 +97,111 @@ async function findExistingGameByTitle(title: string) {
       ]
     }
   })
+
+  if (exactMatch) {
+    return exactMatch
+  }
+
+  return findExistingGameByNormalizedTitle(normalizedTitle)
+}
+
+function countCanonicalSources(sources: Array<{ canonical: boolean }>) {
+  return sources.filter((source) => source.canonical).length
+}
+
+function gameTitleDecorationPenalty(title: string) {
+  return (title.match(/[™®©]/g) ?? []).length * 10
+    + (title.match(/[^\w\s]/g) ?? []).length
+}
+
+async function findExistingGameByNormalizedTitle(title: string) {
+  const normalizedMatchTitle = normalizeGameTitleForMatch(title)
+
+  if (!normalizedMatchTitle) {
+    return null
+  }
+
+  const searchToken = normalizedMatchTitle
+    .split(' ')
+    .sort((left, right) => right.length - left.length)[0]
+
+  if (!searchToken) {
+    return null
+  }
+
+  const candidates = await prisma.game.findMany({
+    where: {
+      OR: [
+        {
+          title: {
+            contains: searchToken,
+            mode: 'insensitive'
+          }
+        },
+        {
+          aliases: {
+            some: {
+              alias: {
+                contains: searchToken,
+                mode: 'insensitive'
+              }
+            }
+          }
+        }
+      ]
+    },
+    include: {
+      aliases: {
+        select: {
+          alias: true
+        }
+      },
+      sources: {
+        select: {
+          canonical: true
+        }
+      }
+    }
+  })
+
+  const normalizedMatches = candidates.filter((candidate) => (
+    normalizeGameTitleForMatch(candidate.title) === normalizedMatchTitle
+    || candidate.aliases.some((aliasEntry) => normalizeGameTitleForMatch(aliasEntry.alias) === normalizedMatchTitle)
+  ))
+
+  normalizedMatches.sort((left, right) => {
+    const leftTitleMatch = normalizeGameTitleForMatch(left.title) === normalizedMatchTitle
+    const rightTitleMatch = normalizeGameTitleForMatch(right.title) === normalizedMatchTitle
+
+    if (leftTitleMatch !== rightTitleMatch) {
+      return leftTitleMatch ? -1 : 1
+    }
+
+    const canonicalSourceDifference = countCanonicalSources(right.sources) - countCanonicalSources(left.sources)
+
+    if (canonicalSourceDifference !== 0) {
+      return canonicalSourceDifference
+    }
+
+    const sourceDifference = right.sources.length - left.sources.length
+
+    if (sourceDifference !== 0) {
+      return sourceDifference
+    }
+
+    const decorationDifference = gameTitleDecorationPenalty(left.title) - gameTitleDecorationPenalty(right.title)
+
+    if (decorationDifference !== 0) {
+      return decorationDifference
+    }
+
+    return left.title.localeCompare(right.title, undefined, {
+      sensitivity: 'base',
+      numeric: true
+    })
+  })
+
+  return normalizedMatches[0] ?? null
 }
 
 async function ensureGameAlias(gameId: string, alias: string) {
@@ -207,7 +318,13 @@ async function findCatalogBackedMatchByTitle(
     return null
   }
 
-  const providerResults = await searchRawgGamesByTitle(title)
+  const providerResults = [...new Map((await Promise.all(
+    [...new Set([normalizeTitle(title), normalizeGameTitleForCatalogLookup(title)].filter(Boolean))]
+      .map((searchTitle) => searchRawgGamesByTitle(searchTitle))
+  ))
+    .flat()
+    .map((result) => [`${result.source}:${result.sourceId}`, result])
+  ).values()]
   const normalizedMatchTitle = normalizeGameTitleForMatch(title)
   const exactNormalizedResult = providerResults.find((result) => titlesConfidentlyMatch(result.title, title))
 
