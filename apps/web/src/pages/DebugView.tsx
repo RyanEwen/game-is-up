@@ -85,7 +85,10 @@ function formatDeliveryStateLabel(deliveryState: 'emulated' | 'stored-only' | 'd
 }
 
 function DmMarkdown({ content }: { content: string }) {
-  const normalizedContent = content.replace(/(^|\n)-#\s+/g, '$1> ')
+  const blocks = content
+    .split(/\n\n+/)
+    .map((block) => block.trim())
+    .filter((block) => block.length > 0)
 
   return (
     <Box
@@ -96,9 +99,6 @@ function DmMarkdown({ content }: { content: string }) {
         '& > :last-child': { mb: 0 },
         '& p, & ul, & ol, & pre, & blockquote': {
           m: 0
-        },
-        '& p + p, & p + ul, & p + ol, & ul + p, & ol + p, & ul + ul, & ol + ol, & blockquote + p, & pre + p': {
-          mt: 1.25
         },
         '& ul, & ol': {
           pl: 3
@@ -132,29 +132,48 @@ function DmMarkdown({ content }: { content: string }) {
         '& pre code': {
           p: 0,
           bgcolor: 'transparent'
-        },
-        '& blockquote': {
-          pl: 1.5,
-          borderLeft: '3px solid rgba(111, 217, 255, 0.3)',
-          color: 'neutral.300'
         }
       }}
     >
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm, remarkBreaks]}
-        components={{
-          a: ({ children, href, node, title }) => {
-            void node
-            return (
-              <Link href={href} title={title} target="_blank" rel="noreferrer">
-                {children}
-              </Link>
-            )
-          }
-        }}
-      >
-        {normalizedContent}
-      </ReactMarkdown>
+      <Stack spacing={1.25}>
+        {blocks.map((block, index) => {
+          const lines = block.split('\n').map((line) => line.trim()).filter((line) => line.length > 0)
+          const isSubtextBlock = lines.length > 0 && lines.every((line) => line.startsWith('-# '))
+          const markdownContent = isSubtextBlock
+            ? lines.map((line) => line.replace(/^-#\s+/, '')).join('\n')
+            : block
+
+          return (
+            <Box
+              key={`dm-markdown-block-${index}`}
+              sx={isSubtextBlock
+                ? {
+                    color: 'neutral.400',
+                    fontSize: '0.82rem',
+                    lineHeight: 1.45,
+                    letterSpacing: '0.01em'
+                  }
+                : undefined}
+            >
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm, remarkBreaks]}
+                components={{
+                  a: ({ children, href, node, title }) => {
+                    void node
+                    return (
+                      <Link href={href} title={title} target="_blank" rel="noreferrer">
+                        {children}
+                      </Link>
+                    )
+                  }
+                }}
+              >
+                {markdownContent}
+              </ReactMarkdown>
+            </Box>
+          )
+        })}
+      </Stack>
     </Box>
   )
 }

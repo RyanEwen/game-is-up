@@ -23,7 +23,7 @@ import {
   appendOpenInAppButton,
   buildDiscordBulletSection,
   buildDiscordMessageHeading,
-  buildDiscordNotice,
+  buildDiscordPlainMessage,
   buildDiscordSection,
   buildDiscordSubtext,
   buildOpenInAppButton,
@@ -303,10 +303,6 @@ function buildDirectMessageBulletSection(label: string, items: string[]) {
   return buildDiscordBulletSection(label, items, buildDirectMessageSectionHeading)
 }
 
-function buildDirectMessageNotice(title: string, sections: Array<string | null>, subtext?: string | null) {
-  return buildDiscordNotice(title, sections, subtext)
-}
-
 const dmEmbedColors = {
   info: 0x3b82f6,
   warning: 0xf59e0b,
@@ -406,7 +402,10 @@ export function buildPlayIntentDirectMessageEmbeds(
   creatorDisplayName?: string | null,
   voiceChannel?: { channelId: string | null; channelName: string | null; recipientSharesServer: boolean } | null,
   joinCount?: number,
-  interestedUserLabels?: string[]
+  interestedUserLabels?: string[],
+  options: {
+    includeUpdateDescription?: boolean;
+  } = {}
 ) {
   const creatorLabel = creatorDisplayName
     ? buildDiscordUserLabel(creatorDisplayName, creatorDiscordUserId)
@@ -456,7 +455,7 @@ export function buildPlayIntentDirectMessageEmbeds(
     ]))
     .setFooter({ text: 'Respond from the buttons below or open the app.' })
 
-  if (updateField?.value) {
+  if ((options.includeUpdateDescription ?? true) && updateField?.value) {
     embed.setDescription(updateField.value)
   }
 
@@ -702,7 +701,11 @@ export function buildNotificationDirectMessagePreview(options: {
         options.creatorDisplayName,
         options.voiceChannel,
         options.joinCount,
-        options.interestedUserLabels
+        options.interestedUserLabels,
+        {
+          includeUpdateDescription: options.notificationType !== NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED
+            && options.notificationType !== NotificationType.SCHEDULED_PLAY_INTENT_REMINDER
+        }
       ),
       components: buildPlayIntentNotificationComponents(
         options.notificationId,
@@ -726,7 +729,10 @@ export function buildNotificationDirectMessagePreview(options: {
   }
 
   return {
-    content: [buildDiscordMessageHeading(options.title), previewBody].filter(Boolean).join('\n\n'),
+    content: buildDiscordPlainMessage(
+      buildDiscordMessageHeading(options.title),
+      previewBody.split('\n')
+    ),
     components: [buildLinkRow()]
   }
 }
@@ -1263,34 +1269,38 @@ export async function syncCreatorPlayIntentSummaryMessages(
 }
 
 function buildExpiredMessage(reason: string) {
-  return buildDirectMessageNotice(
+  return buildDiscordPlainMessage(
     '⌛ Call to Play Closed',
     [
-      '> This call-to-play prompt is no longer available.',
-      `> ${reason}`
+      'This call-to-play prompt is no longer available.',
+      reason
     ],
-    'Open the app if you still want to coordinate or post your own call to play.'
+    {
+      trailingSubtext: 'Open the app if you still want to coordinate or post your own call to play.'
+    }
   )
 }
 
 function buildJoinAcceptedMessage(creatorLabel: string) {
-  return buildDirectMessageNotice(
+  return buildDiscordPlainMessage(
     '✅ You\'re In',
     [
-      '> You are marked as interested.',
-      `> ${creatorLabel} has been notified.`
+      'You are marked as interested.',
+      `${creatorLabel} has been notified.`
     ]
   )
 }
 
 function buildPassAcceptedMessage() {
-  return buildDirectMessageNotice(
+  return buildDiscordPlainMessage(
     '👍 Passed for Now',
     [
-      '> You are marked as passing for now.',
-      '> Passing is anonymous.'
+      'You are marked as passing for now.',
+      'Passing is anonymous.'
     ],
-    'You can still switch to "I\'m interested" later.'
+    {
+      trailingSubtext: 'You can still switch to "I\'m interested" later.'
+    }
   )
 }
 
@@ -1301,44 +1311,46 @@ function buildSessionEndedReason(creatorLabel: string, gameTitle: string | null)
 }
 
 function buildCreatorConfirmedMessage() {
-  return buildDirectMessageNotice(
+  return buildDiscordPlainMessage(
     '✅ Call Confirmed',
     [
-      '> I let everyone know your call to play is still on.',
-      '> I reminded anyone who had not answered yet.'
+      'I let everyone know your call to play is still on.',
+      'I reminded anyone who had not answered yet.'
     ]
   )
 }
 
 function buildCreatorCanceledMessage() {
-  return buildDirectMessageNotice(
+  return buildDiscordPlainMessage(
     '🛑 Call Closed',
     [
-      '> I closed this call to play.',
-      '> I let your audience know it was closed.'
+      'I closed this call to play.',
+      'I let your audience know it was closed.'
     ],
-    'You can post a fresh call to play whenever you are ready.'
+    {
+      trailingSubtext: 'You can post a fresh call to play whenever you are ready.'
+    }
   )
 }
 
 function buildCreatorCheckInAlreadyHandledMessage(responseChoice: NotificationResponseChoice | null) {
   if (responseChoice === NotificationResponseChoice.CONFIRMED) {
-    return buildDirectMessageNotice(
+    return buildDiscordPlainMessage(
       'ℹ️ Already Handled',
-      ['> You already confirmed that this call to play is still on.']
+      ['You already confirmed that this call to play is still on.']
     )
   }
 
   if (responseChoice === NotificationResponseChoice.CANCELED) {
-    return buildDirectMessageNotice(
+    return buildDiscordPlainMessage(
       'ℹ️ Already Handled',
-      ['> You already marked this call to play as not happening.']
+      ['You already marked this call to play as not happening.']
     )
   }
 
-  return buildDirectMessageNotice(
+  return buildDiscordPlainMessage(
     'ℹ️ Already Handled',
-    ['> This check-in was already handled earlier.']
+    ['This check-in was already handled earlier.']
   )
 }
 
@@ -1357,12 +1369,14 @@ function buildGoTimeReminderCopy(creatorDisplayName: string) {
 }
 
 function buildAnonymousPassResultMessage(message: string) {
-  return buildDirectMessageNotice(
+  return buildDiscordPlainMessage(
     '👍 Passed for Now',
     [
-      `> ${message}`
+      message
     ],
-    'Passing is anonymous.'
+    {
+      trailingSubtext: 'Passing is anonymous.'
+    }
   )
 }
 
@@ -1566,7 +1580,10 @@ async function applyRecipientResponseToPlayIntentNotification(options: {
       const dmResult = (await sendDiscordDirectMessages([
         {
           discordUserId: creatorDiscordUserId,
-          content: [buildDiscordMessageHeading(passResult.title), creatorNotificationCopy.discordBody].join('\n\n'),
+          content: buildDiscordPlainMessage(
+            buildDiscordMessageHeading(passResult.title),
+            [creatorNotificationCopy.discordBody]
+          ),
           components: [buildLinkRow()]
         }
       ]))[0]
@@ -1657,7 +1674,10 @@ async function applyRecipientResponseToPlayIntentNotification(options: {
     const dmResult = (await sendDiscordDirectMessages([
       {
         discordUserId: creatorDiscordUserId,
-        content: [buildDiscordMessageHeading(joinResult.title), creatorNotificationCopy.discordBody].join('\n\n'),
+        content: buildDiscordPlainMessage(
+          buildDiscordMessageHeading(joinResult.title),
+          [creatorNotificationCopy.discordBody]
+        ),
         components: [buildLinkRow()]
       }
     ]))[0]
@@ -2320,7 +2340,11 @@ export async function handleScheduledPlayIntentCheckInInteraction(interaction: B
           playIntent.user.displayName,
           null,
           result.priorAcceptedCount,
-          acceptedUserLabels
+          acceptedUserLabels,
+          {
+            includeUpdateDescription: createdNotification.type !== NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED
+              && createdNotification.type !== NotificationType.SCHEDULED_PLAY_INTENT_REMINDER
+          }
         ),
         components: buildPlayIntentNotificationComponents(
           createdNotification.id,

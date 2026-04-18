@@ -216,6 +216,8 @@ export const playIntentPreviewUserSchema = z.object({
 export const playIntentPreviewSchema = z.object({
   id: z.string().uuid(),
   title: z.string().min(1),
+  status: z.enum(['active', 'closed']),
+  appliesToViewer: z.boolean(),
   user: playIntentPreviewUserSchema,
   selectionMode: playIntentSelectionModeSchema,
   notifyScope: playIntentNotifyScopeSchema,

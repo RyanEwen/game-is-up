@@ -200,7 +200,9 @@ export function useDashboardApp() {
   const hasDiscoveryGames = discoveryGames.length > 0
   const hasDiscoveryPeople = discoveryPeople.length > 0
   const hasDiscoveryContent = hasDiscoveryGames || hasDiscoveryPeople
-  const hasPlayIntentPreviews = Boolean(state.playIntents && state.playIntents.intents.length > 0)
+  const hasPlayIntentPreviews = Boolean(
+    state.playIntents && state.playIntents.intents.some((intent) => intent.status === 'active' && intent.appliesToViewer)
+  )
   const showSignedInOnboarding = isSignedIn && !hasLibraryEntries && !hasDiscoveryContent && !hasPlayIntentPreviews
   const availableDiscoveryServers = (state.discordServers?.servers ?? []).filter((server: DiscordServerPreferencesResponse['servers'][number]) => server.botPresent)
   const playIntentDiscordServerOptions = availableDiscoveryServers.filter((server: DiscordServerPreferencesResponse['servers'][number]) => server.selected)

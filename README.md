@@ -215,6 +215,7 @@ This repo now treats Prisma migrations as the source of truth for schema changes
 23. Structured Discord DMs now prefer embed layouts where that feels natural, and the debug DM emulator mirrors those embed payloads, fields, images, and buttons so admin previews match the live bot output more closely.
 24. Admin users can also post a self-only test call to play from the Play composer. That path targets only the creator for the audience-facing DM flow instead of adding the creator onto the normally selected audience.
 25. Bot-authored Discord DMs tied to tracked call-to-play and auto-play flows still participate in retention cleanup, but call-to-play threads now retain one ended-history DM per user and per call to play instead of deleting the entire thread state.
+26. The Play view keeps recently ended calls to play visible for 24 hours as closed cards, shows whether each call currently applies to your library, and only leaves response actions enabled while the call is still active and applicable.
 26. Discovery-based play-intent visibility can now include both explicit friends and users from the Discord servers you opted into discovery.
 27. Discovery remains based on opted-in shared Discord servers plus explicit in-app friendships. The Discord friend-list import path has been removed.
 28. Discord is still the only sign-in path in this scaffold.
@@ -230,6 +231,7 @@ This repo now treats Prisma migrations as the source of truth for schema changes
 3. For local development, use the callback in `.env.development.example` unless you intentionally change the API port.
 4. Sign in with Discord first, open the Library tab, then use the Add games from Steam button to connect Steam and preview owned games.
 5. Steam import respects the existing library model: the app shows a picker first and only imports the titles the user selects.
+6. Steam import normalizes punctuation, trademark markers, and similar storefront-only title differences before matching against existing catalog games, so reused RAWG-backed games can keep the Steam source plus the original Steam spelling as an alias.
 6. Steam may return no importable games when the account's game details are private or effectively unavailable to the API, so manual add should remain the fallback.
 
 ## Game catalog provider
@@ -270,4 +272,6 @@ Calls to play can also control who sees them:
 - one or more specific opted-in Discord servers within that broader discovery audience
 
 Calls to play can start immediately or be scheduled for later, and they remain visible until the configured end time.
+
+The Play view keeps recently ended calls to play visible for a short closed-history window and marks whether each visible call currently applies to the signed-in viewer's library.
 

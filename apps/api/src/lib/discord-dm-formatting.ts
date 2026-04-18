@@ -98,6 +98,26 @@ export function buildDiscordNotice(title: string, sections: Array<string | null>
   ].filter((part): part is string => Boolean(part)).join('\n\n')
 }
 
+export function buildDiscordPlainMessage(
+  title: string,
+  bodyLines: Array<string | null | undefined>,
+  options: {
+    trailingSubtext?: string | null;
+  } = {}
+) {
+  const visibleBodyLines = bodyLines
+    .map((line) => line?.trim() ?? '')
+    .filter((line) => line.length > 0)
+
+  const formattedBodyLines = visibleBodyLines.map((line) => buildDiscordSubtext(line))
+
+  return [
+    title.trim(),
+    ...formattedBodyLines,
+    options.trailingSubtext ? buildDiscordSubtext(options.trailingSubtext) : null
+  ].filter((part): part is string => Boolean(part)).join('\n\n')
+}
+
 export function buildDiscordMessageHeading(title: string) {
   const trimmed = title.trim()
 

@@ -98,7 +98,7 @@ function buildArchivedPlayIntentEmbeds(summaryBody: string) {
       return [{
         name: emojiLabel,
         value: labeledMatch[2].trim(),
-        inline: labeledMatch[1].trim().toLowerCase() !== 'games'
+        inline: false
       }]
     })
 
@@ -230,38 +230,42 @@ export async function archivePlayIntentDirectMessages(options: {
       expiresAt: {
         lte: playIntentCutoff
       },
-      OR: [
-        {
-          creatorDiscordDmChannelId: {
-            not: null
-          },
-          creatorDiscordDmMessageId: {
-            not: null
-          }
-        },
-        {
-          notifications: {
-            some: {
-              type: {
-                in: [...archivedPlayIntentNotificationTypes]
+      ...((options.replaceRecipientMessages && playIntentIds)
+        ? {}
+        : {
+            OR: [
+              {
+                creatorDiscordDmChannelId: {
+                  not: null
+                },
+                creatorDiscordDmMessageId: {
+                  not: null
+                }
               },
-              ...(options.deliveredBefore
-                ? {
-                    deliveredAt: {
-                      lte: options.deliveredBefore
+              {
+                notifications: {
+                  some: {
+                    type: {
+                      in: [...archivedPlayIntentNotificationTypes]
+                    },
+                    ...(options.deliveredBefore
+                      ? {
+                          deliveredAt: {
+                            lte: options.deliveredBefore
+                          }
+                        }
+                      : {}),
+                    discordDmChannelId: {
+                      not: null
+                    },
+                    discordDmMessageId: {
+                      not: null
                     }
                   }
-                : {}),
-              discordDmChannelId: {
-                not: null
-              },
-              discordDmMessageId: {
-                not: null
+                }
               }
-            }
-          }
-        }
-      ]
+            ]
+          })
     },
     select: {
       id: true,
@@ -298,12 +302,16 @@ export async function archivePlayIntentDirectMessages(options: {
                 }
               }
             : {}),
-          discordDmChannelId: {
-            not: null
-          },
-          discordDmMessageId: {
-            not: null
-          }
+          ...(options.replaceRecipientMessages
+            ? {}
+            : {
+                discordDmChannelId: {
+                  not: null
+                },
+                discordDmMessageId: {
+                  not: null
+                }
+              })
         },
         orderBy: [
           {
@@ -371,10 +379,6 @@ export async function archivePlayIntentDirectMessages(options: {
     const notificationsByUserId = new Map<string, typeof playIntent.notifications>()
 
     for (const notification of playIntent.notifications) {
-      if (!notification.discordDmChannelId || !notification.discordDmMessageId) {
-        continue
-      }
-
       const existingNotifications = notificationsByUserId.get(notification.userId)
 
       if (existingNotifications) {
@@ -383,7 +387,7 @@ export async function archivePlayIntentDirectMessages(options: {
         notificationsByUserId.set(notification.userId, [notification])
       }
 
-      if (notification.userId === playIntent.user.id) {
+      if (notification.userId === playIntent.user.id && notification.discordDmChannelId && notification.discordDmMessageId) {
         creatorCandidates.push({
           channelId: notification.discordDmChannelId,
           messageId: notification.discordDmMessageId,
@@ -429,6 +433,7 @@ export async function archivePlayIntentDirectMessages(options: {
 
       const latestAudienceNotification = [...notifications]
         .sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime())[0] ?? null
+      const recipientInterested = latestAudienceNotification?.responseChoice === NotificationResponseChoice.JOIN
       const recipientPassed = latestAudienceNotification?.responseChoice === NotificationResponseChoice.DECLINE
       const recipientMutedCreator = mutedRecipientUserIds.has(userId)
       const archiveEmbeds = buildArchivedPlayIntentEmbeds(buildArchivedPlayIntentSummary(playIntent, notifications[0]?.user.timezoneId ?? playIntent.user.timezoneId).body)
@@ -448,13 +453,10 @@ export async function archivePlayIntentDirectMessages(options: {
         .filter((candidate): candidate is ArchivedNotificationCandidate => candidate != null)
         .sort((left, right) => left.priority - right.priority)
 
-      if (candidates.length === 0) {
-        continue
-      }
-
       // Quiet expiry/archive edits the existing tracked DM in place.
-      // Manual cancel paths opt into replacement so Discord emits a fresh notification.
-      if (options.replaceRecipientMessages && !recipientPassed && !recipientMutedCreator) {
+      // Manual cancel paths only send a fresh ended-summary DM to recipients who explicitly joined.
+      // Unanswered recipients stay on the quieter edit-in-place archival path.
+      if (options.replaceRecipientMessages && recipientInterested && !recipientPassed && !recipientMutedCreator) {
         const recipientDiscordUserId = notifications[0]?.user.identities[0]?.providerUserId
         const archiveSummary = buildArchivedPlayIntentSummary(playIntent, notifications[0]?.user.timezoneId ?? playIntent.user.timezoneId)
 
@@ -505,6 +507,14 @@ export async function archivePlayIntentDirectMessages(options: {
             continue
           }
         }
+
+        if (candidates.length === 0) {
+          continue
+        }
+      }
+
+      if (candidates.length === 0) {
+        continue
       }
 
       const keptMessageId = await tryArchiveDirectMessage(candidates, buildDiscordMessageHeading('🛑 Call to Play Ended'), archiveEmbeds)

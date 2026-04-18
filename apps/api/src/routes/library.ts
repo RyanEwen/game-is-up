@@ -13,7 +13,13 @@ import {
   type LibraryResponse
 } from '@game-is-up/shared'
 import { z } from 'zod'
-import { findOrCreateGameByTitle, findOrCreateGameFromCatalogMatch, searchGamesByTitle } from '../lib/game-catalog.js'
+import {
+  findOrCreateGameByTitle,
+  findOrCreateGameFromCatalogMatch,
+  findOrCreateGameFromSteamImport,
+  normalizeGameTitleForMatch,
+  searchGamesByTitle
+} from '../lib/game-catalog.js'
 import { toClientGameCoverUrl } from '../lib/game-media.js'
 import { getNetworkTrendingGames, getObservedLibrarySuggestions } from '../lib/library-suggestions.js'
 import { prisma } from '../lib/prisma.js'
@@ -124,10 +130,6 @@ async function resolveGame(catalogMatch: CatalogGameMatch | undefined, title: st
   return findOrCreateGameByTitle(title)
 }
 
-function normalizeTitle(value: string): string {
-  return value.replace(/\s+/gu, ' ').trim().toLowerCase()
-}
-
 function compareSteamImportPreviewGames(
   left: { alreadyInLibrary: boolean; title: string; sourceId: string },
   right: { alreadyInLibrary: boolean; title: string; sourceId: string }
@@ -200,10 +202,10 @@ async function loadSteamImportPreview(userId: string) {
       .filter((source) => source.source === 'steam')
       .map((source) => source.externalId)
   )
-  const existingTitles = new Set(existingEntries.map((entry) => normalizeTitle(entry.game.title)))
+  const existingTitles = new Set(existingEntries.map((entry) => normalizeGameTitleForMatch(entry.game.title)))
   const games = ownedGames.map((game) => ({
     ...game,
-    alreadyInLibrary: existingSteamSourceIds.has(game.sourceId) || existingTitles.has(normalizeTitle(game.title))
+    alreadyInLibrary: existingSteamSourceIds.has(game.sourceId) || existingTitles.has(normalizeGameTitleForMatch(game.title))
   })).sort(compareSteamImportPreviewGames)
 
   if (games.length === 0) {
@@ -247,8 +249,7 @@ async function importSteamGamesForUser(userId: string, selections: ImportSteamLi
 
     const platformLabels = [...new Set(selection.platformLabels.map((platformLabel) => platformLabel.trim()).filter(Boolean))]
     const availability = selection.availability?.trim() ? selection.availability.trim() : null
-    const resolvedGame = await findOrCreateGameFromCatalogMatch({
-      source: 'steam',
+    const resolvedGame = await findOrCreateGameFromSteamImport({
       sourceId: game.sourceId,
       title: game.title,
       coverUrl: game.coverUrl,

@@ -101,6 +101,8 @@ export function PlayIntentCard({
   onOpenDmEmulator?: () => void;
 }) {
   const isLibraryWide = intent.selectionMode === 'library'
+  const isClosed = intent.status === 'closed'
+  const canRespondToIntent = canAddToLibrary && intent.appliesToViewer && !isClosed
   const viewerResponseChoice = intent.viewerResponseChoice
   const actionButtonSx = {
     flexShrink: 0,
@@ -143,18 +145,28 @@ export function PlayIntentCard({
           </Box>
         </Stack>
         <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }} alignItems="center">
+          {isClosed ? (
+            <Chip size="sm" color="warning" variant="soft">
+              Closed
+            </Chip>
+          ) : null}
           <Chip size="sm" color="primary" variant="soft">
             {isLibraryWide ? 'Any game in library' : 'Selected games'}
           </Chip>
           <Chip size="sm" color="neutral" variant="outlined">
             {formatNotifyScopeLabel(intent.notifyScope)}
           </Chip>
+          {!intent.appliesToViewer ? (
+            <Chip size="sm" color="neutral" variant="soft">
+              Does not match your library
+            </Chip>
+          ) : null}
           {intent.joinCount > 0 ? (
             <Chip size="sm" color="success" variant="soft">
               {intent.joinCount} {intent.joinCount === 1 ? 'person interested' : 'people interested'}
             </Chip>
           ) : null}
-          {viewerResponseChoice !== 'join' ? (
+          {canRespondToIntent && viewerResponseChoice !== 'join' ? (
             <Button
               variant="outlined"
               color="neutral"
@@ -166,7 +178,7 @@ export function PlayIntentCard({
               I'm interested
             </Button>
           ) : null}
-          {viewerResponseChoice !== 'decline' ? (
+          {canRespondToIntent && viewerResponseChoice !== 'decline' ? (
             <Button
               variant="outlined"
               color="neutral"
@@ -200,6 +212,18 @@ export function PlayIntentCard({
           ) : null}
         </Stack>
       </Stack>
+
+      {isClosed ? (
+        <Typography level="body-xs" sx={{ mb: 1.5, color: 'warning.200' }}>
+          This call to play has ended.
+        </Typography>
+      ) : null}
+
+      {!intent.appliesToViewer ? (
+        <Typography level="body-xs" sx={{ mb: 1.5, color: 'neutral.400' }}>
+          This call is visible in your network, but it does not currently match your library.
+        </Typography>
+      ) : null}
 
       {viewerResponseChoice ? (
         <Typography level="body-xs" sx={{ mb: 1.5, color: viewerResponseChoice === 'join' ? 'success.300' : 'neutral.400' }}>

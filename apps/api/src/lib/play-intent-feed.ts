@@ -10,6 +10,8 @@ import { getInterestedUsersByPlayIntentId } from './play-intent-interested-users
 import { prisma } from './prisma.js'
 import { getViewer } from './demo-viewer.js'
 
+const recentClosedIntentWindowMs = 24 * 60 * 60 * 1000
+
 function toSelectionMode(selectionMode: PlayIntentSelectionMode): 'library' | 'subset' {
   return selectionMode === PlayIntentSelectionMode.ENTIRE_LIBRARY ? 'library' : 'subset'
 }
@@ -61,6 +63,7 @@ function serializeTargetDiscordServers(
 export async function buildPlayIntentFeed(viewerId?: string | null): Promise<PlayIntentFeed> {
   const viewer = await getViewer(viewerId)
   const now = new Date()
+  const recentClosedCutoff = new Date(now.getTime() - recentClosedIntentWindowMs)
 
   if (!viewer) {
     return {
@@ -116,7 +119,7 @@ export async function buildPlayIntentFeed(viewerId?: string | null): Promise<Pla
         in: broadAudienceUserIds
       },
       expiresAt: {
-        gt: now
+        gt: recentClosedCutoff
       }
     },
     include: {
@@ -227,19 +230,12 @@ export async function buildPlayIntentFeed(viewerId?: string | null): Promise<Pla
         return map
       })
     : new Map<string, {
-        isNotified: true;
         responseChoice: 'join' | 'decline' | null;
       }>()
   const interestedUsersByPlayIntentId = await getInterestedUsersByPlayIntentId(intents.map((intent) => intent.id))
 
   const previews = intents
     .map<PlayIntentPreview | null>((intent) => {
-      const recipientNotificationState = recipientNotificationStateByPlayIntentId.get(intent.id)
-
-      if (!recipientNotificationState) {
-        return null
-      }
-
       const isExplicitFriend = friendUserIds.includes(intent.userId)
       const isInDiscoveryAudience = discoveryAudienceUserIds.includes(intent.userId)
 
@@ -267,7 +263,6 @@ export async function buildPlayIntentFeed(viewerId?: string | null): Promise<Pla
 
       const overlappingLibraryGames = intent.user.gameInterests.filter((interest) => viewerGameIds.includes(interest.gameId))
       const selectedGames = intent.games
-        .filter((entry) => viewerGameIds.includes(entry.gameId))
         .map((entry) => ({
           id: entry.game.id,
           title: entry.game.title,
@@ -275,22 +270,21 @@ export async function buildPlayIntentFeed(viewerId?: string | null): Promise<Pla
           coverUrl: toClientGameCoverUrl(entry.game.coverUrl)
         }))
         .sort((left, right) => left.title.localeCompare(right.title))
-
-      if (intent.selectionMode === PlayIntentSelectionMode.ENTIRE_LIBRARY && overlappingLibraryGames.length === 0) {
-        return null
-      }
-
-      if (intent.selectionMode === PlayIntentSelectionMode.SELECTED_GAMES && selectedGames.length === 0) {
-        return null
-      }
+      const matchingSelectedGames = intent.games.filter((entry) => viewerGameIds.includes(entry.gameId))
+      const appliesToViewer = intent.selectionMode === PlayIntentSelectionMode.ENTIRE_LIBRARY
+        ? overlappingLibraryGames.length > 0
+        : matchingSelectedGames.length > 0
 
       const interestedUsers = interestedUsersByPlayIntentId.get(intent.id) ?? []
 
       const targetServers = serializeTargetDiscordServers(intent.targetDiscordServers)
+      const recipientNotificationState = recipientNotificationStateByPlayIntentId.get(intent.id)
 
       return {
         id: intent.id,
         title: intent.headline,
+        status: intent.expiresAt.getTime() > now.getTime() ? 'active' : 'closed',
+        appliesToViewer,
         user: {
           id: intent.user.id,
           handle: intent.user.handle,
@@ -305,7 +299,7 @@ export async function buildPlayIntentFeed(viewerId?: string | null): Promise<Pla
         note: intent.note,
         voiceChannelId: intent.voiceChannelId,
         voiceChannelName: intent.voiceChannelName,
-        viewerResponseChoice: recipientNotificationState.responseChoice,
+        viewerResponseChoice: recipientNotificationState?.responseChoice ?? null,
         interestedUsers,
         joinCount: interestedUsers.length,
         availabilityWindow: {

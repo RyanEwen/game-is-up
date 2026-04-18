@@ -1,6 +1,5 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { useVirtualizer } from '@tanstack/react-virtual'
-import { Box, Button, Card, Checkbox, Chip, DialogContent, DialogTitle, Input, Sheet, Stack, Typography } from '@mui/joy'
+import { useEffect, useRef, useState } from 'react'
+import { Box, Button, Card, Checkbox, Chip, DialogContent, DialogTitle, Input, Option, Select, Sheet, Stack, Typography } from '@mui/joy'
 import type { GameSearchResponse, GameSearchResult, ImportSteamLibrarySelectionRequest, LibraryEntry, LibraryEntryIntent, LibrarySuggestedGame, SteamLibraryImportGame, SteamLibraryImportPreviewResponse, UserGameAlias, UserPlatformAlias } from '@game-is-up/shared'
 import { DashboardModal } from '../components/dashboard/DashboardModal'
 import { AliasManagementCard } from '../components/dashboard/AliasManagementCard'
@@ -17,11 +16,11 @@ import { useDashboardContext } from '../contexts/useDashboardContext'
 const steamImportPlatformOptions = ['PC', 'Xbox', 'PlayStation', 'Switch', 'Mobile', 'macOS', 'Linux'] as const
 const steamImportListMinHeight = 280
 const steamImportListMaxHeight = 'min(58vh, 640px)'
-const steamImportCollapsedRowEstimate = 108
-const steamImportExpandedRowEstimate = 336
-const steamImportRowGap = 10
+const steamImportPageSize = 100
 
 type SteamImportSelection = ImportSteamLibrarySelectionRequest['games'][number]
+type SteamImportLibraryFilter = 'importable' | 'already-in-library' | 'all'
+type SteamImportPlaytimeFilter = 'all' | 'recently-played' | 'played' | 'unplayed'
 
 function UsualAvailabilityCard({
   usualAvailability,
@@ -427,16 +426,21 @@ function SteamImportModalPicker({
   onSelectionChange: (games: ImportSteamLibrarySelectionRequest['games']) => void;
 }) {
   const [query, setQuery] = useState('')
+  const [libraryFilter, setLibraryFilter] = useState<SteamImportLibraryFilter>('importable')
+  const [playtimeFilter, setPlaytimeFilter] = useState<SteamImportPlaytimeFilter>('all')
+  const [page, setPage] = useState(1)
   const [selectedSourceIds, setSelectedSourceIds] = useState<string[]>([])
   const [selectionOptions, setSelectionOptions] = useState<Record<string, SteamImportSelection>>({})
   const [expandedSourceIds, setExpandedSourceIds] = useState<string[]>([])
   const listScrollRef = useRef<HTMLDivElement | null>(null)
-  const pendingScrollTopRef = useRef<number | null>(null)
 
   useEffect(() => {
     const importableGames = preview.games.filter((game) => !game.alreadyInLibrary)
 
     setQuery('')
+    setLibraryFilter('importable')
+    setPlaytimeFilter('all')
+    setPage(1)
     setSelectedSourceIds([])
     setSelectionOptions(
       Object.fromEntries(importableGames.map((game) => [game.sourceId, buildDefaultSteamImportSelection(game)]))
@@ -446,64 +450,45 @@ function SteamImportModalPicker({
 
   const normalizedQuery = query.trim().toLowerCase()
   const filteredGames = preview.games.filter((game) => {
-    if (!normalizedQuery) {
-      return true
-    }
+    const matchesQuery = !normalizedQuery || game.title.toLowerCase().includes(normalizedQuery)
+    const matchesLibraryFilter = libraryFilter === 'all'
+      ? true
+      : libraryFilter === 'importable'
+        ? !game.alreadyInLibrary
+        : game.alreadyInLibrary
+    const matchesPlaytimeFilter = playtimeFilter === 'all'
+      ? true
+      : playtimeFilter === 'recently-played'
+        ? game.minutesPlayedRecent > 0
+        : playtimeFilter === 'played'
+          ? game.minutesPlayedTotal > 0
+          : game.minutesPlayedTotal === 0
 
-    return game.title.toLowerCase().includes(normalizedQuery)
+    return matchesQuery && matchesLibraryFilter && matchesPlaytimeFilter
   })
-  const selectedSourceIdSet = useMemo(() => new Set(selectedSourceIds), [selectedSourceIds])
-  const expandedSourceIdSet = useMemo(() => new Set(expandedSourceIds), [expandedSourceIds])
-  const visibleImportableGames = filteredGames.filter((game) => !game.alreadyInLibrary)
-  const allVisibleSelected = visibleImportableGames.length > 0 && visibleImportableGames.every((game) => selectedSourceIdSet.has(game.sourceId))
+  const totalPages = Math.max(1, Math.ceil(filteredGames.length / steamImportPageSize))
+  const currentPage = Math.min(page, totalPages)
+  const pageStartIndex = (currentPage - 1) * steamImportPageSize
+  const pageGames = filteredGames.slice(pageStartIndex, pageStartIndex + steamImportPageSize)
+  const selectedSourceIdSet = new Set(selectedSourceIds)
+  const expandedSourceIdSet = new Set(expandedSourceIds)
+  const pageImportableGames = pageGames.filter((game) => !game.alreadyInLibrary)
+  const allPageSelected = pageImportableGames.length > 0 && pageImportableGames.every((game) => selectedSourceIdSet.has(game.sourceId))
   const selectedGames = selectedSourceIds
     .map((sourceId) => selectionOptions[sourceId])
     .filter((selection): selection is SteamImportSelection => selection != null)
 
-  const getItemKey = useCallback(
-    (index: number) => filteredGames[index]?.sourceId ?? index,
-    [filteredGames]
-  )
-
-  const estimateSize = useCallback((index: number) => {
-    const game = filteredGames[index]
-
-    if (!game) {
-      return steamImportCollapsedRowEstimate
-    }
-
-    const isExpanded = selectedSourceIdSet.has(game.sourceId)
-      && !game.alreadyInLibrary
-      && expandedSourceIdSet.has(game.sourceId)
-
-    return isExpanded ? steamImportExpandedRowEstimate : steamImportCollapsedRowEstimate
-  }, [expandedSourceIdSet, filteredGames, selectedSourceIdSet])
-
-  const rowVirtualizer = useVirtualizer({
-    count: filteredGames.length,
-    getScrollElement: () => listScrollRef.current,
-    getItemKey,
-    estimateSize,
-    gap: steamImportRowGap,
-    overscan: 8
-  })
-
   useEffect(() => {
-    onSelectionChange(selectedGames)
-  }, [onSelectionChange, selectedGames])
-
-  useLayoutEffect(() => {
-    rowVirtualizer.measure()
-
-    if (pendingScrollTopRef.current != null && listScrollRef.current) {
-      listScrollRef.current.scrollTop = pendingScrollTopRef.current
-      pendingScrollTopRef.current = null
+    if (page !== currentPage) {
+      setPage(currentPage)
     }
-  }, [expandedSourceIds, selectedSourceIds, rowVirtualizer])
+
+    onSelectionChange(selectedGames)
+  }, [currentPage, onSelectionChange, page, selectedGames])
 
   useEffect(() => {
     listScrollRef.current?.scrollTo({ top: 0 })
-  }, [normalizedQuery, preview])
+  }, [currentPage, libraryFilter, normalizedQuery, playtimeFilter, preview])
 
   const updateSelectionOptions = (
     sourceId: string,
@@ -528,8 +513,6 @@ function SteamImportModalPicker({
       return
     }
 
-    pendingScrollTopRef.current = listScrollRef.current?.scrollTop ?? null
-
     const isSelected = selectedSourceIdSet.has(game.sourceId)
 
     setSelectedSourceIds((current) => isSelected
@@ -548,17 +531,17 @@ function SteamImportModalPicker({
         : [...current, game.sourceId])
   }
 
-  const toggleVisibleSelection = () => {
-    const visibleIds = visibleImportableGames.map((game) => game.sourceId)
+  const togglePageSelection = () => {
+    const pageIds = pageImportableGames.map((game) => game.sourceId)
 
     setSelectedSourceIds((current) => {
       const currentSet = new Set(current)
 
-      if (allVisibleSelected) {
-        return current.filter((sourceId) => !visibleIds.includes(sourceId))
+      if (allPageSelected) {
+        return current.filter((sourceId) => !pageIds.includes(sourceId))
       }
 
-      for (const sourceId of visibleIds) {
+      for (const sourceId of pageIds) {
         currentSet.add(sourceId)
       }
 
@@ -568,7 +551,7 @@ function SteamImportModalPicker({
     setSelectionOptions((current) => {
       const next = { ...current }
 
-      for (const game of visibleImportableGames) {
+      for (const game of pageImportableGames) {
         if (!next[game.sourceId]) {
           next[game.sourceId] = buildDefaultSteamImportSelection(game)
         }
@@ -577,14 +560,12 @@ function SteamImportModalPicker({
       return next
     })
 
-    if (allVisibleSelected) {
-      setExpandedSourceIds((current) => current.filter((sourceId) => !visibleIds.includes(sourceId)))
+    if (allPageSelected) {
+      setExpandedSourceIds((current) => current.filter((sourceId) => !pageIds.includes(sourceId)))
     }
   }
 
   const toggleExpanded = (sourceId: string) => {
-    pendingScrollTopRef.current = listScrollRef.current?.scrollTop ?? null
-
     setExpandedSourceIds((current) => current.includes(sourceId)
       ? current.filter((entry) => entry !== sourceId)
       : [...current, sourceId])
@@ -593,23 +574,82 @@ function SteamImportModalPicker({
   return (
     <>
         <Stack spacing={1.5}>
-          <Input placeholder="Filter Steam games" value={query} onChange={(event) => setQuery(event.target.value)} />
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+            <Input
+              placeholder="Filter Steam games"
+              value={query}
+              onChange={(event) => {
+                setQuery(event.target.value)
+                setPage(1)
+              }}
+              sx={{ flex: 1 }}
+            />
+            <Select
+              size="sm"
+              value={libraryFilter}
+              onChange={(_event, nextValue) => {
+                if (nextValue) {
+                  setLibraryFilter(nextValue)
+                  setPage(1)
+                }
+              }}
+              sx={{ minWidth: { xs: '100%', sm: 180 } }}
+            >
+              <Option value="importable">Importable only</Option>
+              <Option value="already-in-library">Already in library</Option>
+              <Option value="all">All Steam titles</Option>
+            </Select>
+            <Select
+              size="sm"
+              value={playtimeFilter}
+              onChange={(_event, nextValue) => {
+                if (nextValue) {
+                  setPlaytimeFilter(nextValue)
+                  setPage(1)
+                }
+              }}
+              sx={{ minWidth: { xs: '100%', sm: 180 } }}
+            >
+              <Option value="all">Any playtime</Option>
+              <Option value="recently-played">Recently played</Option>
+              <Option value="played">Played before</Option>
+              <Option value="unplayed">Never played</Option>
+            </Select>
+          </Stack>
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }}>
             <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-              <Button size="sm" variant="outlined" color="neutral" disabled={visibleImportableGames.length === 0} onClick={toggleVisibleSelection}>
-                {allVisibleSelected ? 'Clear visible' : 'Select visible'}
+              <Button size="sm" variant="outlined" color="neutral" disabled={pageImportableGames.length === 0} onClick={togglePageSelection}>
+                {allPageSelected ? 'Clear page' : 'Select page'}
               </Button>
               <Button size="sm" variant="outlined" color="neutral" disabled={refreshing || importing} onClick={() => void onReload()}>
                 {refreshing ? 'Reloading from Steam...' : 'Reload from Steam'}
               </Button>
             </Stack>
             <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
+              {filteredGames.length === 0
+                ? '0 results'
+                : `Showing ${pageStartIndex + 1}-${Math.min(pageStartIndex + pageGames.length, filteredGames.length)} of ${filteredGames.length}`}
+            </Typography>
+          </Stack>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }}>
+            <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
               {selectedSourceIds.length} selected
             </Typography>
+            <Stack direction="row" spacing={1} alignItems="center" justifyContent={{ xs: 'space-between', sm: 'flex-end' }}>
+              <Button size="sm" variant="outlined" color="neutral" disabled={currentPage <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>
+                Previous
+              </Button>
+              <Typography level="body-sm" sx={{ color: 'neutral.400', minWidth: 72, textAlign: 'center' }}>
+                Page {currentPage} of {totalPages}
+              </Typography>
+              <Button size="sm" variant="outlined" color="neutral" disabled={currentPage >= totalPages} onClick={() => setPage((current) => Math.min(totalPages, current + 1))}>
+                Next
+              </Button>
+            </Stack>
           </Stack>
         </Stack>
 
-        {filteredGames.length > 0 ? (
+        {pageGames.length > 0 ? (
           <Box
             ref={listScrollRef}
             sx={{
@@ -623,46 +663,28 @@ function SteamImportModalPicker({
               WebkitOverflowScrolling: 'touch'
             }}
           >
-            <Box sx={{ height: `${rowVirtualizer.getTotalSize()}px`, position: 'relative' }}>
-              {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-                const game = filteredGames[virtualRow.index]
-
-                if (!game) {
-                  return null
-                }
-
+            <Stack spacing={1.25}>
+              {pageGames.map((game) => {
                 const selected = selectedSourceIdSet.has(game.sourceId)
                 const options = selectionOptions[game.sourceId] ?? buildDefaultSteamImportSelection(game)
                 const showOptions = selected && !game.alreadyInLibrary && expandedSourceIdSet.has(game.sourceId)
 
                 return (
-                  <Box
-                    key={virtualRow.key}
-                    ref={rowVirtualizer.measureElement}
-                    data-index={virtualRow.index}
-                    sx={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
-                      width: '100%',
-                      transform: `translateY(${virtualRow.start}px)`
-                    }}
-                  >
-                    <SteamImportVirtualizedRow
-                      game={game}
-                      selected={selected}
-                      options={options}
-                      showOptions={showOptions}
-                      currentUsualAvailability={currentUsualAvailability}
-                      importing={importing}
-                      onToggleSelection={toggleSelection}
-                      onToggleExpanded={toggleExpanded}
-                      onUpdateSelectionOptions={updateSelectionOptions}
-                    />
-                  </Box>
+                  <SteamImportRow
+                    key={game.sourceId}
+                    game={game}
+                    selected={selected}
+                    options={options}
+                    showOptions={showOptions}
+                    currentUsualAvailability={currentUsualAvailability}
+                    importing={importing}
+                    onToggleSelection={toggleSelection}
+                    onToggleExpanded={toggleExpanded}
+                    onUpdateSelectionOptions={updateSelectionOptions}
+                  />
                 )
               })}
-            </Box>
+            </Stack>
           </Box>
         ) : (
           <Stack spacing={1.25}>
@@ -675,7 +697,7 @@ function SteamImportModalPicker({
   )
 }
 
-function SteamImportVirtualizedRow({
+function SteamImportRow({
   game,
   selected,
   options,

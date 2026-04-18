@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Box, Button, DialogContent, DialogTitle, Stack, Typography } from '@mui/joy'
+import { Box, Button, DialogContent, DialogTitle, Option, Select, Stack, Typography } from '@mui/joy'
 import type { DiscoveryPerson } from '@game-is-up/shared'
 import { DashboardModal } from '../components/dashboard/DashboardModal'
 import { EmptyStateCard } from '../components/dashboard/EmptyStateCard'
@@ -7,6 +7,33 @@ import { LibraryEditorCard } from '../components/dashboard/LibraryEditorCard'
 import { PersonCard } from '../components/dashboard/PersonCard'
 import { useDashboardContext } from '../contexts/useDashboardContext'
 import type { DashboardLibraryQuickAddGame, FriendTarget } from '../components/dashboard/types'
+
+type FriendSort = 'matching-games' | 'games' | 'name'
+
+function getMatchingGameCount(person: DiscoveryPerson, libraryGameIds: ReadonlySet<string>) {
+  return person.games.reduce((count, game) => count + (libraryGameIds.has(game.id) ? 1 : 0), 0)
+}
+
+function sortPeople(people: DiscoveryPerson[], sort: FriendSort, libraryGameIds: ReadonlySet<string>) {
+  return [...people].sort((left, right) => {
+    const leftMatchingGames = getMatchingGameCount(left, libraryGameIds)
+    const rightMatchingGames = getMatchingGameCount(right, libraryGameIds)
+
+    if (sort === 'matching-games' && leftMatchingGames !== rightMatchingGames) {
+      return rightMatchingGames - leftMatchingGames
+    }
+
+    if (sort === 'games' && left.games.length !== right.games.length) {
+      return right.games.length - left.games.length
+    }
+
+    if (sort !== 'name' && left.games.length !== right.games.length) {
+      return right.games.length - left.games.length
+    }
+
+    return left.displayName.localeCompare(right.displayName)
+  })
+}
 
 function FriendsViewContent({
   error,
@@ -44,6 +71,29 @@ function FriendsViewContent({
   onUnmutePlayIntentUser: (userId: string) => Promise<void>;
 }) {
   const [isAddFriendsModalOpen, setIsAddFriendsModalOpen] = useState(false)
+  const [friendSort, setFriendSort] = useState<FriendSort>('matching-games')
+  const sortedFriends = sortPeople(friends, friendSort, libraryGameIds)
+  const sortedAddableFriends = sortPeople(addableFriends, friendSort, libraryGameIds)
+
+  const friendSortControl = friends.length > 0 || addableFriends.length > 0 ? (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+      <Typography level="body-sm" sx={{ color: 'neutral.400', whiteSpace: 'nowrap' }}>Sort by</Typography>
+      <Select
+        size="sm"
+        value={friendSort}
+        onChange={(_event, nextValue) => {
+          if (nextValue) {
+            setFriendSort(nextValue)
+          }
+        }}
+        sx={{ minWidth: 170 }}
+      >
+        <Option value="matching-games">Matching games</Option>
+        <Option value="games">Number of games</Option>
+        <Option value="name">Name</Option>
+      </Select>
+    </Box>
+  ) : null
 
   return (
     <Stack spacing={3}>
@@ -61,6 +111,8 @@ function FriendsViewContent({
         ) : null}
       </Stack>
 
+      {friendSortControl}
+
       {error ? (
         <EmptyStateCard
           title="Friends are temporarily unavailable"
@@ -68,7 +120,7 @@ function FriendsViewContent({
         />
       ) : friends.length > 0 ? (
         <Stack spacing={2}>
-          {friends.map((person) => (
+          {sortedFriends.map((person) => (
             <PersonCard
               key={person.id}
               person={person}
@@ -118,10 +170,10 @@ function FriendsViewContent({
               Add people who are already in your network.
             </Typography>
 
-            {addableFriends.length > 0 ? (
+            {sortedAddableFriends.length > 0 ? (
               <Stack spacing={2}>
                 <Typography level="title-sm">People already in your network</Typography>
-                {addableFriends.map((person) => (
+                {sortedAddableFriends.map((person) => (
                   <PersonCard
                     key={person.id}
                     person={person}
@@ -134,9 +186,11 @@ function FriendsViewContent({
                     isPending={friendPendingId === person.id}
                     onToggleFriend={onToggleFriend}
                     onAddToLibrary={onAddGameToLibrary}
-                    onRemoveLibraryEntry={onRemoveLibraryEntry}                      isMuted={mutedPlayIntentUserIds.has(person.id)}
-                      onMute={onMutePlayIntentUser}
-                      onUnmute={onUnmutePlayIntentUser}                  />
+                    onRemoveLibraryEntry={onRemoveLibraryEntry}
+                    isMuted={mutedPlayIntentUserIds.has(person.id)}
+                    onMute={onMutePlayIntentUser}
+                    onUnmute={onUnmutePlayIntentUser}
+                  />
                 ))}
               </Stack>
             ) : (

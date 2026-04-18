@@ -217,14 +217,19 @@ function buildAudienceEmbeds(gameTitle: string, durationMinutes: number, friendR
 }
 
 function buildDeclinedMessage(gameTitle: string) {
-  return buildPromptNotice(
-    '👍 Skipped for Now',
-    [
-      buildPromptSection('Game', gameTitle),
-      buildPromptSection('Status', `I will leave ${gameTitle} alone for now.`)
-    ],
-    'You can still open the app any time to create a call to play manually.'
-  )
+  return buildDiscordMessageHeading(`🛑 ${gameTitle} Prompt Closed`)
+}
+
+function buildDeclinedEmbeds(gameTitle: string) {
+  return [
+    new EmbedBuilder()
+      .setColor(autoPlayEmbedColors.danger)
+      .addFields(buildPromptEmbedFields([
+        { name: formatPromptEmbedFieldName('Game'), value: gameTitle, inline: false },
+        { name: formatPromptEmbedFieldName('Status'), value: `You chose not to create a call to play for ${gameTitle} right now.`, inline: false }
+      ]))
+      .setFooter({ text: 'Open the app if you want to create or edit a call to play later.' })
+  ]
 }
 
 function buildExpiredEmbeds(gameTitle: string, reason: string) {
@@ -335,6 +340,7 @@ export function buildDiscordAutoPlayPromptPreview(options: {
     case DiscordAutoPlayPromptStatus.DECLINED:
       return {
         content: buildDeclinedMessage(options.gameTitle),
+        embeds: buildDeclinedEmbeds(options.gameTitle),
         components: [buildLinkRow()]
       }
     case DiscordAutoPlayPromptStatus.EXPIRED:
@@ -860,6 +866,7 @@ export async function handleDiscordAutoPlayPromptInteraction(interaction: Button
     })
     await interaction.update({
       content: buildDeclinedMessage(prompt.game.title),
+      embeds: buildDeclinedEmbeds(prompt.game.title),
       components: [buildLinkRow()]
     })
     return

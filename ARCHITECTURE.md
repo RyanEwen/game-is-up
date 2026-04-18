@@ -55,6 +55,8 @@ Notification rows can now also track whether a recipient explicitly said they wo
 
 Play-intent feed and current-intent payloads now also include lightweight interested-user previews derived from join responses. That lets the web app render interested-player summaries directly on the Play view without a second lookup for basic identity data.
 
+Feed previews now also expose a lightweight status (`active` or `closed`) plus an `appliesToViewer` flag. The web client uses those fields to keep recently ended calls visible for a short history window without leaving stale response actions enabled for calls that no longer match the viewer's library or have already ended.
+
 Scheduled calls to play now add a second-stage check-in flow. The audience is still notified immediately at creation time, but the creator receives an explicit confirmation prompt when the scheduled start time arrives. If confirmed, accepted recipients receive a go-time update, unanswered recipients receive one follow-up reminder, those go-time messages remain actionable for later response changes, and recipients who previously declined or muted that creator remain opted out.
 
 Creators also receive a persistent Discord DM summary for each live call to play. Major lifecycle changes can still replace that DM with a fresh message so Discord sends a notification, but audience response updates now edit the existing summary in place because the creator also receives a separate response-notification DM. Quiet expiry or archive cleanup also falls back to edit-in-place behavior. In the gateway-owning environment it can expose creator-only actions such as canceling the call directly from Discord.
