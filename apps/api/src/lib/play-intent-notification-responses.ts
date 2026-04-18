@@ -188,10 +188,15 @@ function buildCreatorSummaryActionRow(playIntentId: string) {
   )
 }
 
-function buildResponseRow(notificationId: string, responseChoice?: NotificationResponseChoice | null) {
+function buildResponseRow(
+  notificationId: string,
+  responseChoice?: NotificationResponseChoice | null,
+  notificationType: NotificationType = NotificationType.FRIEND_PLAYING
+) {
   const buttons: MessageActionRowComponentBuilder[] = []
+  const isGoTimeConfirmed = notificationType === NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED
 
-  if (responseChoice !== NotificationResponseChoice.JOIN) {
+  if (!isGoTimeConfirmed && responseChoice !== NotificationResponseChoice.JOIN) {
     buttons.push(
       new ButtonBuilder()
         .setCustomId(`${playIntentNotificationPrefix}:${notificationId}:join`)
@@ -204,7 +209,7 @@ function buildResponseRow(notificationId: string, responseChoice?: NotificationR
     buttons.push(
       new ButtonBuilder()
         .setCustomId(`${playIntentNotificationPrefix}:${notificationId}:pass`)
-        .setLabel('Pass')
+        .setLabel(isGoTimeConfirmed ? 'No longer interested' : 'Pass')
         .setStyle(ButtonStyle.Secondary)
     )
   }
@@ -549,10 +554,11 @@ export function buildPlayIntentNotificationComponents(
   notificationId: string,
   creatorUserId?: string,
   creatorDisplayName?: string,
-  responseChoice?: NotificationResponseChoice | null
+  responseChoice?: NotificationResponseChoice | null,
+  notificationType: NotificationType = NotificationType.FRIEND_PLAYING
 ) {
   const rows: ActionRowBuilder<MessageActionRowComponentBuilder>[] = []
-  const responseRow = buildResponseRow(notificationId, responseChoice)
+  const responseRow = buildResponseRow(notificationId, responseChoice, notificationType)
 
   if (responseRow) {
     rows.push(responseRow)
@@ -645,7 +651,8 @@ export function buildNotificationDirectMessagePreview(options: {
           options.notificationId,
           options.creatorUserId ?? undefined,
           options.creatorDisplayName ?? undefined,
-          options.responseChoice
+          options.responseChoice,
+          options.notificationType
         )
       }
     }
@@ -657,7 +664,8 @@ export function buildNotificationDirectMessagePreview(options: {
           options.notificationId,
           options.creatorUserId ?? undefined,
           options.creatorDisplayName ?? undefined,
-          options.responseChoice
+          options.responseChoice,
+          options.notificationType
         )
       }
     }
@@ -684,7 +692,8 @@ export function buildNotificationDirectMessagePreview(options: {
         options.notificationId,
         options.creatorUserId ?? undefined,
         options.creatorDisplayName ?? undefined,
-        options.responseChoice
+        options.responseChoice,
+        options.notificationType
       )
     }
   }
@@ -2210,7 +2219,13 @@ export async function handleScheduledPlayIntentCheckInInteraction(interaction: B
           result.priorAcceptedCount,
           acceptedUserLabels
         ),
-        components: buildPlayIntentNotificationComponents(createdNotification.id, playIntent.userId, playIntent.user.displayName)
+        components: buildPlayIntentNotificationComponents(
+          createdNotification.id,
+          playIntent.userId,
+          playIntent.user.displayName,
+          null,
+          createdNotification.type
+        )
       }]
     })
 
