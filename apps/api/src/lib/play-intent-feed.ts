@@ -11,7 +11,7 @@ import { getInterestedUsersByPlayIntentId } from './play-intent-interested-users
 import { prisma } from './prisma.js'
 import { getViewer } from './demo-viewer.js'
 
-const recentClosedIntentWindowMs = 24 * 60 * 60 * 1000
+const recentEndedIntentWindowMs = 24 * 60 * 60 * 1000
 
 function toSelectionMode(selectionMode: PlayIntentSelectionMode): 'library' | 'subset' {
   return selectionMode === PlayIntentSelectionMode.ENTIRE_LIBRARY ? 'library' : 'subset'
@@ -112,7 +112,7 @@ function serializeDiscordSpace(space: {
 export async function buildPlayIntentFeed(viewerId?: string | null): Promise<PlayIntentFeed> {
   const viewer = await getViewer(viewerId)
   const now = new Date()
-  const recentClosedCutoff = new Date(now.getTime() - recentClosedIntentWindowMs)
+  const recentEndedCutoff = new Date(now.getTime() - recentEndedIntentWindowMs)
 
   if (!viewer) {
     return {
@@ -158,7 +158,7 @@ export async function buildPlayIntentFeed(viewerId?: string | null): Promise<Pla
   const intents = await prisma.playIntent.findMany({
     where: {
       expiresAt: {
-        gt: recentClosedCutoff
+        gt: recentEndedCutoff
       },
       OR: [
         {
@@ -360,7 +360,7 @@ export async function buildPlayIntentFeed(viewerId?: string | null): Promise<Pla
       return {
         id: intent.id,
         title: intent.headline,
-        status: intent.expiresAt.getTime() > now.getTime() ? 'active' : 'closed',
+        status: intent.expiresAt.getTime() > now.getTime() ? 'active' : 'ended',
         appliesToViewer,
         user: {
           id: intent.user.id,

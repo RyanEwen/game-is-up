@@ -123,6 +123,42 @@ function toPrismaSelectionMode(selectionMode: PlayIntentSelectionMode): PrismaPl
     : PrismaPlayIntentSelectionMode.SELECTED_GAMES
 }
 
+function normalizeStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return []
+  }
+
+  return [...new Set(value.filter((entry): entry is string => typeof entry === 'string' && entry.length > 0))]
+}
+
+function buildDiscordSpaceAccessGrantCreates(creatorUserId: string, audienceUserIds: string[]) {
+  const grants = new Map<string, {
+    userId: string;
+    source: PlayIntentDiscordSpaceAccessSource;
+    inServer: boolean;
+  }>()
+
+  grants.set(creatorUserId, {
+    userId: creatorUserId,
+    source: PlayIntentDiscordSpaceAccessSource.CREATOR,
+    inServer: false
+  })
+
+  for (const audienceUserId of audienceUserIds) {
+    if (grants.has(audienceUserId)) {
+      continue
+    }
+
+    grants.set(audienceUserId, {
+      userId: audienceUserId,
+      source: PlayIntentDiscordSpaceAccessSource.AUDIENCE_SYNC,
+      inServer: false
+    })
+  }
+
+  return [...grants.values()]
+}
+
 function toClientNotifyScope(scope: PlayIntentScope): PlayIntentNotifyScope {
   switch (scope) {
     case PlayIntentScope.SPECIFIC_DISCORD_SERVER:
@@ -871,8 +907,8 @@ export async function upsertCurrentPlayIntent(
   )
   const explicitFriendUsers = outgoingFriends.map((friend) => friend.friendedUser)
   const explicitFriendUserIds = explicitFriendUsers.map((friend) => friend.id)
-  const normalizedTargetUserIds = [...new Set(payload.targetUserIds)]
-  const normalizedTargetDiscordServerIds = [...new Set(payload.targetDiscordServerIds ?? [])]
+  const normalizedTargetUserIds = normalizeStringArray(payload.targetUserIds)
+  const normalizedTargetDiscordServerIds = normalizeStringArray(payload.targetDiscordServerIds)
   const selectedDiscoveryServerIds = payload.notifyScope === 'specific-discord-server'
     ? await getSelectedDiscordServerIds(userId)
     : []
@@ -1075,6 +1111,7 @@ export async function upsertCurrentPlayIntent(
     : []
   const recipientTimezoneByUserId = new Map(recipientProfiles.map((profile) => [profile.id, profile.timezoneId]))
   const discordSpaceAudienceGrantUserIds = [...new Set(recipientUserIds.filter((recipientUserId) => recipientUserId !== userId))]
+  const discordSpaceAccessGrantCreates = buildDiscordSpaceAccessGrantCreates(userId, discordSpaceAudienceGrantUserIds)
 
   let activeIntent: ActivePlayIntent | null = null
   let activeIntentId: string | null = null
@@ -1105,21 +1142,10 @@ export async function upsertCurrentPlayIntent(
         discordSpace: payload.createDiscordSpace && env.DISCORD_SERVER_ID
           ? {
               create: {
-          serverId: env.DISCORD_SERVER_ID,
+                serverId: env.DISCORD_SERVER_ID,
                 status: PlayIntentDiscordSpaceStatus.REQUESTED,
                 accessGrants: {
-                  create: [
-                    {
-                      userId,
-                      source: PlayIntentDiscordSpaceAccessSource.CREATOR,
-                      inServer: false
-                    },
-                    ...discordSpaceAudienceGrantUserIds.map((recipientUserId) => ({
-                      userId: recipientUserId,
-                      source: PlayIntentDiscordSpaceAccessSource.AUDIENCE_SYNC,
-                      inServer: false
-                    }))
-                  ]
+                  create: discordSpaceAccessGrantCreates
                 }
               }
             }

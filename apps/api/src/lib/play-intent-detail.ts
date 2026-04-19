@@ -470,7 +470,7 @@ export async function buildPlayIntentDetail(viewerId: string, playIntentId: stri
   return {
     id: intent.id,
     title: intent.headline,
-    status: intent.expiresAt.getTime() > now.getTime() ? 'active' : 'closed',
+    status: intent.expiresAt.getTime() > now.getTime() ? 'active' : 'ended',
     appliesToViewer,
     user: {
       id: intent.user.id,

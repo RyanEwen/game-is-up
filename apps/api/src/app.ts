@@ -12,6 +12,7 @@ import { eventsRouter } from './routes/events.js'
 import { friendsRouter } from './routes/friends.js'
 import { healthRouter } from './routes/health.js'
 import { getAllowedClientOrigins, getApiOrigin } from './lib/origin.js'
+import { HttpError } from './lib/http-error.js'
 import { libraryRouter } from './routes/library.js'
 import { mediaRouter } from './routes/media.js'
 import { playIntentRouter } from './routes/play-intents.js'
@@ -66,6 +67,14 @@ app.use('/api/profile', profileRouter)
 app.use((error: unknown, _request: Request, response: Response, _next: NextFunction) => {
   void _next
   console.error(error)
+
+  if (error instanceof HttpError) {
+    response.status(error.statusCode).json({
+      error: error.message
+    })
+    return
+  }
+
   response.status(500).json({
     error: 'Internal server error'
   })

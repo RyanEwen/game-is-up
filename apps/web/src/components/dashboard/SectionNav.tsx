@@ -16,6 +16,8 @@ function scrollToSection(id: string) {
 export type SectionNavEntry = {
   id: string
   label: string
+  mobileLabel?: string
+  desktopLabel?: string
   ariaLabel?: string
   count?: number
 }
@@ -103,7 +105,7 @@ export function SectionNav({
           ].join(', ')
         }}
       >
-        {sections.map(({ id, label, ariaLabel, count }, i) => (
+        {sections.map(({ id, label, mobileLabel, desktopLabel, ariaLabel, count }, i) => (
           <Box key={id} sx={{ display: 'flex', alignItems: 'center' }}>
             {i > 0 && (
               <Box
@@ -140,7 +142,12 @@ export function SectionNav({
                 }
               }}
             >
-              {label}
+              <Box component="span" sx={{ display: { xs: 'inline', sm: 'none' } }}>
+                {mobileLabel ?? label}
+              </Box>
+              <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+                {desktopLabel ?? label}
+              </Box>
               {count != null && count > 0 && (
                 <Box
                   component="span"

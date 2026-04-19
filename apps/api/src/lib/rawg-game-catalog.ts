@@ -16,6 +16,7 @@ const rawgSearchResponseSchema = z.object({
             })
           })
         )
+        .nullable()
         .optional()
     })
   )

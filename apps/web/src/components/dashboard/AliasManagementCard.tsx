@@ -53,34 +53,40 @@ export function AliasManagementCard({
               const currentKey = `platform:${platform}`
               return (
                 <Stack key={platform} direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'center' }}>
-                  <Typography level="body-sm" sx={{ minWidth: 88, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                    {platform}
-                  </Typography>
-                  <Input
-                    value={currentValue}
-                    placeholder={`Your ${platform} alias`}
-                    onChange={(event) => {
-                      const value = event.target.value
-                      setPlatformDrafts((current) => ({ ...current, [platform]: value }))
-                    }}
-                    sx={{ flex: 1 }}
-                  />
-                  <Button
-                    variant="solid"
-                    color="primary"
-                    disabled={!currentValue.trim() || savingKey === currentKey}
-                    onClick={() => void onSavePlatformAlias(platform, currentValue)}
-                  >
-                    Save
-                  </Button>
-                  <Button
-                    variant="outlined"
-                    color="neutral"
-                    disabled={savingKey === currentKey || !platformAliasByPlatform.has(platform)}
-                    onClick={() => void onDeletePlatformAlias(platform)}
-                  >
-                    Clear
-                  </Button>
+                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'center' }} sx={{ flex: 1, minWidth: 0 }}>
+                    <Typography level="body-sm" sx={{ minWidth: 88, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                      {platform}
+                    </Typography>
+                    <Input
+                      value={currentValue}
+                      placeholder={`Your ${platform} alias`}
+                      onChange={(event) => {
+                        const value = event.target.value
+                        setPlatformDrafts((current) => ({ ...current, [platform]: value }))
+                      }}
+                      sx={{ flex: 1 }}
+                    />
+                  </Stack>
+                  <Stack direction="row" spacing={1} sx={{ width: { xs: '100%', sm: 'auto' }, flexShrink: 0 }}>
+                    <Button
+                      variant="solid"
+                      color="primary"
+                      disabled={!currentValue.trim() || savingKey === currentKey}
+                      onClick={() => void onSavePlatformAlias(platform, currentValue)}
+                      sx={{ flex: 1 }}
+                    >
+                      Save
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      color="neutral"
+                      disabled={savingKey === currentKey || !platformAliasByPlatform.has(platform)}
+                      onClick={() => void onDeletePlatformAlias(platform)}
+                      sx={{ flex: 1 }}
+                    >
+                      Clear
+                    </Button>
+                  </Stack>
                 </Stack>
               )
             })}

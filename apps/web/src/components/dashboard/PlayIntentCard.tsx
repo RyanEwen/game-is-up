@@ -1,9 +1,8 @@
 import { Avatar, Box, Button, Card, Chip, Stack, Typography } from '@mui/joy'
-import type { ActivePlayIntent, DiscoveryPerson, PlayIntentPreview, PlayIntentRecipientResponseChoice } from '@game-is-up/shared'
-import { InterestedPlayerList } from './InterestedPlayerList'
+import type { ActivePlayIntent, PlayIntentPreview } from '@game-is-up/shared'
 import { CompactPersonGameCard } from './PersonCard'
-import { formatNotifyScopeLabel } from './dashboardUtils'
-import type { DashboardLibraryQuickAddGame, FriendTarget } from './types'
+import { formatNotifyScopeLabel, formatPlayIntentTimingSummary } from './dashboardUtils'
+import type { DashboardLibraryQuickAddGame } from './types'
 
 const selectedGameGridSx = {
   display: 'grid',
@@ -71,41 +70,15 @@ export function PlayIntentGameList({
 
 export function PlayIntentCard({
   intent,
-  canAddToLibrary,
-  discoveryPeopleById,
-  libraryGameIds,
-  addingLibraryGameId,
-  friendPendingId,
-  onAddToLibrary,
-  onToggleFriend,
-  responsePending,
-  onRespondToIntent,
-  onOpenDetails,
-  isMuted,
-  onMuteCreator,
-  onUnmuteCreator,
-  onOpenDmEmulator
+  onOpenDetails
 }: {
   intent: PlayIntentPreview;
-  canAddToLibrary: boolean;
-  discoveryPeopleById: ReadonlyMap<string, DiscoveryPerson>;
-  libraryGameIds: ReadonlySet<string>;
-  addingLibraryGameId: string | null;
-  friendPendingId: string | null;
-  onAddToLibrary: (game: DashboardLibraryQuickAddGame) => Promise<void>;
-  onToggleFriend: (target: FriendTarget) => Promise<void>;
-  responsePending: boolean;
-  onRespondToIntent: (playIntentId: string, responseChoice: PlayIntentRecipientResponseChoice) => Promise<void>;
   onOpenDetails: (playIntentId: string) => void;
-  isMuted: boolean;
-  onMuteCreator: (userId: string) => Promise<void>;
-  onUnmuteCreator: (userId: string) => Promise<void>;
-  onOpenDmEmulator?: () => void;
 }) {
   const isLibraryWide = intent.selectionMode === 'library'
-  const isClosed = intent.status === 'closed'
-  const canRespondToIntent = canAddToLibrary && intent.appliesToViewer && !isClosed
+  const isEnded = intent.status === 'ended'
   const viewerResponseChoice = intent.viewerResponseChoice
+  const timingSummary = formatPlayIntentTimingSummary(intent.availabilityWindow.startsAt, intent.availabilityWindow.endsAt)
   const actionButtonSx = {
     flexShrink: 0,
     borderRadius: 'md',
@@ -139,17 +112,20 @@ export function PlayIntentCard({
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} justifyContent="space-between" sx={{ mb: 1.5 }}>
         <Stack direction="row" spacing={1.25} alignItems="center">
           <Avatar src={intent.user.avatarUrl ?? undefined} alt={intent.user.displayName} size="lg" variant="soft" />
-          <Box>
+          <Box sx={{ minWidth: 0 }}>
             <Typography level="title-lg">{intent.title}</Typography>
+            <Typography level="body-sm" sx={{ color: 'neutral.200', mt: 0.25 }}>
+              by {intent.user.displayName}
+            </Typography>
             <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
-              {intent.availabilityWindow.label}
+              {timingSummary}
             </Typography>
           </Box>
         </Stack>
         <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }} alignItems="center">
-          {isClosed ? (
+          {isEnded ? (
             <Chip size="sm" color="warning" variant="soft">
-              Closed
+              Ended
             </Chip>
           ) : null}
           <Chip size="sm" color="primary" variant="soft">
@@ -175,64 +151,14 @@ export function PlayIntentCard({
             onClick={() => onOpenDetails(intent.id)}
             sx={actionButtonSx}
           >
-            Open details
+            Details
           </Button>
-          {canRespondToIntent && viewerResponseChoice !== 'interested' ? (
-            <Button
-              variant="outlined"
-              color="neutral"
-              size="sm"
-              disabled={!canAddToLibrary || responsePending}
-              onClick={() => void onRespondToIntent(intent.id, 'interested')}
-              sx={actionButtonSx}
-            >
-              I'm interested
-            </Button>
-          ) : null}
-          {canRespondToIntent && viewerResponseChoice !== 'pass' ? (
-            <Button
-              variant="outlined"
-              color="neutral"
-              size="sm"
-              disabled={!canAddToLibrary || responsePending}
-              onClick={() => void onRespondToIntent(intent.id, 'pass')}
-              sx={actionButtonSx}
-            >
-              Pass
-            </Button>
-          ) : null}
-          <Button
-            variant={isMuted ? 'soft' : 'outlined'}
-            color="neutral"
-            size="sm"
-            onClick={() => void (isMuted ? onUnmuteCreator(intent.user.id) : onMuteCreator(intent.user.id))}
-            sx={actionButtonSx}
-          >
-            {isMuted ? 'Unmute creator' : 'Mute creator'}
-          </Button>
-          {onOpenDmEmulator ? (
-            <Button
-              variant="outlined"
-              color="neutral"
-              size="sm"
-              onClick={onOpenDmEmulator}
-              sx={actionButtonSx}
-            >
-              Open DM emulator
-            </Button>
-          ) : null}
         </Stack>
       </Stack>
 
-      {isClosed ? (
-        <Typography level="body-xs" sx={{ mb: 1.5, color: 'warning.200' }}>
-          This call to play has ended.
-        </Typography>
-      ) : null}
-
       {!intent.appliesToViewer ? (
         <Typography level="body-xs" sx={{ mb: 1.5, color: 'neutral.400' }}>
-          This call is visible in your network, but it does not currently match your library.
+          This call is from someone in your network, but it does not currently match your library.
         </Typography>
       ) : null}
 
@@ -242,24 +168,7 @@ export function PlayIntentCard({
         </Typography>
       ) : null}
 
-      {responsePending ? (
-        <Typography level="body-xs" sx={{ mb: 1.5, color: 'neutral.400' }}>
-          Updating your response...
-        </Typography>
-      ) : null}
-
-      {intent.note.trim() ? (
-        <Typography level="body-md" sx={{ mb: 2, color: 'neutral.200' }}>
-          {intent.note}
-        </Typography>
-      ) : null}
-
-      {intent.discordSpace ? (
-        <Typography level="body-sm" sx={{ mb: 1.5, color: 'neutral.300' }}>
-          Temporary Discord channel
-          {intent.discordSpace.voiceChannelName ? `: ${intent.discordSpace.voiceChannelName}` : ''}
-        </Typography>
-      ) : intent.voiceChannelName ? (
+      {!intent.discordSpace && intent.voiceChannelName ? (
         <Typography level="body-sm" sx={{ mb: 1.5, color: 'neutral.300' }}>
           Voice channel: {intent.voiceChannelName}
         </Typography>
@@ -270,38 +179,6 @@ export function PlayIntentCard({
           Target Discord servers: {intent.targetServers.map((server) => server.name).join(', ')}
         </Typography>
       ) : null}
-
-      <InterestedPlayerList
-        users={intent.interestedUsers}
-        sx={{ mb: intent.selectionMode === 'subset' || isLibraryWide ? 2 : 0 }}
-        discoveryPeopleById={discoveryPeopleById}
-        canManage={canAddToLibrary}
-        friendPendingId={friendPendingId}
-        onToggleFriend={onToggleFriend}
-      />
-
-      {isLibraryWide ? (
-        <>
-          <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: 'wrap' }}>
-            {intent.platforms.map((platform) => (
-              <Chip key={platform} size="sm" variant="outlined" color="neutral">
-                {platform}
-              </Chip>
-            ))}
-          </Stack>
-          <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
-            This call to play is for any proposed game that matches, not one specific title.
-          </Typography>
-        </>
-      ) : (
-        <PlayIntentGameList
-          games={intent.games}
-          canAddToLibrary={canAddToLibrary}
-          libraryGameIds={libraryGameIds}
-          addingLibraryGameId={addingLibraryGameId}
-          onAddToLibrary={onAddToLibrary}
-        />
-      )}
     </Card>
   )
 }

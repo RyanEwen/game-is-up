@@ -238,7 +238,7 @@ export const playIntentPreviewUserSchema = z.object({
 export const playIntentPreviewSchema = z.object({
   id: z.string().uuid(),
   title: z.string().min(1),
-  status: z.enum(['active', 'closed']),
+  status: z.enum(['active', 'ended']),
   appliesToViewer: z.boolean(),
   user: playIntentPreviewUserSchema,
   selectionMode: playIntentSelectionModeSchema,
@@ -319,6 +319,11 @@ export const playIntentRecipientResponseRequestSchema = z.object({
 
 export const playIntentRecipientResponseResultSchema = z.object({
   responseChoice: playIntentRecipientResponseChoiceSchema,
+  message: z.string().min(1)
+})
+
+export const playIntentDiscordSpaceDeleteResponseSchema = z.object({
+  status: z.enum(['deleted', 'missing']),
   message: z.string().min(1)
 })
 

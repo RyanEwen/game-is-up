@@ -57,6 +57,11 @@ type TrackedDirectMessageState = {
   entries: Map<string, TrackedDirectMessageEntry>;
 }
 
+type DirectMessageTarget = {
+  channelId: string;
+  messageId: string;
+}
+
 function buildPlayUrl() {
   try {
     return new URL('/play', env.CLIENT_ORIGIN).toString()
@@ -65,7 +70,25 @@ function buildPlayUrl() {
   }
 }
 
-function buildArchivedAudienceCleanupComponents(notificationId: string) {
+function buildArchivedCreatorDeleteSpaceButton(playIntentId: string) {
+  return new ButtonBuilder()
+    .setCustomId(`${creatorPlayIntentSummaryPrefix}:${playIntentId}:delete-space`)
+    .setLabel('Delete Discord channel')
+    .setStyle(ButtonStyle.Danger)
+}
+
+function hasArchivedCreatorDeletableDiscordSpace(playIntent: {
+  discordSpace?: {
+    status: 'REQUESTED' | 'PROVISIONING' | 'ACTIVE' | 'RETAINED' | 'DELETE_REQUESTED' | 'DELETED' | 'PROVISION_FAILED';
+  } | null;
+}) {
+  return playIntent.discordSpace != null
+    && playIntent.discordSpace.status !== 'DELETED'
+    && playIntent.discordSpace.status !== 'REQUESTED'
+    && playIntent.discordSpace.status !== 'PROVISIONING'
+}
+
+export function buildArchivedAudienceCleanupComponents(notificationId: string) {
   if (!supportsDiscordInteractiveMessages()) {
     return []
   }
@@ -80,18 +103,29 @@ function buildArchivedAudienceCleanupComponents(notificationId: string) {
   ], buildPlayUrl())
 }
 
-function buildArchivedCreatorCleanupComponents(playIntentId: string) {
+export function buildArchivedCreatorCleanupComponents(
+  playIntentId: string,
+  options: {
+    hasDeletableDiscordSpace?: boolean;
+  } = {}
+) {
   if (!supportsDiscordInteractiveMessages()) {
     return []
   }
 
+  const row = new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`${creatorPlayIntentSummaryPrefix}:${playIntentId}:cleanup`)
+      .setLabel('Archive')
+      .setStyle(ButtonStyle.Secondary)
+  )
+
+  if (options.hasDeletableDiscordSpace) {
+    row.addComponents(buildArchivedCreatorDeleteSpaceButton(playIntentId))
+  }
+
   return appendOpenInAppButton([
-    new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
-      new ButtonBuilder()
-        .setCustomId(`${creatorPlayIntentSummaryPrefix}:${playIntentId}:cleanup`)
-        .setLabel('Archive')
-        .setStyle(ButtonStyle.Secondary)
-    )
+    row
   ], buildPlayUrl())
 }
 
@@ -114,7 +148,7 @@ function summarizeArchivedPlayIntentGames(playIntent: {
   return `${titles.slice(0, 4).join(', ')} +${titles.length - 4} more`
 }
 
-function buildArchivedPlayIntentSummary(
+export function buildArchivedPlayIntentSummary(
   playIntent: {
     selectionMode: 'ENTIRE_LIBRARY' | 'SELECTED_GAMES';
     windowStartsAt: Date;
@@ -143,7 +177,7 @@ function buildArchivedPlayIntentSummary(
   }
 }
 
-function buildArchivedPlayIntentEmbeds(summaryBody: string) {
+export function buildArchivedPlayIntentEmbeds(summaryBody: string) {
   const fields = summaryBody
     .split('\n')
     .map((line) => line.trim())
@@ -177,6 +211,34 @@ function buildArchivedPlayIntentEmbeds(summaryBody: string) {
       .setColor(0xef4444)
       .addFields(fields)
   ]
+}
+
+export function buildArchivedCreatorPlayIntentPreview(
+  playIntentId: string,
+  playIntent: {
+    selectionMode: 'ENTIRE_LIBRARY' | 'SELECTED_GAMES';
+    windowStartsAt: Date;
+    windowEndsAt: Date;
+    user: {
+      displayName: string;
+      identities?: { providerUserId: string }[];
+    };
+    games: { game: { title: string } }[];
+    discordSpace?: {
+      status: 'REQUESTED' | 'PROVISIONING' | 'ACTIVE' | 'RETAINED' | 'DELETE_REQUESTED' | 'DELETED' | 'PROVISION_FAILED';
+    } | null;
+  },
+  timezoneId: string
+) {
+  const summary = buildArchivedPlayIntentSummary(playIntent, timezoneId)
+
+  return {
+    content: '',
+    embeds: buildArchivedPlayIntentEmbeds(summary.body),
+    components: buildArchivedCreatorCleanupComponents(playIntentId, {
+      hasDeletableDiscordSpace: hasArchivedCreatorDeletableDiscordSpace(playIntent)
+    })
+  }
 }
 
 function getNotificationArchivePriority(type: NotificationType) {
@@ -389,13 +451,15 @@ async function collectTrackedDirectMessageStateForUser(userId: string, now: Date
         createdAt: true,
         deliveredAt: true,
         respondedAt: true,
+        responseChoice: true,
         discordDmChannelId: true,
         discordDmMessageId: true,
         recipientResponseDiscordDmChannelId: true,
         recipientResponseDiscordDmMessageId: true,
         playIntent: {
           select: {
-            expiresAt: true
+            expiresAt: true,
+            userId: true
           }
         }
       }
@@ -439,11 +503,19 @@ async function collectTrackedDirectMessageStateForUser(userId: string, now: Date
   }
 
   for (const notification of notifications) {
+    const isCreatorTrackedMessage = notification.playIntent?.userId === userId
+    const isInterestedRecipientMessage = notification.responseChoice === NotificationResponseChoice.JOIN
+    const preserveNotificationMessage = Boolean(
+      notification.playIntent?.expiresAt
+      && notification.playIntent.expiresAt > now
+      && (isCreatorTrackedMessage || isInterestedRecipientMessage)
+    )
+
     upsertTrackedDirectMessageEntry(state, {
       channelId: notification.discordDmChannelId,
       messageId: notification.discordDmMessageId,
       sortAt: notification.deliveredAt ?? notification.createdAt,
-      isActive: Boolean(notification.playIntent?.expiresAt && notification.playIntent.expiresAt > now),
+      isActive: preserveNotificationMessage,
       notificationId: notification.id
     })
 
@@ -451,7 +523,7 @@ async function collectTrackedDirectMessageStateForUser(userId: string, now: Date
       channelId: notification.recipientResponseDiscordDmChannelId,
       messageId: notification.recipientResponseDiscordDmMessageId,
       sortAt: notification.respondedAt ?? notification.deliveredAt ?? notification.createdAt,
-      isActive: Boolean(notification.playIntent?.expiresAt && notification.playIntent.expiresAt > now),
+      isActive: preserveNotificationMessage,
       notificationId: notification.id
     })
   }
@@ -705,7 +777,13 @@ export async function deletePlayIntentDirectMessages(playIntentId: string) {
   }
 }
 
-export async function deleteCreatorPlayIntentDirectMessages(playIntentId: string, userId: string) {
+export async function deleteCreatorPlayIntentDirectMessages(
+  playIntentId: string,
+  userId: string,
+  options: {
+    summaryMessage?: DirectMessageTarget;
+  } = {}
+) {
   const [playIntent, notifications] = await Promise.all([
     prisma.playIntent.findFirst({
       where: {
@@ -765,10 +843,18 @@ export async function deleteCreatorPlayIntentDirectMessages(playIntentId: string
     clearsCreatorSummary: boolean;
   }>()
 
-  if (playIntent.creatorDiscordDmChannelId && playIntent.creatorDiscordDmMessageId) {
-    trackedMessages.set(`${playIntent.creatorDiscordDmChannelId}:${playIntent.creatorDiscordDmMessageId}`, {
-      channelId: playIntent.creatorDiscordDmChannelId,
-      messageId: playIntent.creatorDiscordDmMessageId,
+  const summaryMessage = options.summaryMessage
+    ?? (playIntent.creatorDiscordDmChannelId && playIntent.creatorDiscordDmMessageId
+      ? {
+          channelId: playIntent.creatorDiscordDmChannelId,
+          messageId: playIntent.creatorDiscordDmMessageId
+        }
+      : null)
+
+  if (summaryMessage) {
+    trackedMessages.set(`${summaryMessage.channelId}:${summaryMessage.messageId}`, {
+      channelId: summaryMessage.channelId,
+      messageId: summaryMessage.messageId,
       notificationIds: [],
       clearsCreatorSummary: true
     })
@@ -842,7 +928,14 @@ export async function deleteCreatorPlayIntentDirectMessages(playIntentId: string
   }
 }
 
-export async function deleteUserPlayIntentDirectMessages(playIntentId: string, userId: string) {
+export async function deleteUserPlayIntentDirectMessages(
+  playIntentId: string,
+  userId: string,
+  options: {
+    anchorMessage?: DirectMessageTarget;
+    anchorNotificationId?: string;
+  } = {}
+) {
   const notifications = await prisma.notification.findMany({
     where: {
       playIntentId,
@@ -880,6 +973,14 @@ export async function deleteUserPlayIntentDirectMessages(playIntentId: string, u
     messageId: string;
     notificationIds: string[];
   }>()
+
+  if (options.anchorMessage) {
+    trackedMessages.set(`${options.anchorMessage.channelId}:${options.anchorMessage.messageId}`, {
+      channelId: options.anchorMessage.channelId,
+      messageId: options.anchorMessage.messageId,
+      notificationIds: options.anchorNotificationId ? [options.anchorNotificationId] : []
+    })
+  }
 
   for (const notification of notifications) {
     if (notification.discordDmChannelId && notification.discordDmMessageId) {
@@ -1165,6 +1266,11 @@ export async function archivePlayIntentDirectMessages(options: {
       windowEndsAt: true,
       creatorDiscordDmChannelId: true,
       creatorDiscordDmMessageId: true,
+      discordSpace: {
+        select: {
+          status: true
+        }
+      },
       user: {
         select: {
           id: true,
@@ -1277,7 +1383,11 @@ export async function archivePlayIntentDirectMessages(options: {
       }
     })).map((mute) => mute.userId))
 
-    const creatorArchiveEmbeds = buildArchivedPlayIntentEmbeds(buildArchivedPlayIntentSummary(playIntent, playIntent.user.timezoneId).body)
+    const creatorArchivePreview = buildArchivedCreatorPlayIntentPreview(
+      playIntent.id,
+      playIntent,
+      playIntent.user.timezoneId
+    )
     const creatorCandidates: ArchivedCreatorCandidate[] = []
 
     if (playIntent.creatorDiscordDmChannelId && playIntent.creatorDiscordDmMessageId) {
@@ -1313,7 +1423,12 @@ export async function archivePlayIntentDirectMessages(options: {
     creatorCandidates.sort((left, right) => left.priority - right.priority)
 
     const keptCreatorMessageId = creatorCandidates.length > 0
-      ? await tryArchiveDirectMessage(creatorCandidates, '', creatorArchiveEmbeds, buildArchivedCreatorCleanupComponents(playIntent.id))
+      ? await tryArchiveDirectMessage(
+          creatorCandidates,
+          creatorArchivePreview.content,
+          creatorArchivePreview.embeds,
+          creatorArchivePreview.components
+        )
       : null
 
     if (keptCreatorMessageId) {
@@ -1377,7 +1492,7 @@ export async function archivePlayIntentDirectMessages(options: {
         .sort((left, right) => left.priority - right.priority)
 
       // Quiet expiry/archive edits the existing tracked DM in place.
-      // Manual cancel paths only send a fresh ended-summary DM to recipients who explicitly joined.
+      // Manual end paths only send a fresh ended-summary DM to recipients who explicitly joined.
       // Unanswered recipients stay on the quieter edit-in-place archival path.
       if (options.replaceRecipientMessages && recipientInterested && !recipientPassed && !recipientMutedCreator) {
         const recipientDiscordUserId = notifications[0]?.user.identities[0]?.providerUserId

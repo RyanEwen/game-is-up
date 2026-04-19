@@ -7,6 +7,7 @@ import {
   type MessageActionRowComponentBuilder
 } from 'discord.js'
 import { AuthProvider } from '@prisma/client'
+import { deleteDiscordDirectMessage } from './discord-bot-runtime.js'
 import { buildOpenInAppButton, buildDiscordMessageHeading } from './discord-dm-formatting.js'
 import { deleteSettledDiscordDirectMessagesForUser } from './discord-dm-cleanup.js'
 import { env } from './env.js'
@@ -14,7 +15,7 @@ import { clearCurrentPlayIntent, getCurrentPlayIntent } from './play-intents.js'
 import { formatPlayIntentWindowLabel } from './play-intent-time-format.js'
 import { prisma } from './prisma.js'
 
-type DirectMessageCommandName = 'help' | 'status' | 'cancel' | 'autoplay' | 'cleanup'
+type DirectMessageCommandName = 'help' | 'status' | 'end' | 'autoplay' | 'cleanup'
 
 type ParsedDirectMessageCommand = {
   name: DirectMessageCommandName;
@@ -48,8 +49,8 @@ const directMessageCommandAliases = new Map<string, DirectMessageCommandName>([
   ['menu', 'help'],
   ['status', 'status'],
   ['state', 'status'],
-  ['cancel', 'cancel'],
-  ['stop', 'cancel'],
+  ['end', 'end'],
+  ['stop', 'end'],
   ['autoplay', 'autoplay'],
   ['auto-play', 'autoplay'],
   ['autoprompt', 'autoplay'],
@@ -285,11 +286,11 @@ function buildHelpMessage() {
     'Send any of these commands in this DM. A leading slash also works.',
     '- `help` shows this command list.',
     '- `status` shows your active call to play and auto-play prompt setting.',
-    '- `cancel` closes your current call to play.',
+    '- `end` ends your current call to play.',
     '- `autoplay` shows whether Discord auto-play prompts are on.',
     '- `autoplay on` enables Discord auto-play prompts.',
     '- `autoplay off` disables Discord auto-play prompts.',
-    '- `cleanup` removes old bot messages and settled prompts, keeping only the newest active tracked message.'
+    '- `cleanup` removes old bot messages and settled prompts while preserving any still-active tracked messages.'
   ].join('\n\n')
 }
 
@@ -330,14 +331,14 @@ async function handleStatusCommand(context: DirectMessageCommandContext, identit
   )
 }
 
-async function handleCancelCommand(context: DirectMessageCommandContext, identity: NonNullable<Awaited<ReturnType<typeof resolveDiscordIdentity>>>) {
+async function handleEndCommand(context: DirectMessageCommandContext, identity: NonNullable<Awaited<ReturnType<typeof resolveDiscordIdentity>>>) {
   const activeIntent = await getCurrentPlayIntent(identity.userId)
 
   if (!activeIntent) {
     await context.reply(
       [
         buildDiscordMessageHeading('No active call to play'),
-        'There is nothing active to cancel right now.'
+        'There is nothing active to end right now.'
       ].join('\n\n')
     )
     return
@@ -347,8 +348,8 @@ async function handleCancelCommand(context: DirectMessageCommandContext, identit
 
   await context.reply(
     [
-      buildDiscordMessageHeading('Call to play canceled'),
-      `Closed: ${activeIntent.title}`,
+      buildDiscordMessageHeading('Call to play ended'),
+      `Ended: ${activeIntent.title}`,
       'Anyone who already received the call to play will see that it ended.'
     ].join('\n\n')
   )
@@ -472,8 +473,8 @@ async function executeDirectMessageCommand(context: DirectMessageCommandContext,
     case 'status':
       await handleStatusCommand(context, identity)
       return
-    case 'cancel':
-      await handleCancelCommand(context, identity)
+    case 'end':
+      await handleEndCommand(context, identity)
       return
     case 'autoplay':
       await handleAutoplayCommand(context, identity, parsedCommand.args)
@@ -539,6 +540,13 @@ export async function handleDiscordDirectMessageButtonInteraction(interaction: B
   }
 
   await interaction.deferUpdate()
-  await interaction.message.delete().catch(() => {})
+  const deleteResult = await deleteDiscordDirectMessage({
+    channelId: interaction.channelId,
+    messageId: interaction.message.id
+  })
+
+  if (deleteResult.status !== 'deleted') {
+    await interaction.message.delete().catch(() => {})
+  }
   return true
 }

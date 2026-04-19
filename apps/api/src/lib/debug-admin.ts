@@ -1,9 +1,3 @@
-import {
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
-  type MessageActionRowComponentBuilder
-} from 'discord.js'
 import { debugAdminResponseSchema } from '@game-is-up/shared'
 import {
   AuthProvider,
@@ -14,18 +8,14 @@ import {
   PlayIntentSelectionMode
 } from '@prisma/client'
 import { buildDiscordAutoPlayPromptPreview } from './discord-auto-play-prompts.js'
-import { buildDebugPlayIntentResponseCustomId } from './debug-dm-actions.js'
 import { buildDebugDmPreview } from './discord-dm-preview.js'
 import { areDiscordDirectMessagesEmulated, getDiscordPresenceBotState } from './discord-bot-runtime.js'
-import { env } from './env.js'
 import { getPlayIntentDiscordSpaceRecipientContexts } from './play-intent-discord-spaces.js'
 import { getPlayIntentRecipientUserIdsForDebug } from './play-intents.js'
 import { buildPlayIntentNotificationCopy } from './play-intents.js'
 import {
   buildPlayIntentNotificationPromptPreview,
   buildCreatorPlayIntentSummaryPreview,
-  buildPlayIntentDirectMessageEmbeds,
-  buildPlayIntentDirectMessageHeading,
   buildNotificationDirectMessagePreview,
   buildScheduledCheckInPromptPreview
 } from './play-intent-notification-responses.js'
@@ -149,7 +139,7 @@ function buildDebugDmTemplateDefinitions(now: Date): DebugDmTemplateGroupDefinit
     inviteUrl: 'https://discord.gg/gamesup-motorfest',
     deleteAfter: new Date(now.getTime() + 24 * 60 * 60 * 1000)
   }
-  const templateClosedCreatorDiscordSpace = {
+  const templateEndedCreatorDiscordSpace = {
     status: 'RETAINED' as const,
     textChannelName: 'motorfest-staging',
     textChannelUrl: 'https://discord.com/channels/987654321098765432/555555555555555555',
@@ -274,8 +264,8 @@ function buildDebugDmTemplateDefinitions(now: Date): DebugDmTemplateGroupDefinit
     discordSpace: templateCreatorDiscordSpace,
     currentTime: now
   })
-  const closedSummaryPreview = buildCreatorPlayIntentSummaryPreview({
-    id: 'template-closed-summary',
+  const endedSummaryPreview = buildCreatorPlayIntentSummaryPreview({
+    id: 'template-ended-summary',
     headline: 'Wrapped up for the night.',
     note: 'Good run.',
     selectionMode: 'SELECTED_GAMES',
@@ -297,7 +287,7 @@ function buildDebugDmTemplateDefinitions(now: Date): DebugDmTemplateGroupDefinit
     }],
     games: [{ game: { title: gameTitle } }],
     notifications: liveSummaryNotifications,
-    discordSpace: templateClosedCreatorDiscordSpace,
+    discordSpace: templateEndedCreatorDiscordSpace,
     currentTime: now
   })
   const autoPlayCreatedSummaryPreview = buildCreatorPlayIntentSummaryPreview({
@@ -448,7 +438,7 @@ function buildDebugDmTemplateDefinitions(now: Date): DebugDmTemplateGroupDefinit
         {
           id: 'recipient-ended-summary',
           label: 'Ended summary',
-          description: 'The archived DM that replaces an old audience invite when the call closes.',
+          description: 'The archived DM that replaces an old audience invite when the call ends.',
           previewPayload: buildNotificationDirectMessagePreview({
             notificationId: 'template-ended-summary',
             notificationType: NotificationType.SYSTEM,
@@ -491,10 +481,10 @@ function buildDebugDmTemplateDefinitions(now: Date): DebugDmTemplateGroupDefinit
           previewPayload: scheduledSummaryPreview
         },
         {
-          id: 'creator-summary-closed',
-          label: 'Closed summary',
+          id: 'creator-summary-ended',
+          label: 'Ended summary',
           description: 'The creator summary after the call has already ended.',
-          previewPayload: closedSummaryPreview
+          previewPayload: endedSummaryPreview
         },
         {
           id: 'creator-interest-update',
@@ -565,11 +555,11 @@ function buildDebugDmTemplateDefinitions(now: Date): DebugDmTemplateGroupDefinit
           })
         },
         {
-          id: 'creator-check-in-canceled',
-          label: 'Closed response',
-          description: 'The confirmation the creator sees after closing a scheduled call from Discord.',
+          id: 'creator-check-in-ended',
+          label: 'Ended response',
+          description: 'The confirmation the creator sees after ending a scheduled call from Discord.',
           previewPayload: buildNotificationDirectMessagePreview({
-            notificationId: 'template-check-in-canceled',
+            notificationId: 'template-check-in-ended',
             notificationType: NotificationType.SCHEDULED_PLAY_INTENT_CHECK_IN,
             title: 'Is your scheduled call to play still on?',
             body: 'Your scheduled call to play is starting now. Confirm if it is still on.',
@@ -1814,7 +1804,7 @@ export async function buildDebugAdminSnapshot() {
           label: latestCheckInNotification.responseChoice === NotificationResponseChoice.CONFIRMED
             ? 'Confirmed response'
             : latestCheckInNotification.responseChoice === NotificationResponseChoice.CANCELED
-              ? 'Closed response'
+              ? 'Ended response'
               : 'Expired check-in',
           sentAt: latestCheckInNotification.respondedAt.toISOString(),
           deliveryState: toDebugDmDeliveryState(latestCheckInNotification.deliveredAt, areDiscordDirectMessagesEmulated()),
@@ -2041,42 +2031,28 @@ export async function buildDebugAdminSnapshot() {
         now,
         recipient.timezoneId
       )
+      const previewPayload = buildPlayIntentNotificationPromptPreview({
+        notificationId: `synthetic-notification:${intent.id}:${recipient.id}`,
+        playIntentId: intent.id,
+        notificationType: NotificationType.FRIEND_PLAYING,
+        title: notificationCopy.title,
+        body: notificationCopy.body,
+        creatorUserId: intent.user.id,
+        creatorDiscordUserId,
+        creatorDisplayName: intent.user.displayName,
+        voiceChannel: previewIntent && (previewIntent.voiceChannelId || previewIntent.voiceChannelName)
+          ? {
+              channelId: previewIntent.voiceChannelId,
+              channelName: previewIntent.voiceChannelName,
+              recipientSharesServer: false
+            }
+          : null,
+        discordSpace: intentDiscordSpaceRecipientContexts.get(recipient.id) ?? null
+      })
       const syntheticPreview = buildDebugDmPreview(
-        buildPlayIntentDirectMessageHeading(notificationCopy.title),
-        [
-          new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
-            new ButtonBuilder()
-              .setCustomId(buildDebugPlayIntentResponseCustomId(intent.id, 'interested'))
-              .setLabel("I'm interested")
-              .setStyle(ButtonStyle.Primary),
-            new ButtonBuilder()
-              .setCustomId(buildDebugPlayIntentResponseCustomId(intent.id, 'pass'))
-              .setLabel('Pass')
-              .setStyle(ButtonStyle.Secondary)
-          ),
-          new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
-            new ButtonBuilder()
-              .setLabel('Open App')
-              .setStyle(ButtonStyle.Link)
-              .setURL(new URL('/play', env.CLIENT_ORIGIN).toString())
-          )
-        ],
-        buildPlayIntentDirectMessageEmbeds(
-          notificationCopy.title,
-          notificationCopy.body,
-          creatorDiscordUserId,
-          intent.user.displayName,
-          previewIntent && (previewIntent.voiceChannelId || previewIntent.voiceChannelName)
-            ? {
-                channelId: previewIntent.voiceChannelId,
-                channelName: previewIntent.voiceChannelName,
-                recipientSharesServer: false
-              }
-            : null,
-          undefined,
-          undefined,
-          intentDiscordSpaceRecipientContexts.get(recipient.id) ?? null
-        )
+        previewPayload.content,
+        previewPayload.components,
+        previewPayload.embeds
       )
 
       return {

@@ -1,6 +1,7 @@
 import { AuthProvider as PrismaAuthProvider } from '@prisma/client'
 import { prisma } from './prisma.js'
 import { env } from './env.js'
+import { HttpError } from './http-error.js'
 
 const STEAM_OPENID_URL = 'https://steamcommunity.com/openid/login'
 const STEAM_PLAYER_SUMMARIES_URL = 'https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v2/'
@@ -65,6 +66,67 @@ function extractSteamIdFromClaimedId(claimedId: string): string | null {
 
 function parseOpenIdVerificationResponse(body: string): boolean {
   return body.split('\n').some((line) => line.trim() === 'is_valid:true')
+}
+
+function buildSteamCredentialError(): HttpError {
+  return new HttpError(
+    502,
+    'Steam import is temporarily unavailable because the configured Steam Web API key was rejected. Update the Steam API key and try again.'
+  )
+}
+
+function buildSteamUnavailableError(operation: 'profile' | 'library'): HttpError {
+  return new HttpError(
+    502,
+    operation === 'profile'
+      ? 'Steam import is temporarily unavailable because Steam profile lookup failed.'
+      : 'Steam import is temporarily unavailable because Steam library lookup failed.'
+  )
+}
+
+function buildSteamRateLimitError(operation: 'profile' | 'library'): HttpError {
+  return new HttpError(
+    503,
+    operation === 'profile'
+      ? 'Steam import is temporarily unavailable because Steam is rate limiting profile lookups. Try again shortly.'
+      : 'Steam import is temporarily unavailable because Steam is rate limiting library lookups. Try again shortly.'
+  )
+}
+
+async function fetchSteamWebApiJson<T>(url: URL, operation: 'profile' | 'library'): Promise<T> {
+  let response: Response
+
+  try {
+    response = await fetch(url, {
+      headers: {
+        Accept: 'application/json'
+      }
+    })
+  } catch (error) {
+    if (error instanceof HttpError) {
+      throw error
+    }
+
+    throw buildSteamUnavailableError(operation)
+  }
+
+  if (!response.ok) {
+    if (response.status === 401 || response.status === 403) {
+      throw buildSteamCredentialError()
+    }
+
+    if (response.status === 429) {
+      throw buildSteamRateLimitError(operation)
+    }
+
+    throw buildSteamUnavailableError(operation)
+  }
+
+  try {
+    return (await response.json()) as T
+  } catch {
+    throw buildSteamUnavailableError(operation)
+  }
 }
 
 export function isSteamImportConfigured(): boolean {
@@ -149,21 +211,11 @@ export async function fetchSteamProfileSummary(steamId: string): Promise<SteamPr
   url.searchParams.set('key', env.STEAM_WEB_API_KEY ?? '')
   url.searchParams.set('steamids', steamId)
 
-  const response = await fetch(url, {
-    headers: {
-      Accept: 'application/json'
-    }
-  })
-
-  if (!response.ok) {
-    throw new Error(`Steam profile lookup failed: ${response.status} ${response.statusText}`)
-  }
-
-  const parsed = (await response.json()) as SteamPlayerSummaryResponse
+  const parsed = await fetchSteamWebApiJson<SteamPlayerSummaryResponse>(url, 'profile')
   const player = parsed.response.players[0]
 
   if (!player) {
-    throw new Error('Steam did not return a player profile for this account.')
+    throw new HttpError(502, 'Steam import is temporarily unavailable because Steam did not return a player profile for this account.')
   }
 
   return {
@@ -183,17 +235,7 @@ export async function fetchSteamOwnedGames(steamId: string): Promise<SteamOwnedG
   url.searchParams.set('include_appinfo', 'true')
   url.searchParams.set('include_played_free_games', 'true')
 
-  const response = await fetch(url, {
-    headers: {
-      Accept: 'application/json'
-    }
-  })
-
-  if (!response.ok) {
-    throw new Error(`Steam library lookup failed: ${response.status} ${response.statusText}`)
-  }
-
-  const parsed = (await response.json()) as SteamOwnedGamesResponse
+  const parsed = await fetchSteamWebApiJson<SteamOwnedGamesResponse>(url, 'library')
   const games = parsed.response?.games ?? []
 
   return games

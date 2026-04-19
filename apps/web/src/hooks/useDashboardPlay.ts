@@ -15,6 +15,7 @@ import type {
 } from '@game-is-up/shared'
 import {
   discordVoiceChannelsResponseSchema,
+  playIntentDiscordSpaceDeleteResponseSchema,
   playIntentRecipientResponseResultSchema,
   upsertPlayIntentResponseSchema
 } from '@game-is-up/shared'
@@ -109,6 +110,8 @@ export type DashboardPlayViewProps = {
   playIntentPreviews: PlayIntentPreview[];
   playIntentResponsePendingIntentId: string | null;
   onRespondToPlayIntent: (playIntentId: string, responseChoice: PlayIntentRecipientResponseChoice) => Promise<void>;
+  playIntentDiscordSpaceDeletePendingIntentId: string | null;
+  onDeletePlayIntentDiscordSpace: (playIntentId: string) => Promise<void>;
   mutedPlayIntentUserIds: ReadonlySet<string>;
   onMutePlayIntentUser: (userId: string) => Promise<void>;
   onUnmutePlayIntentUser: (userId: string) => Promise<void>;
@@ -164,6 +167,7 @@ export function useDashboardPlay({
   const [selectedPlayIntentTargetUserIds, setSelectedPlayIntentTargetUserIds] = useState<string[]>([])
   const [mutedPlayIntentUserIds, setMutedPlayIntentUserIds] = useState<Set<string>>(new Set())
   const [playIntentResponsePendingIntentId, setPlayIntentResponsePendingIntentId] = useState<string | null>(null)
+  const [playIntentDiscordSpaceDeletePendingIntentId, setPlayIntentDiscordSpaceDeletePendingIntentId] = useState<string | null>(null)
   const [playIntentSaving, setPlayIntentSaving] = useState(false)
   const [isPlayIntentComposerOpen, setIsPlayIntentComposerOpen] = useState(false)
 
@@ -273,13 +277,13 @@ export function useDashboardPlay({
   const playIntentStartHelperText = playIntentStartValidationMessage
     ? playIntentStartValidationMessage
     : playIntentStartMode === 'scheduled' && resolvedPlayIntentStartAt
-      ? `Matches can see this call to play as soon as you post it. We'll ask you to confirm it at ${resolvedPlayIntentStartAt.toLocaleString([], {
+      ? `This call to play reaches people in your network with matching games in their library as soon as you post it. We'll ask you to confirm it at ${resolvedPlayIntentStartAt.toLocaleString([], {
           month: 'short',
           day: 'numeric',
           hour: 'numeric',
           minute: '2-digit'
-        })}, then remind matches once you confirm.`
-      : 'Matches can see this call to play as soon as you post it.'
+        })}, then remind those people once you confirm.`
+      : 'This call to play reaches people in your network with matching games in their library as soon as you post it.'
   const playIntentStartHasError = playIntentStartValidationMessage != null
   const playIntentTimingHelperText = playIntentTimingValidationMessage
     ? playIntentTimingValidationMessage
@@ -893,6 +897,45 @@ export function useDashboardPlay({
     }
   }, [buildApiUrl, loadDashboard, setPlayIntentNotice])
 
+  const handleDeletePlayIntentDiscordSpace = useCallback(async (playIntentId: string) => {
+    setPlayIntentDiscordSpaceDeletePendingIntentId(playIntentId)
+    setPlayIntentNotice(null)
+
+    try {
+      const response = await fetch(buildApiUrl(`/api/play-intents/${playIntentId}/discord-space`), {
+        method: 'DELETE',
+        credentials: 'include'
+      })
+
+      const responseBody = await response.json() as { error?: string }
+
+      if (!response.ok) {
+        setPlayIntentNotice({
+          tone: 'danger',
+          message: typeof responseBody.error === 'string'
+            ? responseBody.error
+            : 'Unable to delete the temporary Discord channels right now.'
+        })
+        return
+      }
+
+      const parsed = playIntentDiscordSpaceDeleteResponseSchema.parse(responseBody)
+
+      setPlayIntentNotice({
+        tone: 'success',
+        message: parsed.message
+      })
+      await loadDashboard()
+    } catch (error) {
+      setPlayIntentNotice({
+        tone: 'danger',
+        message: error instanceof Error ? error.message : 'Unable to delete the temporary Discord channels right now.'
+      })
+    } finally {
+      setPlayIntentDiscordSpaceDeletePendingIntentId(null)
+    }
+  }, [buildApiUrl, loadDashboard, setPlayIntentNotice])
+
   const openPlayIntentComposer = useCallback(() => {
     setIsPlayIntentComposerOpen(true)
     setPlayIntentNotice(null)
@@ -960,6 +1003,8 @@ export function useDashboardPlay({
     playIntentPreviews,
     playIntentResponsePendingIntentId,
     onRespondToPlayIntent: handleRespondToPlayIntent,
+    playIntentDiscordSpaceDeletePendingIntentId,
+    onDeletePlayIntentDiscordSpace: handleDeletePlayIntentDiscordSpace,
     mutedPlayIntentUserIds,
     onMutePlayIntentUser: handleMutePlayIntentUser,
     onUnmutePlayIntentUser: handleUnmutePlayIntentUser

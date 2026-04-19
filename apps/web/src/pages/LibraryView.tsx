@@ -16,7 +16,7 @@ import { useDashboardContext } from '../contexts/useDashboardContext'
 const steamImportPlatformOptions = ['PC', 'Xbox', 'PlayStation', 'Switch', 'Mobile', 'macOS', 'Linux'] as const
 const steamImportListMinHeight = 280
 const steamImportListMaxHeight = 'min(58vh, 640px)'
-const steamImportPageSize = 100
+const steamImportPageSize = 50
 
 type SteamImportSelection = ImportSteamLibrarySelectionRequest['games'][number]
 type SteamImportLibraryFilter = 'importable' | 'already-in-library' | 'all'
@@ -291,11 +291,11 @@ function SteamImportReadyContent({
               <Chip variant="outlined" color="neutral">{alreadyInLibraryCount} already in library</Chip>
               {preview.account ? <Chip variant="outlined" color="neutral">Connected as {preview.account.displayName}</Chip> : null}
             </Stack>
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
-              <Button size="sm" variant="outlined" color="neutral" disabled={refreshing || importing} onClick={() => void onReload()}>
+            <Stack direction="row" spacing={1} sx={{ width: { xs: '100%', sm: 'auto' } }}>
+              <Button size="sm" variant="outlined" color="neutral" disabled={refreshing || importing} onClick={() => void onReload()} sx={{ flex: 1 }}>
                 {refreshing ? 'Reloading from Steam...' : 'Reload from Steam'}
               </Button>
-              <Button size="sm" variant="outlined" color="danger" disabled={disconnectPending || importing} onClick={() => void onDisconnect()}>
+              <Button size="sm" variant="outlined" color="danger" disabled={disconnectPending || importing} onClick={() => void onDisconnect()} sx={{ flex: 1 }}>
                 {disconnectPending ? 'Disconnecting...' : 'Disconnect'}
               </Button>
             </Stack>
@@ -309,8 +309,6 @@ function SteamImportReadyContent({
           preview={preview}
           currentUsualAvailability={currentUsualAvailability}
           importing={importing}
-          refreshing={refreshing}
-          onReload={onReload}
           onSelectionChange={setSelectedGames}
         />
       </DialogContent>
@@ -414,15 +412,11 @@ function SteamImportModalPicker({
   preview,
   currentUsualAvailability,
   importing,
-  refreshing,
-  onReload,
   onSelectionChange
 }: {
   preview: SteamLibraryImportPreviewResponse;
   currentUsualAvailability: string | null;
   importing: boolean;
-  refreshing: boolean;
-  onReload: () => Promise<void>;
   onSelectionChange: (games: ImportSteamLibrarySelectionRequest['games']) => void;
 }) {
   const [query, setQuery] = useState('')
@@ -472,19 +466,20 @@ function SteamImportModalPicker({
   const pageGames = filteredGames.slice(pageStartIndex, pageStartIndex + steamImportPageSize)
   const selectedSourceIdSet = new Set(selectedSourceIds)
   const expandedSourceIdSet = new Set(expandedSourceIds)
-  const pageImportableGames = pageGames.filter((game) => !game.alreadyInLibrary)
-  const allPageSelected = pageImportableGames.length > 0 && pageImportableGames.every((game) => selectedSourceIdSet.has(game.sourceId))
-  const selectedGames = selectedSourceIds
-    .map((sourceId) => selectionOptions[sourceId])
-    .filter((selection): selection is SteamImportSelection => selection != null)
 
   useEffect(() => {
     if (page !== currentPage) {
       setPage(currentPage)
     }
+  }, [currentPage, page])
+
+  useEffect(() => {
+    const selectedGames = selectedSourceIds
+      .map((sourceId) => selectionOptions[sourceId])
+      .filter((selection): selection is SteamImportSelection => selection != null)
 
     onSelectionChange(selectedGames)
-  }, [currentPage, onSelectionChange, page, selectedGames])
+  }, [onSelectionChange, selectedSourceIds, selectionOptions])
 
   useEffect(() => {
     listScrollRef.current?.scrollTo({ top: 0 })
@@ -531,40 +526,6 @@ function SteamImportModalPicker({
         : [...current, game.sourceId])
   }
 
-  const togglePageSelection = () => {
-    const pageIds = pageImportableGames.map((game) => game.sourceId)
-
-    setSelectedSourceIds((current) => {
-      const currentSet = new Set(current)
-
-      if (allPageSelected) {
-        return current.filter((sourceId) => !pageIds.includes(sourceId))
-      }
-
-      for (const sourceId of pageIds) {
-        currentSet.add(sourceId)
-      }
-
-      return [...currentSet]
-    })
-
-    setSelectionOptions((current) => {
-      const next = { ...current }
-
-      for (const game of pageImportableGames) {
-        if (!next[game.sourceId]) {
-          next[game.sourceId] = buildDefaultSteamImportSelection(game)
-        }
-      }
-
-      return next
-    })
-
-    if (allPageSelected) {
-      setExpandedSourceIds((current) => current.filter((sourceId) => !pageIds.includes(sourceId)))
-    }
-  }
-
   const toggleExpanded = (sourceId: string) => {
     setExpandedSourceIds((current) => current.includes(sourceId)
       ? current.filter((entry) => entry !== sourceId)
@@ -574,7 +535,7 @@ function SteamImportModalPicker({
   return (
     <>
         <Stack spacing={1.5}>
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+          <Stack spacing={1}>
             <Input
               placeholder="Filter Steam games"
               value={query}
@@ -582,49 +543,43 @@ function SteamImportModalPicker({
                 setQuery(event.target.value)
                 setPage(1)
               }}
-              sx={{ flex: 1 }}
+              sx={{ width: '100%' }}
             />
-            <Select
-              size="sm"
-              value={libraryFilter}
-              onChange={(_event, nextValue) => {
-                if (nextValue) {
-                  setLibraryFilter(nextValue)
-                  setPage(1)
-                }
-              }}
-              sx={{ minWidth: { xs: '100%', sm: 180 } }}
-            >
-              <Option value="importable">Importable only</Option>
-              <Option value="already-in-library">Already in library</Option>
-              <Option value="all">All Steam titles</Option>
-            </Select>
-            <Select
-              size="sm"
-              value={playtimeFilter}
-              onChange={(_event, nextValue) => {
-                if (nextValue) {
-                  setPlaytimeFilter(nextValue)
-                  setPage(1)
-                }
-              }}
-              sx={{ minWidth: { xs: '100%', sm: 180 } }}
-            >
-              <Option value="all">Any playtime</Option>
-              <Option value="recently-played">Recently played</Option>
-              <Option value="played">Played before</Option>
-              <Option value="unplayed">Never played</Option>
-            </Select>
-          </Stack>
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }}>
-            <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-              <Button size="sm" variant="outlined" color="neutral" disabled={pageImportableGames.length === 0} onClick={togglePageSelection}>
-                {allPageSelected ? 'Clear page' : 'Select page'}
-              </Button>
-              <Button size="sm" variant="outlined" color="neutral" disabled={refreshing || importing} onClick={() => void onReload()}>
-                {refreshing ? 'Reloading from Steam...' : 'Reload from Steam'}
-              </Button>
+            <Stack direction="row" spacing={1}>
+              <Select
+                size="sm"
+                value={libraryFilter}
+                onChange={(_event, nextValue) => {
+                  if (nextValue) {
+                    setLibraryFilter(nextValue)
+                    setPage(1)
+                  }
+                }}
+                sx={{ flex: 1, minWidth: 0 }}
+              >
+                <Option value="importable">Importable only</Option>
+                <Option value="already-in-library">Already in library</Option>
+                <Option value="all">All Steam titles</Option>
+              </Select>
+              <Select
+                size="sm"
+                value={playtimeFilter}
+                onChange={(_event, nextValue) => {
+                  if (nextValue) {
+                    setPlaytimeFilter(nextValue)
+                    setPage(1)
+                  }
+                }}
+                sx={{ flex: 1, minWidth: 0 }}
+              >
+                <Option value="all">Any playtime</Option>
+                <Option value="recently-played">Recently played</Option>
+                <Option value="played">Played before</Option>
+                <Option value="unplayed">Never played</Option>
+              </Select>
             </Stack>
+          </Stack>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} justifyContent="flex-end" alignItems={{ xs: 'stretch', sm: 'center' }}>
             <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
               {filteredGames.length === 0
                 ? '0 results'
@@ -1014,11 +969,11 @@ function LibraryViewContent({
             Add games to your library to be able to discover others who share your interests.
           </Typography>
         </Box>
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
-          <Button color="primary" variant="outlined" onClick={() => void onOpenSteamImport()}>
+        <Stack direction="row" spacing={1} sx={{ width: { xs: '100%', sm: 'auto' } }}>
+          <Button color="primary" variant="outlined" onClick={() => void onOpenSteamImport()} sx={{ flex: 1, minWidth: 0, textAlign: 'center' }}>
             Import from Steam
           </Button>
-          <Button color="primary" onClick={openLibraryEditor}>
+          <Button color="primary" onClick={openLibraryEditor} sx={{ flex: 1, minWidth: 0, textAlign: 'center' }}>
             Add game to library
           </Button>
         </Stack>

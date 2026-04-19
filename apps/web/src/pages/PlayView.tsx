@@ -8,7 +8,6 @@ import type {
   DiscoveryPerson,
   LibraryEntry,
   PlayIntentNotifyScope,
-  PlayIntentRecipientResponseChoice,
   PlayIntentPreview,
   PlayIntentSelectionMode
 } from '@game-is-up/shared'
@@ -17,8 +16,9 @@ import { InterestedPlayerList } from '../components/dashboard/InterestedPlayerLi
 import { DashboardModal } from '../components/dashboard/DashboardModal'
 import { PlayIntentCard, PlayIntentGameList } from '../components/dashboard/PlayIntentCard'
 import { PlayIntentComposerCard } from '../components/dashboard/PlayIntentComposerCard'
-import { CtpDmInboxDialog } from './DebugDmSurface'
-import { formatNotifyScopeLabel, formatPlayIntentSelectionModeLabel } from '../components/dashboard/dashboardUtils'
+import { SectionNav } from '../components/dashboard/SectionNav'
+import { sectionScrollMarginTop } from '../components/dashboard/SectionNav.constants'
+import { formatNotifyScopeLabel, formatPlayIntentSelectionModeLabel, formatPlayIntentTimingSummary } from '../components/dashboard/dashboardUtils'
 import { useDashboardContext } from '../contexts/useDashboardContext'
 import type {
   DashboardLibraryQuickAddGame,
@@ -32,15 +32,15 @@ type PlayIntentAudienceFilter = 'applicable' | 'all'
 
 function sortPlayIntentPreviews(intents: PlayIntentPreview[], status: PlayIntentPreview['status']) {
   return [...intents].sort((left, right) => {
-    const leftTime = status === 'closed'
+    const leftTime = status === 'ended'
       ? new Date(left.availabilityWindow.endsAt).getTime()
       : new Date(left.availabilityWindow.startsAt).getTime()
-    const rightTime = status === 'closed'
+    const rightTime = status === 'ended'
       ? new Date(right.availabilityWindow.endsAt).getTime()
       : new Date(right.availabilityWindow.startsAt).getTime()
 
     if (leftTime !== rightTime) {
-      return status === 'closed' ? rightTime - leftTime : leftTime - rightTime
+      return status === 'ended' ? rightTime - leftTime : leftTime - rightTime
     }
 
     return left.user.displayName.localeCompare(right.user.displayName)
@@ -110,7 +110,6 @@ function OwnActivePlayIntentCard({
   activePlayIntent,
   onEdit,
   onOpenDetails,
-  onOpenDmEmulator,
   discoveryPeopleById,
   isSignedIn,
   libraryGameIds,
@@ -122,7 +121,6 @@ function OwnActivePlayIntentCard({
   activePlayIntent: ActivePlayIntent;
   onEdit: () => void;
   onOpenDetails: (playIntentId: string) => void;
-  onOpenDmEmulator?: () => void;
   discoveryPeopleById: ReadonlyMap<string, DiscoveryPerson>;
   isSignedIn: boolean;
   libraryGameIds: ReadonlySet<string>;
@@ -131,9 +129,7 @@ function OwnActivePlayIntentCard({
   onToggleFriend: (target: FriendTarget) => Promise<void>;
   onAddGameToLibrary: (game: DashboardLibraryQuickAddGame) => Promise<void>;
 }) {
-  const startsAt = new Date(activePlayIntent.windowStartsAt)
-  const endsAt = new Date(activePlayIntent.windowEndsAt)
-  const isScheduledIntent = startsAt.getTime() > Date.now() + 60 * 1000
+  const timingSummary = formatPlayIntentTimingSummary(activePlayIntent.windowStartsAt, activePlayIntent.windowEndsAt)
 
   return (
     <Card
@@ -154,23 +150,16 @@ function OwnActivePlayIntentCard({
             </Typography>
             <Typography level="title-lg">{activePlayIntent.title}</Typography>
             <Typography level="body-sm" sx={{ color: 'neutral.200', mt: 0.5 }}>
-              {isScheduledIntent
-                ? `Starts ${startsAt.toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })} and ends ${endsAt.toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}`
-                : `Live until ${endsAt.toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}`}
+              {timingSummary}
             </Typography>
           </Box>
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'center' }} sx={{ flexWrap: 'wrap' }}>
             <Button variant="outlined" color="neutral" onClick={() => onOpenDetails(activePlayIntent.id)}>
-              Open details
+              Details
             </Button>
             <Button variant="solid" color="primary" onClick={onEdit}>
               Edit call to play
             </Button>
-            {onOpenDmEmulator ? (
-              <Button variant="outlined" color="neutral" onClick={onOpenDmEmulator}>
-                Open DM emulator
-              </Button>
-            ) : null}
           </Stack>
         </Stack>
 
@@ -311,11 +300,6 @@ function PlayViewContent({
   onSavePlayIntentToSelf,
   onClearPlayIntent,
   playIntentPreviews,
-  playIntentResponsePendingIntentId,
-  onRespondToPlayIntent,
-  mutedPlayIntentUserIds,
-  onMutePlayIntentUser,
-  onUnmutePlayIntentUser,
   discoveryPeople = [],
   friendPendingId = null,
   onToggleFriend = async () => {},
@@ -325,10 +309,6 @@ function PlayViewContent({
   onToggleDiscordAutoPromptPlayIntent
   ,
   openPlayIntentDetails,
-  debugAdmin,
-  onRefreshDebug,
-  buildApiUrl,
-  parseDebugDmActionResponse
 }: {
   isSignedIn: boolean;
   isAdmin: boolean;
@@ -385,11 +365,6 @@ function PlayViewContent({
   onSavePlayIntentToSelf: () => Promise<void>;
   onClearPlayIntent: () => Promise<void>;
   playIntentPreviews: PlayIntentPreview[];
-  playIntentResponsePendingIntentId: string | null;
-  onRespondToPlayIntent: (playIntentId: string, responseChoice: PlayIntentRecipientResponseChoice) => Promise<void>;
-  mutedPlayIntentUserIds: ReadonlySet<string>;
-  onMutePlayIntentUser: (userId: string) => Promise<void>;
-  onUnmutePlayIntentUser: (userId: string) => Promise<void>;
   discoveryPeople?: DiscoveryPerson[];
   friendPendingId?: string | null;
   onToggleFriend?: (target: FriendTarget) => Promise<void>;
@@ -398,16 +373,10 @@ function PlayViewContent({
   onAddGameToLibrary: (game: DashboardLibraryQuickAddGame) => Promise<void>;
   onToggleDiscordAutoPromptPlayIntent: (nextEnabled: boolean) => Promise<void>;
   openPlayIntentDetails: (playIntentId: string) => void;
-  debugAdmin: ReturnType<typeof useDashboardContext>['debugViewProps']['debugAdmin'];
-  onRefreshDebug: () => Promise<void>;
-  buildApiUrl: (path: string) => string;
-  parseDebugDmActionResponse: ReturnType<typeof useDashboardContext>['debugViewProps']['parseDebugDmActionResponse'];
 }) {
-  const [selectedMailboxPlayIntentId, setSelectedMailboxPlayIntentId] = useState<string | null>(null)
   const [activeAudienceFilter, setActiveAudienceFilter] = useState<PlayIntentAudienceFilter>('applicable')
-  const [closedAudienceFilter, setClosedAudienceFilter] = useState<PlayIntentAudienceFilter>('applicable')
+  const [endedAudienceFilter, setEndedAudienceFilter] = useState<PlayIntentAudienceFilter>('applicable')
   const discoveryPeopleById = new Map(discoveryPeople.map((person) => [person.id, person]))
-  const selectedMailboxPlayIntent = debugAdmin?.recentPlayIntents.find((intent) => intent.id === selectedMailboxPlayIntentId) ?? null
   const hasScheduledOwnCallToPlay = activePlayIntent ? new Date(activePlayIntent.windowStartsAt).getTime() > Date.now() + 60 * 1000 : false
   const playComposerButtonLabel = activePlayIntent
     ? hasScheduledOwnCallToPlay
@@ -418,51 +387,62 @@ function PlayViewContent({
     playIntentPreviews.filter((intent) => intent.status === 'active'),
     'active'
   )
-  const closedPlayIntentPreviews = sortPlayIntentPreviews(
-    playIntentPreviews.filter((intent) => intent.status === 'closed'),
-    'closed'
+  const endedPlayIntentPreviews = sortPlayIntentPreviews(
+    playIntentPreviews.filter((intent) => intent.status === 'ended'),
+    'ended'
   )
   const filteredActivePlayIntentPreviews = activePlayIntentPreviews.filter((intent) => activeAudienceFilter === 'all' || intent.appliesToViewer)
-  const filteredClosedPlayIntentPreviews = closedPlayIntentPreviews.filter((intent) => closedAudienceFilter === 'all' || intent.appliesToViewer)
+  const filteredEndedPlayIntentPreviews = endedPlayIntentPreviews.filter((intent) => endedAudienceFilter === 'all' || intent.appliesToViewer)
+  const playSections = [
+    ...(isSignedIn ? [{ id: 'play-settings', label: 'Settings', ariaLabel: 'Play settings' }] : []),
+    {
+      id: 'active-calls-to-play',
+      label: 'Active Calls',
+      mobileLabel: 'Active',
+      desktopLabel: 'Active Calls',
+      ariaLabel: 'Active calls to play',
+      count: activePlayIntentPreviews.length
+    },
+    {
+      id: 'ended-calls-to-play',
+      label: 'Ended Calls',
+      mobileLabel: 'Ended',
+      desktopLabel: 'Ended Calls',
+      ariaLabel: 'Ended calls to play',
+      count: endedPlayIntentPreviews.length
+    }
+  ]
 
   return (
-    <Stack spacing={2}>
-      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'flex-start' }}>
-        <Box>
-          <Typography level="h2">Calls to play</Typography>
-          <Typography level="body-md" sx={{ color: 'neutral.300', mt: 0.5 }}>
-            See who is looking to play, now or later.
-          </Typography>
-        </Box>
-        {isSignedIn ? (
-          <Button color="primary" onClick={openPlayIntentComposer}>
-            {playComposerButtonLabel}
-          </Button>
-        ) : null}
-      </Stack>
+    <Stack spacing={3}>
+      <SectionNav
+        aria-label="Play sections"
+        mb={0}
+        sections={playSections}
+      />
 
       {isSignedIn ? (
-        <DiscordAutomationCard
-          enabled={discordAutoPromptPlayIntent}
-          saving={discordAutoPromptPlayIntentSaving}
-          onToggle={onToggleDiscordAutoPromptPlayIntent}
-        />
-      ) : null}
+        <Box id="play-settings" sx={{ scrollMarginTop: sectionScrollMarginTop }}>
+          <Stack spacing={2}>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'flex-start' }}>
+              <Box>
+                <Typography level="h3">Settings</Typography>
+                <Typography level="body-sm" sx={{ color: 'neutral.400', mt: 0.5 }}>
+                  Control automatic prompting and manage your own call to play.
+                </Typography>
+              </Box>
+              <Button color="primary" onClick={openPlayIntentComposer}>
+                {playComposerButtonLabel}
+              </Button>
+            </Stack>
 
-      {isSignedIn && activePlayIntent ? (
-        <OwnActivePlayIntentCard
-          activePlayIntent={activePlayIntent}
-          onEdit={openPlayIntentComposer}
-          onOpenDetails={openPlayIntentDetails}
-          onOpenDmEmulator={isAdmin && debugAdmin?.recentPlayIntents.some((intent) => intent.id === activePlayIntent.id) ? () => setSelectedMailboxPlayIntentId(activePlayIntent.id) : undefined}
-          discoveryPeopleById={discoveryPeopleById}
-          isSignedIn={isSignedIn}
-          libraryGameIds={libraryGameIds}
-          addingLibraryGameId={addingLibraryGameId}
-          friendPendingId={friendPendingId}
-          onToggleFriend={onToggleFriend}
-          onAddGameToLibrary={onAddGameToLibrary}
-        />
+            <DiscordAutomationCard
+              enabled={discordAutoPromptPlayIntent}
+              saving={discordAutoPromptPlayIntentSaving}
+              onToggle={onToggleDiscordAutoPromptPlayIntent}
+            />
+          </Stack>
+        </Box>
       ) : null}
 
       {isSignedIn ? (
@@ -520,99 +500,90 @@ function PlayViewContent({
             />
         </DashboardModal>
       ) : null}
-      <Stack spacing={2}>
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }}>
-          <Box>
-            <Typography level="h3">Active calls to play</Typography>
-            <Typography level="body-sm" sx={{ color: 'neutral.400', mt: 0.5 }}>
-              Live now or scheduled soon.
-            </Typography>
-          </Box>
-          {activePlayIntentPreviews.length > 0 ? (
-            <PlayIntentFilterControl value={activeAudienceFilter} onChange={setActiveAudienceFilter} />
-          ) : null}
-        </Stack>
-
-      {filteredActivePlayIntentPreviews.length > 0 ? (
+      <Box id="active-calls-to-play" sx={{ scrollMarginTop: sectionScrollMarginTop }}>
         <Stack spacing={2}>
-          {filteredActivePlayIntentPreviews.map((intent) => (
-            <PlayIntentCard
-              key={intent.id}
-              intent={intent}
-              canAddToLibrary={isSignedIn}
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }}>
+            <Box>
+              <Typography level="h3">Active calls to play</Typography>
+              <Typography level="body-sm" sx={{ color: 'neutral.400', mt: 0.5 }}>
+                Live now or scheduled soon.
+              </Typography>
+            </Box>
+            {activePlayIntentPreviews.length > 0 ? (
+              <PlayIntentFilterControl value={activeAudienceFilter} onChange={setActiveAudienceFilter} />
+            ) : null}
+          </Stack>
+
+          {isSignedIn && activePlayIntent ? (
+            <OwnActivePlayIntentCard
+              activePlayIntent={activePlayIntent}
+              onEdit={openPlayIntentComposer}
+              onOpenDetails={openPlayIntentDetails}
               discoveryPeopleById={discoveryPeopleById}
+              isSignedIn={isSignedIn}
               libraryGameIds={libraryGameIds}
               addingLibraryGameId={addingLibraryGameId}
               friendPendingId={friendPendingId}
-              onAddToLibrary={onAddGameToLibrary}
               onToggleFriend={onToggleFriend}
-              responsePending={playIntentResponsePendingIntentId === intent.id}
-              onRespondToIntent={onRespondToPlayIntent}
-              onOpenDetails={openPlayIntentDetails}
-              isMuted={mutedPlayIntentUserIds.has(intent.user.id)}
-              onMuteCreator={onMutePlayIntentUser}
-              onUnmuteCreator={onUnmutePlayIntentUser}
-              onOpenDmEmulator={isAdmin && debugAdmin?.recentPlayIntents.some((entry) => entry.id === intent.id) ? () => setSelectedMailboxPlayIntentId(intent.id) : undefined}
+              onAddGameToLibrary={onAddGameToLibrary}
             />
-          ))}
-        </Stack>
-      ) : (
-        <EmptyStateCard
-          title={
-            isSignedIn
-              ? activeAudienceFilter === 'all'
-                ? 'No visible calls to play right now'
-                : activePlayIntent
-                  ? 'No other calls to play match your library yet'
-                  : 'No calls to play match your library yet'
-              : 'Calls to play will appear here'
-          }
-          body={
-            isSignedIn
-              ? activeAudienceFilter === 'all'
-                ? 'When someone in your network posts a call to play, it will show up here even when it does not match your library yet.'
-                : activePlayIntent
-                  ? 'Your call to play is live above. When someone else in your network posts a matching call to play, it will show up here too.'
-                  : 'When someone in your network posts a call to play for games that match your library, it will show up here.'
-              : 'Once the API responds, this section shows current and scheduled calls to play from people in your friends list or network.'
-          }
-        />
-      )}
-      </Stack>
+          ) : null}
 
-      <Stack spacing={2}>
+          {filteredActivePlayIntentPreviews.length > 0 ? (
+            <Stack spacing={2}>
+              {filteredActivePlayIntentPreviews.map((intent) => (
+                <PlayIntentCard
+                  key={intent.id}
+                  intent={intent}
+                  onOpenDetails={openPlayIntentDetails}
+                />
+              ))}
+            </Stack>
+          ) : (
+            <EmptyStateCard
+              title={
+                isSignedIn
+                  ? activeAudienceFilter === 'all'
+                    ? 'No calls to play in your network right now'
+                    : activePlayIntent
+                      ? 'No other calls to play match your library yet'
+                      : 'No calls to play match your library yet'
+                  : 'Calls to play will appear here'
+              }
+              body={
+                isSignedIn
+                  ? activeAudienceFilter === 'all'
+                    ? 'When someone in your network posts a call to play, it will show up here even when it does not match your library yet.'
+                    : activePlayIntent
+                      ? 'Your call to play is live above. When someone else in your network posts a matching call to play, it will show up here too.'
+                      : 'When someone in your network posts a call to play for games that match your library, it will show up here.'
+                  : 'Once the API responds, this section shows current and scheduled calls to play from people in your friends list or network.'
+              }
+            />
+          )}
+        </Stack>
+      </Box>
+
+      <Stack id="ended-calls-to-play" spacing={2} sx={{ scrollMarginTop: sectionScrollMarginTop }}>
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }}>
           <Box>
-            <Typography level="h3">Closed calls to play</Typography>
+            <Typography level="h3">Ended calls to play</Typography>
             <Typography level="body-sm" sx={{ color: 'neutral.400', mt: 0.5 }}>
-              Recently ended calls from people you can see.
+              Recently ended calls from people in your network.
             </Typography>
           </Box>
-          {closedPlayIntentPreviews.length > 0 ? (
-            <PlayIntentFilterControl value={closedAudienceFilter} onChange={setClosedAudienceFilter} />
+          {endedPlayIntentPreviews.length > 0 ? (
+            <PlayIntentFilterControl value={endedAudienceFilter} onChange={setEndedAudienceFilter} />
           ) : null}
         </Stack>
 
-        {filteredClosedPlayIntentPreviews.length > 0 ? (
+        {filteredEndedPlayIntentPreviews.length > 0 ? (
           <Stack spacing={2}>
-            {filteredClosedPlayIntentPreviews.map((intent) => (
+            {filteredEndedPlayIntentPreviews.map((intent) => (
               <PlayIntentCard
                 key={intent.id}
                 intent={intent}
-                canAddToLibrary={isSignedIn}
-                discoveryPeopleById={discoveryPeopleById}
-                libraryGameIds={libraryGameIds}
-                addingLibraryGameId={addingLibraryGameId}
-                friendPendingId={friendPendingId}
-                onAddToLibrary={onAddGameToLibrary}
-                onToggleFriend={onToggleFriend}
-                responsePending={playIntentResponsePendingIntentId === intent.id}
-                onRespondToIntent={onRespondToPlayIntent}
                 onOpenDetails={openPlayIntentDetails}
-                isMuted={mutedPlayIntentUserIds.has(intent.user.id)}
-                onMuteCreator={onMutePlayIntentUser}
-                onUnmuteCreator={onUnmutePlayIntentUser}
-                onOpenDmEmulator={isAdmin && debugAdmin?.recentPlayIntents.some((entry) => entry.id === intent.id) ? () => setSelectedMailboxPlayIntentId(intent.id) : undefined}
               />
             ))}
           </Stack>
@@ -620,14 +591,14 @@ function PlayViewContent({
           <EmptyStateCard
             title={
               isSignedIn
-                ? closedAudienceFilter === 'all'
-                  ? 'No recently closed calls to play'
-                  : 'No recently closed matching calls to play'
-                : 'Closed calls to play will appear here'
+                ? endedAudienceFilter === 'all'
+                  ? 'No recently ended calls to play'
+                  : 'No recently ended matching calls to play'
+                : 'Ended calls to play will appear here'
             }
             body={
               isSignedIn
-                ? closedAudienceFilter === 'all'
+                ? endedAudienceFilter === 'all'
                   ? 'Recently ended calls from people in your network will show up here.'
                   : 'Recently ended calls that matched your library will show up here.'
                 : 'Once the API responds, this section shows recently ended calls to play from people in your friends list or network.'
@@ -635,16 +606,6 @@ function PlayViewContent({
           />
         )}
       </Stack>
-
-      <CtpDmInboxDialog
-        open={selectedMailboxPlayIntent != null}
-        onClose={() => setSelectedMailboxPlayIntentId(null)}
-        ctp={selectedMailboxPlayIntent}
-        formatDateTime={(value) => value ? new Date(value).toLocaleString() : 'Not available'}
-        buildApiUrl={buildApiUrl}
-        onRefreshDebug={onRefreshDebug}
-        parseDebugDmActionResponse={parseDebugDmActionResponse}
-      />
     </Stack>
   )
 }

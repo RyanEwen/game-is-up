@@ -132,6 +132,15 @@ export function formatPlayIntentDurationLabel(durationMinutes: number): string {
   return `${durationMinutes} min`
 }
 
+export function formatPlayIntentTimingSummary(startsAt: string, endsAt: string, baseDate = new Date()): string {
+  const startDate = new Date(startsAt)
+  const endDate = new Date(endsAt)
+  const durationMinutes = Math.max(1, Math.round((endDate.getTime() - startDate.getTime()) / (60 * 1000)))
+  const prefix = startDate.getTime() > baseDate.getTime() ? 'Starts ' : ''
+
+  return `${prefix}${startDate.toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })} for ${formatPlayIntentDurationLabel(durationMinutes)}`
+}
+
 export function parsePlayIntentDurationMinutes(value: string): number | null {
   const trimmedValue = value.trim()
 

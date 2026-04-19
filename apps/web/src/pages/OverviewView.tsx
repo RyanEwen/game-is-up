@@ -638,10 +638,12 @@ function OverviewViewContent({
           aria-label="Overview sections"
           mb={0}
           sections={[
-            { id: 'account', label: 'Account' },
-            { id: 'what-is-games-up', label: 'About' },
-            { id: 'quick-start', label: 'Quick start', ariaLabel: 'Quick start' },
-            ...(isSignedIn ? [{ id: 'your-network', label: 'Network', ariaLabel: 'Your network' }] : [])
+            { id: 'account', label: 'Account', desktopLabel: 'Your Account' },
+            { id: 'what-is-games-up', label: 'About', desktopLabel: "What Is Game's Up?" },
+            { id: 'quick-start', label: 'Quick start', desktopLabel: 'Quick Start Guide', ariaLabel: 'Quick start' },
+            ...(isSignedIn
+              ? [{ id: 'your-network', label: 'Network', desktopLabel: 'Your Network', ariaLabel: 'Your network' }]
+              : [])
           ]}
         />
         <Box id="account" sx={{ scrollMarginTop: sectionScrollMarginTop }}>

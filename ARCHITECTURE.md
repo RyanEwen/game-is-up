@@ -65,7 +65,7 @@ Notification rows can now also track whether a recipient explicitly said they wo
 
 Play-intent feed and current-intent payloads now also include lightweight interested-user previews derived from interested responses. That lets the web app render interested-player summaries directly on the Play view without a second lookup for basic identity data.
 
-Feed previews now also expose a lightweight status (`active` or `closed`) plus an `appliesToViewer` flag. The web client uses those fields to keep recently ended calls visible for a short history window without leaving stale response actions enabled for calls that no longer match the viewer's library or have already ended.
+Feed previews now also expose a lightweight status (`active` or `ended`) plus an `appliesToViewer` flag. The web client uses those fields to keep recently ended calls visible for a short history window.
 
 Play intents also expose a dedicated detail contract in `packages/shared` and a corresponding API detail builder in `apps/api`. The web app uses that richer payload for `/play/:playIntentId`, which is the deep-link target for specific Discord DM buttons and for the in-app Open details action on Play cards. That detail view can expand library-wide calls into an explicit list of current overlapping games so recipients can understand what "any game in library" means for their own account before responding.
 
@@ -73,7 +73,7 @@ Play intents can also attach an optional temporary Discord channel bundle in the
 
 Scheduled calls to play now add a second-stage check-in flow. The audience is still notified immediately at creation time, but the creator receives an explicit confirmation prompt when the scheduled start time arrives. If confirmed, accepted recipients receive a go-time update, unanswered recipients receive one follow-up reminder, those go-time messages remain actionable for later response changes, and recipients who previously declined or muted that creator remain opted out.
 
-Creators also receive a persistent Discord DM summary for each live call to play. Major lifecycle changes can still replace that DM with a fresh message so Discord sends a notification, but audience response updates now edit the existing summary in place because the creator also receives a separate response-notification DM. Quiet expiry or archive cleanup also falls back to edit-in-place behavior. In the gateway-owning environment it can expose creator-only actions such as canceling the call directly from Discord while active, deleting retained temporary Discord channels after the call ends, then switching to an archive action after the retained summary has gone stale.
+Creators also receive a persistent Discord DM summary for each live call to play. Major lifecycle changes can still replace that DM with a fresh message so Discord sends a notification, but audience response updates now edit the existing summary in place because the creator also receives a separate response-notification DM. Quiet expiry or archive cleanup also falls back to edit-in-place behavior. In the gateway-owning environment it can expose creator-only actions such as ending the call directly from Discord while active, deleting retained temporary Discord channels after the call ends, then switching to an archive action after the retained summary has gone stale.
 
 Admin users also have a self-only test path in the Play composer. That path still creates the normal creator summary DM, but it overrides recipient selection so the audience-facing notification flow targets only the creator instead of combining the creator with the selected audience.
 
@@ -83,13 +83,13 @@ The admin debug snapshot now also exposes serialized DM previews, a DM template 
 
 Those serialized DM previews now include Discord embed payloads as well as button rows and fallback content. That keeps the debug emulator aligned with the live bot output as structured Discord flows move from markdown-heavy content blocks to embed-first layouts.
 
-Tracked Discord DM rows also participate in retention cleanup. Auto-play prompts can still be removed after they age out, while call-to-play threads now retain one ended-history DM per user and per call to play; manual cancellations can replace the prior audience message with a fresh ended-summary DM so the audience is notified immediately, retained temporary Discord channels stay available for a short cleanup window before background deletion, and retained summaries can later expose an explicit archive action that deletes the tracked bot-authored DM history for that user or creator.
+Tracked Discord DM rows also participate in retention cleanup. Auto-play prompts can still be removed after they age out, while call-to-play threads now retain one ended-history DM per user and per call to play; manual endings can replace the prior audience message with a fresh ended-summary DM so the audience is notified immediately, retained temporary Discord channels stay available for a short cleanup window before background deletion, and retained summaries can later expose an explicit archive action that deletes the tracked bot-authored DM history for that user or creator.
 
 The Discord bot runtime is now intentionally split by environment. Exactly one environment should run the live Discord gateway connection for presence tracking and interactive Discord buttons, while other environments can reuse the same bot token in a REST-only mode for DM send/edit plus read-only server-member browsing without competing for gateway ownership.
 
 Discord activity observations can also drive a secondary auto-prompt flow: when the presence bot sees a user start a game, the API can persist a prompt record, DM that user through the bot, and create a normal play intent if the user accepts.
 
-The gateway-owning Discord bot can also react to plain DM text commands from linked users for lightweight control and cleanup. That command surface currently supports status checks, canceling the active call to play, toggling auto-play prompts, and removing settled bot-authored DM history.
+The gateway-owning Discord bot can also react to plain DM text commands from linked users for lightweight control and cleanup. That command surface currently supports status checks, ending the active call to play, toggling auto-play prompts, and removing settled bot-authored DM history.
 
 The same bot surface now also supports guild-only slash commands for server adoption and discovery shortcuts. Those commands generate richer invite flows, including a dedicated web invite landing page that preserves server and inviter context through Discord OAuth instead of dropping every invite into the generic app shell.
 

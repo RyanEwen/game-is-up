@@ -217,34 +217,38 @@ export function LibraryEditorCard({
             <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
               Your in-game name for {aliasTarget.title}, if different than your usual name.
             </Typography>
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'center' }}>
               <Input
                 value={aliasDraft}
                 placeholder="Optional in-game alias"
                 onChange={(event) => setAliasDraft(event.target.value)}
                 sx={{ flex: 1 }}
               />
-              <Button
-                size="sm"
-                variant="solid"
-                color="primary"
-                disabled={aliasSaving || !aliasDraft.trim() || !aliasChanged}
-                onClick={() => void onSaveGameAlias(aliasTarget.gameId, aliasDraft)}
-              >
-                Save alias
-              </Button>
-              <Button
-                size="sm"
-                variant="outlined"
-                color="neutral"
-                disabled={aliasSaving || !hasAlias}
-                onClick={() => {
-                  setAliasDraft('')
-                  void onDeleteGameAlias(aliasTarget.gameId)
-                }}
-              >
-                Clear
-              </Button>
+              <Stack direction="row" spacing={1} sx={{ width: { xs: '100%', sm: 'auto' }, flexShrink: 0 }}>
+                <Button
+                  size="sm"
+                  variant="solid"
+                  color="primary"
+                  disabled={aliasSaving || !aliasDraft.trim() || !aliasChanged}
+                  onClick={() => void onSaveGameAlias(aliasTarget.gameId, aliasDraft)}
+                  sx={{ flex: 1 }}
+                >
+                  Save alias
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outlined"
+                  color="neutral"
+                  disabled={aliasSaving || !hasAlias}
+                  onClick={() => {
+                    setAliasDraft('')
+                    void onDeleteGameAlias(aliasTarget.gameId)
+                  }}
+                  sx={{ flex: 1 }}
+                >
+                  Clear
+                </Button>
+              </Stack>
             </Stack>
           </Stack>
         ) : null}

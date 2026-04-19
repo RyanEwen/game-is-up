@@ -14,6 +14,9 @@ import {
 } from '@prisma/client'
 import {
   archivePlayIntentDirectMessages,
+  buildArchivedAudienceCleanupComponents,
+  buildArchivedCreatorPlayIntentPreview,
+  buildArchivedPlayIntentEmbeds,
   deleteCreatorPlayIntentDirectMessages,
   deleteUserPlayIntentDirectMessages
 } from './discord-dm-cleanup.js'
@@ -73,7 +76,7 @@ type ScheduledPlayIntentCheckInAction = {
 
 type CreatorPlayIntentSummaryAction = {
   playIntentId: string;
-  action: 'cancel' | 'cleanup' | 'delete-space';
+  action: 'end' | 'cleanup' | 'delete-space';
 }
 
 type PlayIntentRecipientResponse = 'JOIN' | 'DECLINE'
@@ -209,8 +212,8 @@ function buildLinkRow(playIntentId?: string) {
 function buildCreatorSummaryActionRow(playIntentId: string) {
   return new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
     new ButtonBuilder()
-      .setCustomId(`${creatorPlayIntentSummaryPrefix}:${playIntentId}:cancel`)
-      .setLabel('Cancel call to play')
+      .setCustomId(`${creatorPlayIntentSummaryPrefix}:${playIntentId}:end`)
+      .setLabel('End call to play')
       .setStyle(ButtonStyle.Danger)
   )
 }
@@ -219,7 +222,7 @@ function buildCreatorSummaryCleanupRow(playIntentId: string) {
   return new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
     new ButtonBuilder()
       .setCustomId(`${creatorPlayIntentSummaryPrefix}:${playIntentId}:cleanup`)
-      .setLabel('Clean up messages')
+      .setLabel('Archive')
       .setStyle(ButtonStyle.Secondary)
   )
 }
@@ -229,28 +232,6 @@ function buildCreatorSummaryDeleteSpaceButton(playIntentId: string) {
     .setCustomId(`${creatorPlayIntentSummaryPrefix}:${playIntentId}:delete-space`)
     .setLabel('Delete Discord channel')
     .setStyle(ButtonStyle.Danger)
-}
-
-function buildArchivedPlayIntentCleanupRow(notificationId: string) {
-  return new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
-    new ButtonBuilder()
-      .setCustomId(`${playIntentNotificationPrefix}:${notificationId}:cleanup`)
-      .setLabel('Clean up messages')
-      .setStyle(ButtonStyle.Secondary)
-  )
-}
-
-function buildArchivedPlayIntentCleanupComponents(
-  notificationId: string,
-  options: {
-    forceInteractive?: boolean;
-  } = {}
-) {
-  if (!(options.forceInteractive ?? supportsDiscordInteractiveMessages())) {
-    return []
-  }
-
-  return [buildArchivedPlayIntentCleanupRow(notificationId)]
 }
 
 function buildResponseRow(
@@ -318,8 +299,8 @@ function buildScheduledCheckInResponseRow(notificationId: string) {
       .setLabel('Still on')
       .setStyle(ButtonStyle.Primary),
     new ButtonBuilder()
-      .setCustomId(`${scheduledPlayIntentCheckInPrefix}:${notificationId}:cancel`)
-      .setLabel('Not happening')
+      .setCustomId(`${scheduledPlayIntentCheckInPrefix}:${notificationId}:end`)
+      .setLabel('End call to play')
       .setStyle(ButtonStyle.Secondary)
   )
 }
@@ -564,25 +545,11 @@ function buildScheduledCheckInEmbeds(creatorLabel: string) {
       .addFields(buildDiscordEmbedFields([
         {
           name: formatPlayIntentEmbedFieldName('Status'),
-          value: 'Confirm that you are still on, or close the call if plans changed.',
+          value: 'Confirm that you are still on, or end the call if plans changed.',
           inline: false
         }
       ]))
       .setFooter({ text: 'Use the buttons below for the fastest response.' })
-  ]
-}
-
-function buildArchivedPlayIntentEmbeds(body: string) {
-  return [
-    new EmbedBuilder()
-      .setColor(dmEmbedColors.danger)
-      .addFields(buildDiscordEmbedFields(
-        extractLabeledFields(body).map((field) => ({
-          name: formatPlayIntentEmbedFieldName(field.label),
-          value: field.value,
-          inline: field.label.trim().toLowerCase() !== 'games'
-        }))
-      ))
   ]
 }
 
@@ -793,7 +760,7 @@ export function buildNotificationDirectMessagePreview(options: {
   if (options.notificationType === NotificationType.SCHEDULED_PLAY_INTENT_CHECK_IN) {
     if (options.responseChoice === NotificationResponseChoice.CANCELED) {
       return {
-        content: buildCreatorCanceledMessage(),
+        content: buildCreatorEndedMessage(),
         components: []
       }
     }
@@ -867,9 +834,7 @@ export function buildNotificationDirectMessagePreview(options: {
     return {
       content: buildDiscordMessageHeading('🛑 Call to Play Ended'),
       embeds: buildArchivedPlayIntentEmbeds(previewBody),
-      components: buildArchivedPlayIntentCleanupComponents(options.notificationId, {
-        forceInteractive: true
-      })
+        components: buildArchivedAudienceCleanupComponents(options.notificationId)
     }
   }
 
@@ -1101,11 +1066,11 @@ function getCreatorSummaryStatus(snapshot: CreatorPlayIntentSummarySnapshot, cur
   const latestCheckIn = snapshot.notifications.find((notification) => notification.type === NotificationType.SCHEDULED_PLAY_INTENT_CHECK_IN)
 
   if (snapshot.expiresAt <= currentTime) {
-    return 'Status: Closed'
+    return 'Status: Ended'
   }
 
   if (latestCheckIn?.responseChoice === NotificationResponseChoice.CANCELED) {
-    return 'Status: Closed'
+    return 'Status: Ended'
   }
 
   if (latestCheckIn && !latestCheckIn.respondedAt && snapshot.windowStartsAt <= currentTime) {
@@ -1130,7 +1095,7 @@ function buildCreatorPlayIntentSummaryEmbeds(
     snapshot.user.timezoneId
   )
   const statusLabel = getCreatorSummaryStatus(snapshot, currentTime).replace(/^Status:\s*/, '')
-  const statusColor = statusLabel === 'Closed'
+  const statusColor = statusLabel === 'Ended'
     ? dmEmbedColors.danger
     : statusLabel === 'Scheduled'
       ? dmEmbedColors.info
@@ -1195,7 +1160,7 @@ function buildCreatorPlayIntentSummaryEmbeds(
       ]))
       .setFooter({
         text: snapshot.expiresAt > currentTime
-          ? 'Use the buttons below to open the app or cancel this call to play.'
+          ? 'Use the buttons below to open the app or end this call to play.'
           : 'Open the app below if you want to post another call to play.'
       })
   ]
@@ -1214,6 +1179,7 @@ export function buildCreatorPlayIntentSummaryPreview(snapshot: {
   user: {
     displayName: string;
     timezoneId: string;
+    identities?: { providerUserId: string }[];
   };
   targetDiscordServers: {
     server: {
@@ -1252,6 +1218,28 @@ export function buildCreatorPlayIntentSummaryPreview(snapshot: {
     ...snapshot,
     discordSpace: snapshot.discordSpace ?? null
   } as CreatorPlayIntentSummarySnapshot
+
+  if (snapshot.expiresAt <= currentTime) {
+    return buildArchivedCreatorPlayIntentPreview(
+      snapshot.id,
+      {
+        selectionMode: snapshot.selectionMode,
+        windowStartsAt: snapshot.windowStartsAt,
+        windowEndsAt: snapshot.windowEndsAt,
+        user: {
+          displayName: snapshot.user.displayName,
+          identities: snapshot.user.identities
+        },
+        games: snapshot.games,
+        discordSpace: typedSnapshot.discordSpace
+          ? {
+              status: typedSnapshot.discordSpace.status
+            }
+          : null
+      },
+      snapshot.user.timezoneId
+    )
+  }
 
   return {
     content: buildCreatorPlayIntentSummaryHeading(startsAtLabel),
@@ -1435,7 +1423,7 @@ async function sendOrEditCreatorPlayIntentSummary(
   const notifyOnActiveChange = options.notifyOnActiveChange ?? true
 
   // Active summary changes should trigger a fresh Discord notification.
-  // Closed/archive states are allowed to fall back to quiet edit-in-place updates.
+  // Ended/archive states are allowed to fall back to quiet edit-in-place updates.
   if (isActive && notifyOnActiveChange) {
     const dmResult = (await sendDiscordDirectMessages([
       {
@@ -1859,7 +1847,7 @@ export async function refreshTrackedPlayIntentNotificationDirectMessages() {
 
 function buildExpiredMessage(reason: string) {
   return buildDiscordPlainMessage(
-    '⌛ Call to Play Closed',
+    '⌛ Call to Play Ended',
     [
       'This call-to-play prompt is no longer available.',
       reason
@@ -1941,12 +1929,12 @@ function buildCreatorConfirmedMessage() {
   )
 }
 
-function buildCreatorCanceledMessage() {
+function buildCreatorEndedMessage() {
   return buildDiscordPlainMessage(
-    '🛑 Call Closed',
+    '🛑 Call Ended',
     [
-      'I closed this call to play.',
-      'I let your audience know it was closed.'
+      'I ended this call to play.',
+      'I let your audience know it ended.'
     ],
     {
       trailingSubtext: 'You can post a fresh call to play whenever you are ready.'
@@ -1965,7 +1953,7 @@ function buildCreatorCheckInAlreadyHandledMessage(responseChoice: NotificationRe
   if (responseChoice === NotificationResponseChoice.CANCELED) {
     return buildDiscordPlainMessage(
       'ℹ️ Already Handled',
-      ['You already marked this call to play as not happening.']
+      ['You already ended this call to play.']
     )
   }
 
@@ -2164,7 +2152,7 @@ function parseScheduledCheckInAction(customId: string): ScheduledPlayIntentCheck
     }
   }
 
-  if (parts[2] === 'cancel') {
+  if (parts[2] === 'end') {
     return {
       notificationId: parts[1],
       response: NotificationResponseChoice.CANCELED
@@ -2181,7 +2169,7 @@ function parseCreatorPlayIntentSummaryAction(customId: string): CreatorPlayInten
     return null
   }
 
-  if (parts[2] !== 'cancel' && parts[2] !== 'cleanup' && parts[2] !== 'delete-space') {
+  if (parts[2] !== 'end' && parts[2] !== 'cleanup' && parts[2] !== 'delete-space') {
     return null
   }
 
@@ -2851,8 +2839,8 @@ export async function handleScheduledPlayIntentCheckInInteraction(interaction: B
 
   if (action.response === NotificationResponseChoice.CANCELED) {
     const now = new Date()
-    const cancellation = await prisma.$transaction(async (transaction) => {
-      const cancelResult = await transaction.notification.updateMany({
+    const endResult = await prisma.$transaction(async (transaction) => {
+      const notificationUpdateResult = await transaction.notification.updateMany({
         where: {
           id: notification.id,
           respondedAt: null
@@ -2863,9 +2851,9 @@ export async function handleScheduledPlayIntentCheckInInteraction(interaction: B
         }
       })
 
-      if (cancelResult.count === 0 || !notification.playIntentId) {
+      if (notificationUpdateResult.count === 0 || !notification.playIntentId) {
         return {
-          notificationCanceled: cancelResult.count > 0
+          notificationEnded: notificationUpdateResult.count > 0
         }
       }
 
@@ -2884,17 +2872,17 @@ export async function handleScheduledPlayIntentCheckInInteraction(interaction: B
       })
 
       return {
-        notificationCanceled: true
+        notificationEnded: true
       }
     })
 
-    if (cancellation.notificationCanceled && notification.playIntentId) {
+    if (endResult.notificationEnded && notification.playIntentId) {
       await expirePendingPlayIntentNotifications([notification.playIntentId], {
         notifyAudienceOnEnd: true
       })
     }
 
-    if (!cancellation.notificationCanceled) {
+    if (!endResult.notificationEnded) {
       await interaction.update({
         content: buildCreatorCheckInAlreadyHandledMessage(NotificationResponseChoice.CANCELED),
         components: [buildLinkRow(notification.playIntentId ?? undefined)]
@@ -2917,7 +2905,7 @@ export async function handleScheduledPlayIntentCheckInInteraction(interaction: B
     })
 
     await interaction.followUp({
-      content: buildCreatorCanceledMessage()
+      content: buildCreatorEndedMessage()
     })
     return
   }
@@ -3322,7 +3310,13 @@ export async function handlePlayIntentNotificationInteraction(interaction: Butto
     }
 
     await interaction.deferUpdate()
-    await deleteUserPlayIntentDirectMessages(notification.playIntentId, notification.userId)
+    await deleteUserPlayIntentDirectMessages(notification.playIntentId, notification.userId, {
+      anchorMessage: {
+        channelId: interaction.channelId,
+        messageId: interaction.message.id
+      },
+      anchorNotificationId: notification.id
+    })
     return
   }
 
@@ -3506,7 +3500,12 @@ export async function handleCreatorPlayIntentSummaryInteraction(interaction: But
     }
 
     await interaction.deferUpdate()
-    await deleteCreatorPlayIntentDirectMessages(playIntent.id, identity.userId)
+    await deleteCreatorPlayIntentDirectMessages(playIntent.id, identity.userId, {
+      summaryMessage: {
+        channelId: interaction.channelId,
+        messageId: interaction.message.id
+      }
+    })
     return
   }
 
@@ -3527,7 +3526,7 @@ export async function handleCreatorPlayIntentSummaryInteraction(interaction: But
     return
   }
 
-  if (playIntent.expiresAt > new Date()) {
+  if (action.action === 'end' && playIntent.expiresAt > new Date()) {
     const now = new Date()
 
     await prisma.playIntent.update({
@@ -3543,7 +3542,7 @@ export async function handleCreatorPlayIntentSummaryInteraction(interaction: But
     await expirePendingPlayIntentNotifications([playIntent.id], {
       notifyAudienceOnEnd: true
     })
-  } else {
+  } else if (action.action === 'end') {
     await syncCreatorPlayIntentSummaryMessages([playIntent.id])
   }
 
@@ -3551,7 +3550,7 @@ export async function handleCreatorPlayIntentSummaryInteraction(interaction: But
   const currentTime = new Date()
 
   await interaction.update({
-    content: refreshedSnapshot ? '' : 'This call to play is already closed.',
+    content: refreshedSnapshot ? '' : 'This call to play already ended.',
     embeds: refreshedSnapshot ? buildCreatorPlayIntentSummaryEmbeds(refreshedSnapshot, currentTime) : [],
     components: refreshedSnapshot
       ? buildCreatorPlayIntentSummaryComponents(

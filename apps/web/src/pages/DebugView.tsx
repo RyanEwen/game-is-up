@@ -1453,13 +1453,23 @@ function DebugViewContent({
               aria-label="Debug sections"
               mb={0}
               sections={[
-                { id: 'bot-status', label: 'Bot' },
-                { id: 'templates', label: 'DM templates', count: debugAdmin.dmTemplates.length },
-                { id: 'ctps', label: 'CTPs', count: debugAdmin.recentPlayIntents.length },
-                { id: 'prompts', label: 'Prompts', count: debugAdmin.recentAutoPlayPrompts.length },
-                { id: 'invite-attributions', label: 'Invite attributions', count: debugAdmin.recentInviteAttributions.length },
-                { id: 'notifications', label: 'Notifications', count: debugAdmin.recentNotifications.length },
-                { id: 'errors', label: 'Errors', count: debugAdmin.recentErrors.length }
+                { id: 'bot-status', label: 'Bot', desktopLabel: 'Bot Status' },
+                { id: 'templates', label: 'Templates', desktopLabel: 'DM Templates', count: debugAdmin.dmTemplates.length },
+                { id: 'ctps', label: 'CTPs', desktopLabel: 'Calls to Play', count: debugAdmin.recentPlayIntents.length },
+                { id: 'prompts', label: 'Prompts', desktopLabel: 'Auto Prompts', count: debugAdmin.recentAutoPlayPrompts.length },
+                {
+                  id: 'invite-attributions',
+                  label: 'Invites',
+                  desktopLabel: 'Invite Attributions',
+                  count: debugAdmin.recentInviteAttributions.length
+                },
+                {
+                  id: 'notifications',
+                  label: 'Notifications',
+                  desktopLabel: 'Notification Log',
+                  count: debugAdmin.recentNotifications.length
+                },
+                { id: 'errors', label: 'Errors', desktopLabel: 'Error Log', count: debugAdmin.recentErrors.length }
               ]}
             />
 

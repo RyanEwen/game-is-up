@@ -1,14 +1,18 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Avatar, Box, Button, Card, Chip, Link, Stack, Typography } from '@mui/joy'
+import { type ReactNode, useEffect, useMemo, useState } from 'react'
+import ChatBubbleOutlineRoundedIcon from '@mui/icons-material/ChatBubbleOutlineRounded'
+import HeadsetMicRoundedIcon from '@mui/icons-material/HeadsetMicRounded'
+import OpenInNewRoundedIcon from '@mui/icons-material/OpenInNewRounded'
+import { Avatar, Box, Button, ButtonGroup, Card, Chip, Stack, Typography } from '@mui/joy'
 import { playIntentDetailResponseSchema, type PlayIntentDetail } from '@game-is-up/shared'
 import { useNavigate, useParams } from 'react-router-dom'
 import { EmptyStateCard } from '../components/dashboard/EmptyStateCard'
 import { InterestedPlayerList } from '../components/dashboard/InterestedPlayerList'
 import { CompactPersonGameCard } from '../components/dashboard/PersonCard'
 import { PlayIntentGameList } from '../components/dashboard/PlayIntentCard'
-import { formatNotifyScopeLabel, memberGameGridSx } from '../components/dashboard/dashboardUtils'
+import { formatNotifyScopeLabel, formatPlayIntentTimingSummary, memberGameGridSx } from '../components/dashboard/dashboardUtils'
 import { useDashboardContext } from '../contexts/useDashboardContext'
 import { buildApiUrl } from '../hooks/useDashboardApp'
+import { CtpDmInboxDialog } from './DebugDmSurface'
 
 function formatDateTimeLabel(value: string) {
   return new Date(value).toLocaleString([], {
@@ -53,22 +57,80 @@ function buildGameBadges(platformLabels: string[]) {
   ]
 }
 
-function DiscordChannelLink({ href, label }: { href: string; label: string }) {
+function DiscordChannelButton({
+  href,
+  label,
+  icon,
+  color = 'primary'
+}: {
+  href: string;
+  label: string;
+  icon: ReactNode;
+  color?: 'primary' | 'neutral';
+}) {
   return (
-    <Link href={href} target="_blank" rel="noreferrer" sx={{ color: 'primary.200' }}>
-      {label}
-    </Link>
+    <Button
+      component="a"
+      href={href}
+      target="_blank"
+      rel="noreferrer"
+      variant="soft"
+      color={color}
+      size="sm"
+      startDecorator={(
+        <Box component="span" aria-hidden sx={{ display: 'inline-flex', lineHeight: 1, '& svg': { fontSize: '1rem' } }}>
+          {icon}
+        </Box>
+      )}
+      sx={{
+        justifyContent: 'flex-start',
+        minWidth: 0,
+        width: { xs: '100%', sm: 'auto' }
+      }}
+    >
+      <Box
+        component="span"
+        sx={{
+          minWidth: 0,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap'
+        }}
+      >
+        {label}
+      </Box>
+    </Button>
+  )
+}
+
+function DiscordDetailTextRow({
+  icon,
+  children
+}: {
+  icon: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <Stack direction="row" spacing={1} alignItems="center">
+      <Box component="span" aria-hidden sx={{ display: 'inline-flex', color: 'primary.300', '& svg': { fontSize: '1rem' } }}>
+        {icon}
+      </Box>
+      <Typography level="body-sm" sx={{ color: 'neutral.200' }}>
+        {children}
+      </Typography>
+    </Stack>
   )
 }
 
 export function PlayIntentDetailView() {
   const { playIntentId } = useParams<{ playIntentId: string }>()
   const navigate = useNavigate()
-  const { overviewViewProps, playViewProps } = useDashboardContext()
+  const { overviewViewProps, playViewProps, debugViewProps } = useDashboardContext()
   const [intent, setIntent] = useState<PlayIntentDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [requiresAuth, setRequiresAuth] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [isDmEmulatorOpen, setIsDmEmulatorOpen] = useState(false)
 
   const discoveryPeopleById = useMemo(
     () => new Map(playViewProps.discoveryPeople.map((person) => [person.id, person] as const)),
@@ -85,9 +147,11 @@ export function PlayIntentDetailView() {
 
     return [
       preview?.status ?? '',
+      preview?.discordSpace?.status ?? '',
       preview?.viewerResponseChoice ?? '',
       String(preview?.interestedCount ?? ''),
       activeIntent?.id ?? '',
+      activeIntent?.discordSpace?.status ?? '',
       String(activeIntent?.interestedCount ?? '')
     ].join(':')
   }, [playIntentId, playViewProps.activePlayIntent, playViewProps.playIntentPreviews])
@@ -197,7 +261,7 @@ export function PlayIntentDetailView() {
         <Stack spacing={1.5}>
           <Typography level="title-lg">Sign in to open this call to play</Typography>
           <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
-            This dedicated view uses your Game&apos;s Up account to confirm who can see the call and which games actually overlap.
+            This dedicated view uses your Game&apos;s Up account to confirm which people in your network the call reaches and which games actually overlap.
           </Typography>
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
             <Button color="primary" onClick={() => void overviewViewProps.onDiscordLogin()}>
@@ -232,6 +296,16 @@ export function PlayIntentDetailView() {
   const isMuted = playViewProps.mutedPlayIntentUserIds.has(intent.user.id)
   const isEditingCurrentIntent = playViewProps.activePlayIntent?.id === intent.id
   const libraryWideScope = intent.selectionMode === 'library' ? intent.expandedGameScope : null
+  const canDeleteDiscordSpace = Boolean(
+    isOwnIntent
+    && intent.status === 'ended'
+    && intent.discordSpace
+    && intent.discordSpace.status !== 'requested'
+    && intent.discordSpace.status !== 'provisioning'
+    && intent.discordSpace.status !== 'deleted'
+  )
+  const debugMailboxIntent = debugViewProps.debugAdmin?.recentPlayIntents.find((candidate) => candidate.id === intent.id) ?? null
+  const canOpenDmEmulator = debugViewProps.debugAdmin != null && debugMailboxIntent != null
 
   return (
     <Stack spacing={2.5}>
@@ -239,9 +313,9 @@ export function PlayIntentDetailView() {
         variant="plain"
         color="neutral"
         onClick={() => navigate('/play')}
-        sx={{ alignSelf: 'flex-start', px: 0 }}
+        sx={{ alignSelf: 'flex-start', px: 1.5 }}
       >
-        Back to play feed
+        ← Back to play feed
       </Button>
 
       <Card
@@ -259,13 +333,16 @@ export function PlayIntentDetailView() {
               <Avatar src={intent.user.avatarUrl ?? undefined} alt={intent.user.displayName} size="lg" variant="soft" />
               <Box sx={{ minWidth: 0 }}>
                 <Typography level="body-xs" sx={{ color: 'primary.200', textTransform: 'uppercase', letterSpacing: '0.08em', mb: 0.75 }}>
-                  Dedicated call view
+                  Call to Play Details
                 </Typography>
                 <Typography level="h2" sx={{ fontSize: { xs: '1.6rem', md: '2rem' } }}>
                   {intent.title}
                 </Typography>
+                <Typography level="title-md" sx={{ color: 'neutral.100', mt: 0.5 }}>
+                  by {intent.user.displayName}
+                </Typography>
                 <Typography level="body-sm" sx={{ color: 'neutral.200', mt: 0.5 }}>
-                  {intent.availabilityWindow.label}
+                  {formatPlayIntentTimingSummary(intent.availabilityWindow.startsAt, intent.availabilityWindow.endsAt)}
                 </Typography>
               </Box>
             </Stack>
@@ -282,25 +359,38 @@ export function PlayIntentDetailView() {
                   Edit call to play
                 </Button>
               ) : null}
-              {canRespond && intent.viewerResponseChoice !== 'interested' ? (
-                <Button
-                  variant="solid"
-                  color="primary"
-                  disabled={responsePending}
-                  onClick={() => void playViewProps.onRespondToPlayIntent(intent.id, 'interested')}
-                >
-                  I&apos;m interested
-                </Button>
-              ) : null}
-              {canRespond && intent.viewerResponseChoice !== 'pass' ? (
+              {canOpenDmEmulator ? (
                 <Button
                   variant="outlined"
                   color="neutral"
-                  disabled={responsePending}
-                  onClick={() => void playViewProps.onRespondToPlayIntent(intent.id, 'pass')}
+                  onClick={() => setIsDmEmulatorOpen(true)}
                 >
-                  Pass
+                  Open DM emulator
                 </Button>
+              ) : null}
+              {canRespond ? (
+                <ButtonGroup sx={{ width: { xs: '100%', sm: 'auto' } }}>
+                  {intent.viewerResponseChoice !== 'interested' ? (
+                    <Button
+                      variant="solid"
+                      color="primary"
+                      disabled={responsePending}
+                      onClick={() => void playViewProps.onRespondToPlayIntent(intent.id, 'interested')}
+                    >
+                      I&apos;m interested
+                    </Button>
+                  ) : null}
+                  {intent.viewerResponseChoice !== 'pass' ? (
+                    <Button
+                      variant="outlined"
+                      color="neutral"
+                      disabled={responsePending}
+                      onClick={() => void playViewProps.onRespondToPlayIntent(intent.id, 'pass')}
+                    >
+                      Pass
+                    </Button>
+                  ) : null}
+                </ButtonGroup>
               ) : null}
               {!isOwnIntent && playViewProps.isSignedIn ? (
                 <Button
@@ -311,12 +401,24 @@ export function PlayIntentDetailView() {
                   {isMuted ? 'Unmute creator' : 'Mute creator'}
                 </Button>
               ) : null}
+              {canDeleteDiscordSpace ? (
+                <Button
+                  variant="outlined"
+                  color="danger"
+                  disabled={playViewProps.playIntentDiscordSpaceDeletePendingIntentId === intent.id}
+                  onClick={() => void playViewProps.onDeletePlayIntentDiscordSpace(intent.id)}
+                >
+                  {playViewProps.playIntentDiscordSpaceDeletePendingIntentId === intent.id
+                    ? 'Removing Discord channels...'
+                    : 'Remove Discord channels'}
+                </Button>
+              ) : null}
             </Stack>
           </Stack>
 
           <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
             <Chip size="sm" color={intent.status === 'active' ? 'success' : 'warning'} variant="soft">
-              {intent.status === 'active' ? 'Active' : 'Closed'}
+              {intent.status === 'active' ? 'Active' : 'Ended'}
             </Chip>
             <Chip size="sm" color="primary" variant="soft">
               {intent.selectionMode === 'library' ? 'Any game in library' : 'Selected games'}
@@ -491,7 +593,7 @@ export function PlayIntentDetailView() {
               <Typography level="title-md">Call details</Typography>
               <Stack spacing={0.75}>
                 <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
-                  Starts: {formatDateTimeLabel(intent.availabilityWindow.startsAt)}
+                  Timing: {formatPlayIntentTimingSummary(intent.availabilityWindow.startsAt, intent.availabilityWindow.endsAt)}
                 </Typography>
                 <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
                   Ends: {formatDateTimeLabel(intent.availabilityWindow.endsAt)}
@@ -499,49 +601,71 @@ export function PlayIntentDetailView() {
                 <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
                   Created: {formatDateTimeLabel(intent.createdAt)}
                 </Typography>
-                {intent.voiceChannelName ? (
-                  <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
-                    Voice channel: {intent.voiceChannelName}
-                  </Typography>
-                ) : null}
-                {intent.discordSpace ? (
-                  <Stack spacing={0.75}>
-                    <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
-                      Temporary Discord space: {formatDiscordSpaceStatusLabel(intent.discordSpace.status)}
-                    </Typography>
-                    {intent.discordSpace.textChannelUrl ? (
-                      <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
-                        Text channel:{' '}
-                        <DiscordChannelLink
-                          href={intent.discordSpace.textChannelUrl}
-                          label={intent.discordSpace.textChannelName ?? 'Open text channel'}
-                        />
-                      </Typography>
-                    ) : intent.discordSpace.textChannelName ? (
-                      <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
-                        Text channel: {intent.discordSpace.textChannelName}
-                      </Typography>
-                    ) : null}
-                    {intent.discordSpace.voiceChannelUrl ? (
-                      <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
-                        Voice channel:{' '}
-                        <DiscordChannelLink
-                          href={intent.discordSpace.voiceChannelUrl}
-                          label={intent.discordSpace.voiceChannelName ?? 'Open voice channel'}
-                        />
-                      </Typography>
-                    ) : intent.discordSpace.voiceChannelName ? (
-                      <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
-                        Voice channel: {intent.discordSpace.voiceChannelName}
-                      </Typography>
-                    ) : null}
-                    {intent.discordSpace.inviteUrl ? (
-                      <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
-                        Invite:{' '}
-                        <DiscordChannelLink href={intent.discordSpace.inviteUrl} label="Open Discord invite" />
-                      </Typography>
-                    ) : null}
-                  </Stack>
+                {(intent.discordSpace || intent.voiceChannelName) ? (
+                  <Card
+                    variant="soft"
+                    color="primary"
+                    sx={{
+                      p: 1.5,
+                      mt: 0.5,
+                      border: '1px solid rgba(87, 244, 193, 0.18)',
+                      background: 'linear-gradient(180deg, rgba(15, 84, 68, 0.22), rgba(11, 16, 32, 0.88))'
+                    }}
+                  >
+                    <Stack spacing={1.25}>
+                      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }}>
+                        <Typography level="title-sm">Discord channels</Typography>
+                        {intent.discordSpace ? (
+                          <Chip size="sm" color="primary" variant="soft">
+                            {formatDiscordSpaceStatusLabel(intent.discordSpace.status)}
+                          </Chip>
+                        ) : null}
+                      </Stack>
+
+                      {intent.discordSpace?.textChannelUrl || intent.discordSpace?.voiceChannelUrl || intent.discordSpace?.inviteUrl ? (
+                        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ flexWrap: 'wrap' }}>
+                          {intent.discordSpace?.textChannelUrl ? (
+                            <DiscordChannelButton
+                              href={intent.discordSpace.textChannelUrl}
+                              label={intent.discordSpace.textChannelName ?? 'Open text channel'}
+                              icon={<ChatBubbleOutlineRoundedIcon />}
+                            />
+                          ) : null}
+                          {intent.discordSpace?.voiceChannelUrl ? (
+                            <DiscordChannelButton
+                              href={intent.discordSpace.voiceChannelUrl}
+                              label={intent.discordSpace.voiceChannelName ?? 'Open voice channel'}
+                              icon={<HeadsetMicRoundedIcon />}
+                            />
+                          ) : null}
+                          {intent.discordSpace?.inviteUrl ? (
+                            <DiscordChannelButton
+                              href={intent.discordSpace.inviteUrl}
+                              label="Open Discord invite"
+                              icon={<OpenInNewRoundedIcon />}
+                              color="neutral"
+                            />
+                          ) : null}
+                        </Stack>
+                      ) : null}
+
+                      {intent.discordSpace?.textChannelUrl == null && intent.discordSpace?.textChannelName ? (
+                        <DiscordDetailTextRow icon={<ChatBubbleOutlineRoundedIcon />}>
+                          Text channel: {intent.discordSpace.textChannelName}
+                        </DiscordDetailTextRow>
+                      ) : null}
+                      {intent.discordSpace?.voiceChannelUrl == null && intent.discordSpace?.voiceChannelName ? (
+                        <DiscordDetailTextRow icon={<HeadsetMicRoundedIcon />}>
+                          Voice channel: {intent.discordSpace.voiceChannelName}
+                        </DiscordDetailTextRow>
+                      ) : null}
+                      {!intent.discordSpace && intent.voiceChannelName ? (
+                        <DiscordDetailTextRow icon={<HeadsetMicRoundedIcon />}>
+                          Voice channel: {intent.voiceChannelName}
+                        </DiscordDetailTextRow>
+                      ) : null}
+                    </Stack>
+                  </Card>
                 ) : null}
               </Stack>
             </Stack>
@@ -569,6 +693,16 @@ export function PlayIntentDetailView() {
           <Typography level="body-sm">{errorMessage}</Typography>
         </Card>
       ) : null}
+
+      <CtpDmInboxDialog
+        open={isDmEmulatorOpen}
+        onClose={() => setIsDmEmulatorOpen(false)}
+        ctp={debugMailboxIntent}
+        formatDateTime={(value) => value ? new Date(value).toLocaleString() : 'Not available'}
+        buildApiUrl={debugViewProps.buildApiUrl}
+        onRefreshDebug={debugViewProps.onRefreshDebug}
+        parseDebugDmActionResponse={debugViewProps.parseDebugDmActionResponse}
+      />
     </Stack>
   )
 }

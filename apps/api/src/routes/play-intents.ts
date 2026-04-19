@@ -3,6 +3,7 @@ import type { Request, Response } from 'express'
 import { Prisma } from '@prisma/client'
 import { z } from 'zod'
 import {
+  playIntentDiscordSpaceDeleteResponseSchema,
   playIntentCurrentResponseSchema,
   playIntentDetailResponseSchema,
   playIntentFeedSchema,
@@ -11,16 +12,17 @@ import {
   upsertPlayIntentRequestSchema,
   upsertPlayIntentResponseSchema
 } from '@game-is-up/shared'
+import { NotificationResponseChoice, PlayIntentDiscordSpaceStatus } from '@prisma/client'
 import { publishPlayIntentInvalidation } from '../lib/dashboard-events.js'
 import { buildPlayIntentFeed } from '../lib/play-intent-feed.js'
 import { buildPlayIntentDetail } from '../lib/play-intent-detail.js'
+import { deletePlayIntentDiscordSpaceByPlayIntentId } from '../lib/play-intent-discord-spaces.js'
 import {
   clearCurrentPlayIntent,
   getCurrentPlayIntent,
   PlayIntentValidationError,
   upsertCurrentPlayIntent
 } from '../lib/play-intents.js'
-import { NotificationResponseChoice } from '@prisma/client'
 import { PlayIntentNotificationResponseError, respondToPlayIntentFromWeb } from '../lib/play-intent-notification-responses.js'
 import { prisma } from '../lib/prisma.js'
 import { getAuthSession } from '../lib/session.js'
@@ -301,6 +303,75 @@ playIntentRouter.post('/:playIntentId/respond', async (request, response, next) 
       return
     }
 
+    next(error)
+  }
+})
+
+playIntentRouter.delete('/:playIntentId/discord-space', async (request, response, next) => {
+  const userId = requireSignedInUserId(request, response)
+
+  if (!userId) {
+    return
+  }
+
+  const paramsParse = playIntentParamSchema.safeParse(request.params)
+
+  if (!paramsParse.success) {
+    response.status(400).json({ error: 'Invalid play intent ID.' })
+    return
+  }
+
+  try {
+    const playIntent = await prisma.playIntent.findFirst({
+      where: {
+        id: paramsParse.data.playIntentId,
+        userId
+      },
+      select: {
+        id: true,
+        expiresAt: true,
+        discordSpace: {
+          select: {
+            status: true
+          }
+        }
+      }
+    })
+
+    if (!playIntent) {
+      response.status(404).json({ error: 'Call to play not found.' })
+      return
+    }
+
+    if (playIntent.expiresAt > new Date()) {
+      response.status(409).json({ error: 'This call to play is still active.' })
+      return
+    }
+
+    if (
+      !playIntent.discordSpace
+      || playIntent.discordSpace.status === PlayIntentDiscordSpaceStatus.REQUESTED
+      || playIntent.discordSpace.status === PlayIntentDiscordSpaceStatus.PROVISIONING
+      || playIntent.discordSpace.status === PlayIntentDiscordSpaceStatus.DELETED
+    ) {
+      response.status(409).json({ error: 'No temporary Discord channels are available to delete.' })
+      return
+    }
+
+    const result = await deletePlayIntentDiscordSpaceByPlayIntentId(playIntent.id)
+
+    if (result.status === 'failed') {
+      response.status(502).json({ error: 'Unable to delete the temporary Discord channels right now.' })
+      return
+    }
+
+    response.json(playIntentDiscordSpaceDeleteResponseSchema.parse({
+      status: result.status === 'missing' ? 'missing' : 'deleted',
+      message: result.status === 'missing'
+        ? 'No temporary Discord channels were found for this call to play.'
+        : 'Temporary Discord channels are being removed for this ended call to play.'
+    }))
+  } catch (error) {
     next(error)
   }
 })

@@ -3,6 +3,7 @@ import { AuthProvider as PrismaAuthProvider } from '@prisma/client'
 import { prisma } from './prisma.js'
 import type { DiscordGuildSummary } from './discord-auth.js'
 import { getDiscordBotPresentServerIds, isDiscordBotPresentInGuild, listDiscordGuildMembers, listDiscordGuildVoiceChannels, sendDiscordGuildInvites } from './discord-presence-bot.js'
+import { env } from './env.js'
 import { toClientAvatarUrl } from './game-media.js'
 
 export function buildDiscordServerIconUrl(serverId: string, iconHash: string | null): string | null {
@@ -105,6 +106,11 @@ export async function buildDiscordServerPreferences(userId: string): Promise<Dis
     }
   })
 
+  const appDiscordServerId = env.DISCORD_SERVER_ID?.trim()
+  const visibleMemberships = appDiscordServerId
+    ? memberships.filter((membership) => membership.server.id !== appDiscordServerId)
+    : memberships
+
   const preferences = await prisma.discordServerPreference.findMany({
     where: {
       userId
@@ -116,10 +122,10 @@ export async function buildDiscordServerPreferences(userId: string): Promise<Dis
   })
 
   const preferenceMap = new Map(preferences.map((preference) => [preference.serverId, preference.includeInDiscovery]))
-  const botPresentServerIds = await getDiscordBotPresentServerIds(memberships.map((membership) => membership.server.id))
+  const botPresentServerIds = await getDiscordBotPresentServerIds(visibleMemberships.map((membership) => membership.server.id))
 
   return {
-    servers: memberships.map((membership) => ({
+    servers: visibleMemberships.map((membership) => ({
       id: membership.server.id,
       name: membership.server.name,
       iconUrl: toClientAvatarUrl(buildDiscordServerIconUrl(membership.server.id, membership.server.iconHash)),
