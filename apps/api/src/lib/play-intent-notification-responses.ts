@@ -237,7 +237,8 @@ function buildCreatorSummaryDeleteSpaceButton(playIntentId: string) {
 function buildResponseRow(
   notificationId: string,
   responseChoice?: NotificationResponseChoice | null,
-  notificationType: NotificationType = NotificationType.FRIEND_PLAYING
+  notificationType: NotificationType = NotificationType.FRIEND_PLAYING,
+  responseCustomIdBuilder?: (response: 'interested' | 'pass') => string
 ) {
   const buttons: MessageActionRowComponentBuilder[] = []
   const isGoTimeConfirmed = notificationType === NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED
@@ -245,7 +246,7 @@ function buildResponseRow(
   if (!isGoTimeConfirmed && responseChoice !== NotificationResponseChoice.JOIN) {
     buttons.push(
       new ButtonBuilder()
-        .setCustomId(`${playIntentNotificationPrefix}:${notificationId}:interested`)
+        .setCustomId(responseCustomIdBuilder?.('interested') ?? `${playIntentNotificationPrefix}:${notificationId}:interested`)
         .setLabel('I\'m interested')
         .setStyle(ButtonStyle.Primary)
     )
@@ -254,7 +255,7 @@ function buildResponseRow(
   if (responseChoice !== NotificationResponseChoice.DECLINE) {
     buttons.push(
       new ButtonBuilder()
-        .setCustomId(`${playIntentNotificationPrefix}:${notificationId}:pass`)
+        .setCustomId(responseCustomIdBuilder?.('pass') ?? `${playIntentNotificationPrefix}:${notificationId}:pass`)
         .setLabel(isGoTimeConfirmed ? 'No longer interested' : 'Pass')
         .setStyle(ButtonStyle.Secondary)
     )
@@ -616,10 +617,16 @@ export function buildPlayIntentNotificationComponents(
   options: {
     forceInteractive?: boolean;
     playIntentId?: string;
+    responseCustomIdBuilder?: (response: 'interested' | 'pass') => string;
   } = {}
 ) {
   const rows: ActionRowBuilder<MessageActionRowComponentBuilder>[] = []
-  const responseRow = buildResponseRow(notificationId, responseChoice, notificationType)
+  const responseRow = buildResponseRow(
+    notificationId,
+    responseChoice,
+    notificationType,
+    options.responseCustomIdBuilder
+  )
 
   if (responseRow) {
     rows.push(responseRow)
@@ -676,6 +683,7 @@ export function buildPlayIntentNotificationPromptPreview(options: {
   discordSpace?: PlayIntentDiscordSpaceRecipientContext | null;
   interestedCount?: number;
   interestedUserLabels?: string[];
+  responseCustomIdBuilder?: (response: 'interested' | 'pass') => string;
 }): DirectMessagePreviewPayload {
   return {
     content: buildPlayIntentDirectMessageHeading(options.title),
@@ -701,7 +709,8 @@ export function buildPlayIntentNotificationPromptPreview(options: {
       options.notificationType,
       {
         forceInteractive: true,
-        playIntentId: options.playIntentId
+        playIntentId: options.playIntentId,
+        responseCustomIdBuilder: options.responseCustomIdBuilder
       }
     )
   }

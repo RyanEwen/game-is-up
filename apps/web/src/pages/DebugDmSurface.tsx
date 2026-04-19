@@ -431,7 +431,6 @@ export function DmPreviewDialog({
           <EmptyStateCard
             title="No DM preview available"
             body="This row did not produce a Discord DM message body that can be previewed from the current snapshot."
-            chips={['Admin only', 'DM preview']}
           />
         )}
       </DialogContent>

@@ -20,6 +20,7 @@ import {
   buildScheduledCheckInPromptPreview
 } from './play-intent-notification-responses.js'
 import { buildDiscordChannelUrl } from './discord-channel-urls.js'
+import { buildDebugPlayIntentResponseCustomId } from './debug-dm-actions.js'
 import { prisma } from './prisma.js'
 
 type DebugDmPreviewPayload = ReturnType<typeof buildDebugDmPreview>
@@ -2047,7 +2048,8 @@ export async function buildDebugAdminSnapshot() {
               recipientSharesServer: false
             }
           : null,
-        discordSpace: intentDiscordSpaceRecipientContexts.get(recipient.id) ?? null
+        discordSpace: intentDiscordSpaceRecipientContexts.get(recipient.id) ?? null,
+        responseCustomIdBuilder: (response) => buildDebugPlayIntentResponseCustomId(intent.id, response)
       })
       const syntheticPreview = buildDebugDmPreview(
         previewPayload.content,
