@@ -431,7 +431,7 @@ export function PlayIntentDetailView() {
               {formatNotifyScopeLabel(intent.notifyScope)}
             </Chip>
             {!intent.appliesToViewer ? (
-              <Chip size="sm" color="warning" variant="soft">
+              <Chip size="sm" color="neutral" variant="soft">
                 Not for you right now
               </Chip>
             ) : null}
@@ -465,8 +465,8 @@ export function PlayIntentDetailView() {
           ) : null}
 
           {!intent.appliesToViewer ? (
-            <Card variant="soft" color="warning" sx={{ p: 1.5 }}>
-              <Typography level="body-sm">
+            <Card variant="soft" color="neutral" sx={{ p: 1.5, backgroundColor: 'rgba(23, 29, 40, 0.72)' }}>
+              <Typography level="body-sm" sx={{ color: 'neutral.200' }}>
                 This call is visible in your network, but it does not currently include you.
               </Typography>
             </Card>
