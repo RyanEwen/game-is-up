@@ -34,9 +34,9 @@ import {
   buildOpenInAppButton,
   formatLabeledDiscordLines
 } from './discord-dm-formatting.js'
-import { env } from './env.js'
 import { toClientGameCoverUrl } from './game-media.js'
 import { getInterestedUsersByPlayIntentId } from './play-intent-interested-users.js'
+import { buildClientPlayIntentUrl, buildClientPlayUrl } from './play-intent-urls.js'
 import {
   deletePlayIntentDiscordSpaceByPlayIntentId,
   getPlayIntentDiscordSpaceRecipientContexts,
@@ -177,12 +177,8 @@ export class PlayIntentNotificationResponseError extends Error {
   }
 }
 
-function buildPlayUrl(): string {
-  try {
-    return new URL('/play', env.CLIENT_ORIGIN).toString()
-  } catch {
-    return env.CLIENT_ORIGIN
-  }
+function buildPlayAppUrl(playIntentId?: string) {
+  return playIntentId ? buildClientPlayIntentUrl(playIntentId) : buildClientPlayUrl()
 }
 
 function buildDiscordUserMention(discordUserId: string | null | undefined) {
@@ -201,9 +197,9 @@ function replaceDisplayNameWithMention(text: string, displayName: string, discor
   return text.split(displayName).join(buildDiscordUserLabel(displayName, discordUserId))
 }
 
-function buildLinkRow() {
+function buildLinkRow(playIntentId?: string) {
   return new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
-    buildOpenInAppButton(buildPlayUrl())
+    buildOpenInAppButton(buildPlayAppUrl(playIntentId), playIntentId ? 'Open in App' : 'Open App')
   )
 }
 
@@ -649,6 +645,7 @@ export function buildPlayIntentNotificationComponents(
   notificationType: NotificationType = NotificationType.FRIEND_PLAYING,
   options: {
     forceInteractive?: boolean;
+    playIntentId?: string;
   } = {}
 ) {
   const rows: ActionRowBuilder<MessageActionRowComponentBuilder>[] = []
@@ -669,25 +666,35 @@ export function buildPlayIntentNotificationComponents(
   }
 
   if (!(options.forceInteractive ?? supportsDiscordInteractiveMessages())) {
-    return [buildLinkRow()]
+    return [buildLinkRow(options.playIntentId)]
   }
 
-  return appendOpenInAppButton(rows, buildPlayUrl())
+  return appendOpenInAppButton(
+    rows,
+    buildPlayAppUrl(options.playIntentId),
+    options.playIntentId ? 'Open in App' : 'Open App'
+  )
 }
 
 export function buildScheduledPlayIntentCheckInComponents(
   notificationId: string,
   options: {
     forceInteractive?: boolean;
+    playIntentId?: string;
   } = {}
 ) {
   return (options.forceInteractive ?? supportsDiscordInteractiveMessages())
-    ? appendOpenInAppButton([buildScheduledCheckInResponseRow(notificationId)], buildPlayUrl())
-    : [buildLinkRow()]
+    ? appendOpenInAppButton(
+        [buildScheduledCheckInResponseRow(notificationId)],
+        buildPlayAppUrl(options.playIntentId),
+        options.playIntentId ? 'Open in App' : 'Open App'
+      )
+    : [buildLinkRow(options.playIntentId)]
 }
 
 export function buildPlayIntentNotificationPromptPreview(options: {
   notificationId: string;
+  playIntentId?: string;
   notificationType: NotificationType;
   title: string;
   body: string;
@@ -723,7 +730,8 @@ export function buildPlayIntentNotificationPromptPreview(options: {
       options.responseChoice,
       options.notificationType,
       {
-        forceInteractive: true
+        forceInteractive: true,
+        playIntentId: options.playIntentId
       }
     )
   }
@@ -731,6 +739,7 @@ export function buildPlayIntentNotificationPromptPreview(options: {
 
 export function buildScheduledCheckInPromptPreview(options: {
   notificationId: string;
+  playIntentId?: string;
   creatorDiscordUserId?: string | null;
   creatorDisplayName?: string | null;
   resolved?: boolean;
@@ -743,15 +752,17 @@ export function buildScheduledCheckInPromptPreview(options: {
     content: buildDiscordMessageHeading('⏰ Go-Time Check-In'),
     embeds: buildScheduledCheckInEmbeds(creatorMention),
     components: options.resolved
-      ? [buildLinkRow()]
+      ? [buildLinkRow(options.playIntentId)]
       : buildScheduledPlayIntentCheckInComponents(options.notificationId, {
-          forceInteractive: true
+          forceInteractive: true,
+          playIntentId: options.playIntentId
         })
   }
 }
 
 export function buildNotificationDirectMessagePreview(options: {
   notificationId: string;
+  playIntentId?: string;
   notificationType: NotificationType;
   title: string;
   body: string;
@@ -794,12 +805,13 @@ export function buildNotificationDirectMessagePreview(options: {
     if (options.responseChoice === NotificationResponseChoice.EXPIRED || options.playIntentIsActive === false) {
       return {
         content: buildExpiredMessage('This call to play expired before you confirmed.'),
-        components: []
+        components: [buildLinkRow(options.playIntentId)]
       }
     }
 
     return buildScheduledCheckInPromptPreview({
       notificationId: options.notificationId,
+      playIntentId: options.playIntentId,
       creatorDiscordUserId: options.creatorDiscordUserId,
       creatorDisplayName: options.creatorDisplayName
     })
@@ -827,12 +839,13 @@ export function buildNotificationDirectMessagePreview(options: {
     if (options.responseChoice === NotificationResponseChoice.EXPIRED || options.playIntentIsActive === false) {
       return {
         content: buildExpiredMessage(buildSessionEndedReason(creatorLabel, options.gameTitle ?? null)),
-        components: [buildLinkRow()]
+        components: [buildLinkRow(options.playIntentId)]
       }
     }
 
     return buildPlayIntentNotificationPromptPreview({
       notificationId: options.notificationId,
+      playIntentId: options.playIntentId,
       notificationType: options.notificationType,
       title: options.title,
       body: options.body,
@@ -862,7 +875,7 @@ export function buildNotificationDirectMessagePreview(options: {
       buildDiscordMessageHeading(options.title),
       previewBody.split('\n')
     ),
-    components: [buildLinkRow()]
+    components: [buildLinkRow(options.playIntentId)]
   }
 }
 
@@ -875,7 +888,7 @@ function buildCreatorPlayIntentSummaryComponents(
   } = {}
 ) {
   if (!(options.forceInteractive ?? supportsDiscordInteractiveMessages())) {
-    return [buildLinkRow()]
+    return [buildLinkRow(playIntentId)]
   }
 
   return appendOpenInAppButton(
@@ -892,7 +905,8 @@ function buildCreatorPlayIntentSummaryComponents(
             return row
           })()
     ],
-    buildPlayUrl()
+    buildPlayAppUrl(playIntentId),
+    'Open in App'
   )
 }
 
@@ -1719,6 +1733,7 @@ export async function refreshTrackedPlayIntentNotificationDirectMessages() {
 
     const preview = buildNotificationDirectMessagePreview({
       notificationId: notification.id,
+      playIntentId: notification.playIntentId ?? undefined,
       notificationType: notification.type,
       title: notification.title,
       body: notification.body,
@@ -1772,6 +1787,7 @@ export async function refreshTrackedPlayIntentNotificationDirectMessages() {
     ) {
       const followUpPreview = buildNotificationDirectMessagePreview({
         notificationId: notification.id,
+        playIntentId: notification.playIntentId ?? undefined,
         notificationType: notification.type,
         title: notification.title,
         body: notification.body,
@@ -2572,7 +2588,9 @@ export async function sweepScheduledPlayIntentCreatorCheckIns() {
         discordUserId: creatorIdentity.providerUserId,
         content: buildDiscordMessageHeading('⏰ Go-Time Check-In'),
         embeds: promptEmbeds,
-        components: buildScheduledPlayIntentCheckInComponents(checkInNotification.id)
+        components: buildScheduledPlayIntentCheckInComponents(checkInNotification.id, {
+          playIntentId: intent.id
+        })
       }
     ]))[0]
 
@@ -2618,6 +2636,7 @@ export async function expirePendingPlayIntentNotifications(
     },
     select: {
       id: true,
+      playIntentId: true,
       type: true,
       discordDmChannelId: true,
       discordDmMessageId: true,
@@ -2665,6 +2684,7 @@ export async function expirePendingPlayIntentNotifications(
     if (notification.type === NotificationType.SCHEDULED_PLAY_INTENT_CHECK_IN) {
       const preservedPrompt = buildScheduledCheckInPromptPreview({
         notificationId: notification.id,
+        playIntentId: notification.playIntentId ?? undefined,
         creatorDiscordUserId: notification.playIntent?.user.identities?.[0]?.providerUserId ?? null,
         creatorDisplayName: notification.playIntent?.user.displayName,
         resolved: true
@@ -2707,7 +2727,7 @@ export async function expirePendingPlayIntentNotifications(
       channelId: notification.discordDmChannelId,
       messageId: notification.discordDmMessageId,
       content: expiredContent,
-      components: [buildLinkRow()]
+      components: [buildLinkRow(notification.playIntentId ?? undefined)]
     })
   }))
 
@@ -2779,7 +2799,7 @@ export async function handleScheduledPlayIntentCheckInInteraction(interaction: B
   if (!notification || !identity || identity.userId !== notification.userId) {
     await interaction.update({
       content: buildExpiredMessage('This scheduled call-to-play check-in is not available for your account anymore.'),
-      components: [buildLinkRow()]
+      components: [buildLinkRow(notification?.playIntentId ?? undefined)]
     })
     return
   }
@@ -2787,7 +2807,7 @@ export async function handleScheduledPlayIntentCheckInInteraction(interaction: B
   if (notification.respondedAt) {
     await interaction.update({
       content: buildCreatorCheckInAlreadyHandledMessage(notification.responseChoice),
-      components: [buildLinkRow()]
+      components: [buildLinkRow(notification.playIntentId ?? undefined)]
     })
     return
   }
@@ -2795,7 +2815,7 @@ export async function handleScheduledPlayIntentCheckInInteraction(interaction: B
   if (!notification.playIntent || notification.playIntent.expiresAt <= new Date()) {
     await interaction.update({
       content: buildExpiredMessage('This call to play is no longer active.'),
-      components: [buildLinkRow()]
+      components: [buildLinkRow(notification.playIntentId ?? undefined)]
     })
     return
   }
@@ -2848,13 +2868,14 @@ export async function handleScheduledPlayIntentCheckInInteraction(interaction: B
     if (!cancellation.notificationCanceled) {
       await interaction.update({
         content: buildCreatorCheckInAlreadyHandledMessage(NotificationResponseChoice.CANCELED),
-        components: [buildLinkRow()]
+        components: [buildLinkRow(notification.playIntentId ?? undefined)]
       })
       return
     }
 
     const preservedPrompt = buildScheduledCheckInPromptPreview({
       notificationId: notification.id,
+      playIntentId: notification.playIntent.id,
       creatorDiscordUserId: notification.playIntent.user.identities[0]?.providerUserId ?? null,
       creatorDisplayName: notification.playIntent.user.displayName,
       resolved: true
@@ -3092,7 +3113,10 @@ export async function handleScheduledPlayIntentCheckInInteraction(interaction: B
           playIntent.userId,
           playIntent.user.displayName,
           null,
-          createdNotification.type
+          createdNotification.type,
+          {
+            playIntentId: playIntent.id
+          }
         )
       }]
     })
@@ -3135,6 +3159,7 @@ export async function handleScheduledPlayIntentCheckInInteraction(interaction: B
 
   const preservedPrompt = buildScheduledCheckInPromptPreview({
     notificationId: notification.id,
+    playIntentId: playIntent.id,
     creatorDiscordUserId: playIntent.user.identities[0]?.providerUserId ?? null,
     creatorDisplayName: playIntent.user.displayName,
     resolved: true
@@ -3253,7 +3278,7 @@ export async function handlePlayIntentNotificationInteraction(interaction: Butto
   if (!notification || !identity || identity.userId !== notification.userId) {
     await interaction.update({
       content: buildExpiredMessage('This prompt is not available for your account anymore.'),
-      components: [buildLinkRow()]
+      components: [buildLinkRow(notification?.playIntentId ?? undefined)]
     })
     return
   }
@@ -3279,7 +3304,7 @@ export async function handlePlayIntentNotificationInteraction(interaction: Butto
   if (!notification.playIntentId || !notification.playIntent || notification.playIntent.expiresAt <= new Date()) {
     await interaction.update({
       content: buildExpiredMessage('The original call to play is no longer active.'),
-      components: [buildLinkRow()]
+      components: [buildLinkRow(notification.playIntentId ?? undefined)]
     })
     return
   }
@@ -3295,6 +3320,7 @@ export async function handlePlayIntentNotificationInteraction(interaction: Butto
     .get(notification.userId) ?? null
   const preservedPrompt = buildPlayIntentNotificationPromptPreview({
     notificationId: notification.id,
+    playIntentId: playIntent.id,
     notificationType: notification.type,
     title: notification.title,
     body: notification.body,

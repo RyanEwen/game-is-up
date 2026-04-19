@@ -227,14 +227,15 @@ This repo now treats Prisma migrations as the source of truth for schema changes
 29. Discord invite links now open a dedicated invite landing page, preserve server and inviter context through Discord OAuth, and can attribute a first accepted sign-in back to the originating Discord invite.
 30. Admin debug now includes an invite-attribution section so recent accepted invite flows can be verified without querying the database directly.
 31. The Play view keeps recently ended calls to play visible for 24 hours as closed cards, shows whether each call currently applies to your library, and only leaves response actions enabled while the call is still active and applicable.
-32. Discovery-based play-intent visibility can now include both explicit friends and users from the Discord servers you opted into discovery.
-33. Discovery remains based on opted-in shared Discord servers plus explicit in-app friendships. The Discord friend-list import path has been removed.
-34. Discord is still the only sign-in path in this scaffold.
-35. Steam can now be linked as a secondary account for library import only. It does not replace Discord auth or discovery.
-36. Linked-account flows like Discord sign-in and Steam linking return directly to the current web URL after the provider callback completes.
-37. Call-to-play DMs now include a clickable creator Discord mention when available.
-38. Subset call-to-play DMs can include game art for small selected-game sets: single-game calls show the chosen cover directly, and small multi-game sets show a lead cover with a short title list.
-39. Signed-in web sessions now subscribe to an authenticated dashboard SSE stream so open tabs refresh automatically after impactful changes such as play-intent updates, library edits, friend changes, Discord server selection changes, and linked-account or profile updates.
+32. Calls to play now also have dedicated `/play/:playIntentId` detail pages. Discord DMs can deep-link straight into a specific call, Play cards expose an Open details action, and library-wide calls expand the actual game options on that page so recipients can see what overlaps are in scope before they respond.
+33. Discovery-based play-intent visibility can now include both explicit friends and users from the Discord servers you opted into discovery.
+34. Discovery remains based on opted-in shared Discord servers plus explicit in-app friendships. The Discord friend-list import path has been removed.
+35. Discord is still the only sign-in path in this scaffold.
+36. Steam can now be linked as a secondary account for library import only. It does not replace Discord auth or discovery.
+37. Linked-account flows like Discord sign-in and Steam linking return directly to the current web URL after the provider callback completes.
+38. Call-to-play DMs now include a clickable creator Discord mention when available.
+39. Subset call-to-play DMs can include game art for small selected-game sets: single-game calls show the chosen cover directly, and small multi-game sets show a lead cover with a short title list.
+40. Signed-in web sessions now subscribe to an authenticated dashboard SSE stream so open tabs refresh automatically after impactful changes such as play-intent updates, library edits, friend changes, Discord server selection changes, and linked-account or profile updates.
 
 ## Steam import setup
 

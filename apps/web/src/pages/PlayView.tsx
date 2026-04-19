@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Avatar, Box, Button, Chip, Card, Option, Select, Stack, Switch, Typography } from '@mui/joy'
+import { useNavigate } from 'react-router-dom'
 import type {
   ActivePlayIntent,
   DiscordServerPreference,
@@ -108,6 +109,7 @@ function DiscordAutomationCard({
 function OwnActivePlayIntentCard({
   activePlayIntent,
   onEdit,
+  onOpenDetails,
   onOpenDmEmulator,
   discoveryPeopleById,
   isSignedIn,
@@ -119,6 +121,7 @@ function OwnActivePlayIntentCard({
 }: {
   activePlayIntent: ActivePlayIntent;
   onEdit: () => void;
+  onOpenDetails: (playIntentId: string) => void;
   onOpenDmEmulator?: () => void;
   discoveryPeopleById: ReadonlyMap<string, DiscoveryPerson>;
   isSignedIn: boolean;
@@ -156,14 +159,19 @@ function OwnActivePlayIntentCard({
                 : `Live until ${endsAt.toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}`}
             </Typography>
           </Box>
-          <Button variant="solid" color="primary" onClick={onEdit}>
-            Edit call to play
-          </Button>
-          {onOpenDmEmulator ? (
-            <Button variant="outlined" color="neutral" onClick={onOpenDmEmulator}>
-              Open DM emulator
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'center' }} sx={{ flexWrap: 'wrap' }}>
+            <Button variant="outlined" color="neutral" onClick={() => onOpenDetails(activePlayIntent.id)}>
+              Open details
             </Button>
-          ) : null}
+            <Button variant="solid" color="primary" onClick={onEdit}>
+              Edit call to play
+            </Button>
+            {onOpenDmEmulator ? (
+              <Button variant="outlined" color="neutral" onClick={onOpenDmEmulator}>
+                Open DM emulator
+              </Button>
+            ) : null}
+          </Stack>
         </Stack>
 
         <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
@@ -316,6 +324,7 @@ function PlayViewContent({
   onAddGameToLibrary,
   onToggleDiscordAutoPromptPlayIntent
   ,
+  openPlayIntentDetails,
   debugAdmin,
   onRefreshDebug,
   buildApiUrl,
@@ -388,6 +397,7 @@ function PlayViewContent({
   addingLibraryGameId: string | null;
   onAddGameToLibrary: (game: DashboardLibraryQuickAddGame) => Promise<void>;
   onToggleDiscordAutoPromptPlayIntent: (nextEnabled: boolean) => Promise<void>;
+  openPlayIntentDetails: (playIntentId: string) => void;
   debugAdmin: ReturnType<typeof useDashboardContext>['debugViewProps']['debugAdmin'];
   onRefreshDebug: () => Promise<void>;
   buildApiUrl: (path: string) => string;
@@ -443,6 +453,7 @@ function PlayViewContent({
         <OwnActivePlayIntentCard
           activePlayIntent={activePlayIntent}
           onEdit={openPlayIntentComposer}
+          onOpenDetails={openPlayIntentDetails}
           onOpenDmEmulator={isAdmin && debugAdmin?.recentPlayIntents.some((intent) => intent.id === activePlayIntent.id) ? () => setSelectedMailboxPlayIntentId(activePlayIntent.id) : undefined}
           discoveryPeopleById={discoveryPeopleById}
           isSignedIn={isSignedIn}
@@ -537,6 +548,7 @@ function PlayViewContent({
               onToggleFriend={onToggleFriend}
               responsePending={playIntentResponsePendingIntentId === intent.id}
               onRespondToIntent={onRespondToPlayIntent}
+              onOpenDetails={openPlayIntentDetails}
               isMuted={mutedPlayIntentUserIds.has(intent.user.id)}
               onMuteCreator={onMutePlayIntentUser}
               onUnmuteCreator={onUnmutePlayIntentUser}
@@ -596,6 +608,7 @@ function PlayViewContent({
                 onToggleFriend={onToggleFriend}
                 responsePending={playIntentResponsePendingIntentId === intent.id}
                 onRespondToIntent={onRespondToPlayIntent}
+                onOpenDetails={openPlayIntentDetails}
                 isMuted={mutedPlayIntentUserIds.has(intent.user.id)}
                 onMuteCreator={onMutePlayIntentUser}
                 onUnmuteCreator={onUnmutePlayIntentUser}
@@ -637,7 +650,14 @@ function PlayViewContent({
 }
 
 export function PlayView() {
+  const navigate = useNavigate()
   const { playViewProps, debugViewProps } = useDashboardContext()
 
-  return <PlayViewContent {...playViewProps} {...debugViewProps} />
+  return (
+    <PlayViewContent
+      {...playViewProps}
+      {...debugViewProps}
+      openPlayIntentDetails={(playIntentId) => navigate(`/play/${playIntentId}`)}
+    />
+  )
 }

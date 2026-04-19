@@ -108,7 +108,7 @@ function getBrowserTimeZoneId(): string | null {
   }
 }
 
-function buildApiUrl(path: string): string {
+export function buildApiUrl(path: string): string {
   if (!apiBaseUrl) {
     if (typeof window === 'undefined') {
       return path

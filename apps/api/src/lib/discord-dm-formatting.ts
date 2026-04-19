@@ -128,18 +128,19 @@ export function buildDiscordMessageHeading(title: string) {
   return trimmed.replace(/^###\s+/u, '')
 }
 
-export function buildOpenInAppButton(url: string) {
+export function buildOpenInAppButton(url: string, label = 'Open App') {
   return new ButtonBuilder()
-    .setLabel('Open App')
+    .setLabel(label)
     .setStyle(ButtonStyle.Link)
     .setURL(url)
 }
 
 export function appendOpenInAppButton(
   rows: ActionRowBuilder<MessageActionRowComponentBuilder>[],
-  url: string
+  url: string,
+  label = 'Open App'
 ) {
-  const linkButton = buildOpenInAppButton(url)
+  const linkButton = buildOpenInAppButton(url, label)
 
   if (rows.length > 0) {
     const firstRowComponentCount = rows[0]?.toJSON().components?.length ?? 0

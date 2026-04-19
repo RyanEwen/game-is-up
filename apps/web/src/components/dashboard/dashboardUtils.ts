@@ -57,6 +57,10 @@ export const libraryEntryGridSx = {
 export function getDashboardTabFromPathname(pathname: string): DashboardTab | null {
   const normalizedPathname = pathname.replace(/\/+$/, '') || '/'
 
+  if (normalizedPathname.startsWith(`${dashboardTabPaths.play}/`)) {
+    return 'play'
+  }
+
   switch (normalizedPathname) {
     case '/':
     case '/overview':

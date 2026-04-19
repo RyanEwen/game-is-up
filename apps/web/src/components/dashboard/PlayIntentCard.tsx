@@ -80,6 +80,7 @@ export function PlayIntentCard({
   onToggleFriend,
   responsePending,
   onRespondToIntent,
+  onOpenDetails,
   isMuted,
   onMuteCreator,
   onUnmuteCreator,
@@ -95,6 +96,7 @@ export function PlayIntentCard({
   onToggleFriend: (target: FriendTarget) => Promise<void>;
   responsePending: boolean;
   onRespondToIntent: (playIntentId: string, responseChoice: PlayIntentRecipientResponseChoice) => Promise<void>;
+  onOpenDetails: (playIntentId: string) => void;
   isMuted: boolean;
   onMuteCreator: (userId: string) => Promise<void>;
   onUnmuteCreator: (userId: string) => Promise<void>;
@@ -166,6 +168,15 @@ export function PlayIntentCard({
               {intent.interestedCount} {intent.interestedCount === 1 ? 'person interested' : 'people interested'}
             </Chip>
           ) : null}
+          <Button
+            variant="outlined"
+            color="neutral"
+            size="sm"
+            onClick={() => onOpenDetails(intent.id)}
+            sx={actionButtonSx}
+          >
+            Open details
+          </Button>
           {canRespondToIntent && viewerResponseChoice !== 'interested' ? (
             <Button
               variant="outlined"

@@ -44,6 +44,11 @@ const PlayView = lazy(async () => {
   return { default: module.PlayView }
 })
 
+const PlayIntentDetailView = lazy(async () => {
+  const module = await import('./pages/PlayIntentDetailView')
+  return { default: module.PlayIntentDetailView }
+})
+
 const appTitle = "Game's Up"
 
 const dashboardTabTitles: Record<Exclude<ReturnType<typeof getDashboardTabFromPathname>, null>, string> = {
@@ -87,8 +92,12 @@ function DashboardAppShell() {
   const tabsAnchorRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
+    if (location.pathname.startsWith('/play/')) {
+      return
+    }
+
     document.title = dashboardTabTitles[activeTab]
-  }, [activeTab])
+  }, [activeTab, location.pathname])
 
   return (
     <DashboardLayout
@@ -119,6 +128,10 @@ function DashboardAppShell() {
           <Route
             path={dashboardTabPaths.play}
             element={<PlayView />}
+          />
+          <Route
+            path="/play/:playIntentId"
+            element={<PlayIntentDetailView />}
           />
           <Route
             path={dashboardTabPaths.discovery}

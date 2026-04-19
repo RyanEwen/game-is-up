@@ -4,6 +4,7 @@ import { Prisma } from '@prisma/client'
 import { z } from 'zod'
 import {
   playIntentCurrentResponseSchema,
+  playIntentDetailResponseSchema,
   playIntentFeedSchema,
   playIntentMutesResponseSchema,
   playIntentRecipientResponseResultSchema,
@@ -12,6 +13,7 @@ import {
 } from '@game-is-up/shared'
 import { publishPlayIntentInvalidation } from '../lib/dashboard-events.js'
 import { buildPlayIntentFeed } from '../lib/play-intent-feed.js'
+import { buildPlayIntentDetail } from '../lib/play-intent-detail.js'
 import {
   clearCurrentPlayIntent,
   getCurrentPlayIntent,
@@ -28,6 +30,9 @@ export const playIntentRouter = Router()
 const playIntentRecipientResponseInputSchema = z.object({
   choice: z.enum(['interested', 'pass', 'join', 'decline'])
 })
+
+const muteTargetParamSchema = z.object({ targetUserId: z.string().uuid() })
+const playIntentParamSchema = z.object({ playIntentId: z.string().uuid() })
 
 function requireSignedInUserId(request: Request, response: Response): string | null {
   const session = getAuthSession(request)
@@ -136,9 +141,6 @@ playIntentRouter.delete('/me', async (request, response, next) => {
   }
 })
 
-const muteTargetParamSchema = z.object({ targetUserId: z.string().uuid() })
-const playIntentParamSchema = z.object({ playIntentId: z.string().uuid() })
-
 playIntentRouter.get('/mutes', async (request, response, next) => {
   const userId = requireSignedInUserId(request, response)
 
@@ -235,6 +237,34 @@ playIntentRouter.delete('/mutes/:targetUserId', async (request, response, next) 
     publishPlayIntentInvalidation()
 
     response.json({ muted: false })
+  } catch (error) {
+    next(error)
+  }
+})
+
+playIntentRouter.get('/:playIntentId', async (request, response, next) => {
+  const userId = requireSignedInUserId(request, response)
+
+  if (!userId) {
+    return
+  }
+
+  const paramsParse = playIntentParamSchema.safeParse(request.params)
+
+  if (!paramsParse.success) {
+    response.status(400).json({ error: 'Invalid play intent ID.' })
+    return
+  }
+
+  try {
+    const intent = await buildPlayIntentDetail(userId, paramsParse.data.playIntentId)
+
+    if (!intent) {
+      response.status(404).json({ error: 'Call to play not found.' })
+      return
+    }
+
+    response.json(playIntentDetailResponseSchema.parse({ intent }))
   } catch (error) {
     next(error)
   }

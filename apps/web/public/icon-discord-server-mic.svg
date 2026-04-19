@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title desc" preserveAspectRatio="xMidYMid meet">
+  <title id="title">Game's Up Discord Server Icon</title>
+  <desc id="desc">Game's Up speech bubble logo on a dark background with a microphone badge.</desc>
+  <style>
+    :root {
+      background: #070b14;
+      color-scheme: dark;
+    }
+
+    svg {
+      display: block;
+      width: 100vmin;
+      height: 100vmin;
+      margin: 0 auto;
+    }
+  </style>
+  <defs>
+    <radialGradient id="bg" cx="28%" cy="20%" r="96%">
+      <stop offset="0%" stop-color="#162447" />
+      <stop offset="58%" stop-color="#0b1020" />
+      <stop offset="100%" stop-color="#060913" />
+    </radialGradient>
+    <linearGradient id="bubble" x1="31" y1="31" x2="98" y2="91" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#72f4cf" />
+      <stop offset="52%" stop-color="#53e6bf" />
+      <stop offset="100%" stop-color="#33d6ad" />
+    </linearGradient>
+    <linearGradient id="bubbleHighlight" x1="43" y1="29" x2="85" y2="74" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.22" />
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0" />
+    </linearGradient>
+    <linearGradient id="badge" x1="82" y1="80" x2="111" y2="111" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#ffd166" />
+      <stop offset="100%" stop-color="#f08b2d" />
+    </linearGradient>
+  </defs>
+  <rect width="128" height="128" rx="28" fill="url(#bg)" />
+  <circle cx="34" cy="28" r="22" fill="#4ef0b7" opacity="0.06" />
+  <path opacity="0.22" fill="#06101a" transform="translate(0 4)" d="M31 39c0-8.837 7.163-16 16-16h34c8.837 0 16 7.163 16 16v28c0 8.837-7.163 16-16 16H70l-14 15v-15H47c-8.837 0-16-7.163-16-16V39Zm26 15a7 7 0 1 0 0 14 7 7 0 0 0 0-14Zm27 0a7 7 0 1 0 0 14 7 7 0 0 0 0-14Z" />
+  <path fill="url(#bubble)" d="M31 39c0-8.837 7.163-16 16-16h34c8.837 0 16 7.163 16 16v28c0 8.837-7.163 16-16 16H70l-14 15v-15H47c-8.837 0-16-7.163-16-16V39Zm26 15a7 7 0 1 0 0 14 7 7 0 0 0 0-14Zm27 0a7 7 0 1 0 0 14 7 7 0 0 0 0-14Z" />
+  <path fill="url(#bubbleHighlight)" d="M47 26h34c8.837 0 16 7.163 16 16v8c-8.2-6.3-18.2-10-29-10H47c-5.4 0-10.4 1.1-14.9 3.2C33.8 33.6 39.7 26 47 26Z" />
+  <circle cx="95" cy="95" r="18" fill="url(#badge)" stroke="#0b1020" stroke-width="3" />
+  <path fill="#0b1020" d="M95 84.5a5.25 5.25 0 0 0-5.25 5.25v7.5a5.25 5.25 0 1 0 10.5 0v-7.5A5.25 5.25 0 0 0 95 84.5Zm8.75 10.75a1.75 1.75 0 1 0-3.5 0 5.25 5.25 0 1 1-10.5 0 1.75 1.75 0 1 0-3.5 0 8.77 8.77 0 0 0 7 8.58V107h-3.25a1.75 1.75 0 1 0 0 3.5h10a1.75 1.75 0 1 0 0-3.5h-3.25v-3.17a8.77 8.77 0 0 0 7-8.58Z" />
+</svg>

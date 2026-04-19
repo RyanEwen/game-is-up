@@ -68,7 +68,6 @@ export function DashboardDeferredImage({
           alt={alt}
           loading={eager ? 'eager' : 'lazy'}
           decoding="async"
-          fetchPriority={eager ? 'high' : 'low'}
           onLoad={() => setLoaded(true)}
           sx={{
             display: 'block',

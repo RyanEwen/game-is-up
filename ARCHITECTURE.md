@@ -67,6 +67,8 @@ Play-intent feed and current-intent payloads now also include lightweight intere
 
 Feed previews now also expose a lightweight status (`active` or `closed`) plus an `appliesToViewer` flag. The web client uses those fields to keep recently ended calls visible for a short history window without leaving stale response actions enabled for calls that no longer match the viewer's library or have already ended.
 
+Play intents also expose a dedicated detail contract in `packages/shared` and a corresponding API detail builder in `apps/api`. The web app uses that richer payload for `/play/:playIntentId`, which is the deep-link target for specific Discord DM buttons and for the in-app Open details action on Play cards. That detail view can expand library-wide calls into an explicit list of current overlapping games so recipients can understand what "any game in library" means for their own account before responding.
+
 Play intents can also attach an optional temporary Discord channel bundle in the Game's Up Discord server. That state is modeled explicitly as a `PlayIntentDiscordSpace` row plus per-user access grants so the API can track who already belongs to the server, who has already been invited, and who should receive access if they join later.
 
 Scheduled calls to play now add a second-stage check-in flow. The audience is still notified immediately at creation time, but the creator receives an explicit confirmation prompt when the scheduled start time arrives. If confirmed, accepted recipients receive a go-time update, unanswered recipients receive one follow-up reminder, those go-time messages remain actionable for later response changes, and recipients who previously declined or muted that creator remain opted out.

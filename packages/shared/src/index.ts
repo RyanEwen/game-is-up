@@ -253,9 +253,35 @@ export const playIntentPreviewSchema = z.object({
   availabilityWindow: availabilityWindowSchema
 })
 
+export const playIntentExpandedGameSchema = z.object({
+  id: z.string().uuid(),
+  title: z.string().min(1),
+  coverUrl: z.string().url().nullable(),
+  platformLabels: z.array(platformLabelSchema).min(1)
+})
+
+export const playIntentExpandedGameScopeSchema = z.object({
+  kind: z.enum(['creator-library', 'shared-library']),
+  title: z.string().min(1),
+  description: z.string().min(1),
+  totalCount: z.number().int().min(0),
+  games: z.array(playIntentExpandedGameSchema).default([])
+})
+
+export const playIntentDetailSchema = playIntentPreviewSchema.extend({
+  createdAt: z.string().datetime(),
+  audienceSummary: z.string().min(1),
+  targetedFriends: z.array(playIntentPreviewUserSchema).default([]),
+  expandedGameScope: playIntentExpandedGameScopeSchema.nullable().default(null)
+})
+
 export const playIntentFeedSchema = z.object({
   generatedAt: z.string().datetime(),
   intents: z.array(playIntentPreviewSchema)
+})
+
+export const playIntentDetailResponseSchema = z.object({
+  intent: playIntentDetailSchema
 })
 
 export const activePlayIntentSchema = z.object({
@@ -923,7 +949,11 @@ export type PlayIntentNotifyScope = z.infer<typeof playIntentNotifyScopeSchema>;
 export type PlayIntentDiscordSpaceStatus = z.infer<typeof playIntentDiscordSpaceStatusSchema>;
 export type PlayIntentDiscordSpace = z.infer<typeof playIntentDiscordSpaceSchema>;
 export type PlayIntentPreview = z.infer<typeof playIntentPreviewSchema>;
+export type PlayIntentExpandedGame = z.infer<typeof playIntentExpandedGameSchema>;
+export type PlayIntentExpandedGameScope = z.infer<typeof playIntentExpandedGameScopeSchema>;
+export type PlayIntentDetail = z.infer<typeof playIntentDetailSchema>;
 export type PlayIntentFeed = z.infer<typeof playIntentFeedSchema>;
+export type PlayIntentDetailResponse = z.infer<typeof playIntentDetailResponseSchema>;
 export type ActivePlayIntent = z.infer<typeof activePlayIntentSchema>;
 export type PlayIntentCurrentResponse = z.infer<typeof playIntentCurrentResponseSchema>;
 export type PlayIntentRecipientResponseChoice = z.infer<typeof playIntentRecipientResponseChoiceSchema>;
