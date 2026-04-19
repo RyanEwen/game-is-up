@@ -65,7 +65,9 @@ Notification rows can now also track whether a recipient explicitly said they wo
 
 Play-intent feed and current-intent payloads now also include lightweight interested-user previews derived from interested responses. That lets the web app render interested-player summaries directly on the Play view without a second lookup for basic identity data.
 
-Feed previews now also expose a lightweight status (`active` or `ended`) plus an `appliesToViewer` flag. The web client uses those fields to keep recently ended calls visible for a short history window.
+Feed previews now also expose a lightweight status (`active` or `ended`) plus an `appliesToViewer` flag. The web client uses those fields to keep recently ended calls visible for a short history window, default the Play page to only calls that apply to the viewer, and let the viewer expand active or ended sections to all calls they are allowed to see in their network.
+
+The Play-intent feed query itself must include not only broad network creators but also targeted calls that explicitly include the viewer, such as specific-friends or selected-server calls. That keeps the server-side visibility model authoritative while still allowing the web client to do lightweight `appliesToViewer` filtering without dropping visible calls before they reach the page.
 
 Play intents also expose a dedicated detail contract in `packages/shared` and a corresponding API detail builder in `apps/api`. The web app uses that richer payload for `/play/:playIntentId`, which is the deep-link target for specific Discord DM buttons and for the in-app Open details action on Play cards. That detail view can expand library-wide calls into an explicit list of current overlapping games so recipients can understand what "any game in library" means for their own account before responding.
 

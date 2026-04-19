@@ -12,6 +12,7 @@ import {
 } from './discord-bot-runtime.js'
 import { appendOpenInAppButton, buildDiscordMessageHeading } from './discord-dm-formatting.js'
 import { env } from './env.js'
+import { callToPlayEndedSystemNotification } from './play-intent-system-notifications.js'
 import { formatPlayIntentWindowLabel } from './play-intent-time-format.js'
 import { prisma } from './prisma.js'
 
@@ -167,7 +168,7 @@ export function buildArchivedPlayIntentSummary(
   const windowLabel = formatPlayIntentWindowLabel(playIntent.windowStartsAt, playIntent.windowEndsAt, timezoneId)
 
   return {
-    title: 'Call to play ended',
+    title: callToPlayEndedSystemNotification.title,
     body: [
       `Creator: ${creatorLabel}`,
       `Games: ${gamesLabel}`,

@@ -19,6 +19,13 @@ import {
   buildNotificationDirectMessagePreview,
   buildScheduledCheckInPromptPreview
 } from './play-intent-notification-responses.js'
+import {
+  callToPlayEndedSystemNotification,
+  formatCreatorInterestUpdateSystemNotification,
+  formatCreatorInterestWithdrawnSystemNotification,
+  formatCreatorLaunchedGameSystemNotification,
+  formatInterestedPlayerLaunchedGameSystemNotification
+} from './play-intent-system-notifications.js'
 import { buildDiscordChannelUrl } from './discord-channel-urls.js'
 import { buildDebugPlayIntentResponseCustomId } from './debug-dm-actions.js'
 import { prisma } from './prisma.js'
@@ -443,7 +450,7 @@ function buildDebugDmTemplateDefinitions(now: Date): DebugDmTemplateGroupDefinit
           previewPayload: buildNotificationDirectMessagePreview({
             notificationId: 'template-ended-summary',
             notificationType: NotificationType.SYSTEM,
-            title: 'Call to play ended',
+            title: callToPlayEndedSystemNotification.title,
             body: templateArchivedBody,
             actorDisplayName: creatorDisplayName,
             actorDiscordUserId: creatorDiscordUserId
@@ -456,8 +463,10 @@ function buildDebugDmTemplateDefinitions(now: Date): DebugDmTemplateGroupDefinit
           previewPayload: buildNotificationDirectMessagePreview({
             notificationId: 'template-creator-launched-game',
             notificationType: NotificationType.SYSTEM,
-            title: 'Creator launched the game',
-            body: `${creatorDisplayName} just launched ${gameTitle} for the active call to play you are interested in.`,
+            ...formatCreatorLaunchedGameSystemNotification({
+              actorDisplayName: creatorDisplayName,
+              gameTitle
+            }),
             actorDisplayName: creatorDisplayName,
             actorDiscordUserId: creatorDiscordUserId
           })
@@ -494,8 +503,10 @@ function buildDebugDmTemplateDefinitions(now: Date): DebugDmTemplateGroupDefinit
           previewPayload: buildNotificationDirectMessagePreview({
             notificationId: 'template-interest-update',
             notificationType: NotificationType.SYSTEM,
-            title: 'Someone is interested',
-            body: `Jordan is interested in playing ${gameTitle}.`,
+            ...formatCreatorInterestUpdateSystemNotification({
+              recipientDisplayName: 'Jordan',
+              gameTitle
+            }),
             actorDisplayName: 'Jordan',
             actorDiscordUserId: '200000000000000001'
           })
@@ -507,8 +518,10 @@ function buildDebugDmTemplateDefinitions(now: Date): DebugDmTemplateGroupDefinit
           previewPayload: buildNotificationDirectMessagePreview({
             notificationId: 'template-interest-withdrawn',
             notificationType: NotificationType.SYSTEM,
-            title: 'Someone passed',
-            body: `Jordan passed on ${gameTitle}.`,
+            ...formatCreatorInterestWithdrawnSystemNotification({
+              recipientDisplayName: 'Jordan',
+              gameTitle
+            }),
             actorDisplayName: 'Jordan',
             actorDiscordUserId: '200000000000000001'
           })
@@ -520,8 +533,10 @@ function buildDebugDmTemplateDefinitions(now: Date): DebugDmTemplateGroupDefinit
           previewPayload: buildNotificationDirectMessagePreview({
             notificationId: 'template-interested-player-launched-game',
             notificationType: NotificationType.SYSTEM,
-            title: 'Interested player launched the game',
-            body: `Jordan just launched ${gameTitle} for your active call to play.`,
+            ...formatInterestedPlayerLaunchedGameSystemNotification({
+              actorDisplayName: 'Jordan',
+              gameTitle
+            }),
             actorDisplayName: 'Jordan',
             actorDiscordUserId: '200000000000000001'
           })
@@ -1988,7 +2003,7 @@ export async function buildDebugAdminSnapshot() {
 
           return [promptMessage, followUpMessage]
         })
-        .sort((left, right) => new Date(right.sentAt).getTime() - new Date(left.sentAt).getTime())
+        .sort((left, right) => new Date(left.sentAt).getTime() - new Date(right.sentAt).getTime())
 
       return recipient
         ? {
@@ -2093,7 +2108,7 @@ export async function buildDebugAdminSnapshot() {
         },
         role: 'creator' as const,
         lastActivityAt: getLatestMessageActivityAt(creatorMessages),
-        messages: creatorMessages.sort((left, right) => new Date(right.sentAt).getTime() - new Date(left.sentAt).getTime())
+        messages: creatorMessages.sort((left, right) => new Date(left.sentAt).getTime() - new Date(right.sentAt).getTime())
       },
       ...[...audienceParticipants, ...syntheticAudienceParticipants].sort((left, right) => left.user.displayName.localeCompare(right.user.displayName))
     ]

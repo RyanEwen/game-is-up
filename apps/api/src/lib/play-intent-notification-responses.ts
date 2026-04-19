@@ -40,6 +40,12 @@ import {
 import { toClientGameCoverUrl } from './game-media.js'
 import { buildDiscordChannelUrl } from './discord-channel-urls.js'
 import { getInterestedUsersByPlayIntentId } from './play-intent-interested-users.js'
+import {
+  callToPlayEndedSystemNotification,
+  formatCreatorInterestUpdateSystemNotification,
+  formatCreatorInterestWithdrawnSystemNotification,
+  getPlayIntentSystemNotificationDefinitionByTitle
+} from './play-intent-system-notifications.js'
 import { buildClientPlayIntentUrl, buildClientPlayUrl } from './play-intent-urls.js'
 import {
   deletePlayIntentDiscordSpaceByPlayIntentId,
@@ -761,6 +767,9 @@ export function buildNotificationDirectMessagePreview(options: {
   const creatorLabel = options.creatorDisplayName
     ? buildDiscordUserLabel(options.creatorDisplayName, options.creatorDiscordUserId)
     : 'this player'
+  const systemNotificationDefinition = options.notificationType === NotificationType.SYSTEM
+    ? getPlayIntentSystemNotificationDefinitionByTitle(options.title)
+    : null
 
   const previewBody = options.actorDisplayName
     ? replaceDisplayNameWithMention(options.body, options.actorDisplayName, options.actorDiscordUserId)
@@ -784,7 +793,7 @@ export function buildNotificationDirectMessagePreview(options: {
     if (options.responseChoice === NotificationResponseChoice.EXPIRED || options.playIntentIsActive === false) {
       return {
         content: buildExpiredMessage('This call to play expired before you confirmed.'),
-        components: [buildLinkRow(options.playIntentId)]
+        components: []
       }
     }
 
@@ -839,7 +848,7 @@ export function buildNotificationDirectMessagePreview(options: {
     })
   }
 
-  if (options.notificationType === NotificationType.SYSTEM && options.title === 'Call to play ended') {
+  if (systemNotificationDefinition?.key === callToPlayEndedSystemNotification.key) {
     return {
       content: buildDiscordMessageHeading('🛑 Call to Play Ended'),
       embeds: buildArchivedPlayIntentEmbeds(previewBody),
@@ -852,7 +861,9 @@ export function buildNotificationDirectMessagePreview(options: {
       buildDiscordMessageHeading(options.title),
       previewBody.split('\n')
     ),
-    components: [buildLinkRow(options.playIntentId)]
+    components: systemNotificationDefinition?.componentMode === 'none'
+      ? []
+      : [buildLinkRow(options.playIntentId)]
   }
 }
 
@@ -2193,20 +2204,13 @@ function buildCreatorInterestedNotification(notification: {
   recipientDiscordUserId: string | null;
   gameTitle: string | null;
 }) {
-  const title = 'Someone is interested'
-  const body = notification.gameTitle
-    ? `${notification.recipientDisplayName} is interested in playing ${notification.gameTitle}.`
-    : `${notification.recipientDisplayName} is interested in your call to play.`
   const recipientDiscordLabel = buildDiscordUserLabel(notification.recipientDisplayName, notification.recipientDiscordUserId)
-  const discordBody = notification.gameTitle
-    ? `${recipientDiscordLabel} is interested in playing ${notification.gameTitle}.`
-    : `${recipientDiscordLabel} is interested in your call to play.`
 
-  return {
-    title,
-    body,
-    discordBody
-  }
+  return formatCreatorInterestUpdateSystemNotification({
+    recipientDisplayName: notification.recipientDisplayName,
+    recipientLabel: recipientDiscordLabel,
+    gameTitle: notification.gameTitle
+  })
 }
 
 function buildCreatorPassNotification(notification: {
@@ -2214,20 +2218,13 @@ function buildCreatorPassNotification(notification: {
   recipientDiscordUserId: string | null;
   gameTitle: string | null;
 }) {
-  const title = 'Someone passed'
-  const body = notification.gameTitle
-    ? `${notification.recipientDisplayName} passed on ${notification.gameTitle}.`
-    : `${notification.recipientDisplayName} passed on your call to play.`
   const recipientDiscordLabel = buildDiscordUserLabel(notification.recipientDisplayName, notification.recipientDiscordUserId)
-  const discordBody = notification.gameTitle
-    ? `${recipientDiscordLabel} passed on ${notification.gameTitle}.`
-    : `${recipientDiscordLabel} passed on your call to play.`
 
-  return {
-    title,
-    body,
-    discordBody
-  }
+  return formatCreatorInterestWithdrawnSystemNotification({
+    recipientDisplayName: notification.recipientDisplayName,
+    recipientLabel: recipientDiscordLabel,
+    gameTitle: notification.gameTitle
+  })
 }
 
 async function applyRecipientResponseToPlayIntentNotification(options: {
@@ -2310,7 +2307,7 @@ async function applyRecipientResponseToPlayIntentNotification(options: {
             buildDiscordMessageHeading(passResult.title),
             [creatorNotificationCopy.discordBody]
           ),
-          components: [buildLinkRow()]
+          components: []
         }
       ]))[0]
 
@@ -2406,7 +2403,7 @@ async function applyRecipientResponseToPlayIntentNotification(options: {
           buildDiscordMessageHeading(interestedResult.title),
           [creatorNotificationCopy.discordBody]
         ),
-        components: [buildLinkRow()]
+        components: []
       }
     ]))[0]
 
@@ -2721,7 +2718,7 @@ export async function expirePendingPlayIntentNotifications(
         messageId: notification.discordDmMessageId,
         content: preservedPrompt.content,
         embeds: preservedPrompt.embeds,
-        components: preservedPrompt.components
+        components: []
       })
 
       const creatorDiscordUserId = notification.playIntent?.user.identities?.[0]?.providerUserId

@@ -509,9 +509,7 @@ function PlayViewContent({
                 Live now or scheduled soon.
               </Typography>
             </Box>
-            {activePlayIntentPreviews.length > 0 ? (
-              <PlayIntentFilterControl value={activeAudienceFilter} onChange={setActiveAudienceFilter} />
-            ) : null}
+            <PlayIntentFilterControl value={activeAudienceFilter} onChange={setActiveAudienceFilter} />
           </Stack>
 
           {isSignedIn && activePlayIntent ? (
@@ -572,9 +570,7 @@ function PlayViewContent({
               Recently ended calls from people in your network.
             </Typography>
           </Box>
-          {endedPlayIntentPreviews.length > 0 ? (
-            <PlayIntentFilterControl value={endedAudienceFilter} onChange={setEndedAudienceFilter} />
-          ) : null}
+          <PlayIntentFilterControl value={endedAudienceFilter} onChange={setEndedAudienceFilter} />
         </Stack>
 
         {filteredEndedPlayIntentPreviews.length > 0 ? (

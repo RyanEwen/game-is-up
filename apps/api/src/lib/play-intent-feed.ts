@@ -160,10 +160,33 @@ export async function buildPlayIntentFeed(viewerId?: string | null): Promise<Pla
       expiresAt: {
         gt: recentEndedCutoff
       },
+      userId: mutedUserIds.length > 0
+        ? {
+            notIn: mutedUserIds
+          }
+        : undefined,
       OR: [
         {
           userId: {
             in: broadAudienceUserIds
+          }
+        },
+        {
+          scope: PlayIntentScope.SPECIFIC_FRIENDS,
+          targetFriends: {
+            some: {
+              friendUserId: viewer.id
+            }
+          }
+        },
+        {
+          scope: PlayIntentScope.SPECIFIC_DISCORD_SERVER,
+          targetDiscordServers: {
+            some: {
+              serverId: {
+                in: viewerServerIds
+              }
+            }
           }
         },
         {

@@ -9,9 +9,10 @@ import { sendDiscordDirectMessages } from './discord-bot-runtime.js'
 import { prisma } from './prisma.js'
 import { getInterestedUsersByPlayIntentId } from './play-intent-interested-users.js'
 import { buildNotificationDirectMessagePreview } from './play-intent-notification-responses.js'
-
-const creatorLaunchedGameNotificationTitle = 'Creator launched the game'
-const interestedAudienceLaunchedGameNotificationTitle = 'Interested player launched the game'
+import {
+  formatCreatorLaunchedGameSystemNotification,
+  formatInterestedPlayerLaunchedGameSystemNotification
+} from './play-intent-system-notifications.js'
 
 const interestedResponseNotificationTypes = [
   NotificationType.FRIEND_PLAYING,
@@ -214,6 +215,11 @@ async function notifyAudienceWhenCreatorLaunches(observation: LaunchObservation)
     return
   }
 
+  const notificationCopy = formatCreatorLaunchedGameSystemNotification({
+    actorDisplayName: observation.user.displayName,
+    gameTitle: observation.game.title
+  })
+
   const createdNotifications = (await Promise.all(gameSpecificIntents.flatMap((playIntent) => (
     (interestedUsersByPlayIntentId.get(playIntent.id) ?? [])
       .filter((user) => user.id !== observation.userId)
@@ -222,8 +228,8 @@ async function notifyAudienceWhenCreatorLaunches(observation: LaunchObservation)
         triggeredByUserId: observation.userId,
         playIntentId: playIntent.id,
         gameId: observation.gameId,
-        title: creatorLaunchedGameNotificationTitle,
-        body: `${observation.user.displayName} just launched ${observation.game.title} for the active call to play you are interested in.`
+        title: notificationCopy.title,
+        body: notificationCopy.body
       }))
   )))).filter((notification): notification is CreatedSystemNotification => notification != null)
 
@@ -311,13 +317,18 @@ async function notifyCreatorsWhenInterestedAudienceLaunches(observation: LaunchO
     return
   }
 
+  const notificationCopy = formatInterestedPlayerLaunchedGameSystemNotification({
+    actorDisplayName: observation.user.displayName,
+    gameTitle: observation.game.title
+  })
+
   const createdNotifications = (await Promise.all(gameSpecificIntents.map((playIntent) => createSystemNotificationIfMissing({
     recipientUserId: playIntent.userId,
     triggeredByUserId: observation.userId,
     playIntentId: playIntent.id,
     gameId: observation.gameId,
-    title: interestedAudienceLaunchedGameNotificationTitle,
-    body: `${observation.user.displayName} just launched ${observation.game.title} for your active call to play.`
+    title: notificationCopy.title,
+    body: notificationCopy.body
   })))).filter((notification): notification is CreatedSystemNotification => notification != null)
 
   if (createdNotifications.length === 0) {
