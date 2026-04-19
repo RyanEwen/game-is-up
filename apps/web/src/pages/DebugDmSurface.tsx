@@ -598,7 +598,6 @@ export function CtpDmInboxDialog({
                     <EmptyStateCard
                       title="No DM messages for this user"
                       body="This participant is part of the computed audience, but no call-to-play DM messages exist for them in the current snapshot yet."
-                      chips={['CTP mailbox', 'Latest state']}
                     />
                   )}
                 </>
@@ -606,7 +605,6 @@ export function CtpDmInboxDialog({
                 <EmptyStateCard
                   title="No user selected"
                   body="Choose a user from the left side to inspect their latest DM messages for this call to play."
-                  chips={['CTP mailbox', 'User picker']}
                 />
               )}
             </Stack>
@@ -615,7 +613,6 @@ export function CtpDmInboxDialog({
           <EmptyStateCard
             title="No mailbox data for this call to play"
             body="No creator or recipient DM messages were found for the current snapshot."
-            chips={['CTP mailbox', 'Admin only']}
           />
         )}
       </DialogContent>
