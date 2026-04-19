@@ -17,6 +17,7 @@ import {
   PlayIntentSelectionMode as PrismaPlayIntentSelectionMode
 } from '@prisma/client'
 import { env } from './env.js'
+import { publishPlayIntentInvalidation } from './dashboard-events.js'
 import {
   buildDiscordServerIconUrl,
   getSelectedDiscordServerIds,
@@ -748,7 +749,8 @@ export async function clearCurrentPlayIntent(userId: string) {
   })
 
   await expirePendingPlayIntentNotifications(activeIntentIds, {
-    notifyAudienceOnEnd: true
+    notifyAudienceOnEnd: true,
+    publishInvalidation: false
   })
 }
 
@@ -1224,7 +1226,9 @@ export async function upsertCurrentPlayIntent(
     activeIntentId = createdIntent.id
   })
 
-  await expirePendingPlayIntentNotifications(supersededIntentIds)
+  await expirePendingPlayIntentNotifications(supersededIntentIds, {
+    publishInvalidation: false
+  })
 
   let discordSpaceRecipientContexts = new Map<string, PlayIntentDiscordSpaceRecipientContext>()
 
@@ -1366,6 +1370,8 @@ export async function upsertCurrentPlayIntent(
   if (!activeIntent) {
     throw new PlayIntentValidationError('Unable to save your call to play right now.')
   }
+
+  publishPlayIntentInvalidation()
 
   return {
     activeIntent,

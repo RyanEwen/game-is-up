@@ -14,6 +14,10 @@ type PublishDashboardInvalidationOptions = {
   userIds?: string[];
 };
 
+type PublishPlayIntentInvalidationOptions = {
+  userIds?: string[];
+};
+
 const dashboardEventSubscribers = new Set<DashboardEventSubscriber>()
 let nextDashboardEventId = 0
 
@@ -53,4 +57,11 @@ export function publishDashboardInvalidation(options: PublishDashboardInvalidati
 
     subscriber.listener(event)
   }
+}
+
+export function publishPlayIntentInvalidation(options: PublishPlayIntentInvalidationOptions = {}) {
+  publishDashboardInvalidation({
+    domains: ['play-intents', 'discovery'],
+    userIds: options.userIds
+  })
 }

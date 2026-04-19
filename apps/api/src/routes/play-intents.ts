@@ -10,7 +10,7 @@ import {
   upsertPlayIntentRequestSchema,
   upsertPlayIntentResponseSchema
 } from '@game-is-up/shared'
-import { publishDashboardInvalidation } from '../lib/dashboard-events.js'
+import { publishPlayIntentInvalidation } from '../lib/dashboard-events.js'
 import { buildPlayIntentFeed } from '../lib/play-intent-feed.js'
 import {
   clearCurrentPlayIntent,
@@ -107,10 +107,6 @@ playIntentRouter.put('/me', async (request, response, next) => {
 
     const result = await upsertCurrentPlayIntent(userId, payload)
 
-    publishDashboardInvalidation({
-      domains: ['play-intents', 'discovery']
-    })
-
     response.json(upsertPlayIntentResponseSchema.parse(result))
   } catch (error) {
     if (error instanceof PlayIntentValidationError) {
@@ -133,10 +129,6 @@ playIntentRouter.delete('/me', async (request, response, next) => {
 
   try {
     await clearCurrentPlayIntent(userId)
-
-    publishDashboardInvalidation({
-      domains: ['play-intents', 'discovery']
-    })
 
     response.status(204).send()
   } catch (error) {
@@ -211,6 +203,8 @@ playIntentRouter.put('/mutes/:targetUserId', async (request, response, next) => 
       update: {}
     })
 
+    publishPlayIntentInvalidation()
+
     response.json({ muted: true })
   } catch (error) {
     next(error)
@@ -237,6 +231,8 @@ playIntentRouter.delete('/mutes/:targetUserId', async (request, response, next) 
     await prisma.playIntentMute.deleteMany({
       where: { userId, mutedUserId: targetUserId }
     })
+
+    publishPlayIntentInvalidation()
 
     response.json({ muted: false })
   } catch (error) {
@@ -266,10 +262,6 @@ playIntentRouter.post('/:playIntentId/respond', async (request, response, next) 
       response: payload.choice === 'interested' || payload.choice === 'join'
         ? NotificationResponseChoice.JOIN
         : NotificationResponseChoice.DECLINE
-    })
-
-    publishDashboardInvalidation({
-      domains: ['play-intents', 'discovery']
     })
 
     response.json(playIntentRecipientResponseResultSchema.parse(result))

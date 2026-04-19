@@ -23,6 +23,7 @@ import {
   sendDiscordDirectMessages,
   supportsDiscordInteractiveMessages
 } from './discord-bot-runtime.js'
+import { publishPlayIntentInvalidation } from './dashboard-events.js'
 import {
   appendOpenInAppButton,
   buildDiscordBulletSection,
@@ -87,6 +88,8 @@ type ResolvablePlayIntentNotification = {
   userId: string;
   gameId: string | null;
   responseChoice: NotificationResponseChoice | null;
+  recipientResponseDiscordDmChannelId?: string | null;
+  recipientResponseDiscordDmMessageId?: string | null;
   user: {
     displayName: string;
     identities?: { providerUserId: string }[];
@@ -161,6 +164,7 @@ type CreatorPlayIntentSummarySnapshot = {
 
 type ExpirePendingPlayIntentNotificationsOptions = {
   notifyAudienceOnEnd?: boolean;
+  publishInvalidation?: boolean;
 }
 
 export class PlayIntentNotificationResponseError extends Error {
@@ -682,6 +686,70 @@ export function buildScheduledPlayIntentCheckInComponents(
     : [buildLinkRow()]
 }
 
+export function buildPlayIntentNotificationPromptPreview(options: {
+  notificationId: string;
+  notificationType: NotificationType;
+  title: string;
+  body: string;
+  responseChoice?: NotificationResponseChoice | null;
+  creatorUserId?: string | null;
+  creatorDiscordUserId?: string | null;
+  creatorDisplayName?: string | null;
+  voiceChannel?: { channelId: string | null; channelName: string | null; recipientSharesServer: boolean } | null;
+  discordSpace?: PlayIntentDiscordSpaceRecipientContext | null;
+  interestedCount?: number;
+  interestedUserLabels?: string[];
+}): DirectMessagePreviewPayload {
+  return {
+    content: buildPlayIntentDirectMessageHeading(options.title),
+    embeds: buildPlayIntentDirectMessageEmbeds(
+      options.title,
+      options.body,
+      options.creatorDiscordUserId,
+      options.creatorDisplayName,
+      options.voiceChannel,
+      options.interestedCount,
+      options.interestedUserLabels,
+      options.discordSpace,
+      {
+        includeUpdateDescription: options.notificationType !== NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED
+          && options.notificationType !== NotificationType.SCHEDULED_PLAY_INTENT_REMINDER
+      }
+    ),
+    components: buildPlayIntentNotificationComponents(
+      options.notificationId,
+      options.creatorUserId ?? undefined,
+      options.creatorDisplayName ?? undefined,
+      options.responseChoice,
+      options.notificationType,
+      {
+        forceInteractive: true
+      }
+    )
+  }
+}
+
+export function buildScheduledCheckInPromptPreview(options: {
+  notificationId: string;
+  creatorDiscordUserId?: string | null;
+  creatorDisplayName?: string | null;
+  resolved?: boolean;
+}): DirectMessagePreviewPayload {
+  const creatorMention = options.creatorDisplayName
+    ? buildDiscordUserLabel(options.creatorDisplayName, options.creatorDiscordUserId)
+    : 'there'
+
+  return {
+    content: buildDiscordMessageHeading('⏰ Go-Time Check-In'),
+    embeds: buildScheduledCheckInEmbeds(creatorMention),
+    components: options.resolved
+      ? [buildLinkRow()]
+      : buildScheduledPlayIntentCheckInComponents(options.notificationId, {
+          forceInteractive: true
+        })
+  }
+}
+
 export function buildNotificationDirectMessagePreview(options: {
   notificationId: string;
   notificationType: NotificationType;
@@ -712,35 +780,29 @@ export function buildNotificationDirectMessagePreview(options: {
     if (options.responseChoice === NotificationResponseChoice.CANCELED) {
       return {
         content: buildCreatorCanceledMessage(),
-        components: [buildLinkRow()]
+        components: []
       }
     }
 
     if (options.responseChoice === NotificationResponseChoice.CONFIRMED) {
       return {
         content: buildCreatorConfirmedMessage(),
-        components: [buildLinkRow()]
+        components: []
       }
     }
 
     if (options.responseChoice === NotificationResponseChoice.EXPIRED || options.playIntentIsActive === false) {
       return {
         content: buildExpiredMessage('This call to play expired before you confirmed.'),
-        components: [buildLinkRow()]
+        components: []
       }
     }
 
-    const creatorMention = options.creatorDisplayName
-      ? buildDiscordUserLabel(options.creatorDisplayName, options.creatorDiscordUserId)
-      : 'there'
-
-    return {
-      content: buildDiscordMessageHeading('⏰ Go-Time Check-In'),
-      embeds: buildScheduledCheckInEmbeds(creatorMention),
-      components: buildScheduledPlayIntentCheckInComponents(options.notificationId, {
-        forceInteractive: true
-      })
-    }
+    return buildScheduledCheckInPromptPreview({
+      notificationId: options.notificationId,
+      creatorDiscordUserId: options.creatorDiscordUserId,
+      creatorDisplayName: options.creatorDisplayName
+    })
   }
 
   if (
@@ -751,32 +813,14 @@ export function buildNotificationDirectMessagePreview(options: {
     if (options.responseChoice === NotificationResponseChoice.JOIN) {
       return {
         content: buildInterestedAcceptedMessage(creatorLabel, options.discordSpace),
-        components: buildPlayIntentNotificationComponents(
-          options.notificationId,
-          options.creatorUserId ?? undefined,
-          options.creatorDisplayName ?? undefined,
-          options.responseChoice,
-          options.notificationType,
-          {
-            forceInteractive: true
-          }
-        )
+        components: []
       }
     }
 
     if (options.responseChoice === NotificationResponseChoice.DECLINE) {
       return {
         content: buildPassAcceptedMessage(),
-        components: buildPlayIntentNotificationComponents(
-          options.notificationId,
-          options.creatorUserId ?? undefined,
-          options.creatorDisplayName ?? undefined,
-          options.responseChoice,
-          options.notificationType,
-          {
-            forceInteractive: true
-          }
-        )
+        components: []
       }
     }
 
@@ -787,33 +831,20 @@ export function buildNotificationDirectMessagePreview(options: {
       }
     }
 
-    return {
-      content: buildPlayIntentDirectMessageHeading(options.title),
-      embeds: buildPlayIntentDirectMessageEmbeds(
-        options.title,
-        options.body,
-        options.creatorDiscordUserId,
-        options.creatorDisplayName,
-        options.voiceChannel,
-        options.interestedCount,
-        options.interestedUserLabels,
-        options.discordSpace,
-        {
-          includeUpdateDescription: options.notificationType !== NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED
-            && options.notificationType !== NotificationType.SCHEDULED_PLAY_INTENT_REMINDER
-        }
-      ),
-      components: buildPlayIntentNotificationComponents(
-        options.notificationId,
-        options.creatorUserId ?? undefined,
-        options.creatorDisplayName ?? undefined,
-        options.responseChoice,
-        options.notificationType,
-        {
-          forceInteractive: true
-        }
-      )
-    }
+    return buildPlayIntentNotificationPromptPreview({
+      notificationId: options.notificationId,
+      notificationType: options.notificationType,
+      title: options.title,
+      body: options.body,
+      responseChoice: options.responseChoice,
+      creatorUserId: options.creatorUserId,
+      creatorDiscordUserId: options.creatorDiscordUserId,
+      creatorDisplayName: options.creatorDisplayName,
+      voiceChannel: options.voiceChannel,
+      discordSpace: options.discordSpace,
+      interestedCount: options.interestedCount,
+      interestedUserLabels: options.interestedUserLabels
+    })
   }
 
   if (options.notificationType === NotificationType.SYSTEM && options.title === 'Call to play ended') {
@@ -1525,6 +1556,8 @@ export async function refreshTrackedPlayIntentNotificationDirectMessages() {
       responseChoice: true,
       discordDmChannelId: true,
       discordDmMessageId: true,
+      recipientResponseDiscordDmChannelId: true,
+      recipientResponseDiscordDmMessageId: true,
       game: {
         select: {
           title: true
@@ -1729,6 +1762,53 @@ export async function refreshTrackedPlayIntentNotificationDirectMessages() {
         }
       })
     }
+
+    if (
+      notification.responseChoice
+      && notification.responseChoice !== NotificationResponseChoice.EXPIRED
+      && notification.type !== NotificationType.SCHEDULED_PLAY_INTENT_CHECK_IN
+      && notification.recipientResponseDiscordDmChannelId
+      && notification.recipientResponseDiscordDmMessageId
+    ) {
+      const followUpPreview = buildNotificationDirectMessagePreview({
+        notificationId: notification.id,
+        notificationType: notification.type,
+        title: notification.title,
+        body: notification.body,
+        responseChoice: notification.responseChoice,
+        creatorUserId: playIntent?.user.id ?? null,
+        creatorDiscordUserId,
+        creatorDisplayName: playIntent?.user.displayName ?? null,
+        gameTitle: notification.game?.title ?? null,
+        playIntentIsActive: playIntent ? playIntent.expiresAt > now : false,
+        voiceChannel,
+        discordSpace,
+        interestedCount: interestedUsers.length > 0 ? interestedUsers.length : undefined,
+        interestedUserLabels: interestedUsers.map((user) => user.displayName),
+        actorDisplayName: actor?.displayName ?? null,
+        actorDiscordUserId: actor?.identities[0]?.providerUserId ?? null
+      })
+
+      const followUpResult = await editDiscordDirectMessage({
+        channelId: notification.recipientResponseDiscordDmChannelId,
+        messageId: notification.recipientResponseDiscordDmMessageId,
+        content: followUpPreview.content,
+        embeds: followUpPreview.embeds,
+        components: followUpPreview.components
+      })
+
+      if (followUpResult.status === 'failed' && isMissingDiscordMessageError(followUpResult.error)) {
+        await prisma.notification.update({
+          where: {
+            id: notification.id
+          },
+          data: {
+            recipientResponseDiscordDmChannelId: null,
+            recipientResponseDiscordDmMessageId: null
+          }
+        })
+      }
+    }
   }
 }
 
@@ -1878,6 +1958,65 @@ function buildAnonymousPassResultMessage(message: string) {
 
 function isMissingDiscordMessageError(error: string | null | undefined) {
   return /Unknown Message/i.test(error ?? '')
+}
+
+async function syncRecipientResponseFollowUpDirectMessage(options: {
+  notificationId: string;
+  discordUserId: string;
+  content: string;
+  channelId?: string | null;
+  messageId?: string | null;
+}) {
+  const sendNewFollowUp = async () => {
+    const dmResult = (await sendDiscordDirectMessages([
+      {
+        discordUserId: options.discordUserId,
+        content: options.content,
+        components: []
+      }
+    ]))[0]
+
+    if (dmResult?.status === 'sent' && !dmResult.emulated) {
+      await prisma.notification.update({
+        where: {
+          id: options.notificationId
+        },
+        data: {
+          recipientResponseDiscordDmChannelId: dmResult.channelId,
+          recipientResponseDiscordDmMessageId: dmResult.messageId
+        }
+      })
+    }
+  }
+
+  if (options.channelId && options.messageId) {
+    const editResult = await editDiscordDirectMessage({
+      channelId: options.channelId,
+      messageId: options.messageId,
+      content: options.content,
+      components: []
+    })
+
+    if (editResult.status === 'edited') {
+      return
+    }
+
+    if (!isMissingDiscordMessageError(editResult.error)) {
+      return
+    }
+
+    await prisma.notification.update({
+      where: {
+        id: options.notificationId
+      },
+      data: {
+        recipientResponseDiscordDmChannelId: null,
+        recipientResponseDiscordDmMessageId: null
+      }
+    })
+  }
+
+  await sendNewFollowUp()
 }
 
 function buildPlayIntentGameEmbeds(playIntent: {
@@ -2147,6 +2286,8 @@ async function applyRecipientResponseToPlayIntentNotification(options: {
       }
     }
 
+    publishPlayIntentInvalidation()
+
     return {
       content: previousChoice === NotificationResponseChoice.JOIN
         ? buildAnonymousPassResultMessage(`Understood. I marked you as passing on ${playIntent.user.displayName}'s call to play.`)
@@ -2244,6 +2385,8 @@ async function applyRecipientResponseToPlayIntentNotification(options: {
   if (discordSpace?.inviteUrl && !discordSpace.recipientInServer) {
     await markPlayIntentDiscordSpaceInviteSent(playIntent.id, notification.userId)
   }
+
+  publishPlayIntentInvalidation()
 
   return {
     content: buildInterestedAcceptedMessage(playIntent.user.displayName, discordSpace),
@@ -2519,17 +2662,46 @@ export async function expirePendingPlayIntentNotifications(
       return
     }
 
-    const expiredContent = notification.type === NotificationType.SCHEDULED_PLAY_INTENT_CHECK_IN
-      ? buildExpiredMessage('This call to play expired before you confirmed.')
-      : buildExpiredMessage(
-          buildSessionEndedReason(
-            buildDiscordUserLabel(
-              notification.playIntent?.user.displayName ?? 'This player',
-              notification.playIntent?.user.identities?.[0]?.providerUserId
-            ),
-            notification.game?.title ?? null
-          )
-        )
+    if (notification.type === NotificationType.SCHEDULED_PLAY_INTENT_CHECK_IN) {
+      const preservedPrompt = buildScheduledCheckInPromptPreview({
+        notificationId: notification.id,
+        creatorDiscordUserId: notification.playIntent?.user.identities?.[0]?.providerUserId ?? null,
+        creatorDisplayName: notification.playIntent?.user.displayName,
+        resolved: true
+      })
+
+      await editDiscordDirectMessage({
+        channelId: notification.discordDmChannelId,
+        messageId: notification.discordDmMessageId,
+        content: preservedPrompt.content,
+        embeds: preservedPrompt.embeds,
+        components: preservedPrompt.components
+      })
+
+      const creatorDiscordUserId = notification.playIntent?.user.identities?.[0]?.providerUserId
+
+      if (creatorDiscordUserId) {
+        await sendDiscordDirectMessages([
+          {
+            discordUserId: creatorDiscordUserId,
+            content: buildExpiredMessage('This call to play expired before you confirmed.'),
+            components: []
+          }
+        ])
+      }
+
+      return
+    }
+
+    const expiredContent = buildExpiredMessage(
+      buildSessionEndedReason(
+        buildDiscordUserLabel(
+          notification.playIntent?.user.displayName ?? 'This player',
+          notification.playIntent?.user.identities?.[0]?.providerUserId
+        ),
+        notification.game?.title ?? null
+      )
+    )
 
     await editDiscordDirectMessage({
       channelId: notification.discordDmChannelId,
@@ -2545,6 +2717,10 @@ export async function expirePendingPlayIntentNotifications(
     playIntentIds,
     replaceRecipientMessages: options.notifyAudienceOnEnd === true
   })
+
+  if (options.publishInvalidation !== false) {
+    publishPlayIntentInvalidation()
+  }
 }
 
 export async function handleScheduledPlayIntentCheckInInteraction(interaction: ButtonInteraction) {
@@ -2669,11 +2845,29 @@ export async function handleScheduledPlayIntentCheckInInteraction(interaction: B
       })
     }
 
+    if (!cancellation.notificationCanceled) {
+      await interaction.update({
+        content: buildCreatorCheckInAlreadyHandledMessage(NotificationResponseChoice.CANCELED),
+        components: [buildLinkRow()]
+      })
+      return
+    }
+
+    const preservedPrompt = buildScheduledCheckInPromptPreview({
+      notificationId: notification.id,
+      creatorDiscordUserId: notification.playIntent.user.identities[0]?.providerUserId ?? null,
+      creatorDisplayName: notification.playIntent.user.displayName,
+      resolved: true
+    })
+
     await interaction.update({
-      content: cancellation.notificationCanceled
-        ? buildCreatorCanceledMessage()
-        : buildCreatorCheckInAlreadyHandledMessage(NotificationResponseChoice.CANCELED),
-      components: [buildLinkRow()]
+      content: preservedPrompt.content,
+      embeds: preservedPrompt.embeds,
+      components: preservedPrompt.components
+    })
+
+    await interaction.followUp({
+      content: buildCreatorCanceledMessage()
     })
     return
   }
@@ -2939,9 +3133,21 @@ export async function handleScheduledPlayIntentCheckInInteraction(interaction: B
     })))
   }
 
+  const preservedPrompt = buildScheduledCheckInPromptPreview({
+    notificationId: notification.id,
+    creatorDiscordUserId: playIntent.user.identities[0]?.providerUserId ?? null,
+    creatorDisplayName: playIntent.user.displayName,
+    resolved: true
+  })
+
   await interaction.update({
-    content: buildCreatorConfirmedMessage(),
-    components: [buildLinkRow()]
+    content: preservedPrompt.content,
+    embeds: preservedPrompt.embeds,
+    components: preservedPrompt.components
+  })
+
+  await interaction.followUp({
+    content: buildCreatorConfirmedMessage()
   })
 
   await syncCreatorPlayIntentSummaryMessages([playIntent.id])
@@ -2980,8 +3186,12 @@ export async function handlePlayIntentNotificationInteraction(interaction: Butto
         triggeredByUserId: true,
         playIntentId: true,
         gameId: true,
+        title: true,
+        body: true,
         respondedAt: true,
         responseChoice: true,
+        recipientResponseDiscordDmChannelId: true,
+        recipientResponseDiscordDmMessageId: true,
         user: {
           select: {
             displayName: true,
@@ -3006,6 +3216,8 @@ export async function handlePlayIntentNotificationInteraction(interaction: Butto
             userId: true,
             headline: true,
             selectionMode: true,
+            voiceChannelId: true,
+            voiceChannelName: true,
             expiresAt: true,
             user: {
               select: {
@@ -3077,16 +3289,43 @@ export async function handlePlayIntentNotificationInteraction(interaction: Butto
     notification,
     response: action.response
   })
+  const interestedUsers = await getInterestedUsersByPlayIntentId([playIntent.id])
+  const interestedUserLabels = (interestedUsers.get(playIntent.id) ?? []).map((user) => buildDiscordUserLabel(user.displayName, null))
+  const discordSpace = (await getPlayIntentDiscordSpaceRecipientContexts(playIntent.id, [notification.userId]))
+    .get(notification.userId) ?? null
+  const preservedPrompt = buildPlayIntentNotificationPromptPreview({
+    notificationId: notification.id,
+    notificationType: notification.type,
+    title: notification.title,
+    body: notification.body,
+    responseChoice: action.response,
+    creatorUserId: playIntent.user.id,
+    creatorDiscordUserId: playIntent.user.identities[0]?.providerUserId ?? null,
+    creatorDisplayName: playIntent.user.displayName,
+    voiceChannel: playIntent.voiceChannelId || playIntent.voiceChannelName
+      ? {
+          channelId: playIntent.voiceChannelId,
+          channelName: playIntent.voiceChannelName,
+          recipientSharesServer: true
+        }
+      : null,
+    discordSpace,
+    interestedCount: interestedUserLabels.length,
+    interestedUserLabels
+  })
 
   await interaction.update({
+    content: preservedPrompt.content,
+    embeds: preservedPrompt.embeds,
+    components: preservedPrompt.components
+  })
+
+  await syncRecipientResponseFollowUpDirectMessage({
+    notificationId: notification.id,
+    discordUserId: notification.user.identities?.[0]?.providerUserId ?? interaction.user.id,
     content: result.discordContent ?? result.content,
-    components: buildPlayIntentNotificationComponents(
-      notification.id,
-      playIntent.user.id,
-      playIntent.user.displayName,
-      action.response,
-      notification.type
-    )
+    channelId: notification.recipientResponseDiscordDmChannelId,
+    messageId: notification.recipientResponseDiscordDmMessageId
   })
 }
 
@@ -3154,6 +3393,8 @@ async function handlePlayIntentMuteInteraction(interaction: ButtonInteraction, a
       }
     })
   }
+
+  publishPlayIntentInvalidation()
 
   await interaction.update({
     content: `Muted ${buildDiscordUserLabel(creatorUser.displayName, creatorUser.identities[0]?.providerUserId)}'s calls to play. You won't see them in your feed.`,

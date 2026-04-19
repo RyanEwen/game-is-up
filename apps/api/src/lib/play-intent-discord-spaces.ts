@@ -1,5 +1,6 @@
 import { AuthProvider, PlayIntentDiscordSpaceStatus } from '@prisma/client'
 import { ChannelType, OverwriteType, PermissionFlagsBits, Routes } from 'discord.js'
+import { publishPlayIntentInvalidation } from './dashboard-events.js'
 import { env } from './env.js'
 import { getDiscordBotRest } from './discord-bot-runtime.js'
 import { prisma } from './prisma.js'
@@ -505,7 +506,7 @@ export async function markPlayIntentDiscordSpacesRetained(playIntentIds: string[
     return
   }
 
-  await prisma.playIntentDiscordSpace.updateMany({
+  const retainedSpaces = await prisma.playIntentDiscordSpace.updateMany({
     where: {
       playIntentId: {
         in: uniquePlayIntentIds
@@ -526,6 +527,10 @@ export async function markPlayIntentDiscordSpacesRetained(playIntentIds: string[
       deleteAfter: new Date(baseTime.getTime() + complementarySpaceRetentionMs)
     }
   })
+
+  if (retainedSpaces.count > 0) {
+    publishPlayIntentInvalidation()
+  }
 }
 
 async function deletePlayIntentDiscordSpace(spaceId: string) {
@@ -579,6 +584,8 @@ async function deletePlayIntentDiscordSpace(spaceId: string) {
       }
     })
 
+    publishPlayIntentInvalidation()
+
     return { status: 'deleted' as const }
   } catch (error) {
     await prisma.playIntentDiscordSpace.update({
@@ -593,6 +600,8 @@ async function deletePlayIntentDiscordSpace(spaceId: string) {
       spaceId: space.id,
       error
     })
+
+    publishPlayIntentInvalidation()
 
     return { status: 'failed' as const }
   }
@@ -630,6 +639,7 @@ export async function provisionPlayIntentDiscordSpace(spaceId: string) {
         lastSyncError: "Game's Up Discord server configuration is missing or does not match this space."
       }
     })
+    publishPlayIntentInvalidation()
     return { status: 'failed' as const }
   }
 
@@ -749,6 +759,8 @@ export async function provisionPlayIntentDiscordSpace(spaceId: string) {
       await syncGrantedMembers(refreshed)
     }
 
+    publishPlayIntentInvalidation()
+
     return { status: 'active' as const }
   } catch (error) {
     await prisma.playIntentDiscordSpace.update({
@@ -762,6 +774,7 @@ export async function provisionPlayIntentDiscordSpace(spaceId: string) {
       spaceId: space.id,
       error
     })
+    publishPlayIntentInvalidation()
     return { status: 'failed' as const }
   }
 }

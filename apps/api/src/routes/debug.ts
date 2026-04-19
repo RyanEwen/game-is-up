@@ -322,6 +322,14 @@ debugRouter.post('/admin/dm-action', async (request, response, next) => {
         if (typeof updatePayload.content === 'string' && updatePayload.content.trim()) {
           updatedMessage = updatePayload.content
         }
+      },
+      deferUpdate: async () => {
+        // The emulator only needs to allow deferred handlers to finish without throwing.
+      },
+      followUp: async (followUpPayload: { content?: string | null }) => {
+        if (typeof followUpPayload.content === 'string' && followUpPayload.content.trim()) {
+          updatedMessage = followUpPayload.content
+        }
       }
     } as unknown as ButtonInteraction
 

@@ -241,7 +241,9 @@ async function clearNotificationDmReferences(notificationIds: string[]) {
     },
     data: {
       discordDmChannelId: null,
-      discordDmMessageId: null
+      discordDmMessageId: null,
+      recipientResponseDiscordDmChannelId: null,
+      recipientResponseDiscordDmMessageId: null
     }
   })
 }
@@ -363,19 +365,34 @@ async function collectTrackedDirectMessageStateForUser(userId: string, now: Date
     prisma.notification.findMany({
       where: {
         userId,
-        discordDmChannelId: {
-          not: null
-        },
-        discordDmMessageId: {
-          not: null
-        }
+        OR: [
+          {
+            discordDmChannelId: {
+              not: null
+            },
+            discordDmMessageId: {
+              not: null
+            }
+          },
+          {
+            recipientResponseDiscordDmChannelId: {
+              not: null
+            },
+            recipientResponseDiscordDmMessageId: {
+              not: null
+            }
+          }
+        ]
       },
       select: {
         id: true,
         createdAt: true,
         deliveredAt: true,
+        respondedAt: true,
         discordDmChannelId: true,
         discordDmMessageId: true,
+        recipientResponseDiscordDmChannelId: true,
+        recipientResponseDiscordDmMessageId: true,
         playIntent: {
           select: {
             expiresAt: true
@@ -426,6 +443,14 @@ async function collectTrackedDirectMessageStateForUser(userId: string, now: Date
       channelId: notification.discordDmChannelId,
       messageId: notification.discordDmMessageId,
       sortAt: notification.deliveredAt ?? notification.createdAt,
+      isActive: Boolean(notification.playIntent?.expiresAt && notification.playIntent.expiresAt > now),
+      notificationId: notification.id
+    })
+
+    upsertTrackedDirectMessageEntry(state, {
+      channelId: notification.recipientResponseDiscordDmChannelId,
+      messageId: notification.recipientResponseDiscordDmMessageId,
+      sortAt: notification.respondedAt ?? notification.deliveredAt ?? notification.createdAt,
       isActive: Boolean(notification.playIntent?.expiresAt && notification.playIntent.expiresAt > now),
       notificationId: notification.id
     })
@@ -699,17 +724,31 @@ export async function deleteCreatorPlayIntentDirectMessages(playIntentId: string
       where: {
         playIntentId,
         userId,
-        discordDmChannelId: {
-          not: null
-        },
-        discordDmMessageId: {
-          not: null
-        }
+        OR: [
+          {
+            discordDmChannelId: {
+              not: null
+            },
+            discordDmMessageId: {
+              not: null
+            }
+          },
+          {
+            recipientResponseDiscordDmChannelId: {
+              not: null
+            },
+            recipientResponseDiscordDmMessageId: {
+              not: null
+            }
+          }
+        ]
       },
       select: {
         id: true,
         discordDmChannelId: true,
-        discordDmMessageId: true
+        discordDmMessageId: true,
+        recipientResponseDiscordDmChannelId: true,
+        recipientResponseDiscordDmMessageId: true
       }
     })
   ])
@@ -738,21 +777,37 @@ export async function deleteCreatorPlayIntentDirectMessages(playIntentId: string
   }
 
   for (const notification of notifications) {
-    if (!notification.discordDmChannelId || !notification.discordDmMessageId) {
+    if (notification.discordDmChannelId && notification.discordDmMessageId) {
+      const key = `${notification.discordDmChannelId}:${notification.discordDmMessageId}`
+      const existingMessage = trackedMessages.get(key)
+
+      if (existingMessage) {
+        existingMessage.notificationIds.push(notification.id)
+      } else {
+        trackedMessages.set(key, {
+          channelId: notification.discordDmChannelId,
+          messageId: notification.discordDmMessageId,
+          notificationIds: [notification.id],
+          clearsCreatorSummary: false
+        })
+      }
+    }
+
+    if (!notification.recipientResponseDiscordDmChannelId || !notification.recipientResponseDiscordDmMessageId) {
       continue
     }
 
-    const key = `${notification.discordDmChannelId}:${notification.discordDmMessageId}`
-    const existingMessage = trackedMessages.get(key)
+    const responseKey = `${notification.recipientResponseDiscordDmChannelId}:${notification.recipientResponseDiscordDmMessageId}`
+    const existingResponseMessage = trackedMessages.get(responseKey)
 
-    if (existingMessage) {
-      existingMessage.notificationIds.push(notification.id)
+    if (existingResponseMessage) {
+      existingResponseMessage.notificationIds.push(notification.id)
       continue
     }
 
-    trackedMessages.set(key, {
-      channelId: notification.discordDmChannelId,
-      messageId: notification.discordDmMessageId,
+    trackedMessages.set(responseKey, {
+      channelId: notification.recipientResponseDiscordDmChannelId,
+      messageId: notification.recipientResponseDiscordDmMessageId,
       notificationIds: [notification.id],
       clearsCreatorSummary: false
     })
@@ -794,17 +849,31 @@ export async function deleteUserPlayIntentDirectMessages(playIntentId: string, u
     where: {
       playIntentId,
       userId,
-      discordDmChannelId: {
-        not: null
-      },
-      discordDmMessageId: {
-        not: null
-      }
+      OR: [
+        {
+          discordDmChannelId: {
+            not: null
+          },
+          discordDmMessageId: {
+            not: null
+          }
+        },
+        {
+          recipientResponseDiscordDmChannelId: {
+            not: null
+          },
+          recipientResponseDiscordDmMessageId: {
+            not: null
+          }
+        }
+      ]
     },
     select: {
       id: true,
       discordDmChannelId: true,
-      discordDmMessageId: true
+      discordDmMessageId: true,
+      recipientResponseDiscordDmChannelId: true,
+      recipientResponseDiscordDmMessageId: true
     }
   })
 
@@ -815,21 +884,36 @@ export async function deleteUserPlayIntentDirectMessages(playIntentId: string, u
   }>()
 
   for (const notification of notifications) {
-    if (!notification.discordDmChannelId || !notification.discordDmMessageId) {
+    if (notification.discordDmChannelId && notification.discordDmMessageId) {
+      const key = `${notification.discordDmChannelId}:${notification.discordDmMessageId}`
+      const existingMessage = trackedMessages.get(key)
+
+      if (existingMessage) {
+        existingMessage.notificationIds.push(notification.id)
+      } else {
+        trackedMessages.set(key, {
+          channelId: notification.discordDmChannelId,
+          messageId: notification.discordDmMessageId,
+          notificationIds: [notification.id]
+        })
+      }
+    }
+
+    if (!notification.recipientResponseDiscordDmChannelId || !notification.recipientResponseDiscordDmMessageId) {
       continue
     }
 
-    const key = `${notification.discordDmChannelId}:${notification.discordDmMessageId}`
-    const existingMessage = trackedMessages.get(key)
+    const responseKey = `${notification.recipientResponseDiscordDmChannelId}:${notification.recipientResponseDiscordDmMessageId}`
+    const existingResponseMessage = trackedMessages.get(responseKey)
 
-    if (existingMessage) {
-      existingMessage.notificationIds.push(notification.id)
+    if (existingResponseMessage) {
+      existingResponseMessage.notificationIds.push(notification.id)
       continue
     }
 
-    trackedMessages.set(key, {
-      channelId: notification.discordDmChannelId,
-      messageId: notification.discordDmMessageId,
+    trackedMessages.set(responseKey, {
+      channelId: notification.recipientResponseDiscordDmChannelId,
+      messageId: notification.recipientResponseDiscordDmMessageId,
       notificationIds: [notification.id]
     })
   }
@@ -1050,6 +1134,28 @@ export async function archivePlayIntentDirectMessages(options: {
                     }
                   }
                 }
+              },
+              {
+                notifications: {
+                  some: {
+                    type: {
+                      in: [...archivedPlayIntentNotificationTypes]
+                    },
+                    ...(options.deliveredBefore
+                      ? {
+                          respondedAt: {
+                            lte: options.deliveredBefore
+                          }
+                        }
+                      : {}),
+                    recipientResponseDiscordDmChannelId: {
+                      not: null
+                    },
+                    recipientResponseDiscordDmMessageId: {
+                      not: null
+                    }
+                  }
+                }
               }
             ]
           })
@@ -1100,12 +1206,24 @@ export async function archivePlayIntentDirectMessages(options: {
           ...(options.replaceRecipientMessages
             ? {}
             : {
-                discordDmChannelId: {
-                  not: null
-                },
-                discordDmMessageId: {
-                  not: null
-                }
+                OR: [
+                  {
+                    discordDmChannelId: {
+                      not: null
+                    },
+                    discordDmMessageId: {
+                      not: null
+                    }
+                  },
+                  {
+                    recipientResponseDiscordDmChannelId: {
+                      not: null
+                    },
+                    recipientResponseDiscordDmMessageId: {
+                      not: null
+                    }
+                  }
+                ]
               })
         },
         orderBy: [
@@ -1124,6 +1242,8 @@ export async function archivePlayIntentDirectMessages(options: {
           responseChoice: true,
           discordDmChannelId: true,
           discordDmMessageId: true,
+          recipientResponseDiscordDmChannelId: true,
+          recipientResponseDiscordDmMessageId: true,
           user: {
             select: {
               timezoneId: true,
@@ -1233,19 +1353,29 @@ export async function archivePlayIntentDirectMessages(options: {
       const recipientMutedCreator = mutedRecipientUserIds.has(userId)
       const archiveEmbeds = buildArchivedPlayIntentEmbeds(buildArchivedPlayIntentSummary(playIntent, notifications[0]?.user.timezoneId ?? playIntent.user.timezoneId).body)
       const candidates = notifications
-        .map<ArchivedNotificationCandidate | null>((notification) => {
-          if (!notification.discordDmChannelId || !notification.discordDmMessageId) {
-            return null
+        .flatMap<ArchivedNotificationCandidate>((notification) => {
+          const candidateEntries: ArchivedNotificationCandidate[] = []
+
+          if (notification.discordDmChannelId && notification.discordDmMessageId) {
+            candidateEntries.push({
+              channelId: notification.discordDmChannelId,
+              messageId: notification.discordDmMessageId,
+              notificationId: notification.id,
+              priority: getNotificationArchivePriority(notification.type)
+            })
           }
 
-          return {
-            channelId: notification.discordDmChannelId,
-            messageId: notification.discordDmMessageId,
-            notificationId: notification.id,
-            priority: getNotificationArchivePriority(notification.type)
+          if (notification.recipientResponseDiscordDmChannelId && notification.recipientResponseDiscordDmMessageId) {
+            candidateEntries.push({
+              channelId: notification.recipientResponseDiscordDmChannelId,
+              messageId: notification.recipientResponseDiscordDmMessageId,
+              notificationId: notification.id,
+              priority: getNotificationArchivePriority(notification.type) + 100
+            })
           }
+
+          return candidateEntries
         })
-        .filter((candidate): candidate is ArchivedNotificationCandidate => candidate != null)
         .sort((left, right) => left.priority - right.priority)
 
       // Quiet expiry/archive edits the existing tracked DM in place.

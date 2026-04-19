@@ -9,4 +9,5 @@ description: "Use when working in the Vite web app, Joy UI components, PWA shell
 - Keep UI state simple while the API is still stubbed. Prefer direct data loading over introducing a state library early.
 - Use shared schemas to validate server responses where practical so the frontend fails loudly when contracts drift.
 - Prefer browser-first flows and platform standards over custom client-specific behavior.
+- Keep the admin DM template library and DM emulator aligned with live Discord output. If the API adds or changes DM copy, embeds, buttons, or preview fields, update the web debug surfaces in the same change so they continue to render every supported message state.
 - Only show the PWA install CTA when the browser can actually install the app: wait for `beforeinstallprompt` on Chromium, use the manual fallback only on iOS Safari, and avoid generic install buttons in unsupported or already-installed browsers.
