@@ -1059,6 +1059,7 @@ export async function upsertCurrentPlayIntent(
       })
     : []
   const recipientTimezoneByUserId = new Map(recipientProfiles.map((profile) => [profile.id, profile.timezoneId]))
+  const discordSpaceAudienceGrantUserIds = [...new Set(recipientUserIds.filter((recipientUserId) => recipientUserId !== userId))]
 
   let activeIntent: ActivePlayIntent | null = null
   let activeIntentId: string | null = null
@@ -1098,7 +1099,7 @@ export async function upsertCurrentPlayIntent(
                       source: PlayIntentDiscordSpaceAccessSource.CREATOR,
                       inServer: false
                     },
-                    ...recipientUserIds.map((recipientUserId) => ({
+                    ...discordSpaceAudienceGrantUserIds.map((recipientUserId) => ({
                       userId: recipientUserId,
                       source: PlayIntentDiscordSpaceAccessSource.AUDIENCE_SYNC,
                       inServer: false
