@@ -300,7 +300,6 @@ function CtpTableSection({
           <EmptyStateCard
             title="No CTP rows match these filters"
             body="Try clearing filters or create a new call to play to populate this table."
-            chips={['CTP table', 'Filters', 'Pagination']}
           />
         )}
       </Stack>
@@ -387,7 +386,6 @@ function CtpLifecycleDialog({
           <EmptyStateCard
             title="No lifecycle events found"
             body="No additional rows were recorded for this call-to-play timeline yet."
-            chips={['CTP lifecycle', 'Chronological order']}
           />
         )}
       </DialogContent>
@@ -562,7 +560,6 @@ function DmTemplateLibrarySection({
           <EmptyStateCard
             title="No DM templates match this filter"
             body="Try a broader search to browse the available read-only Discord DM templates."
-            chips={['DM templates', 'Read-only', 'Admin only']}
           />
         )}
       </Stack>
@@ -705,7 +702,6 @@ function ErrorTableSection({
           <EmptyStateCard
             title="No error logs in this snapshot"
             body="When prompt, bot, or notification-path errors are captured, they will appear here."
-            chips={['Error table', 'Filters', 'Pagination']}
           />
         )}
       </Stack>
@@ -948,7 +944,6 @@ function InviteAttributionLogCard({
           <EmptyStateCard
             title="No invite attributions match these filters"
             body="Try clearing filters or accept a Discord invite flow on a fresh account to create an attribution row."
-            chips={['Discord invite', 'OAuth callback', 'Accepted sign-in']}
           />
         )}
       </Stack>
@@ -1178,7 +1173,6 @@ function PromptLogCard({
           <EmptyStateCard
             title="No prompt rows match these filters"
             body="Try clearing filters or wait for the bot to observe Discord activity."
-            chips={['Discord presence', 'Prompt log']}
           />
         )}
       </Stack>
@@ -1381,7 +1375,6 @@ function NotificationLogCard({
           <EmptyStateCard
             title="No notification rows match these filters"
             body="Try clearing filters or wait for a call to play to match someone and create a notification row."
-            chips={['Notification rows', 'Delivery timestamp', 'Discord DM path']}
           />
         )}
       </Stack>
@@ -1418,7 +1411,6 @@ function DebugViewContent({
       <EmptyStateCard
         title="Sign in to inspect debug data"
         body="The debug view is only populated for authenticated sessions so it can reuse the same backend access checks as the rest of the dashboard."
-        chips={['Admin only', 'Signed-in route', 'Bot and prompt logs']}
       />
     )
   }
@@ -1525,7 +1517,6 @@ function DebugViewContent({
           <EmptyStateCard
             title={debugLoading ? 'Loading debug data' : 'Debug data unavailable'}
             body={debugLoading ? 'Fetching the latest bot, prompt, notification, and lifecycle state from the API.' : 'No debug snapshot has been loaded yet.'}
-            chips={['Bot state', 'CTP table', 'Lifecycle events', 'Error logs']}
           />
         )}
       </Stack>
