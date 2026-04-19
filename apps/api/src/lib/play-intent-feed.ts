@@ -61,6 +61,68 @@ function serializeTargetDiscordServers(
     .filter((server): server is NonNullable<ReturnType<typeof serializeTargetDiscordServer>> => server !== null)
 }
 
+function isViewerIncludedByPlayIntentAudience({
+  isOwnIntent,
+  scope,
+  isExplicitFriend,
+  isInDiscoveryAudience,
+  isTargetedFriend,
+  isTargetedServer
+}: {
+  isOwnIntent: boolean;
+  scope: PlayIntentScope;
+  isExplicitFriend: boolean;
+  isInDiscoveryAudience: boolean;
+  isTargetedFriend: boolean;
+  isTargetedServer: boolean;
+}) {
+  if (isOwnIntent) {
+    return true
+  }
+
+  switch (scope) {
+    case PlayIntentScope.SPECIFIC_FRIENDS:
+      return isTargetedFriend
+    case PlayIntentScope.SPECIFIC_DISCORD_SERVER:
+      return isTargetedServer
+    case PlayIntentScope.MUTUAL_FRIENDS:
+      return isExplicitFriend || isInDiscoveryAudience
+    default:
+      return isExplicitFriend
+  }
+}
+
+function isPlayIntentVisibleToViewer({
+  isOwnIntent,
+  scope,
+  isExplicitFriend,
+  isInDiscoveryAudience,
+  isTargetedFriend,
+  isTargetedServer
+}: {
+  isOwnIntent: boolean;
+  scope: PlayIntentScope;
+  isExplicitFriend: boolean;
+  isInDiscoveryAudience: boolean;
+  isTargetedFriend: boolean;
+  isTargetedServer: boolean;
+}) {
+  if (isOwnIntent) {
+    return true
+  }
+
+  switch (scope) {
+    case PlayIntentScope.SPECIFIC_FRIENDS:
+      return isExplicitFriend || isInDiscoveryAudience || isTargetedFriend
+    case PlayIntentScope.SPECIFIC_DISCORD_SERVER:
+      return isExplicitFriend || isInDiscoveryAudience || isTargetedServer
+    case PlayIntentScope.MUTUAL_FRIENDS:
+      return isExplicitFriend || isInDiscoveryAudience
+    default:
+      return isExplicitFriend
+  }
+}
+
 function toDiscordSpaceStatus(status: PlayIntentDiscordSpaceStatus) {
   switch (status) {
     case PlayIntentDiscordSpaceStatus.PROVISIONING:
@@ -333,29 +395,18 @@ export async function buildPlayIntentFeed(viewerId?: string | null): Promise<Pla
         return null
       }
 
-      if (!isOwnIntent && intent.scope === PlayIntentScope.FRIENDS_ONLY && !isExplicitFriend) {
-        return null
-      }
-
-      if (!isOwnIntent && intent.scope === PlayIntentScope.MUTUAL_FRIENDS && !isExplicitFriend && !isInDiscoveryAudience) {
-        return null
-      }
-
       const targetServerIds = intent.targetDiscordServers.map((entry) => entry.serverId)
+      const isTargetedServer = targetServerIds.some((serverId) => viewerServerIds.includes(serverId))
+      const isTargetedFriend = intent.targetFriends.some((entry) => entry.friendUserId === viewer.id)
 
-      if (
-        !isOwnIntent
-        && intent.scope === PlayIntentScope.SPECIFIC_DISCORD_SERVER
-        && !targetServerIds.some((serverId) => viewerServerIds.includes(serverId))
-      ) {
-        return null
-      }
-
-      if (
-        !isOwnIntent
-        && intent.scope === PlayIntentScope.SPECIFIC_FRIENDS
-        && !intent.targetFriends.some((entry) => entry.friendUserId === viewer.id)
-      ) {
+      if (!isPlayIntentVisibleToViewer({
+        isOwnIntent,
+        scope: intent.scope,
+        isExplicitFriend,
+        isInDiscoveryAudience,
+        isTargetedFriend,
+        isTargetedServer
+      })) {
         return null
       }
 
@@ -369,11 +420,17 @@ export async function buildPlayIntentFeed(viewerId?: string | null): Promise<Pla
         }))
         .sort((left, right) => left.title.localeCompare(right.title))
       const matchingSelectedGames = intent.games.filter((entry) => viewerGameIds.includes(entry.gameId))
-      const appliesToViewer = isOwnIntent
-        ? true
-        : intent.selectionMode === PlayIntentSelectionMode.ENTIRE_LIBRARY
-          ? overlappingLibraryGames.length > 0
-          : matchingSelectedGames.length > 0
+      const matchesViewerLibrary = intent.selectionMode === PlayIntentSelectionMode.ENTIRE_LIBRARY
+        ? overlappingLibraryGames.length > 0
+        : matchingSelectedGames.length > 0
+      const appliesToViewer = isViewerIncludedByPlayIntentAudience({
+        isOwnIntent,
+        scope: intent.scope,
+        isExplicitFriend,
+        isInDiscoveryAudience,
+        isTargetedFriend,
+        isTargetedServer
+      }) && matchesViewerLibrary
 
       const interestedUsers = interestedUsersByPlayIntentId.get(intent.id) ?? []
 

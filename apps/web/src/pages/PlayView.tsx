@@ -70,7 +70,7 @@ function PlayIntentFilterControl({
         sx={{ minWidth: 170 }}
       >
         <Option value="applicable">Only for you</Option>
-        <Option value="all">All visible</Option>
+        <Option value="all">All</Option>
       </Select>
     </Box>
   )

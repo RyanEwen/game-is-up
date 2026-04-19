@@ -66,6 +66,72 @@ function serializeTargetDiscordServers(
     .filter((server): server is NonNullable<ReturnType<typeof serializeTargetDiscordServer>> => server !== null)
 }
 
+function isViewerIncludedByPlayIntentAudience({
+  isOwnIntent,
+  hasDirectNotification,
+  scope,
+  isExplicitFriend,
+  isInDiscoveryAudience,
+  isTargetedFriend,
+  isTargetedServer
+}: {
+  isOwnIntent: boolean;
+  hasDirectNotification: boolean;
+  scope: PlayIntentScope;
+  isExplicitFriend: boolean;
+  isInDiscoveryAudience: boolean;
+  isTargetedFriend: boolean;
+  isTargetedServer: boolean;
+}) {
+  if (isOwnIntent || hasDirectNotification) {
+    return true
+  }
+
+  switch (scope) {
+    case PlayIntentScope.SPECIFIC_FRIENDS:
+      return isTargetedFriend
+    case PlayIntentScope.SPECIFIC_DISCORD_SERVER:
+      return isTargetedServer
+    case PlayIntentScope.MUTUAL_FRIENDS:
+      return isExplicitFriend || isInDiscoveryAudience
+    default:
+      return isExplicitFriend
+  }
+}
+
+function isPlayIntentVisibleToViewer({
+  isOwnIntent,
+  hasDirectNotification,
+  scope,
+  isExplicitFriend,
+  isInDiscoveryAudience,
+  isTargetedFriend,
+  isTargetedServer
+}: {
+  isOwnIntent: boolean;
+  hasDirectNotification: boolean;
+  scope: PlayIntentScope;
+  isExplicitFriend: boolean;
+  isInDiscoveryAudience: boolean;
+  isTargetedFriend: boolean;
+  isTargetedServer: boolean;
+}) {
+  if (isOwnIntent || hasDirectNotification) {
+    return true
+  }
+
+  switch (scope) {
+    case PlayIntentScope.SPECIFIC_FRIENDS:
+      return isExplicitFriend || isInDiscoveryAudience || isTargetedFriend
+    case PlayIntentScope.SPECIFIC_DISCORD_SERVER:
+      return isExplicitFriend || isInDiscoveryAudience || isTargetedServer
+    case PlayIntentScope.MUTUAL_FRIENDS:
+      return isExplicitFriend || isInDiscoveryAudience
+    default:
+      return isExplicitFriend
+  }
+}
+
 function toDiscordSpaceStatus(status: PlayIntentDiscordSpaceStatus) {
   switch (status) {
     case PlayIntentDiscordSpaceStatus.PROVISIONING:
@@ -387,51 +453,40 @@ export async function buildPlayIntentDetail(viewerId: string, playIntentId: stri
   const isExplicitFriend = friendUserIds.includes(intent.userId)
   const isInDiscoveryAudience = discoveryAudienceUserIds.includes(intent.userId)
   const targetServerIds = intent.targetDiscordServers.map((entry) => entry.serverId)
+  const isTargetedServer = targetServerIds.some((serverId) => viewerServerIds.includes(serverId))
+  const isTargetedFriend = intent.targetFriends.some((entry) => entry.friendUserId === viewer.id)
   const hasDirectNotification = intent.notifications.length > 0
 
   if (!isOwnIntent && !hasDirectNotification && mutedUserIdSet.has(intent.userId)) {
     return null
   }
 
-  if (!isOwnIntent && !hasDirectNotification && intent.scope === PlayIntentScope.FRIENDS_ONLY && !isExplicitFriend) {
-    return null
-  }
-
-  if (
-    !isOwnIntent
-    && !hasDirectNotification
-    && intent.scope === PlayIntentScope.MUTUAL_FRIENDS
-    && !isExplicitFriend
-    && !isInDiscoveryAudience
-  ) {
-    return null
-  }
-
-  if (
-    !isOwnIntent
-    && !hasDirectNotification
-    && intent.scope === PlayIntentScope.SPECIFIC_DISCORD_SERVER
-    && !targetServerIds.some((serverId) => viewerServerIds.includes(serverId))
-  ) {
-    return null
-  }
-
-  if (
-    !isOwnIntent
-    && !hasDirectNotification
-    && intent.scope === PlayIntentScope.SPECIFIC_FRIENDS
-    && !intent.targetFriends.some((entry) => entry.friendUserId === viewer.id)
-  ) {
+  if (!isPlayIntentVisibleToViewer({
+    isOwnIntent,
+    hasDirectNotification,
+    scope: intent.scope,
+    isExplicitFriend,
+    isInDiscoveryAudience,
+    isTargetedFriend,
+    isTargetedServer
+  })) {
     return null
   }
 
   const overlappingLibraryInterests = intent.user.gameInterests.filter((interest) => viewerGameIdSet.has(interest.gameId))
   const matchingSelectedGames = intent.games.filter((entry) => viewerGameIdSet.has(entry.gameId))
-  const appliesToViewer = isOwnIntent
-    ? true
-    : intent.selectionMode === PlayIntentSelectionMode.ENTIRE_LIBRARY
-      ? overlappingLibraryInterests.length > 0
-      : matchingSelectedGames.length > 0
+  const matchesViewerLibrary = intent.selectionMode === PlayIntentSelectionMode.ENTIRE_LIBRARY
+    ? overlappingLibraryInterests.length > 0
+    : matchingSelectedGames.length > 0
+  const appliesToViewer = isViewerIncludedByPlayIntentAudience({
+    isOwnIntent,
+    hasDirectNotification,
+    scope: intent.scope,
+    isExplicitFriend,
+    isInDiscoveryAudience,
+    isTargetedFriend,
+    isTargetedServer
+  }) && matchesViewerLibrary
   const recipientNotificationState = intent.notifications[0] ?? null
   const interestedUsersByPlayIntentId = await getInterestedUsersByPlayIntentId([intent.id])
   const interestedUsers = interestedUsersByPlayIntentId.get(intent.id) ?? []

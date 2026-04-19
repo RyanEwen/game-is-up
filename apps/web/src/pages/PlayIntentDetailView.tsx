@@ -428,7 +428,7 @@ export function PlayIntentDetailView() {
             </Chip>
             {!intent.appliesToViewer ? (
               <Chip size="sm" color="warning" variant="soft">
-                No current library match
+                Not for you right now
               </Chip>
             ) : null}
             {intent.interestedCount > 0 ? (
@@ -463,7 +463,7 @@ export function PlayIntentDetailView() {
           {!intent.appliesToViewer ? (
             <Card variant="soft" color="warning" sx={{ p: 1.5 }}>
               <Typography level="body-sm">
-                This call is visible to you, but none of your current games match it right now.
+                This call is visible in your network, but it does not currently include you.
               </Typography>
             </Card>
           ) : null}

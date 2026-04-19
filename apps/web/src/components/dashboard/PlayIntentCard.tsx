@@ -136,7 +136,7 @@ export function PlayIntentCard({
           </Chip>
           {!intent.appliesToViewer ? (
             <Chip size="sm" color="neutral" variant="soft">
-              Does not match your library
+              Not for you right now
             </Chip>
           ) : null}
           {intent.interestedCount > 0 ? (
@@ -158,7 +158,7 @@ export function PlayIntentCard({
 
       {!intent.appliesToViewer ? (
         <Typography level="body-xs" sx={{ mb: 1.5, color: 'neutral.400' }}>
-          This call is from someone in your network, but it does not currently match your library.
+          This call is visible in your network, but it does not currently include you.
         </Typography>
       ) : null}
 
