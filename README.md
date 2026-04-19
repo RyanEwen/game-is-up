@@ -106,6 +106,7 @@ The development scripts default to that Docker network address unless you explic
 ## Production Docker
 
 The repository now includes a root `compose.yml` for production-style local or server deployment.
+Keep any `compose.prod.yml` override out of the repository; that file is intended to exist only on the production server when you need host-specific Compose overrides.
 
 1. Copy `.env.production.example` to `.env` and set at least `SESSION_SECRET` to a long random value.
 2. For a real deployment, set `CLIENT_ORIGIN` to your public app URL and set `DISCORD_CALLBACK_URL` to `${CLIENT_ORIGIN}/api/auth/discord/callback`.
@@ -137,7 +138,7 @@ That script:
 - optionally pushes local `HEAD` to the target branch when you pass `--push`
 - SSHes into the production host
 - refuses to deploy if the remote repo has tracked uncommitted changes
-- runs `docker compose -f compose.yml -f compose.prod.yml up --build -d` in the remote checkout when `compose.prod.yml` exists there
+- runs `docker compose -f compose.yml -f compose.prod.yml up --build -d` in the remote checkout when a server-only `compose.prod.yml` exists there
 - runs `npm run cache:purge:cloudflare` on the server after deploy when the remote `.env` includes the required Cloudflare values
 
 Default SSH deployment values are:
