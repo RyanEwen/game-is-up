@@ -61,22 +61,25 @@ function DiscordChannelButton({
   href,
   label,
   icon,
-  color = 'primary'
+  color = 'primary',
+  disabled = false
 }: {
   href: string;
   label: string;
   icon: ReactNode;
   color?: 'primary' | 'neutral';
+  disabled?: boolean;
 }) {
   return (
     <Button
-      component="a"
-      href={href}
-      target="_blank"
-      rel="noreferrer"
+      component={disabled ? 'button' : 'a'}
+      href={disabled ? undefined : href}
+      target={disabled ? undefined : '_blank'}
+      rel={disabled ? undefined : 'noreferrer'}
       variant="soft"
       color={color}
       size="sm"
+      disabled={disabled}
       startDecorator={(
         <Box component="span" aria-hidden sx={{ display: 'inline-flex', lineHeight: 1, '& svg': { fontSize: '1rem' } }}>
           {icon}
@@ -85,7 +88,8 @@ function DiscordChannelButton({
       sx={{
         justifyContent: 'flex-start',
         minWidth: 0,
-        width: { xs: '100%', sm: 'auto' }
+        width: '100%',
+        flex: 1
       }}
     >
       <Box
@@ -613,6 +617,12 @@ export function PlayIntentDetailView() {
                     }}
                   >
                     <Stack spacing={1.25}>
+                      {intent.discordSpace?.status === 'deleted' ? (
+                        <Typography level="body-xs" sx={{ color: 'neutral.300' }}>
+                          These Discord channels have been deleted.
+                        </Typography>
+                      ) : null}
+
                       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }}>
                         <Typography level="title-sm">Discord channels</Typography>
                         {intent.discordSpace ? (
@@ -623,12 +633,22 @@ export function PlayIntentDetailView() {
                       </Stack>
 
                       {intent.discordSpace?.textChannelUrl || intent.discordSpace?.voiceChannelUrl || intent.discordSpace?.inviteUrl ? (
-                        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ flexWrap: 'wrap' }}>
+                        <Box
+                          sx={{
+                            display: 'grid',
+                            gap: 1,
+                            gridTemplateColumns: {
+                              xs: '1fr',
+                              sm: 'repeat(auto-fit, minmax(0, 1fr))'
+                            }
+                          }}
+                        >
                           {intent.discordSpace?.textChannelUrl ? (
                             <DiscordChannelButton
                               href={intent.discordSpace.textChannelUrl}
                               label={intent.discordSpace.textChannelName ?? 'Open text channel'}
                               icon={<ChatBubbleOutlineRoundedIcon />}
+                              disabled={intent.discordSpace.status === 'deleted'}
                             />
                           ) : null}
                           {intent.discordSpace?.voiceChannelUrl ? (
@@ -636,6 +656,7 @@ export function PlayIntentDetailView() {
                               href={intent.discordSpace.voiceChannelUrl}
                               label={intent.discordSpace.voiceChannelName ?? 'Open voice channel'}
                               icon={<HeadsetMicRoundedIcon />}
+                              disabled={intent.discordSpace.status === 'deleted'}
                             />
                           ) : null}
                           {intent.discordSpace?.inviteUrl ? (
@@ -644,9 +665,10 @@ export function PlayIntentDetailView() {
                               label="Open Discord invite"
                               icon={<OpenInNewRoundedIcon />}
                               color="neutral"
+                              disabled={intent.discordSpace.status === 'deleted'}
                             />
                           ) : null}
-                        </Stack>
+                        </Box>
                       ) : null}
 
                       {intent.discordSpace?.textChannelUrl == null && intent.discordSpace?.textChannelName ? (
