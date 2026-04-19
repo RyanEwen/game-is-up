@@ -13,6 +13,7 @@ import {
   getDiscordMembershipServerIds,
   getMutualDiscoveryAudienceUserIds
 } from './discord-servers.js'
+import { buildDiscordChannelUrl } from './discord-channel-urls.js'
 import { toClientAvatarUrl, toClientGameCoverUrl } from './game-media.js'
 import { getInterestedUsersByPlayIntentId } from './play-intent-interested-users.js'
 import { prisma } from './prisma.js'
@@ -88,8 +89,11 @@ function serializeDiscordSpace(space: {
   serverId: string;
   status: PlayIntentDiscordSpaceStatus;
   categoryChannelName: string | null;
+  textChannelId: string | null;
   textChannelName: string | null;
+  voiceChannelId: string | null;
   voiceChannelName: string | null;
+  inviteUrl: string | null;
   deleteAfter: Date | null;
 } | null): PlayIntentDetail['discordSpace'] {
   if (!space) {
@@ -101,7 +105,10 @@ function serializeDiscordSpace(space: {
     serverId: space.serverId,
     categoryChannelName: space.categoryChannelName,
     textChannelName: space.textChannelName,
+    textChannelUrl: buildDiscordChannelUrl(space.serverId, space.textChannelId),
     voiceChannelName: space.voiceChannelName,
+    voiceChannelUrl: buildDiscordChannelUrl(space.serverId, space.voiceChannelId),
+    inviteUrl: space.inviteUrl,
     deleteAfter: space.deleteAfter?.toISOString() ?? null
   }
 }
@@ -329,8 +336,11 @@ export async function buildPlayIntentDetail(viewerId: string, playIntentId: stri
             serverId: true,
             status: true,
             categoryChannelName: true,
+            textChannelId: true,
             textChannelName: true,
+            voiceChannelId: true,
             voiceChannelName: true,
+            inviteUrl: true,
             deleteAfter: true
           }
         },

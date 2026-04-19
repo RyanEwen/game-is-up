@@ -29,6 +29,7 @@ import {
   buildNotificationDirectMessagePreview,
   buildScheduledCheckInPromptPreview
 } from './play-intent-notification-responses.js'
+import { buildDiscordChannelUrl } from './discord-channel-urls.js'
 import { prisma } from './prisma.js'
 
 type DebugDmPreviewPayload = ReturnType<typeof buildDebugDmPreview>
@@ -142,14 +143,18 @@ function buildDebugDmTemplateDefinitions(now: Date): DebugDmTemplateGroupDefinit
   const templateCreatorDiscordSpace = {
     status: 'ACTIVE' as const,
     textChannelName: 'motorfest-staging',
+    textChannelUrl: 'https://discord.com/channels/987654321098765432/555555555555555555',
     voiceChannelName: 'Motorfest pit lane',
+    voiceChannelUrl: 'https://discord.com/channels/987654321098765432/666666666666666666',
     inviteUrl: 'https://discord.gg/gamesup-motorfest',
     deleteAfter: new Date(now.getTime() + 24 * 60 * 60 * 1000)
   }
   const templateClosedCreatorDiscordSpace = {
     status: 'RETAINED' as const,
     textChannelName: 'motorfest-staging',
+    textChannelUrl: 'https://discord.com/channels/987654321098765432/555555555555555555',
     voiceChannelName: 'Motorfest pit lane',
+    voiceChannelUrl: 'https://discord.com/channels/987654321098765432/666666666666666666',
     inviteUrl: 'https://discord.gg/gamesup-motorfest',
     deleteAfter: new Date(now.getTime() + 12 * 60 * 60 * 1000)
   }
@@ -740,7 +745,9 @@ function buildCreatorSummaryRevisions(intent: {
   discordSpace: {
     status: 'REQUESTED' | 'PROVISIONING' | 'ACTIVE' | 'RETAINED' | 'DELETE_REQUESTED' | 'DELETED' | 'PROVISION_FAILED';
     textChannelName: string | null;
+    textChannelUrl: string | null;
     voiceChannelName: string | null;
+    voiceChannelUrl: string | null;
     inviteUrl: string | null;
     deleteAfter: Date | null;
   } | null;
@@ -1298,8 +1305,11 @@ export async function buildDebugAdminSnapshot() {
         },
         discordSpace: {
           select: {
+            serverId: true,
             status: true,
+            textChannelId: true,
             textChannelName: true,
+            voiceChannelId: true,
             voiceChannelName: true,
             inviteUrl: true,
             deleteAfter: true
@@ -1711,6 +1721,17 @@ export async function buildDebugAdminSnapshot() {
     const errorCount = recentErrors.filter((errorEntry) => errorEntry.playIntentId === intent.id).length
     const creatorSummaryRevisions = buildCreatorSummaryRevisions({
       ...intent,
+      discordSpace: intent.discordSpace
+        ? {
+            status: intent.discordSpace.status,
+            textChannelName: intent.discordSpace.textChannelName,
+            textChannelUrl: buildDiscordChannelUrl(intent.discordSpace.serverId, intent.discordSpace.textChannelId),
+            voiceChannelName: intent.discordSpace.voiceChannelName,
+            voiceChannelUrl: buildDiscordChannelUrl(intent.discordSpace.serverId, intent.discordSpace.voiceChannelId),
+            inviteUrl: intent.discordSpace.inviteUrl,
+            deleteAfter: intent.discordSpace.deleteAfter
+          }
+        : null,
       user: {
         displayName: intent.user.displayName,
         timezoneId: intent.user.timezoneId

@@ -214,7 +214,10 @@ export const playIntentDiscordSpaceSchema = z.object({
   serverId: z.string().min(1),
   categoryChannelName: z.string().min(1).nullable(),
   textChannelName: z.string().min(1).nullable(),
+  textChannelUrl: z.string().url().nullable(),
   voiceChannelName: z.string().min(1).nullable(),
+  voiceChannelUrl: z.string().url().nullable(),
+  inviteUrl: z.string().url().nullable(),
   deleteAfter: z.string().datetime().nullable()
 })
 

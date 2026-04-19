@@ -1,6 +1,7 @@
 import { AuthProvider, PlayIntentDiscordSpaceStatus } from '@prisma/client'
 import { ChannelType, OverwriteType, PermissionFlagsBits, Routes } from 'discord.js'
 import { publishPlayIntentInvalidation } from './dashboard-events.js'
+import { buildDiscordChannelUrl } from './discord-channel-urls.js'
 import { env } from './env.js'
 import { getDiscordBotRest } from './discord-bot-runtime.js'
 import { prisma } from './prisma.js'
@@ -48,18 +49,10 @@ function buildComplementarySpaceNames(playIntent: { id: string; headline: string
   }
 }
 
-function buildDiscordChannelUrl(serverId: string, channelId: string | null | undefined) {
-  if (!channelId) {
-    return null
-  }
-
-  return `https://discord.com/channels/${serverId}/${channelId}`
-}
-
 function isUnknownDiscordResourceError(error: unknown) {
   const message = error instanceof Error ? error.message : String(error ?? '')
 
-  return /Unknown (Channel|Role|Invite)/i.test(message)
+  return /Unknown (Channel|Role|Invite|Member)/i.test(message)
 }
 
 function buildBasePermissionOverwrites(roleId: string) {
@@ -317,6 +310,19 @@ async function addRoleToMember(serverId: string, discordUserId: string, roleId: 
   await rest.put(Routes.guildMemberRole(serverId, discordUserId, roleId))
 }
 
+async function tryGrantRoleToMember(serverId: string, discordUserId: string, roleId: string) {
+  try {
+    await addRoleToMember(serverId, discordUserId, roleId)
+    return true
+  } catch (error) {
+    if (isUnknownDiscordResourceError(error)) {
+      return false
+    }
+
+    throw error
+  }
+}
+
 async function deleteRole(serverId: string, roleId: string | null | undefined) {
   if (!roleId) {
     return
@@ -382,11 +388,11 @@ async function syncGrantedMembers(space: NonNullable<ProvisionableSpace>) {
 
   for (const grant of space.accessGrants) {
     const discordUserId = grant.user.identities[0]?.providerUserId ?? null
-    const inServer = membershipSet.has(grant.userId)
+    let roleGranted = false
 
-    if (discordUserId && inServer) {
+    if (discordUserId) {
       try {
-        await addRoleToMember(space.serverId, discordUserId, space.roleId)
+        roleGranted = await tryGrantRoleToMember(space.serverId, discordUserId, space.roleId)
       } catch (error) {
         console.error('Failed to grant complementary Discord space role', {
           spaceId: space.id,
@@ -397,6 +403,8 @@ async function syncGrantedMembers(space: NonNullable<ProvisionableSpace>) {
       }
     }
 
+    const inServer = membershipSet.has(grant.userId) || roleGranted
+
     await prisma.playIntentDiscordSpaceAccessGrant.update({
       where: {
         spaceId_userId: {
@@ -406,7 +414,7 @@ async function syncGrantedMembers(space: NonNullable<ProvisionableSpace>) {
       },
       data: {
         inServer,
-        roleGrantedAt: discordUserId && inServer ? (grant.roleGrantedAt ?? now) : grant.roleGrantedAt
+        roleGrantedAt: roleGranted ? (grant.roleGrantedAt ?? now) : grant.roleGrantedAt
       }
     })
   }
@@ -451,7 +459,8 @@ export async function getPlayIntentDiscordSpaceRecipientContexts(playIntentId: s
         },
         select: {
           userId: true,
-          inServer: true
+          inServer: true,
+          roleGrantedAt: true
         }
       }
     }
@@ -467,9 +476,9 @@ export async function getPlayIntentDiscordSpaceRecipientContexts(playIntentId: s
       status: toRecipientContextStatus(space.status),
       recipientInServer: grant.inServer,
       textChannelName: space.textChannelName,
-      textChannelUrl: grant.inServer ? buildDiscordChannelUrl(space.serverId, space.textChannelId) : null,
+      textChannelUrl: grant.roleGrantedAt ? buildDiscordChannelUrl(space.serverId, space.textChannelId) : null,
       voiceChannelName: space.voiceChannelName,
-      voiceChannelUrl: grant.inServer ? buildDiscordChannelUrl(space.serverId, space.voiceChannelId) : null,
+      voiceChannelUrl: grant.roleGrantedAt ? buildDiscordChannelUrl(space.serverId, space.voiceChannelId) : null,
       inviteUrl: space.inviteUrl
     }
   ]))
@@ -914,8 +923,10 @@ export async function handlePlayIntentDiscordSpaceMemberJoin(options: {
         continue
       }
 
+      let roleGranted = false
+
       try {
-        await addRoleToMember(options.serverId, options.discordUserId, grant.space.roleId)
+        roleGranted = await tryGrantRoleToMember(options.serverId, options.discordUserId, grant.space.roleId)
       } catch (error) {
         console.error('Failed to grant complementary role on guild member join', {
           serverId: options.serverId,
@@ -934,7 +945,7 @@ export async function handlePlayIntentDiscordSpaceMemberJoin(options: {
         },
         data: {
           inServer: true,
-          roleGrantedAt: grant.roleGrantedAt ?? new Date(),
+          roleGrantedAt: roleGranted ? (grant.roleGrantedAt ?? new Date()) : grant.roleGrantedAt,
           joinedViaInviteAt: grant.joinedViaInviteAt ?? new Date()
         }
       })
@@ -955,7 +966,7 @@ export async function handlePlayIntentDiscordSpaceMemberJoin(options: {
 
     if (matchedSpace.roleId) {
       try {
-        await addRoleToMember(options.serverId, options.discordUserId, matchedSpace.roleId)
+        await tryGrantRoleToMember(options.serverId, options.discordUserId, matchedSpace.roleId)
       } catch (error) {
         console.error('Failed to grant complementary role for invite-matched member join', {
           serverId: options.serverId,

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Avatar, Box, Button, Card, Chip, Stack, Typography } from '@mui/joy'
+import { Avatar, Box, Button, Card, Chip, Link, Stack, Typography } from '@mui/joy'
 import { playIntentDetailResponseSchema, type PlayIntentDetail } from '@game-is-up/shared'
 import { useNavigate, useParams } from 'react-router-dom'
 import { EmptyStateCard } from '../components/dashboard/EmptyStateCard'
@@ -51,6 +51,14 @@ function buildGameBadges(platformLabels: string[]) {
       variant: 'soft' as const
     }
   ]
+}
+
+function DiscordChannelLink({ href, label }: { href: string; label: string }) {
+  return (
+    <Link href={href} target="_blank" rel="noreferrer" sx={{ color: 'primary.200' }}>
+      {label}
+    </Link>
+  )
 }
 
 export function PlayIntentDetailView() {
@@ -497,10 +505,43 @@ export function PlayIntentDetailView() {
                   </Typography>
                 ) : null}
                 {intent.discordSpace ? (
-                  <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
-                    Temporary Discord space: {formatDiscordSpaceStatusLabel(intent.discordSpace.status)}
-                    {intent.discordSpace.voiceChannelName ? ` • ${intent.discordSpace.voiceChannelName}` : ''}
-                  </Typography>
+                  <Stack spacing={0.75}>
+                    <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
+                      Temporary Discord space: {formatDiscordSpaceStatusLabel(intent.discordSpace.status)}
+                    </Typography>
+                    {intent.discordSpace.textChannelUrl ? (
+                      <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
+                        Text channel:{' '}
+                        <DiscordChannelLink
+                          href={intent.discordSpace.textChannelUrl}
+                          label={intent.discordSpace.textChannelName ?? 'Open text channel'}
+                        />
+                      </Typography>
+                    ) : intent.discordSpace.textChannelName ? (
+                      <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
+                        Text channel: {intent.discordSpace.textChannelName}
+                      </Typography>
+                    ) : null}
+                    {intent.discordSpace.voiceChannelUrl ? (
+                      <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
+                        Voice channel:{' '}
+                        <DiscordChannelLink
+                          href={intent.discordSpace.voiceChannelUrl}
+                          label={intent.discordSpace.voiceChannelName ?? 'Open voice channel'}
+                        />
+                      </Typography>
+                    ) : intent.discordSpace.voiceChannelName ? (
+                      <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
+                        Voice channel: {intent.discordSpace.voiceChannelName}
+                      </Typography>
+                    ) : null}
+                    {intent.discordSpace.inviteUrl ? (
+                      <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
+                        Invite:{' '}
+                        <DiscordChannelLink href={intent.discordSpace.inviteUrl} label="Open Discord invite" />
+                      </Typography>
+                    ) : null}
+                  </Stack>
                 ) : null}
               </Stack>
             </Stack>

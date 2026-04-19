@@ -14,7 +14,7 @@ import {
 } from '@prisma/client'
 import {
   archivePlayIntentDirectMessages,
-  deletePlayIntentDirectMessages,
+  deleteCreatorPlayIntentDirectMessages,
   deleteUserPlayIntentDirectMessages
 } from './discord-dm-cleanup.js'
 import {
@@ -35,6 +35,7 @@ import {
   formatLabeledDiscordLines
 } from './discord-dm-formatting.js'
 import { toClientGameCoverUrl } from './game-media.js'
+import { buildDiscordChannelUrl } from './discord-channel-urls.js'
 import { getInterestedUsersByPlayIntentId } from './play-intent-interested-users.js'
 import { buildClientPlayIntentUrl, buildClientPlayUrl } from './play-intent-urls.js'
 import {
@@ -122,7 +123,9 @@ type CreatorPlayIntentSummarySnapshot = {
   discordSpace: {
     status: 'REQUESTED' | 'PROVISIONING' | 'ACTIVE' | 'RETAINED' | 'DELETE_REQUESTED' | 'DELETED' | 'PROVISION_FAILED';
     textChannelName: string | null;
+    textChannelUrl: string | null;
     voiceChannelName: string | null;
+    voiceChannelUrl: string | null;
     inviteUrl: string | null;
     deleteAfter: Date | null;
   } | null;
@@ -936,11 +939,15 @@ function buildCreatorDiscordSpaceSummary(snapshot: CreatorPlayIntentSummarySnaps
 
   return [
     `Status: ${formatDiscordSpaceStatusLabel(snapshot.discordSpace.status)}`,
-    snapshot.discordSpace.textChannelName
-      ? `Text channel: ${snapshot.discordSpace.textChannelName}`
+    snapshot.discordSpace.textChannelUrl
+      ? `Text channel: ${snapshot.discordSpace.textChannelUrl}`
+      : snapshot.discordSpace.textChannelName
+        ? `Text channel: ${snapshot.discordSpace.textChannelName}`
       : null,
-    snapshot.discordSpace.voiceChannelName
-      ? `Voice channel: ${snapshot.discordSpace.voiceChannelName}`
+    snapshot.discordSpace.voiceChannelUrl
+      ? `Voice channel: ${snapshot.discordSpace.voiceChannelUrl}`
+      : snapshot.discordSpace.voiceChannelName
+        ? `Voice channel: ${snapshot.discordSpace.voiceChannelName}`
       : null,
     snapshot.discordSpace.inviteUrl
       ? `Invite: ${snapshot.discordSpace.inviteUrl}`
@@ -1261,7 +1268,7 @@ export function buildCreatorPlayIntentSummaryPreview(snapshot: {
 }
 
 async function getCreatorPlayIntentSummarySnapshot(playIntentId: string) {
-  return prisma.playIntent.findUnique({
+  const snapshot = await prisma.playIntent.findUnique({
     where: {
       id: playIntentId
     },
@@ -1279,8 +1286,11 @@ async function getCreatorPlayIntentSummarySnapshot(playIntentId: string) {
       creatorDiscordDmMessageId: true,
       discordSpace: {
         select: {
+          serverId: true,
           status: true,
+          textChannelId: true,
           textChannelName: true,
+          voiceChannelId: true,
           voiceChannelName: true,
           inviteUrl: true,
           deleteAfter: true
@@ -1376,6 +1386,25 @@ async function getCreatorPlayIntentSummarySnapshot(playIntentId: string) {
       }
     }
   })
+
+  if (!snapshot) {
+    return null
+  }
+
+  return {
+    ...snapshot,
+    discordSpace: snapshot.discordSpace
+      ? {
+          status: snapshot.discordSpace.status,
+          textChannelName: snapshot.discordSpace.textChannelName,
+          textChannelUrl: buildDiscordChannelUrl(snapshot.discordSpace.serverId, snapshot.discordSpace.textChannelId),
+          voiceChannelName: snapshot.discordSpace.voiceChannelName,
+          voiceChannelUrl: buildDiscordChannelUrl(snapshot.discordSpace.serverId, snapshot.discordSpace.voiceChannelId),
+          inviteUrl: snapshot.discordSpace.inviteUrl,
+          deleteAfter: snapshot.discordSpace.deleteAfter
+        }
+      : null
+  }
 }
 
 type CreatorPlayIntentSummarySyncOptions = {
@@ -3477,7 +3506,7 @@ export async function handleCreatorPlayIntentSummaryInteraction(interaction: But
     }
 
     await interaction.deferUpdate()
-    await deletePlayIntentDirectMessages(playIntent.id)
+    await deleteCreatorPlayIntentDirectMessages(playIntent.id, identity.userId)
     return
   }
 

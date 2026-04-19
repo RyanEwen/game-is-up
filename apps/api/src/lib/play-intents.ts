@@ -39,6 +39,7 @@ import {
   provisionPlayIntentDiscordSpaceByPlayIntentId,
   type PlayIntentDiscordSpaceRecipientContext
 } from './play-intent-discord-spaces.js'
+import { buildDiscordChannelUrl } from './discord-channel-urls.js'
 import { prisma } from './prisma.js'
 import { formatPlayIntentDurationLabel, formatPlayIntentWindowLabel } from './play-intent-time-format.js'
 
@@ -86,8 +87,11 @@ const activePlayIntentInclude = Prisma.validator<Prisma.PlayIntentInclude>()({
       status: true,
       roleName: true,
       categoryChannelName: true,
+      textChannelId: true,
       textChannelName: true,
+      voiceChannelId: true,
       voiceChannelName: true,
+      inviteUrl: true,
       deleteAfter: true
     }
   },
@@ -403,8 +407,11 @@ function serializeDiscordSpace(space: {
   status: PlayIntentDiscordSpaceStatus;
   roleName: string | null;
   categoryChannelName: string | null;
+  textChannelId: string | null;
   textChannelName: string | null;
+  voiceChannelId: string | null;
   voiceChannelName: string | null;
+  inviteUrl: string | null;
   deleteAfter: Date | null;
 } | null): ActivePlayIntent['discordSpace'] {
   if (!space) {
@@ -416,7 +423,10 @@ function serializeDiscordSpace(space: {
     serverId: space.serverId,
     categoryChannelName: space.categoryChannelName,
     textChannelName: space.textChannelName,
+    textChannelUrl: buildDiscordChannelUrl(space.serverId, space.textChannelId),
     voiceChannelName: space.voiceChannelName,
+    voiceChannelUrl: buildDiscordChannelUrl(space.serverId, space.voiceChannelId),
+    inviteUrl: space.inviteUrl,
     deleteAfter: space.deleteAfter?.toISOString() ?? null
   }
 }
@@ -432,8 +442,11 @@ function serializeActivePlayIntent(intent: {
     status: PlayIntentDiscordSpaceStatus;
     roleName: string | null;
     categoryChannelName: string | null;
+    textChannelId: string | null;
     textChannelName: string | null;
+    voiceChannelId: string | null;
     voiceChannelName: string | null;
+    inviteUrl: string | null;
     deleteAfter: Date | null;
   } | null;
   selectionMode: PrismaPlayIntentSelectionMode;

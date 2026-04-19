@@ -470,14 +470,12 @@ async function collectTrackedDirectMessageStateForUser(userId: string, now: Date
 }
 
 async function pruneTrackedDirectMessagesForUser(state: TrackedDirectMessageState) {
-  const keeper = [...state.entries.values()]
-    .filter((entry) => entry.isActive)
-    .sort((left, right) => right.sortAt - left.sortAt)[0]
-
   const preservedMessageIds = new Set<string>()
 
-  if (keeper) {
-    preservedMessageIds.add(keeper.messageId)
+  for (const entry of state.entries.values()) {
+    if (entry.isActive) {
+      preservedMessageIds.add(entry.messageId)
+    }
   }
 
   const notificationIdsToClear = new Set<string>()
@@ -487,7 +485,7 @@ async function pruneTrackedDirectMessagesForUser(state: TrackedDirectMessageStat
   let attemptedCount = 0
 
   for (const entry of state.entries.values()) {
-    if (keeper && entry.channelId === keeper.channelId && entry.messageId === keeper.messageId) {
+    if (entry.isActive) {
       continue
     }
 
