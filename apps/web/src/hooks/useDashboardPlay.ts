@@ -29,7 +29,14 @@ import {
   playIntentPresetDurations,
   toLocalDateTimeInputValue
 } from '../components/dashboard/dashboardUtils'
-import type { DashboardLibraryQuickAddGame, FriendTarget, Notice, PlayIntentStartMode, PlayIntentTimingMode } from '../components/dashboard/types'
+import type {
+  DashboardLibraryQuickAddGame,
+  FriendTarget,
+  Notice,
+  PlayIntentStartMode,
+  PlayIntentTimingMode,
+  PlayIntentVoiceMode
+} from '../components/dashboard/types'
 
 function buildDefaultScheduledStartAtInput() {
   return toLocalDateTimeInputValue(new Date(Date.now() + 60 * 60 * 1000))
@@ -90,6 +97,8 @@ export type DashboardPlayViewProps = {
   onPlayIntentTitleChange: (value: string) => void;
   playIntentNote: string;
   onPlayIntentNoteChange: (value: string) => void;
+  playIntentVoiceMode: PlayIntentVoiceMode;
+  onPlayIntentVoiceModeChange: (mode: PlayIntentVoiceMode) => void;
   playIntentVoiceChannelId: string;
   playIntentVoiceChannelOptions: DiscordVoiceChannel[];
   onPlayIntentVoiceChannelSelect: (channelId: string | null) => void;
@@ -146,6 +155,7 @@ export function useDashboardPlay({
   const [playIntentEndAtInput, setPlayIntentEndAtInput] = useState(() => buildPlayIntentEndTimeInputValue(defaultPlayIntentDurationMinutes))
   const [playIntentTitle, setPlayIntentTitle] = useState('')
   const [playIntentNote, setPlayIntentNote] = useState('')
+  const [playIntentVoiceMode, setPlayIntentVoiceMode] = useState<PlayIntentVoiceMode>('none')
   const [playIntentVoiceChannelId, setPlayIntentVoiceChannelId] = useState('')
   const [playIntentVoiceChannelName, setPlayIntentVoiceChannelName] = useState('')
   const [playIntentVoiceChannelOptions, setPlayIntentVoiceChannelOptions] = useState<DiscordVoiceChannel[]>([])
@@ -382,6 +392,7 @@ export function useDashboardPlay({
       setPlayIntentEndAtInput(buildPlayIntentEndTimeInputValue(defaultPlayIntentDurationMinutes))
       setPlayIntentTitle('')
       setPlayIntentNote('')
+      setPlayIntentVoiceMode('none')
       setPlayIntentVoiceChannelId('')
       setPlayIntentVoiceChannelName('')
       setSelectedPlayIntentGameIds([])
@@ -410,6 +421,13 @@ export function useDashboardPlay({
     setPlayIntentEndAtInput(toLocalDateTimeInputValue(activePlayIntent.windowEndsAt))
     setPlayIntentTitle(activePlayIntent.title)
     setPlayIntentNote(activePlayIntent.note)
+    setPlayIntentVoiceMode(
+      activePlayIntent.discordSpace
+        ? 'temporary'
+        : activePlayIntent.voiceChannelId
+          ? 'existing'
+          : 'none'
+    )
     setPlayIntentVoiceChannelId(activePlayIntent.voiceChannelId ?? '')
     setPlayIntentVoiceChannelName(activePlayIntent.voiceChannelName ?? '')
     setSelectedPlayIntentGameIds(activePlayIntent.games.map((game) => game.id))
@@ -486,6 +504,14 @@ export function useDashboardPlay({
       return
     }
 
+    if (playIntentVoiceMode === 'existing' && !playIntentVoiceChannelId.trim()) {
+      setPlayIntentNotice({
+        tone: 'danger',
+        message: 'Choose an existing Discord voice channel or switch the voice setup back to none.'
+      })
+      return
+    }
+
     if (!shouldSelfTarget && playIntentFilteredAudienceMessage) {
       setPlayIntentNotice({
         tone: 'danger',
@@ -516,11 +542,12 @@ export function useDashboardPlay({
           selectionMode: playIntentSelectionMode,
           notifyScope: playIntentNotifyScope,
           includeSelf: shouldSelfTarget,
+          createDiscordSpace: playIntentVoiceMode === 'temporary',
           ...schedulingPayload,
           ...timingPayload,
           note: playIntentNote.trim() || undefined,
-          voiceChannelId: playIntentVoiceChannelId.trim() || undefined,
-          voiceChannelName: playIntentVoiceChannelName.trim() || undefined,
+          voiceChannelId: playIntentVoiceMode === 'existing' ? playIntentVoiceChannelId.trim() || undefined : undefined,
+          voiceChannelName: playIntentVoiceMode === 'existing' ? playIntentVoiceChannelName.trim() || undefined : undefined,
           gameIds: playIntentSelectionMode === 'subset' ? selectedPlayIntentGameIds : [],
           targetUserIds: playIntentNotifyScope === 'specific-friends' ? selectedPlayIntentTargetUserIds : [],
           targetDiscordServerIds: playIntentNotifyScope === 'specific-discord-server'
@@ -555,11 +582,14 @@ export function useDashboardPlay({
           : parsedResponse.notifiedFriendCount > 0
             ? `Your call to play is live. ${parsedResponse.notifiedFriendCount} ${parsedResponse.notifiedFriendCount === 1 ? 'person with a matching game was' : 'people with matching games were'} notified.`
             : 'Your call to play is live. No Discord DMs were delivered yet.'
+      const discordSpaceMessage = parsedResponse.activeIntent.discordSpace
+        ? ' A temporary Discord channel request was saved for this call to play.'
+        : ''
       setActivePlayIntent(parsedResponse.activeIntent)
       setIsPlayIntentComposerOpen(false)
       setPlayIntentNotice({
         tone: 'success',
-        message: successMessage
+        message: `${successMessage}${discordSpaceMessage}`
       })
       void loadDashboard()
     } catch (error) {
@@ -578,6 +608,7 @@ export function useDashboardPlay({
     playIntentDurationMinutes,
     playIntentTitle,
     playIntentNote,
+    playIntentVoiceMode,
     playIntentVoiceChannelId,
     playIntentVoiceChannelName,
     playIntentNotifyScope,
@@ -757,10 +788,22 @@ export function useDashboardPlay({
     setPlayIntentNotice(null)
   }, [setPlayIntentNotice])
 
+  const handlePlayIntentVoiceModeChange = useCallback((mode: PlayIntentVoiceMode) => {
+    setPlayIntentVoiceMode(mode)
+
+    if (mode !== 'existing') {
+      setPlayIntentVoiceChannelId('')
+      setPlayIntentVoiceChannelName('')
+    }
+
+    setPlayIntentNotice(null)
+  }, [setPlayIntentNotice])
+
   const handlePlayIntentVoiceChannelSelect = useCallback((channelId: string | null) => {
     if (!channelId) {
       setPlayIntentVoiceChannelId('')
       setPlayIntentVoiceChannelName('')
+      setPlayIntentVoiceMode('none')
       setPlayIntentNotice(null)
       return
     }
@@ -771,6 +814,7 @@ export function useDashboardPlay({
       return
     }
 
+    setPlayIntentVoiceMode('existing')
     setPlayIntentVoiceChannelId(selectedChannel.id)
     setPlayIntentVoiceChannelName(selectedChannel.name)
     setPlayIntentNotice(null)
@@ -904,6 +948,8 @@ export function useDashboardPlay({
     onPlayIntentTitleChange: handlePlayIntentTitleChange,
     playIntentNote,
     onPlayIntentNoteChange: handlePlayIntentNoteChange,
+    playIntentVoiceMode,
+    onPlayIntentVoiceModeChange: handlePlayIntentVoiceModeChange,
     playIntentVoiceChannelId,
     playIntentVoiceChannelOptions,
     onPlayIntentVoiceChannelSelect: handlePlayIntentVoiceChannelSelect,

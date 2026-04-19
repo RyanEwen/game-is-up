@@ -243,7 +243,12 @@ export function PlayIntentCard({
         </Typography>
       ) : null}
 
-      {intent.voiceChannelName ? (
+      {intent.discordSpace ? (
+        <Typography level="body-sm" sx={{ mb: 1.5, color: 'neutral.300' }}>
+          Temporary Discord channel
+          {intent.discordSpace.voiceChannelName ? `: ${intent.discordSpace.voiceChannelName}` : ''}
+        </Typography>
+      ) : intent.voiceChannelName ? (
         <Typography level="body-sm" sx={{ mb: 1.5, color: 'neutral.300' }}>
           Voice channel: {intent.voiceChannelName}
         </Typography>

@@ -18,7 +18,7 @@ import {
   playIntentPresetDurations
 } from './dashboardUtils'
 import { DashboardModalActionBar } from './DashboardModalActionBar'
-import type { PlayIntentStartMode, PlayIntentTimingMode } from './types'
+import type { PlayIntentStartMode, PlayIntentTimingMode, PlayIntentVoiceMode } from './types'
 
 export function PlayIntentComposerCard({
   activePlayIntent,
@@ -60,6 +60,8 @@ export function PlayIntentComposerCard({
   onPlayIntentTitleChange,
   playIntentNote,
   onPlayIntentNoteChange,
+  playIntentVoiceMode,
+  onPlayIntentVoiceModeChange,
   playIntentVoiceChannelId,
   playIntentVoiceChannelOptions,
   onPlayIntentVoiceChannelSelect,
@@ -108,6 +110,8 @@ export function PlayIntentComposerCard({
   onPlayIntentTitleChange: (value: string) => void;
   playIntentNote: string;
   onPlayIntentNoteChange: (value: string) => void;
+  playIntentVoiceMode: PlayIntentVoiceMode;
+  onPlayIntentVoiceModeChange: (mode: PlayIntentVoiceMode) => void;
   playIntentVoiceChannelId: string;
   playIntentVoiceChannelOptions: DiscordVoiceChannel[];
   onPlayIntentVoiceChannelSelect: (channelId: string | null) => void;
@@ -498,29 +502,66 @@ export function PlayIntentComposerCard({
         </Stack>
 
         <Stack spacing={1}>
-          <Typography level="title-sm">Discord voice channel (optional)</Typography>
-          <Select
-            value={playIntentVoiceChannelId || null}
-            placeholder={playIntentVoiceChannelOptions.length > 0 ? 'Pick a channel' : 'No selected Discord server channels available'}
-            onChange={(_event, value) => onPlayIntentVoiceChannelSelect(value && value.length > 0 ? value : null)}
-          >
-            <Option value="">No voice channel</Option>
-            {voiceChannelsByServer.flatMap((group) => [
-              <Option key={`server-${group.serverId}`} value={`server-${group.serverId}`} disabled>
-                <Stack direction="row" spacing={1} alignItems="center">
-                  <Avatar src={group.serverIconUrl ?? undefined} alt={group.serverName} size="sm" variant="soft" />
-                  <Typography level="body-sm" sx={{ color: 'neutral.300', fontWeight: 'lg' }}>
-                    {group.serverName}
-                  </Typography>
-                </Stack>
-              </Option>,
-              ...group.channels.map((channel) => (
-                <Option key={channel.id} value={channel.id} sx={{ pl: 5 }}>
-                  {channel.name}
-                </Option>
-              ))
-            ])}
-          </Select>
+          <Typography level="title-sm">Voice setup (optional)</Typography>
+          <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+            {([
+              ['none', 'None'],
+              ['existing', 'Existing Discord channel'],
+              ['temporary', 'Temporary Discord channel']
+            ] as const).map(([voiceMode, label]) => (
+              <Button
+                key={voiceMode}
+                size="sm"
+                variant={playIntentVoiceMode === voiceMode ? 'solid' : 'outlined'}
+                color={playIntentVoiceMode === voiceMode ? 'primary' : 'neutral'}
+                onClick={() => onPlayIntentVoiceModeChange(voiceMode)}
+              >
+                {label}
+              </Button>
+            ))}
+          </Stack>
+
+          {playIntentVoiceMode === 'existing' ? (
+            <>
+              <Select
+                value={playIntentVoiceChannelId || null}
+                placeholder={playIntentVoiceChannelOptions.length > 0 ? 'Pick a channel' : 'No selected Discord server channels available'}
+                onChange={(_event, value) => onPlayIntentVoiceChannelSelect(value && value.length > 0 ? value : null)}
+              >
+                <Option value="">No voice channel</Option>
+                {voiceChannelsByServer.flatMap((group) => [
+                  <Option key={`server-${group.serverId}`} value={`server-${group.serverId}`} disabled>
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <Avatar src={group.serverIconUrl ?? undefined} alt={group.serverName} size="sm" variant="soft" />
+                      <Typography level="body-sm" sx={{ color: 'neutral.300', fontWeight: 'lg' }}>
+                        {group.serverName}
+                      </Typography>
+                    </Stack>
+                  </Option>,
+                  ...group.channels.map((channel) => (
+                    <Option key={channel.id} value={channel.id} sx={{ pl: 5 }}>
+                      {channel.name}
+                    </Option>
+                  ))
+                ])}
+              </Select>
+              <Typography level="body-xs" sx={{ color: 'neutral.300' }}>
+                Use an existing voice channel from one of your selected Discord servers.
+              </Typography>
+            </>
+          ) : null}
+
+          {playIntentVoiceMode === 'temporary' ? (
+            <Typography level="body-xs" sx={{ color: 'neutral.300' }}>
+              Create temporary hidden text and voice channels in the Game's Up Discord server. People already in that server will get links immediately, and others can join from the invite when needed.
+            </Typography>
+          ) : null}
+
+          {playIntentVoiceMode === 'none' ? (
+            <Typography level="body-xs" sx={{ color: 'neutral.300' }}>
+              No voice channel will be attached to this call to play.
+            </Typography>
+          ) : null}
         </Stack>
 
         {playIntentFilteredAudienceMessage ? (

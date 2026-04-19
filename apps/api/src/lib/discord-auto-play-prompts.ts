@@ -1010,6 +1010,7 @@ export async function handleDiscordAutoPlayPromptInteraction(interaction: Button
       selectionMode: 'subset',
       notifyScope: action.notifyScope,
       includeSelf: false,
+      createDiscordSpace: false,
       gameIds: [prompt.game.id],
       targetUserIds: [],
       targetDiscordServerIds: [],

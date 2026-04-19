@@ -1,5 +1,5 @@
 import type { PlayIntentFeed, PlayIntentPreview } from '@game-is-up/shared'
-import { GameIntentType, NotificationResponseChoice, NotificationType, PlayIntentSelectionMode, PlayIntentScope } from '@prisma/client'
+import { GameIntentType, NotificationResponseChoice, NotificationType, PlayIntentDiscordSpaceStatus, PlayIntentSelectionMode, PlayIntentScope } from '@prisma/client'
 import {
   buildDiscordServerIconUrl,
   getDiscordMembershipServerIds,
@@ -58,6 +58,48 @@ function serializeTargetDiscordServers(
   return targetDiscordServers
     .map((entry) => serializeTargetDiscordServer(entry.server))
     .filter((server): server is NonNullable<ReturnType<typeof serializeTargetDiscordServer>> => server !== null)
+}
+
+function toDiscordSpaceStatus(status: PlayIntentDiscordSpaceStatus) {
+  switch (status) {
+    case PlayIntentDiscordSpaceStatus.PROVISIONING:
+      return 'provisioning'
+    case PlayIntentDiscordSpaceStatus.ACTIVE:
+      return 'active'
+    case PlayIntentDiscordSpaceStatus.RETAINED:
+      return 'retained'
+    case PlayIntentDiscordSpaceStatus.DELETE_REQUESTED:
+      return 'delete-requested'
+    case PlayIntentDiscordSpaceStatus.DELETED:
+      return 'deleted'
+    case PlayIntentDiscordSpaceStatus.PROVISION_FAILED:
+      return 'provision-failed'
+    default:
+      return 'requested'
+  }
+}
+
+function serializeDiscordSpace(space: {
+  serverId: string;
+  status: PlayIntentDiscordSpaceStatus;
+  roleName: string | null;
+  categoryChannelName: string | null;
+  textChannelName: string | null;
+  voiceChannelName: string | null;
+  deleteAfter: Date | null;
+} | null): PlayIntentPreview['discordSpace'] {
+  if (!space) {
+    return null
+  }
+
+  return {
+    status: toDiscordSpaceStatus(space.status),
+    serverId: space.serverId,
+    categoryChannelName: space.categoryChannelName,
+    textChannelName: space.textChannelName,
+    voiceChannelName: space.voiceChannelName,
+    deleteAfter: space.deleteAfter?.toISOString() ?? null
+  }
 }
 
 export async function buildPlayIntentFeed(viewerId?: string | null): Promise<PlayIntentFeed> {
@@ -162,6 +204,17 @@ export async function buildPlayIntentFeed(viewerId?: string | null): Promise<Pla
       games: {
         include: {
           game: true
+        }
+      },
+      discordSpace: {
+        select: {
+          serverId: true,
+          status: true,
+          roleName: true,
+          categoryChannelName: true,
+          textChannelName: true,
+          voiceChannelName: true,
+          deleteAfter: true
         }
       },
       platforms: true,
@@ -313,6 +366,7 @@ export async function buildPlayIntentFeed(viewerId?: string | null): Promise<Pla
         note: intent.note,
         voiceChannelId: intent.voiceChannelId,
         voiceChannelName: intent.voiceChannelName,
+        discordSpace: serializeDiscordSpace(intent.discordSpace),
         viewerResponseChoice: recipientNotificationState?.responseChoice ?? null,
         interestedUsers,
         interestedCount: interestedUsers.length,

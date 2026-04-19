@@ -199,6 +199,25 @@ export const upsertLibraryEntryRequestSchema = z.object({
 export const playIntentSelectionModeSchema = z.enum(['library', 'subset'])
 export const playIntentNotifyScopeSchema = z.enum(['network', 'friends-only', 'specific-friends', 'specific-discord-server'])
 
+export const playIntentDiscordSpaceStatusSchema = z.enum([
+  'requested',
+  'provisioning',
+  'active',
+  'retained',
+  'delete-requested',
+  'deleted',
+  'provision-failed'
+])
+
+export const playIntentDiscordSpaceSchema = z.object({
+  status: playIntentDiscordSpaceStatusSchema,
+  serverId: z.string().min(1),
+  categoryChannelName: z.string().min(1).nullable(),
+  textChannelName: z.string().min(1).nullable(),
+  voiceChannelName: z.string().min(1).nullable(),
+  deleteAfter: z.string().datetime().nullable()
+})
+
 export const playIntentGameSchema = z.object({
   id: z.string().uuid(),
   title: z.string().min(1),
@@ -227,6 +246,7 @@ export const playIntentPreviewSchema = z.object({
   note: z.string().max(140),
   voiceChannelId: z.string().min(1).nullable(),
   voiceChannelName: z.string().min(1).nullable(),
+  discordSpace: playIntentDiscordSpaceSchema.nullable().default(null),
   viewerResponseChoice: z.enum(['interested', 'pass']).nullable().default(null),
   interestedUsers: z.array(playIntentPreviewUserSchema).default([]),
   interestedCount: z.number().int().min(0),
@@ -250,6 +270,7 @@ export const activePlayIntentSchema = z.object({
   note: z.string().max(140),
   voiceChannelId: z.string().min(1).nullable(),
   voiceChannelName: z.string().min(1).nullable(),
+  discordSpace: playIntentDiscordSpaceSchema.nullable().default(null),
   windowStartsAt: z.string().datetime(),
   windowEndsAt: z.string().datetime(),
   expiresAt: z.string().datetime(),
@@ -277,6 +298,7 @@ export const upsertPlayIntentRequestSchema = z.object({
   selectionMode: playIntentSelectionModeSchema,
   notifyScope: playIntentNotifyScopeSchema,
   includeSelf: z.boolean().optional().default(false),
+  createDiscordSpace: z.boolean().optional().default(false),
   note: z.string().trim().max(140).optional(),
   voiceChannelId: z.string().trim().min(1).max(32).optional(),
   voiceChannelName: z.string().trim().min(1).max(100).optional(),
@@ -324,6 +346,22 @@ export const upsertPlayIntentRequestSchema = z.object({
       code: z.ZodIssueCode.custom,
       message: 'Target Discord servers are only valid for the specific Discord server audience.',
       path: ['targetDiscordServerIds']
+    })
+  }
+
+  if (value.createDiscordSpace && (value.voiceChannelId || value.voiceChannelName)) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Choose either an existing voice channel or a temporary Discord channel.',
+      path: ['voiceChannelId']
+    })
+  }
+
+  if ((value.voiceChannelId == null) !== (value.voiceChannelName == null)) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Voice channel selections must include both the channel id and name.',
+      path: ['voiceChannelId']
     })
   }
 })
@@ -836,6 +874,7 @@ export const serverEnvSchema = z.object({
   DISCORD_CALLBACK_URL: z.string().url().optional(),
   DISCORD_BOT_TOKEN: z.string().optional(),
   DISCORD_BOT_MODE: discordBotModeSchema.optional(),
+  DISCORD_SERVER_ID: z.string().optional(),
   DISCORD_SEND_REAL_DMS_IN_DEV: z.enum(['true', 'false']).optional().transform((value) => value === 'true'),
   STEAM_CALLBACK_URL: z.string().url().optional(),
   STEAM_WEB_API_KEY: z.string().optional(),
@@ -881,6 +920,8 @@ export type DiscoveryGame = z.infer<typeof discoveryGameSchema>;
 export type DiscoveryFeed = z.infer<typeof discoveryFeedSchema>;
 export type PlayIntentSelectionMode = z.infer<typeof playIntentSelectionModeSchema>;
 export type PlayIntentNotifyScope = z.infer<typeof playIntentNotifyScopeSchema>;
+export type PlayIntentDiscordSpaceStatus = z.infer<typeof playIntentDiscordSpaceStatusSchema>;
+export type PlayIntentDiscordSpace = z.infer<typeof playIntentDiscordSpaceSchema>;
 export type PlayIntentPreview = z.infer<typeof playIntentPreviewSchema>;
 export type PlayIntentFeed = z.infer<typeof playIntentFeedSchema>;
 export type ActivePlayIntent = z.infer<typeof activePlayIntentSchema>;

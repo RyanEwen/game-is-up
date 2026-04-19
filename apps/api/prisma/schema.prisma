@@ -42,6 +42,23 @@ enum PlayIntentSelectionMode {
   SELECTED_GAMES
 }
 
+enum PlayIntentDiscordSpaceStatus {
+  REQUESTED
+  PROVISIONING
+  ACTIVE
+  RETAINED
+  DELETE_REQUESTED
+  DELETED
+  PROVISION_FAILED
+}
+
+enum PlayIntentDiscordSpaceAccessSource {
+  CREATOR
+  AUDIENCE_SYNC
+  INTERESTED_RESPONSE
+  MANUAL_SHARE
+}
+
 enum NotificationType {
   FRIEND_PLAYING
   MUTUAL_FRIEND
@@ -115,6 +132,7 @@ model User {
   sentDiscordInvites DiscordInviteAttribution[] @relation("discord_invite_senders")
   reportsFiled      Report[]           @relation("reporter")
   reportsReceived   Report[]           @relation("reported")
+  playIntentDiscordSpaceAccessGrants PlayIntentDiscordSpaceAccessGrant[]
 }
 
 model UserIdentity {
@@ -317,11 +335,62 @@ model PlayIntent {
   games          PlayIntentGame[]
   platforms      PlayIntentPlatform[]
   targetFriends  PlayIntentTargetFriend[]
+  discordSpace            PlayIntentDiscordSpace?
   autoPrompts    DiscordAutoPlayPrompt[] @relation("auto_prompt_play_intent")
   notifications  Notification[]
 
   @@index([userId, expiresAt])
   @@index([selectionMode, expiresAt])
+}
+
+model PlayIntentDiscordSpace {
+  id                  String                      @id @default(uuid())
+  playIntentId        String                      @unique
+  serverId            String
+  status              PlayIntentDiscordSpaceStatus @default(REQUESTED)
+  roleId              String?
+  roleName            String?
+  categoryChannelId   String?
+  categoryChannelName String?
+  textChannelId       String?
+  textChannelName     String?
+  voiceChannelId      String?
+  voiceChannelName    String?
+  inviteCode          String?
+  inviteUseCount      Int                         @default(0)
+  inviteUrl           String?
+  provisionedAt       DateTime?
+  deleteAfter         DateTime?
+  deleteRequestedAt   DateTime?
+  deletedAt           DateTime?
+  lastSyncError       String?
+  createdAt           DateTime                    @default(now())
+  updatedAt           DateTime                    @updatedAt
+  playIntent          PlayIntent                  @relation(fields: [playIntentId], references: [id], onDelete: Cascade)
+  accessGrants        PlayIntentDiscordSpaceAccessGrant[]
+
+  @@index([serverId, status])
+  @@index([status, deleteAfter])
+}
+
+model PlayIntentDiscordSpaceAccessGrant {
+  id               String                            @id @default(uuid())
+  spaceId          String
+  userId           String
+  source           PlayIntentDiscordSpaceAccessSource @default(AUDIENCE_SYNC)
+  inServer         Boolean                           @default(false)
+  inviteSentAt     DateTime?
+  roleGrantedAt    DateTime?
+  joinedViaInviteAt DateTime?
+  revokedAt        DateTime?
+  createdAt        DateTime                          @default(now())
+  updatedAt        DateTime                          @updatedAt
+  space            PlayIntentDiscordSpace            @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  user             User                              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([spaceId, userId])
+  @@index([userId, revokedAt])
+  @@index([spaceId, inServer, revokedAt])
 }
 
 model PlayIntentTargetDiscordServer {

@@ -19,7 +19,13 @@ import { PlayIntentComposerCard } from '../components/dashboard/PlayIntentCompos
 import { CtpDmInboxDialog } from './DebugDmSurface'
 import { formatNotifyScopeLabel, formatPlayIntentSelectionModeLabel } from '../components/dashboard/dashboardUtils'
 import { useDashboardContext } from '../contexts/useDashboardContext'
-import type { DashboardLibraryQuickAddGame, FriendTarget, PlayIntentStartMode, PlayIntentTimingMode } from '../components/dashboard/types'
+import type {
+  DashboardLibraryQuickAddGame,
+  FriendTarget,
+  PlayIntentStartMode,
+  PlayIntentTimingMode,
+  PlayIntentVoiceMode
+} from '../components/dashboard/types'
 
 type PlayIntentAudienceFilter = 'applicable' | 'all'
 
@@ -192,10 +198,26 @@ function OwnActivePlayIntentCard({
           ) : null}
         </Stack>
 
-        {activePlayIntent.voiceChannelName ? (
+        {!activePlayIntent.discordSpace && activePlayIntent.voiceChannelName ? (
           <Typography level="body-sm" sx={{ color: 'neutral.200' }}>
             Voice channel: {activePlayIntent.voiceChannelName}
           </Typography>
+        ) : null}
+
+        {activePlayIntent.discordSpace ? (
+          <Stack spacing={0.5}>
+            <Typography level="body-sm" sx={{ color: 'neutral.200' }}>
+              Temporary Discord channel: {activePlayIntent.discordSpace.status === 'requested' ? 'requested' : activePlayIntent.discordSpace.status.replace('-', ' ')}
+            </Typography>
+            {activePlayIntent.discordSpace.textChannelName || activePlayIntent.discordSpace.voiceChannelName ? (
+              <Typography level="body-xs" sx={{ color: 'neutral.300' }}>
+                {[
+                  activePlayIntent.discordSpace.textChannelName ? `#${activePlayIntent.discordSpace.textChannelName}` : null,
+                  activePlayIntent.discordSpace.voiceChannelName ? activePlayIntent.discordSpace.voiceChannelName : null
+                ].filter((value): value is string => Boolean(value)).join(' • ')}
+              </Typography>
+            ) : null}
+          </Stack>
         ) : null}
 
         <InterestedPlayerList
@@ -271,6 +293,8 @@ function PlayViewContent({
   onPlayIntentTitleChange,
   playIntentNote,
   onPlayIntentNoteChange,
+  playIntentVoiceMode,
+  onPlayIntentVoiceModeChange,
   playIntentVoiceChannelId,
   playIntentVoiceChannelOptions,
   onPlayIntentVoiceChannelSelect,
@@ -342,6 +366,8 @@ function PlayViewContent({
   onPlayIntentTitleChange: (value: string) => void;
   playIntentNote: string;
   onPlayIntentNoteChange: (value: string) => void;
+  playIntentVoiceMode: PlayIntentVoiceMode;
+  onPlayIntentVoiceModeChange: (mode: PlayIntentVoiceMode) => void;
   playIntentVoiceChannelId: string;
   playIntentVoiceChannelOptions: DiscordVoiceChannel[];
   onPlayIntentVoiceChannelSelect: (channelId: string | null) => void;
@@ -470,6 +496,8 @@ function PlayViewContent({
               onPlayIntentTitleChange={onPlayIntentTitleChange}
               playIntentNote={playIntentNote}
               onPlayIntentNoteChange={onPlayIntentNoteChange}
+              playIntentVoiceMode={playIntentVoiceMode}
+              onPlayIntentVoiceModeChange={onPlayIntentVoiceModeChange}
               playIntentVoiceChannelId={playIntentVoiceChannelId}
               playIntentVoiceChannelOptions={playIntentVoiceChannelOptions}
               onPlayIntentVoiceChannelSelect={onPlayIntentVoiceChannelSelect}

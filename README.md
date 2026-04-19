@@ -109,8 +109,9 @@ The repository now includes a root `compose.yml` for production-style local or s
 
 1. Copy `.env.production.example` to `.env` and set at least `SESSION_SECRET` to a long random value.
 2. For a real deployment, set `CLIENT_ORIGIN` to your public app URL and set `DISCORD_CALLBACK_URL` to `${CLIENT_ORIGIN}/api/auth/discord/callback`.
-3. If you want the web container to proxy API traffic on the same origin, leave `VITE_API_BASE_URL` empty.
-4. Build and start the stack:
+3. If you want Play composer calls to create temporary Discord channels in the Game's Up Discord server, also set `DISCORD_SERVER_ID` to that server's guild id.
+4. If you want the web container to proxy API traffic on the same origin, leave `VITE_API_BASE_URL` empty.
+5. Build and start the stack:
 
   ```bash
   docker compose up --build -d
@@ -122,7 +123,7 @@ The repository now includes a root `compose.yml` for production-style local or s
   docker compose up --build -d && npm run cache:purge:cloudflare
   ```
 
-5. Open the app on `http://localhost:8080` by default. If you need a different host port, set `PORT`, for example `PORT=9090 docker compose up --build -d`.
+6. Open the app on `http://localhost:8080` by default. If you need a different host port, set `PORT`, for example `PORT=9090 docker compose up --build -d`.
 
 For a minimal SSH-driven deployment from your local workspace, the repo now includes:
 
@@ -208,30 +209,31 @@ This repo now treats Prisma migrations as the source of truth for schema changes
 12. If you want the app to browse every member in a selected Discord server for invite targeting, the bot also needs the Server Members intent enabled in the Discord developer portal.
 13. When a call to play matches someone who should be notified and that user has a linked Discord account, the bot can DM them directly. Quick response buttons in Discord are only active in the gateway-owning environment.
 14. If a notified recipient marks themselves interested from Discord, the creator gets a follow-up DM confirmation. Recipients can also choose Pass without notifying the creator, and can still switch to interested later. Recipient DMs now hide the response button for the choice the user already made, and recipients who already have an overlapping active call to play are filtered out before those call notifications are sent.
-15. Users can leave a Play page setting on by default so the gateway-owning bot can DM them after it sees them start a game and offer to create a call to play straight from Discord. Those prompts only go out when there is no active call already, at least one visible overlap could receive it, and the same game has not already prompted that user in the last 10 minutes.
-16. Unanswered Discord call-to-play invites and auto-play prompts are edited in place when they go stale, so users see that the session ended or the observed game activity stopped instead of keeping an outdated call to action. Manual call-to-play cancellations and clears instead replace audience DMs with a fresh ended-summary message so Discord sends a new notification, and retained ended summaries can expose an `Archive` action when interactive Discord buttons are available.
-17. Scheduled calls to play still notify the target audience immediately when created. At start time, the creator now gets a check-in prompt to confirm whether the plan is still on.
-18. If the creator confirms, users who already accepted get a go-time update and users who never answered get one follow-up reminder. Those go-time DMs stay actionable: accepted recipients can back out with a `No longer interested` action, unanswered recipients still get the normal `I'm interested` and `Pass` actions, the messages include the current interested count and interested-user list where relevant, and they still skip recipients who already declined or muted that creator.
-19. When a call to play is created, the creator also gets a persistent Discord DM summary. Major lifecycle updates can still replace that DM with a fresh message so Discord emits a notification, but audience response updates now edit the existing summary in place because the creator also receives a separate response-notification DM. Quiet expiry or archive cleanup also falls back to edit-in-place behavior, and expired retained summaries can switch to an archive action for the creator. In the gateway-owning environment, active summaries still include a creator-only cancel button.
-20. For active single-game calls to play, the gateway-owning bot now sends one launch alert when the creator starts that game and one launch alert to the creator each time an already-interested audience member initially starts it. Those alerts are one-time per active call and reset when the call changes.
-21. Call-to-play DMs now use natural local time phrasing such as `Friday Apr 17th at 10pm, for 2 hours` instead of raw timezone-abbreviation ranges.
-22. Admin users can inspect a DM emulator in the debug surface and from Play cards. That emulator shows the latest thread state plus derived revisions for tracked call-to-play DMs, and the debug view now includes a DM template library for the major Discord DM flows with a self-send sample action for each template.
-23. Structured Discord DMs now prefer embed layouts where that feels natural, and the debug DM emulator mirrors those embed payloads, fields, images, and buttons so admin previews match the live bot output more closely.
-24. Admin users can also post a self-only test call to play from the Play composer. That path targets only the creator for the audience-facing DM flow instead of adding the creator onto the normally selected audience.
-25. Bot-authored Discord DMs tied to tracked call-to-play and auto-play flows still participate in retention cleanup, but call-to-play threads now retain one ended-history DM per user and per call to play instead of deleting the entire thread state until a user explicitly archives or cleans them up.
-26. In the gateway-owning environment, linked users can also send the bot DM commands for lightweight control without reopening the app: `help`, `status`, `cancel`, `autoplay`, and `cleanup`. The `cleanup` command removes older bot-authored DM clutter in that thread and keeps at most the newest still-active tracked bot message.
-27. In that same gateway-owning environment, the bot also registers guild-only slash commands for adoption flows: `invite-user`, `invite-link`, `app-members`, and `server-ctps`.
-28. Discord invite links now open a dedicated invite landing page, preserve server and inviter context through Discord OAuth, and can attribute a first accepted sign-in back to the originating Discord invite.
-29. Admin debug now includes an invite-attribution section so recent accepted invite flows can be verified without querying the database directly.
-30. The Play view keeps recently ended calls to play visible for 24 hours as closed cards, shows whether each call currently applies to your library, and only leaves response actions enabled while the call is still active and applicable.
-31. Discovery-based play-intent visibility can now include both explicit friends and users from the Discord servers you opted into discovery.
-32. Discovery remains based on opted-in shared Discord servers plus explicit in-app friendships. The Discord friend-list import path has been removed.
-33. Discord is still the only sign-in path in this scaffold.
-34. Steam can now be linked as a secondary account for library import only. It does not replace Discord auth or discovery.
-35. Linked-account flows like Discord sign-in and Steam linking return directly to the current web URL after the provider callback completes.
-36. Call-to-play DMs now include a clickable creator Discord mention when available.
-37. Subset call-to-play DMs can include game art for small selected-game sets: single-game calls show the chosen cover directly, and small multi-game sets show a lead cover with a short title list.
-38. Signed-in web sessions now subscribe to an authenticated dashboard SSE stream so open tabs refresh automatically after impactful changes such as play-intent updates, library edits, friend changes, Discord server selection changes, and linked-account or profile updates.
+15. Calls to play can optionally request temporary Discord channels in the Game's Up Discord server. People who are already in that server get channel links immediately, people who join later can be granted access on demand, and creators can delete the retained channels early after the call ends.
+16. Users can leave a Play page setting on by default so the gateway-owning bot can DM them after it sees them start a game and offer to create a call to play straight from Discord. Those prompts only go out when there is no active call already, at least one visible overlap could receive it, and the same game has not already prompted that user in the last 10 minutes.
+17. Unanswered Discord call-to-play invites and auto-play prompts are edited in place when they go stale, so users see that the session ended or the observed game activity stopped instead of keeping an outdated call to action. Manual call-to-play cancellations and clears instead replace audience DMs with a fresh ended-summary message so Discord sends a new notification, and retained ended summaries can expose an `Archive` action when interactive Discord buttons are available.
+18. Scheduled calls to play still notify the target audience immediately when created. At start time, the creator now gets a check-in prompt to confirm whether the plan is still on.
+19. If the creator confirms, users who already accepted get a go-time update and users who never answered get one follow-up reminder. Those go-time DMs stay actionable: accepted recipients can back out with a `No longer interested` action, unanswered recipients still get the normal `I'm interested` and `Pass` actions, the messages include the current interested count and interested-user list where relevant, and they still skip recipients who already declined or muted that creator.
+20. When a call to play is created, the creator also gets a persistent Discord DM summary. Major lifecycle updates can still replace that DM with a fresh message so Discord emits a notification, but audience response updates now edit the existing summary in place because the creator also receives a separate response-notification DM. Quiet expiry or archive cleanup also falls back to edit-in-place behavior, and expired retained summaries can switch to an archive action for the creator. In the gateway-owning environment, active summaries still include a creator-only cancel button.
+21. For active single-game calls to play, the gateway-owning bot now sends one launch alert when the creator starts that game and one launch alert to the creator each time an already-interested audience member initially starts it. Those alerts are one-time per active call and reset when the call changes.
+22. Call-to-play DMs now use natural local time phrasing such as `Friday Apr 17th at 10pm, for 2 hours` instead of raw timezone-abbreviation ranges.
+23. Admin users can inspect a DM emulator in the debug surface and from Play cards. That emulator shows the latest thread state plus derived revisions for tracked call-to-play DMs, and the debug view now includes a DM template library for the major Discord DM flows with a self-send sample action for each template.
+24. Structured Discord DMs now prefer embed layouts where that feels natural, and the debug DM emulator mirrors those embed payloads, fields, images, and buttons so admin previews match the live bot output more closely.
+25. Admin users can also post a self-only test call to play from the Play composer. That path targets only the creator for the audience-facing DM flow instead of adding the creator onto the normally selected audience.
+26. Bot-authored Discord DMs tied to tracked call-to-play and auto-play flows still participate in retention cleanup, but call-to-play threads now retain one ended-history DM per user and per call to play instead of deleting the entire thread state until a user explicitly archives or cleans them up.
+27. In the gateway-owning environment, linked users can also send the bot DM commands for lightweight control without reopening the app: `help`, `status`, `cancel`, `autoplay`, and `cleanup`. The `cleanup` command removes older bot-authored DM clutter in that thread and keeps at most the newest still-active tracked bot message.
+28. In that same gateway-owning environment, the bot also registers guild-only slash commands for adoption flows: `invite-user`, `invite-link`, `app-members`, and `server-ctps`.
+29. Discord invite links now open a dedicated invite landing page, preserve server and inviter context through Discord OAuth, and can attribute a first accepted sign-in back to the originating Discord invite.
+30. Admin debug now includes an invite-attribution section so recent accepted invite flows can be verified without querying the database directly.
+31. The Play view keeps recently ended calls to play visible for 24 hours as closed cards, shows whether each call currently applies to your library, and only leaves response actions enabled while the call is still active and applicable.
+32. Discovery-based play-intent visibility can now include both explicit friends and users from the Discord servers you opted into discovery.
+33. Discovery remains based on opted-in shared Discord servers plus explicit in-app friendships. The Discord friend-list import path has been removed.
+34. Discord is still the only sign-in path in this scaffold.
+35. Steam can now be linked as a secondary account for library import only. It does not replace Discord auth or discovery.
+36. Linked-account flows like Discord sign-in and Steam linking return directly to the current web URL after the provider callback completes.
+37. Call-to-play DMs now include a clickable creator Discord mention when available.
+38. Subset call-to-play DMs can include game art for small selected-game sets: single-game calls show the chosen cover directly, and small multi-game sets show a lead cover with a short title list.
+39. Signed-in web sessions now subscribe to an authenticated dashboard SSE stream so open tabs refresh automatically after impactful changes such as play-intent updates, library edits, friend changes, Discord server selection changes, and linked-account or profile updates.
 
 ## Steam import setup
 

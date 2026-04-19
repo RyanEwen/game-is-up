@@ -41,6 +41,7 @@ import {
   handleDiscordDirectMessageCommand,
   handleDiscordDirectMessagePayload
 } from './discord-direct-message-commands.js'
+import { handlePlayIntentDiscordSpaceMemberJoin } from './play-intent-discord-spaces.js'
 import { handleDiscordSlashCommand, registerDiscordSlashCommands } from './discord-slash-commands.js'
 
 type DiscordGuildMemberSummary = {
@@ -938,6 +939,12 @@ export async function startDiscordPresenceBot() {
   client.on(Events.GuildMemberAdd, (member) => {
     invalidateGuildAccessCache(member.guild.id)
     invalidateGuildMemberCache(member.guild.id)
+    void handlePlayIntentDiscordSpaceMemberJoin({
+      serverId: member.guild.id,
+      discordUserId: member.user.id
+    }).catch((error) => {
+      console.error('Failed to handle complementary Discord space member join', error)
+    })
   })
 
   client.on(Events.GuildMemberRemove, (member) => {

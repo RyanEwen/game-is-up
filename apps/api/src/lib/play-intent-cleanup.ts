@@ -7,6 +7,10 @@ import {
   refreshTrackedPlayIntentNotificationDirectMessages,
   sweepScheduledPlayIntentCreatorCheckIns
 } from './play-intent-notification-responses.js'
+import {
+  sweepDeleteDuePlayIntentDiscordSpaces,
+  sweepProvisionPendingPlayIntentDiscordSpaces
+} from './play-intent-discord-spaces.js'
 import { prisma } from './prisma.js'
 
 const playIntentCleanupIntervalMs = 60 * 1000
@@ -56,6 +60,8 @@ async function runCleanupSweep() {
     }
 
     await sweepScheduledPlayIntentCreatorCheckIns()
+    await sweepProvisionPendingPlayIntentDiscordSpaces()
+    await sweepDeleteDuePlayIntentDiscordSpaces()
     await sweepExpiredPlayIntentNotifications()
 
     if (Date.now() - lastStaleDiscordDmSweepStartedAt >= staleDiscordDmSweepIntervalMs) {

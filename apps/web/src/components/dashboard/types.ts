@@ -6,6 +6,7 @@ export type Notice = {
 export type DashboardTab = 'overview' | 'friends' | 'library' | 'discovery' | 'play' | 'debug';
 export type PlayIntentStartMode = 'now' | 'scheduled';
 export type PlayIntentTimingMode = 'preset' | 'custom' | 'end-time';
+export type PlayIntentVoiceMode = 'none' | 'existing' | 'temporary';
 
 export type FriendTarget = {
   id: string;

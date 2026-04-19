@@ -11,9 +11,12 @@ import {
   NotificationResponseChoice,
   NotificationType,
   Prisma,
+  PlayIntentDiscordSpaceStatus,
+  PlayIntentDiscordSpaceAccessSource,
   PlayIntentScope,
   PlayIntentSelectionMode as PrismaPlayIntentSelectionMode
 } from '@prisma/client'
+import { env } from './env.js'
 import {
   buildDiscordServerIconUrl,
   getSelectedDiscordServerIds,
@@ -30,6 +33,11 @@ import {
   expirePendingPlayIntentNotifications,
   syncCreatorPlayIntentSummaryMessages
 } from './play-intent-notification-responses.js'
+import {
+  getPlayIntentDiscordSpaceRecipientContexts,
+  provisionPlayIntentDiscordSpaceByPlayIntentId,
+  type PlayIntentDiscordSpaceRecipientContext
+} from './play-intent-discord-spaces.js'
 import { prisma } from './prisma.js'
 import { formatPlayIntentDurationLabel, formatPlayIntentWindowLabel } from './play-intent-time-format.js'
 
@@ -69,6 +77,17 @@ const activePlayIntentInclude = Prisma.validator<Prisma.PlayIntentInclude>()({
           avatarUrl: true
         }
       }
+    }
+  },
+  discordSpace: {
+    select: {
+      serverId: true,
+      status: true,
+      roleName: true,
+      categoryChannelName: true,
+      textChannelName: true,
+      voiceChannelName: true,
+      deleteAfter: true
     }
   },
   _count: {
@@ -224,12 +243,14 @@ function getUpdatedPlayIntentFields(options: {
     windowStartsAt: Date;
     windowEndsAt: Date;
     note: string;
+    discordSpace: { id: string } | null;
     games: { gameId: string }[];
   };
   nextSelectionMode: PlayIntentSelectionMode;
   nextStartsAt: Date;
   nextEndsAt: Date;
   nextNote: string;
+  nextCreateDiscordSpace: boolean;
   nextSelectedGameIds: string[];
 }) {
   const updatedFields: string[] = []
@@ -260,6 +281,10 @@ function getUpdatedPlayIntentFields(options: {
     updatedFields.push('note')
   }
 
+  if (Boolean(options.previousIntent.discordSpace) !== options.nextCreateDiscordSpace) {
+    updatedFields.push('temporary Discord channel')
+  }
+
   return updatedFields
 }
 
@@ -269,7 +294,7 @@ function shouldRenotifyPriorDecliner(options: {
   targetedFriendUserIds: string[];
   recipientUserId: string;
 }) {
-  if (options.updatedFields.includes('time') || options.updatedFields.includes('game selection')) {
+  if (options.updatedFields.includes('time') || options.updatedFields.includes('game selection') || options.updatedFields.includes('temporary Discord channel')) {
     return true
   }
 
@@ -353,12 +378,63 @@ function serializeTargetDiscordServers(
     .filter((server): server is NonNullable<ReturnType<typeof serializeTargetDiscordServer>> => server !== null)
 }
 
+function toClientDiscordSpaceStatus(status: PlayIntentDiscordSpaceStatus) {
+  switch (status) {
+    case PlayIntentDiscordSpaceStatus.PROVISIONING:
+      return 'provisioning'
+    case PlayIntentDiscordSpaceStatus.ACTIVE:
+      return 'active'
+    case PlayIntentDiscordSpaceStatus.RETAINED:
+      return 'retained'
+    case PlayIntentDiscordSpaceStatus.DELETE_REQUESTED:
+      return 'delete-requested'
+    case PlayIntentDiscordSpaceStatus.DELETED:
+      return 'deleted'
+    case PlayIntentDiscordSpaceStatus.PROVISION_FAILED:
+      return 'provision-failed'
+    default:
+      return 'requested'
+  }
+}
+
+function serializeDiscordSpace(space: {
+  serverId: string;
+  status: PlayIntentDiscordSpaceStatus;
+  roleName: string | null;
+  categoryChannelName: string | null;
+  textChannelName: string | null;
+  voiceChannelName: string | null;
+  deleteAfter: Date | null;
+} | null): ActivePlayIntent['discordSpace'] {
+  if (!space) {
+    return null
+  }
+
+  return {
+    status: toClientDiscordSpaceStatus(space.status),
+    serverId: space.serverId,
+    categoryChannelName: space.categoryChannelName,
+    textChannelName: space.textChannelName,
+    voiceChannelName: space.voiceChannelName,
+    deleteAfter: space.deleteAfter?.toISOString() ?? null
+  }
+}
+
 function serializeActivePlayIntent(intent: {
   id: string;
   headline: string;
   note: string;
   voiceChannelId: string | null;
   voiceChannelName: string | null;
+  discordSpace: {
+    serverId: string;
+    status: PlayIntentDiscordSpaceStatus;
+    roleName: string | null;
+    categoryChannelName: string | null;
+    textChannelName: string | null;
+    voiceChannelName: string | null;
+    deleteAfter: Date | null;
+  } | null;
   selectionMode: PrismaPlayIntentSelectionMode;
   scope: PlayIntentScope;
   targetDiscordServers: Array<{ server: { id: string; name: string; iconHash: string | null } }>;
@@ -394,6 +470,7 @@ function serializeActivePlayIntent(intent: {
     note: intent.note,
     voiceChannelId: intent.voiceChannelId,
     voiceChannelName: intent.voiceChannelName,
+    discordSpace: serializeDiscordSpace(intent.discordSpace),
     windowStartsAt: intent.windowStartsAt.toISOString(),
     windowEndsAt: intent.windowEndsAt.toISOString(),
     expiresAt: intent.expiresAt.toISOString(),
@@ -719,6 +796,14 @@ export async function upsertCurrentPlayIntent(
     throw new PlayIntentValidationError('Add at least one game to your library before posting a call to play.')
   }
 
+  if (payload.createDiscordSpace && !env.DISCORD_SERVER_ID) {
+    throw new PlayIntentValidationError('Temporary Discord channels are not configured yet.')
+  }
+
+  if (payload.createDiscordSpace && (payload.voiceChannelId || payload.voiceChannelName)) {
+    throw new PlayIntentValidationError('Choose either an existing voice channel or a temporary Discord channel.')
+  }
+
   const selectedEntries = payload.selectionMode === 'library'
     ? libraryEntries
     : libraryEntries.filter((entry) => payload.gameIds.includes(entry.gameId))
@@ -866,6 +951,11 @@ export async function upsertCurrentPlayIntent(
           windowStartsAt: true,
           windowEndsAt: true,
           note: true,
+          discordSpace: {
+            select: {
+              id: true
+            }
+          },
           games: {
             select: {
               gameId: true
@@ -932,6 +1022,7 @@ export async function upsertCurrentPlayIntent(
       nextStartsAt: startsAt,
       nextEndsAt: endsAt,
       nextNote: note,
+      nextCreateDiscordSpace: payload.createDiscordSpace,
       nextSelectedGameIds: selectedGameIds
     })
     : []
@@ -995,6 +1086,28 @@ export async function upsertCurrentPlayIntent(
         note,
         voiceChannelId: payload.voiceChannelId ?? null,
         voiceChannelName: payload.voiceChannelName ?? null,
+        discordSpace: payload.createDiscordSpace && env.DISCORD_SERVER_ID
+          ? {
+              create: {
+          serverId: env.DISCORD_SERVER_ID,
+                status: PlayIntentDiscordSpaceStatus.REQUESTED,
+                accessGrants: {
+                  create: [
+                    {
+                      userId,
+                      source: PlayIntentDiscordSpaceAccessSource.CREATOR,
+                      inServer: false
+                    },
+                    ...recipientUserIds.map((recipientUserId) => ({
+                      userId: recipientUserId,
+                      source: PlayIntentDiscordSpaceAccessSource.AUDIENCE_SYNC,
+                      inServer: false
+                    }))
+                  ]
+                }
+              }
+            }
+          : undefined,
         targetDiscordServers: payload.notifyScope === 'specific-discord-server'
           ? {
               create: targetDiscordServers.flatMap((server) => server ? [{ serverId: server.id }] : [])
@@ -1112,6 +1225,16 @@ export async function upsertCurrentPlayIntent(
 
   await expirePendingPlayIntentNotifications(supersededIntentIds)
 
+  let discordSpaceRecipientContexts = new Map<string, PlayIntentDiscordSpaceRecipientContext>()
+
+  if (payload.createDiscordSpace && activeIntentId) {
+    await provisionPlayIntentDiscordSpaceByPlayIntentId(activeIntentId)
+    discordSpaceRecipientContexts = await getPlayIntentDiscordSpaceRecipientContexts(
+      activeIntentId,
+      createdNotifications.map((notification) => notification.userId)
+    )
+  }
+
   let deliveredNotificationCount = 0
 
   if (createdNotifications.length > 0) {
@@ -1174,6 +1297,7 @@ export async function upsertCurrentPlayIntent(
               recipientSharesServer: sharesServer
             }
           : null
+        const discordSpace = discordSpaceRecipientContexts.get(notification.userId) ?? null
 
         return [{
           notificationId: notification.id,
@@ -1187,7 +1311,8 @@ export async function upsertCurrentPlayIntent(
               sender.displayName,
               voiceChannel,
               priorInterestedUserLabels.length > 0 ? priorInterestedUserLabels.length : undefined,
-              priorInterestedUserLabels
+              priorInterestedUserLabels,
+              discordSpace
             ),
             ...dmGameEmbeds
           ]
