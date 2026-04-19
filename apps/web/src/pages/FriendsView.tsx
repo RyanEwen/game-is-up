@@ -75,6 +75,15 @@ function FriendsViewContent({
   const sortedFriends = sortPeople(friends, friendSort, libraryGameIds)
   const sortedAddableFriends = sortPeople(addableFriends, friendSort, libraryGameIds)
 
+  if (!isSignedIn) {
+    return (
+      <EmptyStateCard
+        title="Sign in to manage your friends"
+        body="Friend management becomes available after Discord sign-in. Once you are signed in, you can add people from your network, compare libraries, and keep track of what your friends are playing."
+      />
+    )
+  }
+
   const friendSortControl = friends.length > 0 || addableFriends.length > 0 ? (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
       <Typography level="body-sm" sx={{ color: 'neutral.400', whiteSpace: 'nowrap' }}>Sort by</Typography>

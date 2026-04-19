@@ -115,6 +115,15 @@ function DiscoveryViewContent({
   const [gameSort, setGameSort] = useState<GameSort>('players')
   const [memberSort, setMemberSort] = useState<MemberSort>('games')
 
+  if (!isSignedIn) {
+    return (
+      <EmptyStateCard
+        title="Sign in to discover your network"
+        body="Discovery becomes personalized after Discord sign-in. Once you are signed in, you can compare your library with friends and other people in your network."
+      />
+    )
+  }
+
   const sortedOverlapGames = sortGames(overlapGames, gameSort)
   const sortedBrowseGames = sortGames(browseGames, gameSort)
   const sortedNetworkPeople = sortPeople(networkPeople, memberSort)

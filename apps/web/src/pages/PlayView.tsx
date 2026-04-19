@@ -377,6 +377,16 @@ function PlayViewContent({
   const [activeAudienceFilter, setActiveAudienceFilter] = useState<PlayIntentAudienceFilter>('applicable')
   const [endedAudienceFilter, setEndedAudienceFilter] = useState<PlayIntentAudienceFilter>('applicable')
   const discoveryPeopleById = new Map(discoveryPeople.map((person) => [person.id, person]))
+
+  if (!isSignedIn) {
+    return (
+      <EmptyStateCard
+        title="Sign in to plan calls to play"
+        body="Play becomes personalized after Discord sign-in. Once you are signed in, you can create your own calls to play, see which visible calls apply to you by default, and respond to other players."
+      />
+    )
+  }
+
   const hasScheduledOwnCallToPlay = activePlayIntent ? new Date(activePlayIntent.windowStartsAt).getTime() > Date.now() + 60 * 1000 : false
   const playComposerButtonLabel = activePlayIntent
     ? hasScheduledOwnCallToPlay

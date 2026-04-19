@@ -964,7 +964,7 @@ function LibraryViewContent({
     <Stack spacing={2}>
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'flex-start' }}>
         <Box>
-          <Typography level="h2">Your library</Typography>
+          <Typography level="h2">Your Library</Typography>
           <Typography level="body-md" sx={{ color: 'neutral.300', mt: 0.5 }}>
             Add games to your library to be able to discover others who share your interests.
           </Typography>
