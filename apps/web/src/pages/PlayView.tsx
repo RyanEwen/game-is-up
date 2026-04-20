@@ -18,7 +18,7 @@ import { PlayIntentCard, PlayIntentGameList } from '../components/dashboard/Play
 import { PlayIntentComposerCard } from '../components/dashboard/PlayIntentComposerCard'
 import { SectionNav } from '../components/dashboard/SectionNav'
 import { sectionScrollMarginTop } from '../components/dashboard/SectionNav.constants'
-import { formatNotifyScopeLabel, formatPlayIntentSelectionModeLabel, formatPlayIntentTimingSummary } from '../components/dashboard/dashboardUtils'
+import { buildHeaderFilterSelectSx, formatNotifyScopeLabel, formatPlayIntentSelectionModeLabel, formatPlayIntentTimingSummary, headerFilterControlSx } from '../components/dashboard/dashboardUtils'
 import { useDashboardContext } from '../contexts/useDashboardContext'
 import type {
   DashboardLibraryQuickAddGame,
@@ -29,6 +29,19 @@ import type {
 } from '../components/dashboard/types'
 
 type PlayIntentAudienceFilter = 'applicable' | 'all'
+
+function InterestedCountLabel({ count }: { count: number }) {
+  return (
+    <>
+      <Box component="span" sx={{ display: { xs: 'inline', sm: 'none' } }}>
+        {count} interested
+      </Box>
+      <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+        {count} {count === 1 ? 'person interested' : 'people interested'}
+      </Box>
+    </>
+  )
+}
 
 function sortPlayIntentPreviews(intents: PlayIntentPreview[], status: PlayIntentPreview['status']) {
   return [...intents].sort((left, right) => {
@@ -55,7 +68,7 @@ function PlayIntentFilterControl({
   onChange: (value: PlayIntentAudienceFilter) => void;
 }) {
   return (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+    <Box sx={headerFilterControlSx}>
       <Typography level="body-sm" sx={{ color: 'neutral.400', whiteSpace: 'nowrap' }}>
         Show
       </Typography>
@@ -67,7 +80,7 @@ function PlayIntentFilterControl({
             onChange(nextValue)
           }
         }}
-        sx={{ minWidth: 170 }}
+        sx={buildHeaderFilterSelectSx(170)}
       >
         <Option value="applicable">Only for you</Option>
         <Option value="all">All</Option>
@@ -130,6 +143,18 @@ function OwnActivePlayIntentCard({
   onAddGameToLibrary: (game: DashboardLibraryQuickAddGame) => Promise<void>;
 }) {
   const timingSummary = formatPlayIntentTimingSummary(activePlayIntent.windowStartsAt, activePlayIntent.windowEndsAt)
+  const detailsActionButtonSx = {
+    width: { xs: '100%', sm: 'auto' },
+    alignSelf: { xs: 'stretch', sm: 'flex-start' },
+    minHeight: { xs: 44, sm: '2.25rem' },
+    px: { xs: 2, sm: 1.5 }
+  } as const
+  const secondaryActionButtonSx = {
+    width: { xs: '100%', sm: 'auto' },
+    alignSelf: { xs: 'stretch', sm: 'flex-end' },
+    minHeight: { xs: 40, sm: '2.25rem' },
+    px: { xs: 2, sm: 1.5 }
+  } as const
 
   return (
     <Card
@@ -137,30 +162,30 @@ function OwnActivePlayIntentCard({
       color="primary"
       sx={{
         p: 3,
-        border: '1px solid rgba(87, 244, 193, 0.22)',
-        background: 'linear-gradient(180deg, rgba(15, 84, 68, 0.34), rgba(11, 16, 32, 0.92))',
-        boxShadow: '0 20px 36px -28px rgba(28, 171, 132, 0.5)'
+        border: '1px solid #14886a',
+        background: 'linear-gradient(180deg, #143b33, #0d1322)',
+        boxShadow: 'none'
       }}
     >
       <Stack spacing={2}>
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'flex-start' }}>
-          <Box>
-            <Typography level="body-xs" sx={{ color: 'primary.200', textTransform: 'uppercase', letterSpacing: '0.08em', mb: 0.75 }}>
-              Your active call to play
-            </Typography>
-            <Typography level="title-lg">{activePlayIntent.title}</Typography>
-            <Typography level="body-sm" sx={{ color: 'neutral.200', mt: 0.5 }}>
-              {timingSummary}
-            </Typography>
-          </Box>
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'center' }} sx={{ flexWrap: 'wrap' }}>
-            <Button variant="outlined" color="neutral" onClick={() => onOpenDetails(activePlayIntent.id)}>
+        <Stack spacing={1.25}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.25} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'flex-start' }}>
+            <Box>
+              <Typography level="body-xs" sx={{ color: 'primary.200', textTransform: 'uppercase', letterSpacing: '0.08em', mb: 0.75 }}>
+                Your active call to play
+              </Typography>
+              <Typography level="title-lg">{activePlayIntent.title}</Typography>
+              <Typography level="body-sm" sx={{ color: 'neutral.200', mt: 0.5 }}>
+                {timingSummary}
+              </Typography>
+            </Box>
+            <Button variant="solid" color="primary" onClick={() => onOpenDetails(activePlayIntent.id)} sx={detailsActionButtonSx}>
               Details
             </Button>
-            <Button variant="solid" color="primary" onClick={onEdit}>
-              Edit call to play
-            </Button>
           </Stack>
+          <Button variant="soft" color="neutral" onClick={onEdit} sx={secondaryActionButtonSx}>
+            Edit call to play
+          </Button>
         </Stack>
 
         <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
@@ -190,7 +215,7 @@ function OwnActivePlayIntentCard({
           ))}
           {activePlayIntent.interestedCount > 0 ? (
             <Chip size="sm" color="success" variant="soft">
-              {activePlayIntent.interestedCount} {activePlayIntent.interestedCount === 1 ? 'person interested' : 'people interested'}
+              <InterestedCountLabel count={activePlayIntent.interestedCount} />
             </Chip>
           ) : null}
         </Stack>
@@ -403,8 +428,17 @@ function PlayViewContent({
   )
   const filteredActivePlayIntentPreviews = activePlayIntentPreviews.filter((intent) => activeAudienceFilter === 'all' || intent.appliesToViewer)
   const filteredEndedPlayIntentPreviews = endedPlayIntentPreviews.filter((intent) => endedAudienceFilter === 'all' || intent.appliesToViewer)
+  const activeHeaderControls = isSignedIn ? (
+    <Stack spacing={1} alignItems={{ xs: 'stretch', sm: 'flex-end' }}>
+      <Button color="primary" onClick={openPlayIntentComposer} sx={{ alignSelf: { xs: 'stretch', sm: 'flex-end' } }}>
+        {playComposerButtonLabel}
+      </Button>
+      <PlayIntentFilterControl value={activeAudienceFilter} onChange={setActiveAudienceFilter} />
+    </Stack>
+  ) : (
+    <PlayIntentFilterControl value={activeAudienceFilter} onChange={setActiveAudienceFilter} />
+  )
   const playSections = [
-    ...(isSignedIn ? [{ id: 'play-settings', label: 'Settings', ariaLabel: 'Play settings' }] : []),
     {
       id: 'active-calls-to-play',
       label: 'Active Calls',
@@ -420,7 +454,8 @@ function PlayViewContent({
       desktopLabel: 'Ended Calls',
       ariaLabel: 'Ended calls to play',
       count: endedPlayIntentPreviews.length
-    }
+    },
+    ...(isSignedIn ? [{ id: 'play-settings', label: 'Settings', ariaLabel: 'Play settings' }] : [])
   ]
 
   return (
@@ -430,30 +465,6 @@ function PlayViewContent({
         mb={0}
         sections={playSections}
       />
-
-      {isSignedIn ? (
-        <Box id="play-settings" sx={{ scrollMarginTop: sectionScrollMarginTop }}>
-          <Stack spacing={2}>
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'flex-start' }}>
-              <Box>
-                <Typography level="h3">Settings</Typography>
-                <Typography level="body-sm" sx={{ color: 'neutral.400', mt: 0.5 }}>
-                  Control automatic prompting and manage your own call to play.
-                </Typography>
-              </Box>
-              <Button color="primary" onClick={openPlayIntentComposer}>
-                {playComposerButtonLabel}
-              </Button>
-            </Stack>
-
-            <DiscordAutomationCard
-              enabled={discordAutoPromptPlayIntent}
-              saving={discordAutoPromptPlayIntentSaving}
-              onToggle={onToggleDiscordAutoPromptPlayIntent}
-            />
-          </Stack>
-        </Box>
-      ) : null}
 
       {isSignedIn ? (
         <DashboardModal open={isPlayIntentComposerOpen} onClose={closePlayIntentComposer} width="min(96vw, 820px)">
@@ -519,7 +530,7 @@ function PlayViewContent({
                 Live now or scheduled soon.
               </Typography>
             </Box>
-            <PlayIntentFilterControl value={activeAudienceFilter} onChange={setActiveAudienceFilter} />
+            {activeHeaderControls}
           </Stack>
 
           {isSignedIn && activePlayIntent ? (
@@ -612,6 +623,27 @@ function PlayViewContent({
           />
         )}
       </Stack>
+
+      {isSignedIn ? (
+        <Box id="play-settings" sx={{ scrollMarginTop: sectionScrollMarginTop }}>
+          <Stack spacing={2}>
+            <Stack spacing={0.5}>
+              <Box>
+                <Typography level="h3">Settings</Typography>
+                <Typography level="body-sm" sx={{ color: 'neutral.400', mt: 0.5 }}>
+                  Control automatic prompting and manage your own call to play.
+                </Typography>
+              </Box>
+            </Stack>
+
+            <DiscordAutomationCard
+              enabled={discordAutoPromptPlayIntent}
+              saving={discordAutoPromptPlayIntentSaving}
+              onToggle={onToggleDiscordAutoPromptPlayIntent}
+            />
+          </Stack>
+        </Box>
+      ) : null}
     </Stack>
   )
 }

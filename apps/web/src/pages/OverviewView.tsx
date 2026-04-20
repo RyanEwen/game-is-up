@@ -12,6 +12,7 @@ import { DashboardModalActionBar } from '../components/dashboard/DashboardModalA
 import { EmptyStateCard } from '../components/dashboard/EmptyStateCard'
 import { SectionNav } from '../components/dashboard/SectionNav'
 import { sectionScrollMarginTop } from '../components/dashboard/SectionNav.constants'
+import { nestedInsetSurfaceSx } from '../components/dashboard/dashboardUtils'
 import { useDashboardContext } from '../contexts/useDashboardContext'
 import type { Notice } from '../components/dashboard/types'
 
@@ -97,36 +98,48 @@ function AccountCard({
   return (
     <Card variant="soft" sx={{ p: 3 }}>
       {signedInUser ? (
-        <Stack spacing={1.5}>
-          <Stack direction="row" spacing={1.5} alignItems="center">
-            <Avatar
-              src={signedInUser.avatarUrl ?? undefined}
-              alt={signedInUser.displayName}
-              size="lg"
-              variant="soft"
-            />
-            <Stack spacing={0.25}>
-              <Typography level="title-md">{signedInUser.displayName}</Typography>
-              <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
-                @{signedInUser.handle}
-              </Typography>
+        <Stack spacing={1.25}>
+          <Stack
+            direction={{ xs: 'column', sm: 'row' }}
+            spacing={{ xs: 1.5, sm: 2 }}
+            justifyContent="space-between"
+            alignItems={{ xs: 'stretch', sm: 'center' }}
+          >
+            <Stack direction="row" spacing={1.5} alignItems="center" sx={{ minWidth: 0, flex: 1 }}>
+              <Avatar
+                src={signedInUser.avatarUrl ?? undefined}
+                alt={signedInUser.displayName}
+                size="lg"
+                variant="soft"
+              />
+              <Stack spacing={0.25} sx={{ minWidth: 0 }}>
+                <Typography level="title-md">{signedInUser.displayName}</Typography>
+                <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
+                  @{signedInUser.handle}
+                </Typography>
+              </Stack>
             </Stack>
+            <Button
+              variant="outlined"
+              color="neutral"
+              onClick={() => void onLogout()}
+              sx={{ alignSelf: { xs: 'stretch', sm: 'flex-start' }, flexShrink: 0 }}
+            >
+              Sign out
+            </Button>
           </Stack>
-          {signedInUser.email ? (
-            <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-              <Chip variant="outlined">{signedInUser.email}</Chip>
-            </Stack>
-          ) : null}
-          <Button variant="outlined" color="neutral" onClick={() => void onLogout()}>
-            Sign out
-          </Button>
         </Stack>
       ) : (
         <Stack spacing={1.5}>
           <Typography level="body-md">
             Sign in with Discord to form your network from shared servers and keep it current.
           </Typography>
-          <Button color="primary" disabled={!discordEnabled} onClick={() => void onDiscordLogin()}>
+          <Button
+            color="primary"
+            disabled={!discordEnabled}
+            onClick={() => void onDiscordLogin()}
+            sx={{ alignSelf: { xs: 'stretch', sm: 'flex-start' } }}
+          >
             Sign in with Discord
           </Button>
         </Stack>
@@ -180,7 +193,7 @@ function WhatIsGamesUpCard() {
           Game's Up is an app that helps you find people who are into the same games you are.
         </Typography>
         <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5}>
-          <Sheet variant="outlined" sx={{ p: 2, borderRadius: 'lg', flex: 1, backgroundColor: 'rgba(255,255,255,0.02)' }}>
+          <Sheet variant="outlined" sx={{ p: 2, borderRadius: 'lg', flex: 1, ...nestedInsetSurfaceSx }}>
             <Stack spacing={0.75}>
               <Typography level="title-sm">Shared-interest app</Typography>
               <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
@@ -188,7 +201,7 @@ function WhatIsGamesUpCard() {
               </Typography>
             </Stack>
           </Sheet>
-          <Sheet variant="outlined" sx={{ p: 2, borderRadius: 'lg', flex: 1, backgroundColor: 'rgba(255,255,255,0.02)' }}>
+          <Sheet variant="outlined" sx={{ p: 2, borderRadius: 'lg', flex: 1, ...nestedInsetSurfaceSx }}>
             <Stack spacing={0.75}>
               <Typography level="title-sm">Matchmaking bot</Typography>
               <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
@@ -315,12 +328,19 @@ function DiscoveryServersSection({
       )}
       {discordBotInstallUrl ? (
         <Card variant="soft" sx={{ p: 2.5 }}>
-          <Stack spacing={1.25}>
-            <Typography level="title-sm">Not seeing a server?</Typography>
-            <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
-              The Game's Up bot must be on the Discord servers you want to use for network discovery, member browsing, and invites.
-            </Typography>
-            <Box>
+          <Stack
+            direction={{ xs: 'column', sm: 'row' }}
+            spacing={{ xs: 1.25, sm: 2 }}
+            justifyContent="space-between"
+            alignItems={{ xs: 'stretch', sm: 'center' }}
+          >
+            <Stack spacing={1.25} sx={{ flex: 1, minWidth: 0 }}>
+              <Typography level="title-sm">Not seeing a server?</Typography>
+              <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
+                The Game's Up bot must be on the Discord servers you want to use for network discovery, member browsing, and invites.
+              </Typography>
+            </Stack>
+            <Box sx={{ flexShrink: 0 }}>
               <Button
                 component="a"
                 href={discordBotInstallUrl}
@@ -493,7 +513,7 @@ function InviteUsersCard({
             ) : null}
           </Stack>
         ) : (
-          <Sheet variant="soft" sx={{ p: 1.5, borderRadius: 'md' }}>
+          <Sheet variant="soft" sx={{ p: 1.5, borderRadius: 'md', ...nestedInsetSurfaceSx }}>
             <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
               Select at least one server where the bot is present to browse and target specific members.
             </Typography>
@@ -514,7 +534,7 @@ function InviteUsersCard({
                     sx={{
                       p: 1.25,
                       borderRadius: 'md',
-                      backgroundColor: 'rgba(255, 255, 255, 0.02)'
+                      ...nestedInsetSurfaceSx
                     }}
                   >
                     <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.25} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }}>

@@ -16,17 +16,85 @@ export const theme = extendTheme({
           const color = ownerState.color ?? 'neutral'
 
           return {
-            backgroundColor: `rgba(var(--joy-palette-${color}-mainChannel) / 0.12)`,
+            backgroundColor: `var(--joy-palette-${color}-800, var(--joy-palette-neutral-800))`,
+            borderColor: `var(--joy-palette-${color}-600, var(--joy-palette-neutral-600))`,
             '&:hover': {
-              backgroundColor: `rgba(var(--joy-palette-${color}-mainChannel) / 0.18)`
+              backgroundColor: `var(--joy-palette-${color}-700, var(--joy-palette-neutral-700))`
             },
             '&:active': {
-              backgroundColor: `rgba(var(--joy-palette-${color}-mainChannel) / 0.24)`
+              backgroundColor: `var(--joy-palette-${color}-600, var(--joy-palette-neutral-600))`
             },
             '&.Mui-disabled': {
-              backgroundColor: 'rgba(23, 29, 40, 0.72)'
+              backgroundColor: 'var(--joy-palette-neutral-800)',
+              borderColor: 'var(--joy-palette-neutral-700)'
             }
           }
+        }
+      }
+    },
+    JoyCard: {
+      styleOverrides: {
+        root: ({ ownerState }) => {
+          if (ownerState.variant === 'outlined') {
+            return {
+              backgroundColor: 'var(--joy-palette-background-surface)',
+              borderColor: 'var(--joy-palette-neutral-700)',
+              backdropFilter: 'blur(18px)',
+              WebkitBackdropFilter: 'blur(18px)',
+              boxShadow: 'none'
+            }
+          }
+
+          if (ownerState.variant === 'soft') {
+            return {
+              backgroundColor: 'var(--joy-palette-background-level1)',
+              border: '1px solid var(--joy-palette-neutral-700)',
+              boxShadow: 'none'
+            }
+          }
+
+          return {}
+        }
+      }
+    },
+    JoyAvatar: {
+      styleOverrides: {
+        root: ({ ownerState }) => {
+          if (ownerState.variant !== 'soft') {
+            return {}
+          }
+
+          const color = ownerState.color ?? 'neutral'
+
+          return {
+            backgroundColor: `var(--joy-palette-${color}-700, var(--joy-palette-neutral-700))`,
+            color: `var(--joy-palette-${color}-100, var(--joy-palette-neutral-100))`,
+            border: `1px solid var(--joy-palette-${color}-600, var(--joy-palette-neutral-600))`,
+            boxShadow: '0 0 0 1px rgba(7, 11, 20, 0.24)'
+          }
+        }
+      }
+    },
+    JoySheet: {
+      styleOverrides: {
+        root: ({ ownerState }) => {
+          if (ownerState.variant === 'outlined') {
+            return {
+              backgroundColor: 'var(--joy-palette-background-level2)',
+              borderColor: 'var(--joy-palette-neutral-700)',
+              boxShadow: 'none'
+            }
+          }
+
+          if (ownerState.variant === 'soft') {
+            return {
+              backgroundColor: 'var(--joy-palette-background-level2)',
+              border: '1px solid var(--joy-palette-neutral-700)',
+              boxShadow: 'none'
+            }
+          }
+
+          return {}
         }
       }
     },
@@ -52,36 +120,42 @@ export const theme = extendTheme({
           900: '#0d463a'
         },
         warning: {
-          50: '#fff8eb',
-          100: '#ffe7bf',
-          200: '#ffd289',
-          300: '#ffbb52',
-          400: '#ef9c24',
-          500: '#c77d13',
-          600: '#9a5f0c',
-          700: '#72460a',
-          800: '#4c2e07',
-          900: '#2f1b04'
+          50: '#fff9ef',
+          100: '#ffe9c8',
+          200: '#ffd79f',
+          300: '#f2c06e',
+          400: '#d89d42',
+          500: '#b67c20',
+          600: '#8e5f18',
+          700: '#6b4714',
+          800: '#493112',
+          900: '#2c1d0b'
         },
         neutral: {
           50: '#f8fafc',
-          100: '#d9e0ea',
-          200: '#b5c0d0',
-          300: '#92a1b8',
-          400: '#6d7d95',
-          500: '#526176',
-          600: '#3c4858',
-          700: '#272f3c',
-          800: '#171d28',
-          900: '#0b1020'
+          100: '#e1e7ef',
+          200: '#c1ccda',
+          300: '#d3dde7',
+          400: '#c4d0dd',
+          500: '#687a94',
+          600: '#506077',
+          700: '#3b4d66',
+          800: '#243043',
+          900: '#161d2e'
         },
         background: {
           body: '#070b14',
-          surface: 'rgba(11, 16, 32, 0.84)',
-          popup: '#121927',
-          level1: 'rgba(15, 22, 34, 0.9)',
-          level2: '#22324f',
+          surface: 'rgba(19, 27, 42, 0.4)',
+          popup: '#121a28',
+          level1: 'rgba(31, 42, 58, 0.87)',
+          level2: '#24364d',
           level3: '#355076'
+        },
+        text: {
+          primary: '#fff',
+          secondary: '#d1dbe5',
+          tertiary: '#bdcad9',
+          icon: '#bdcad9'
         }
       }
     }

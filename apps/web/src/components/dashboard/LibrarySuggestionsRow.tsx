@@ -28,9 +28,6 @@ export function LibrarySuggestionsRow({
       <Stack spacing={1.25}>
         <Box>
           <Typography level="title-md">Suggestions based on your activity</Typography>
-          <Typography level="body-sm" sx={{ color: 'neutral.400', mt: 0.5 }}>
-            Add them quickly if they belong in your library.
-          </Typography>
         </Box>
         <Stack
           direction="row"
@@ -43,7 +40,7 @@ export function LibrarySuggestionsRow({
               height: 8
             },
             '&::-webkit-scrollbar-thumb': {
-              backgroundColor: 'rgba(255,255,255,0.16)',
+              backgroundColor: '#526176',
               borderRadius: 999
             }
           }}
@@ -51,8 +48,8 @@ export function LibrarySuggestionsRow({
           {suggestedGames.map((game) => (
             <Button
               key={game.gameId}
-              variant="soft"
-              color={libraryGameIds.has(game.gameId) ? 'neutral' : 'success'}
+              variant={libraryGameIds.has(game.gameId) ? 'soft' : 'solid'}
+              color={libraryGameIds.has(game.gameId) ? 'neutral' : 'primary'}
               size="sm"
               disabled={libraryGameIds.has(game.gameId) || addingLibraryGameId === game.gameId}
               onClick={() => void onAddToLibrary({
@@ -65,10 +62,11 @@ export function LibrarySuggestionsRow({
                 justifyContent: 'flex-start',
                 alignSelf: 'flex-start',
                 cursor: 'pointer',
+                boxShadow: 'none',
                 transition: 'background-color 180ms ease, color 180ms ease, transform 180ms ease, box-shadow 180ms ease',
                 '&:hover': {
-                  backgroundColor: libraryGameIds.has(game.gameId) ? undefined : 'rgba(16, 106, 84, 0.9)',
-                  color: libraryGameIds.has(game.gameId) ? undefined : 'primary.100',
+                  backgroundColor: libraryGameIds.has(game.gameId) ? undefined : 'primary.400',
+                  color: libraryGameIds.has(game.gameId) ? undefined : 'common.white',
                   transform: libraryGameIds.has(game.gameId) ? undefined : 'translateY(-1px)',
                   boxShadow: libraryGameIds.has(game.gameId) ? undefined : '0 0 0 1px rgba(141, 255, 216, 0.22)'
                 },

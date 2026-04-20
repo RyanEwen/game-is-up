@@ -26,7 +26,7 @@ type InviteAuthState = {
   body: string;
 } | null
 
-const ambientSpectrumGradient = 'linear-gradient(115deg, #49ff66 0%, #1dff8f 18%, #14ffd6 40%, #20d8ff 62%, #4d93ff 82%, #49ff66 100%)'
+const ambientSpectrumGradient = 'linear-gradient(115deg, #7dff92 0%, #49ff66 22%, #2fe07f 54%, #8bff7a 100%)'
 
 function parseInviteDetails(url: URL): InviteLandingDetails {
   const serverName = url.searchParams.get('server')?.trim() || null
@@ -185,7 +185,7 @@ export function InviteLandingView() {
           position: 'relative',
           px: { xs: 2, md: 4 },
           py: { xs: 3, md: 5 },
-          background: 'linear-gradient(180deg, rgba(6, 9, 18, 0.16) 0px, rgba(7, 11, 20, 0.26) 240px, rgba(7, 11, 20, 0.86) 100%)'
+          background: 'linear-gradient(180deg, rgba(8, 16, 14, 0.14) 0px, rgba(7, 13, 12, 0.22) 240px, rgba(6, 10, 9, 0.72) 100%)'
         }}
       >
         <Box
@@ -194,13 +194,13 @@ export function InviteLandingView() {
             position: 'fixed',
             inset: 0,
             backgroundImage: [
-              'radial-gradient(circle at 16% 18%, rgba(73, 255, 102, 0.16), transparent 24%)',
-              'radial-gradient(circle at 84% 14%, rgba(32, 216, 255, 0.14), transparent 28%)',
+              'radial-gradient(circle at 16% 18%, rgba(73, 255, 102, 0.18), transparent 24%)',
+              'radial-gradient(circle at 84% 14%, rgba(139, 255, 122, 0.14), transparent 28%)',
               ambientSpectrumGradient
             ].join(','),
             backgroundBlendMode: 'screen, screen, normal',
-            backgroundSize: 'auto, auto, 220% 220%',
-            backgroundPosition: 'center, center, 0% 50%',
+            backgroundSize: 'auto, auto, 100% 100%',
+            backgroundPosition: 'center, center, center',
             opacity: 0.12,
             pointerEvents: 'none'
           }}
@@ -212,8 +212,8 @@ export function InviteLandingView() {
             sx={{
               p: { xs: 3, md: 4 },
               borderRadius: 'xl',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
-              background: 'linear-gradient(135deg, rgba(10, 16, 31, 0.94), rgba(19, 28, 46, 0.82))',
+              border: '1px solid #272f3c',
+              background: 'linear-gradient(135deg, #10182b, #16233a)',
               boxShadow: 'xl'
             }}
           >

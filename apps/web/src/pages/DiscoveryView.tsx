@@ -9,7 +9,7 @@ import { LibraryTrendingRow } from '../components/dashboard/LibraryTrendingRow'
 import { PersonCard } from '../components/dashboard/PersonCard'
 import { SectionNav } from '../components/dashboard/SectionNav'
 import { sectionScrollMarginTop } from '../components/dashboard/SectionNav.constants'
-import { discoveryGameGridSx } from '../components/dashboard/dashboardUtils'
+import { buildHeaderFilterSelectSx, discoveryGameGridSx, headerFilterControlSx } from '../components/dashboard/dashboardUtils'
 import { useDashboardContext } from '../contexts/useDashboardContext'
 import type { DashboardLibraryQuickAddGame, FriendTarget } from '../components/dashboard/types'
 
@@ -36,13 +36,15 @@ function DiscoverySection({
 }) {
   return (
     <Stack id={sectionId} spacing={2} sx={{ mt: isFirst ? 0 : 3, scrollMarginTop: sectionScrollMarginTop }}>
-      <Box sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
-        <Typography level="h2">{title}</Typography>
+      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }}>
+        <Box>
+          <Typography level="h2">{title}</Typography>
+          <Typography level="body-md" sx={{ color: 'neutral.300', mt: 0.5 }}>
+            {description}
+          </Typography>
+        </Box>
         {sortControl}
-      </Box>
-      <Typography level="body-md" sx={{ color: 'neutral.300' }}>
-        {description}
-      </Typography>
+      </Stack>
       {helperText ? (
         <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
           {helperText}
@@ -129,13 +131,13 @@ function DiscoveryViewContent({
   const sortedNetworkPeople = sortPeople(networkPeople, memberSort)
 
   const gameSortControl = (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+    <Box sx={headerFilterControlSx}>
       <Typography level="body-sm" sx={{ color: 'neutral.400', whiteSpace: 'nowrap' }}>Sort by</Typography>
       <Select
         size="sm"
         value={gameSort}
         onChange={(_e, val) => { if (val) setGameSort(val) }}
-        sx={{ minWidth: 140 }}
+        sx={buildHeaderFilterSelectSx(140)}
       >
         <Option value="players">Number of players</Option>
         <Option value="name">Name</Option>
@@ -144,13 +146,13 @@ function DiscoveryViewContent({
   )
 
   const memberSortControl = (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+    <Box sx={headerFilterControlSx}>
       <Typography level="body-sm" sx={{ color: 'neutral.400', whiteSpace: 'nowrap' }}>Sort by</Typography>
       <Select
         size="sm"
         value={memberSort}
         onChange={(_e, val) => { if (val) setMemberSort(val) }}
-        sx={{ minWidth: 140 }}
+        sx={buildHeaderFilterSelectSx(140)}
       >
         <Option value="games">Number of games</Option>
         <Option value="name">Name</Option>
@@ -256,6 +258,7 @@ function DiscoveryViewContent({
         sectionId="other-games"
         title="Other games"
         description="Games you don't have in common with people in your network."
+        sortControl={overlapGames.length > 0 || browseGames.length > 0 ? gameSortControl : undefined}
       >
         {discoveryLoading ? (
           <Box sx={discoveryGameGridSx}>

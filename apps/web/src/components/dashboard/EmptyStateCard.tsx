@@ -1,4 +1,5 @@
 import { Card, Chip, Stack, Typography } from '@mui/joy'
+import { dashedTopLevelCardSx } from './dashboardUtils'
 
 export function EmptyStateCard({
   title,
@@ -14,8 +15,7 @@ export function EmptyStateCard({
       variant="soft"
       sx={{
         p: 3,
-        border: '1px dashed rgba(255, 255, 255, 0.14)',
-        backgroundColor: 'rgba(13, 18, 30, 0.65)'
+        ...dashedTopLevelCardSx
       }}
     >
       <Stack spacing={1.5}>

@@ -1,25 +1,25 @@
 import { z } from 'zod'
 import { env } from './env.js'
 
+const rawgGameSchema = z.object({
+  id: z.number().int().positive(),
+  name: z.string().min(1),
+  background_image: z.string().url().nullable().optional(),
+  description_raw: z.string().nullable().optional(),
+  platforms: z
+    .array(
+      z.object({
+        platform: z.object({
+          name: z.string().min(1)
+        })
+      })
+    )
+    .nullable()
+    .optional()
+})
+
 const rawgSearchResponseSchema = z.object({
-  results: z.array(
-    z.object({
-      id: z.number().int().positive(),
-      name: z.string().min(1),
-      background_image: z.string().url().nullable().optional(),
-      description_raw: z.string().nullable().optional(),
-      platforms: z
-        .array(
-          z.object({
-            platform: z.object({
-              name: z.string().min(1)
-            })
-          })
-        )
-        .nullable()
-        .optional()
-    })
-  )
+  results: z.array(rawgGameSchema)
 })
 
 export type ProviderCatalogResult = {
@@ -80,6 +80,17 @@ function dedupePlatformLabels(platformLabels: string[]): string[] {
   return [...new Set(platformLabels.filter(Boolean))]
 }
 
+function toProviderCatalogResult(result: z.infer<typeof rawgGameSchema>): ProviderCatalogResult {
+  return {
+    source: 'rawg',
+    sourceId: result.id.toString(),
+    title: result.name,
+    coverUrl: result.background_image ?? null,
+    description: result.description_raw ?? null,
+    platformLabels: dedupePlatformLabels((result.platforms ?? []).map(({ platform }) => normalizePlatformLabel(platform.name)).filter((label): label is string => Boolean(label)))
+  }
+}
+
 export function isRawgCatalogConfigured(): boolean {
   return Boolean(env.RAWG_API_KEY)
 }
@@ -108,12 +119,33 @@ export async function searchRawgGamesByTitle(query: string): Promise<ProviderCat
   const responseJson = await response.json()
   const parsed = rawgSearchResponseSchema.parse(responseJson)
 
-  return parsed.results.map((result) => ({
-    source: 'rawg',
-    sourceId: result.id.toString(),
-    title: result.name,
-    coverUrl: result.background_image ?? null,
-    description: result.description_raw ?? null,
-    platformLabels: dedupePlatformLabels((result.platforms ?? []).map(({ platform }) => normalizePlatformLabel(platform.name)).filter((label): label is string => Boolean(label)))
-  }))
+  return parsed.results.map(toProviderCatalogResult)
+}
+
+export async function getRawgGameById(sourceId: string): Promise<ProviderCatalogResult | null> {
+  if (!env.RAWG_API_KEY || !/^\d+$/.test(sourceId)) {
+    return null
+  }
+
+  const url = new URL(`https://api.rawg.io/api/games/${sourceId}`)
+  url.searchParams.set('key', env.RAWG_API_KEY)
+
+  const response = await fetch(url, {
+    headers: {
+      Accept: 'application/json'
+    }
+  })
+
+  if (response.status === 404) {
+    return null
+  }
+
+  if (!response.ok) {
+    throw new Error(`RAWG game lookup failed: ${response.status} ${response.statusText}`)
+  }
+
+  const responseJson = await response.json()
+  const parsed = rawgGameSchema.parse(responseJson)
+
+  return toProviderCatalogResult(parsed)
 }

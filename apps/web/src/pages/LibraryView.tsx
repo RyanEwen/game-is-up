@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Box, Button, Card, Checkbox, Chip, DialogContent, DialogTitle, Input, Option, Select, Sheet, Stack, Typography } from '@mui/joy'
-import type { GameSearchResponse, GameSearchResult, ImportSteamLibrarySelectionRequest, LibraryEntry, LibraryEntryIntent, LibrarySuggestedGame, SteamLibraryImportGame, SteamLibraryImportPreviewResponse, UserGameAlias, UserPlatformAlias } from '@game-is-up/shared'
+import type { GameSearchResponse, GameSearchResult, ImportSteamLibrarySelectionRequest, LibraryEntry, LibraryEntryIntent, LibrarySuggestedGame, LibraryTrendingGame, SteamLibraryImportGame, SteamLibraryImportPreviewResponse, UserGameAlias, UserPlatformAlias } from '@game-is-up/shared'
 import { DashboardModal } from '../components/dashboard/DashboardModal'
 import { AliasManagementCard } from '../components/dashboard/AliasManagementCard'
 import { DashboardModalActionBar } from '../components/dashboard/DashboardModalActionBar'
@@ -9,6 +9,9 @@ import { EmptyStateCard } from '../components/dashboard/EmptyStateCard'
 import { LibraryEditorCard } from '../components/dashboard/LibraryEditorCard'
 import { LibraryEntryCard } from '../components/dashboard/LibraryEntryCard'
 import { LibrarySuggestionsRow } from '../components/dashboard/LibrarySuggestionsRow'
+import { LibraryTrendingRow } from '../components/dashboard/LibraryTrendingRow'
+import { SectionNav } from '../components/dashboard/SectionNav'
+import { sectionScrollMarginTop } from '../components/dashboard/SectionNav.constants'
 import { formatLibraryIntentLabel, libraryEntryGridSx } from '../components/dashboard/dashboardUtils'
 import type { DashboardLibraryQuickAddGame } from '../components/dashboard/types'
 import { useDashboardContext } from '../contexts/useDashboardContext'
@@ -42,12 +45,6 @@ function UsualAvailabilityCard({
   return (
     <Card variant="soft" sx={{ p: 3 }}>
       <Stack spacing={2}>
-        <Box>
-          <Typography level="title-md">When do you usually play?</Typography>
-          <Typography level="body-sm" sx={{ color: 'neutral.400', mt: 0.5 }}>
-            Set one default schedule at the user level. Individual games can still carry their own override when they differ.
-          </Typography>
-        </Box>
         <Input
           placeholder="Example: Weeknights after 8pm"
           value={usualAvailability}
@@ -328,7 +325,7 @@ function SteamImportReadyContent({
               flex: 1,
               minHeight: 52,
               fontWeight: 700,
-              boxShadow: '0 12px 30px rgba(46, 125, 50, 0.28)'
+              boxShadow: 'none'
             }}
           >
             {importing
@@ -681,7 +678,7 @@ function SteamImportRow({
       sx={{
         p: 1.25,
         borderRadius: 'md',
-        border: '1px solid rgba(255,255,255,0.08)',
+        border: '1px solid #272f3c',
         cursor: game.alreadyInLibrary ? 'default' : 'pointer'
       }}
       onClick={() => onToggleSelection(game)}
@@ -873,6 +870,7 @@ function LibraryViewContent({
   onCancelLibraryEdit,
   libraryEntries,
   suggestedGames,
+  trendingGames,
   platformAliases,
   gameAliases,
   aliasSavingKey,
@@ -933,6 +931,7 @@ function LibraryViewContent({
   onCancelLibraryEdit: () => void;
   libraryEntries: LibraryEntry[];
   suggestedGames: LibrarySuggestedGame[];
+  trendingGames: LibraryTrendingGame[];
   platformAliases: UserPlatformAlias[];
   gameAliases: UserGameAlias[];
   aliasSavingKey: string | null;
@@ -960,34 +959,28 @@ function LibraryViewContent({
     )
   }
 
-  return (
-    <Stack spacing={2}>
-      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'flex-start' }}>
-        <Box>
-          <Typography level="h2">Your Library</Typography>
-          <Typography level="body-md" sx={{ color: 'neutral.300', mt: 0.5 }}>
-            Add games to your library to be able to discover others who share your interests.
-          </Typography>
-        </Box>
-        <Stack direction="row" spacing={1} sx={{ width: { xs: '100%', sm: 'auto' } }}>
-          <Button color="primary" variant="outlined" onClick={() => void onOpenSteamImport()} sx={{ flex: 1, minWidth: 0, textAlign: 'center' }}>
-            Import from Steam
-          </Button>
-          <Button color="primary" onClick={openLibraryEditor} sx={{ flex: 1, minWidth: 0, textAlign: 'center' }}>
-            Add game to library
-          </Button>
-        </Stack>
-      </Stack>
+  const librarySections = [
+    {
+      id: 'library-section',
+      label: 'Library',
+      ariaLabel: 'Library section'
+    },
+    {
+      id: 'usual-availability',
+      label: 'When You Play',
+      mobileLabel: 'Schedule',
+      ariaLabel: 'When do you usually play section'
+    },
+    {
+      id: 'aliases',
+      label: 'Aliases',
+      ariaLabel: 'Aliases section'
+    }
+  ]
 
-      <UsualAvailabilityCard
-        usualAvailability={usualAvailability}
-        profileSaving={profileSaving}
-        usualAvailabilityChanged={usualAvailabilityChanged}
-        usualAvailabilityButtonLabel={usualAvailabilityButtonLabel}
-        usualAvailabilityHelperText={usualAvailabilityHelperText}
-        onUsualAvailabilityChange={onUsualAvailabilityChange}
-        onSaveUsualAvailability={onSaveUsualAvailability}
-      />
+  return (
+    <Stack spacing={3}>
+      <SectionNav aria-label="Library sections" mb={0} sections={librarySections} />
 
       <DashboardModal open={isLibraryEditorOpen} onClose={closeLibraryEditor} width="min(96vw, 760px)">
         <LibraryEditorCard
@@ -1037,41 +1030,120 @@ function LibraryViewContent({
         />
       </DashboardModal>
 
-      <AliasManagementCard
-        libraryEntries={libraryEntries}
-        platformAliases={platformAliases}
-        savingKey={aliasSavingKey}
-        onSavePlatformAlias={onSavePlatformAlias}
-        onDeletePlatformAlias={onDeletePlatformAlias}
-      />
+      <Box id="library-section" sx={{ scrollMarginTop: sectionScrollMarginTop }}>
+        <Stack spacing={2}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }}>
+            <Box>
+              <Typography level="h2">Your Library</Typography>
+              <Typography level="body-md" sx={{ color: 'neutral.300', mt: 0.5 }}>
+                Add games to your library to be able to discover others who share your interests.
+              </Typography>
+            </Box>
+            <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} sx={{ width: { xs: '100%', md: 'auto' } }}>
+              <Button
+                color="primary"
+                variant="outlined"
+                onClick={() => void onOpenSteamImport()}
+                sx={{
+                  flex: { xs: 1, md: '0 0 auto' },
+                  minWidth: { xs: 0, md: 170 },
+                  textAlign: 'center',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                Import from Steam
+              </Button>
+              <Button
+                color="primary"
+                onClick={openLibraryEditor}
+                sx={{
+                  flex: { xs: 1, md: '0 0 auto' },
+                  minWidth: { xs: 0, md: 188 },
+                  textAlign: 'center',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                Add game to library
+              </Button>
+            </Stack>
+          </Stack>
 
-      <LibrarySuggestionsRow
-        suggestedGames={suggestedGames}
-        libraryGameIds={libraryGameIds}
-        addingLibraryGameId={addingLibraryGameId}
-        onAddToLibrary={onAddGameToLibrary}
-      />
+          <LibrarySuggestionsRow
+            suggestedGames={suggestedGames}
+            libraryGameIds={libraryGameIds}
+            addingLibraryGameId={addingLibraryGameId}
+            onAddToLibrary={onAddGameToLibrary}
+          />
 
-      {libraryEntries.length > 0 ? (
-        <Box sx={libraryEntryGridSx}>
-          {libraryEntries.map((entry) => (
-            <LibraryEntryCard
-              key={entry.id}
-              entry={entry}
-              isEditing={editingLibraryEntryId === entry.id}
-              editDisabled={librarySaving}
-              isRemoving={removingLibraryEntryId === entry.id}
-              onEdit={onEditLibraryEntry}
-              onRemove={onRemoveLibraryEntry}
+          <LibraryTrendingRow
+            trendingGames={trendingGames}
+            addingLibraryGameId={addingLibraryGameId}
+            onAddToLibrary={onAddGameToLibrary}
+            showWhenEmpty
+          />
+
+          {libraryEntries.length > 0 ? (
+            <Box sx={libraryEntryGridSx}>
+              {libraryEntries.map((entry) => (
+                <LibraryEntryCard
+                  key={entry.id}
+                  entry={entry}
+                  isEditing={editingLibraryEntryId === entry.id}
+                  editDisabled={librarySaving}
+                  isRemoving={removingLibraryEntryId === entry.id}
+                  onEdit={onEditLibraryEntry}
+                  onRemove={onRemoveLibraryEntry}
+                />
+              ))}
+            </Box>
+          ) : (
+            <EmptyStateCard
+              title="Your library is still empty"
+              body="Add or import the games you care about."
             />
-          ))}
-        </Box>
-      ) : (
-        <EmptyStateCard
-          title="Your library is still empty"
-          body="Add or import the games you care about."
-        />
-      )}
+          )}
+        </Stack>
+      </Box>
+
+      <Box id="usual-availability" sx={{ scrollMarginTop: sectionScrollMarginTop }}>
+        <Stack spacing={2}>
+          <Box>
+            <Typography level="h3">When do you usually play?</Typography>
+            <Typography level="body-sm" sx={{ color: 'neutral.400', mt: 0.5 }}>
+              Set one default schedule at the user level. Individual games can still carry their own override when they differ.
+            </Typography>
+          </Box>
+
+          <UsualAvailabilityCard
+            usualAvailability={usualAvailability}
+            profileSaving={profileSaving}
+            usualAvailabilityChanged={usualAvailabilityChanged}
+            usualAvailabilityButtonLabel={usualAvailabilityButtonLabel}
+            usualAvailabilityHelperText={usualAvailabilityHelperText}
+            onUsualAvailabilityChange={onUsualAvailabilityChange}
+            onSaveUsualAvailability={onSaveUsualAvailability}
+          />
+        </Stack>
+      </Box>
+
+      <Box id="aliases" sx={{ scrollMarginTop: sectionScrollMarginTop }}>
+        <Stack spacing={2}>
+          <Box>
+            <Typography level="h3">Aliases</Typography>
+            <Typography level="body-sm" sx={{ color: 'neutral.400', mt: 0.5 }}>
+              Save your platform-specific handles. Game-specific aliases are edited directly in each game card below.
+            </Typography>
+          </Box>
+
+          <AliasManagementCard
+            libraryEntries={libraryEntries}
+            platformAliases={platformAliases}
+            savingKey={aliasSavingKey}
+            onSavePlatformAlias={onSavePlatformAlias}
+            onDeletePlatformAlias={onDeletePlatformAlias}
+          />
+        </Stack>
+      </Box>
     </Stack>
   )
 }

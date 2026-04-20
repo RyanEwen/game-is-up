@@ -7,6 +7,7 @@ import type {
   LibraryEntry,
   LibraryEntryIntent,
   LibrarySuggestedGame,
+  LibraryTrendingGame,
   LibraryResponse,
   UserGameAlias,
   UserPlatformAlias,
@@ -70,6 +71,7 @@ export type DashboardLibraryViewProps = {
   onCancelLibraryEdit: () => void;
   libraryEntries: LibraryEntry[];
   suggestedGames: LibrarySuggestedGame[];
+  trendingGames: LibraryTrendingGame[];
   platformAliases: UserPlatformAlias[];
   gameAliases: UserGameAlias[];
   aliasSavingKey: string | null;
@@ -94,6 +96,7 @@ export function useDashboardLibrary({
   buildApiUrl,
   libraryEntries,
   suggestedGames,
+  trendingGames,
   libraryGameIds,
   addingLibraryGameId,
   currentUsualAvailability,
@@ -113,6 +116,7 @@ export function useDashboardLibrary({
   buildApiUrl: (path: string) => string;
   libraryEntries: LibraryEntry[];
   suggestedGames: LibrarySuggestedGame[];
+  trendingGames: LibraryTrendingGame[];
   libraryGameIds: ReadonlySet<string>;
   addingLibraryGameId: string | null;
   currentUsualAvailability: string | null;
@@ -842,6 +846,7 @@ export function useDashboardLibrary({
     onCancelLibraryEdit: handleCancelLibraryEdit,
     libraryEntries,
     suggestedGames,
+    trendingGames,
     platformAliases,
     gameAliases,
     aliasSavingKey,

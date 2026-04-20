@@ -2,7 +2,7 @@ import { Box, Button, Card, Chip, Stack, Typography } from '@mui/joy'
 import type { LibraryEntry } from '@game-is-up/shared'
 import { AvailabilityChip } from './AvailabilityChip'
 import { DashboardDeferredImage } from './DashboardDeferredImage'
-import { formatLibraryIntentLabel } from './dashboardUtils'
+import { formatLibraryIntentLabel, topLevelGridCardSx } from './dashboardUtils'
 
 export function LibraryEntryCard({
   entry,
@@ -21,24 +21,19 @@ export function LibraryEntryCard({
 }) {
   return (
     <Card
-      variant="outlined"
+      variant="soft"
       sx={{
         p: 0,
         overflow: 'hidden',
-        borderColor: 'rgba(255, 255, 255, 0.08)',
-        backgroundColor: 'rgba(13, 18, 30, 0.82)',
-        backdropFilter: 'blur(12px)',
-        height: '100%',
-        contentVisibility: 'auto',
-        containIntrinsicSize: '420px'
+        ...topLevelGridCardSx
       }}
     >
       <Box
         sx={{
           position: 'relative',
           aspectRatio: '16 / 9',
-          background: 'linear-gradient(160deg, rgba(28, 171, 132, 0.32), rgba(11, 16, 32, 0.82) 58%, rgba(244, 178, 63, 0.28))',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.08)'
+          background: 'linear-gradient(160deg, #1a4b56, #121a28 58%, #5b3807)',
+          borderBottom: '1px solid #304159'
         }}
       >
         {entry.coverUrl ? (
@@ -49,22 +44,14 @@ export function LibraryEntryCard({
             sx={{
               height: '100%',
               p: 2,
-              background: 'linear-gradient(180deg, rgba(7, 11, 20, 0.08), rgba(7, 11, 20, 0.5))'
+              background: 'linear-gradient(180deg, #131c2b, #121a28)'
             }}
           >
-            <Typography level="title-md" sx={{ color: 'common.white', textShadow: '0 2px 16px rgba(0, 0, 0, 0.55)' }}>
+            <Typography level="title-md" sx={{ color: 'common.white' }}>
               {entry.title}
             </Typography>
           </Stack>
         )}
-        <Box
-          sx={{
-            position: 'absolute',
-            inset: 0,
-            background: 'linear-gradient(180deg, rgba(7, 11, 20, 0.05), rgba(7, 11, 20, 0.68))',
-            pointerEvents: 'none'
-          }}
-        />
       </Box>
 
       <Stack spacing={1.5} sx={{ p: 2, height: '100%' }}>

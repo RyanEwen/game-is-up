@@ -2,7 +2,10 @@ import { createHash } from 'node:crypto'
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { HttpError } from './http-error.js'
 import { getApiOrigin } from './origin.js'
+import { prisma } from './prisma.js'
+import { getRawgGameById } from './rawg-game-catalog.js'
 
 const rawgMediaHostname = 'media.rawg.io'
 const rawgMediaProxyPathPrefix = '/api/media/game-cover/'
@@ -171,7 +174,11 @@ async function downloadAndCacheMedia(sourceUrl: string, cacheKey: string, source
   })
 
   if (!response.ok) {
-    throw new Error(`${sourceLabel} media fetch failed: ${response.status} ${response.statusText}`)
+    if (response.status === 404) {
+      throw new HttpError(404, `${sourceLabel} media not found.`)
+    }
+
+    throw new HttpError(502, `${sourceLabel} media fetch failed: ${response.status} ${response.statusText}`)
   }
 
   const contentType = response.headers.get('content-type')?.split(';', 1)[0]?.trim().toLowerCase() ?? ''
@@ -201,6 +208,115 @@ async function downloadAndCacheMedia(sourceUrl: string, cacheKey: string, source
 
   await writeCachedGameMedia(cacheKey, media)
   return media
+}
+
+async function refreshStoredRawgGameCoverUrl(sourceUrl: string): Promise<string | null> {
+  const matchingGames = await prisma.game.findMany({
+    where: {
+      coverUrl: sourceUrl,
+      sources: {
+        some: {
+          source: 'rawg'
+        }
+      }
+    },
+    select: {
+      id: true,
+      sources: {
+        where: {
+          source: 'rawg'
+        },
+        select: {
+          id: true,
+          externalId: true
+        }
+      }
+    }
+  })
+
+  if (matchingGames.length === 0) {
+    return null
+  }
+
+  const refreshedCoverBySourceId = new Map<string, string | null>()
+  const refreshedCoverUrls = new Set<string>()
+
+  for (const game of matchingGames) {
+    const rawgSource = game.sources[0]
+
+    if (!rawgSource) {
+      continue
+    }
+
+    if (!refreshedCoverBySourceId.has(rawgSource.externalId)) {
+      const refreshedGame = await getRawgGameById(rawgSource.externalId)
+      refreshedCoverBySourceId.set(rawgSource.externalId, resolveStoredGameCoverUrl(refreshedGame?.coverUrl) ?? null)
+    }
+
+    const refreshedCoverUrl = refreshedCoverBySourceId.get(rawgSource.externalId) ?? null
+
+    await prisma.game.update({
+      where: {
+        id: game.id
+      },
+      data: {
+        coverUrl: refreshedCoverUrl
+      }
+    })
+
+    await prisma.gameSource.update({
+      where: {
+        id: rawgSource.id
+      },
+      data: {
+        syncedAt: new Date()
+      }
+    })
+
+    if (refreshedCoverUrl && refreshedCoverUrl !== sourceUrl) {
+      refreshedCoverUrls.add(refreshedCoverUrl)
+    }
+  }
+
+  if (refreshedCoverUrls.size !== 1) {
+    return null
+  }
+
+  const [refreshedCoverUrl] = refreshedCoverUrls
+  return refreshedCoverUrl ?? null
+}
+
+async function downloadAndCacheRawgMedia(sourceUrl: string): Promise<CachedGameMedia> {
+  const cacheKey = getCacheKey(sourceUrl)
+
+  try {
+    return await downloadAndCacheMedia(sourceUrl, cacheKey, 'RAWG')
+  } catch (error) {
+    if (!(error instanceof HttpError) || error.statusCode !== 404) {
+      throw error
+    }
+
+    let refreshedSourceUrl: string | null = null
+
+    try {
+      refreshedSourceUrl = await refreshStoredRawgGameCoverUrl(sourceUrl)
+    } catch {
+      refreshedSourceUrl = null
+    }
+
+    if (!refreshedSourceUrl || refreshedSourceUrl === sourceUrl) {
+      throw error
+    }
+
+    const refreshedCacheKey = getCacheKey(refreshedSourceUrl)
+    const cachedRefreshedMedia = await readCachedGameMedia(refreshedCacheKey)
+
+    if (cachedRefreshedMedia) {
+      return cachedRefreshedMedia
+    }
+
+    return downloadAndCacheMedia(refreshedSourceUrl, refreshedCacheKey, 'RAWG')
+  }
 }
 
 export function toClientGameCoverUrl(coverUrl: string | null | undefined): string | null {
@@ -269,7 +385,7 @@ export async function getCachedRawgGameMedia(token: string): Promise<CachedGameM
     return existingDownload
   }
 
-  const pendingDownload = downloadAndCacheMedia(sourceUrl, cacheKey, 'RAWG').finally(() => {
+  const pendingDownload = downloadAndCacheRawgMedia(sourceUrl).finally(() => {
     inFlightDownloads.delete(cacheKey)
   })
 

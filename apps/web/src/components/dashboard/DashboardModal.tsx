@@ -21,10 +21,9 @@ export function DashboardModal({
           maxWidth: '100%',
           maxHeight: 'calc(100dvh - 16px)',
           overflow: 'hidden',
-          backgroundColor: 'rgba(11, 16, 32, 0.84)',
-          borderColor: 'rgba(255,255,255,0.08)',
-          boxShadow: '0 24px 60px rgba(0, 0, 0, 0.42)',
-          backdropFilter: 'blur(18px)'
+          backgroundColor: '#0f1726',
+          borderColor: '#304159',
+          boxShadow: 'none'
         }}
       >
         <ModalClose sx={{ zIndex: 1 }} />

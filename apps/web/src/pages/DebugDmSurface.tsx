@@ -58,7 +58,7 @@ function DmMarkdown({ content }: { content: string }) {
         },
         '& a': {
           color: 'primary.300',
-          textDecorationColor: 'rgba(111, 217, 255, 0.38)'
+          textDecorationColor: '#6fd9ff'
         },
         '& strong': {
           color: '#fff',
@@ -70,14 +70,14 @@ function DmMarkdown({ content }: { content: string }) {
           px: 0.5,
           py: 0.125,
           borderRadius: '6px',
-          bgcolor: 'rgba(111, 217, 255, 0.12)'
+          bgcolor: '#103244'
         },
         '& pre': {
           overflowX: 'auto',
           p: 1.25,
           borderRadius: '10px',
-          bgcolor: 'rgba(8, 14, 24, 0.72)',
-          border: '1px solid rgba(111, 217, 255, 0.12)'
+          bgcolor: '#081018',
+          border: '1px solid #103244'
         },
         '& pre code': {
           p: 0,
@@ -129,7 +129,7 @@ function DmMarkdown({ content }: { content: string }) {
 }
 
 function formatDiscordEmbedColor(color: number | null) {
-  return color != null ? `#${color.toString(16).padStart(6, '0')}` : 'rgba(255, 255, 255, 0.16)'
+  return color != null ? `#${color.toString(16).padStart(6, '0')}` : '#526176'
 }
 
 function getDmInboxParticipantKey(participant: DebugDmInboxParticipant) {
@@ -151,7 +151,7 @@ export function DmPreviewCard({
     <Card variant="soft" sx={{ p: 2.5 }}>
       <Stack spacing={2}>
         {preview.content ? (
-          <Card variant="outlined" sx={{ p: 2, bgcolor: 'rgba(20, 24, 31, 0.72)' }}>
+          <Card variant="outlined" sx={{ p: 2, bgcolor: '#14181f' }}>
             <DmMarkdown content={preview.content} />
           </Card>
         ) : null}
@@ -163,8 +163,8 @@ export function DmPreviewCard({
             sx={{
               p: 0,
               overflow: 'hidden',
-              bgcolor: 'rgba(16, 19, 25, 0.94)',
-              borderColor: 'rgba(255, 255, 255, 0.08)',
+              bgcolor: '#101319',
+              borderColor: '#272f3c',
               boxShadow: `inset 4px 0 0 ${formatDiscordEmbedColor(embed.color)}`
             }}
           >
@@ -222,7 +222,7 @@ export function DmPreviewCard({
                       flexShrink: 0,
                       objectFit: 'cover',
                       borderRadius: 'sm',
-                      border: '1px solid rgba(255, 255, 255, 0.08)'
+                      border: '1px solid #272f3c'
                     }}
                   />
                 ) : null}
@@ -237,12 +237,12 @@ export function DmPreviewCard({
                     maxHeight: 220,
                     objectFit: 'cover',
                     borderRadius: 'md',
-                    border: '1px solid rgba(255, 255, 255, 0.08)'
+                    border: '1px solid #272f3c'
                   }}
                 />
               ) : null}
               {embed.footerText ? (
-                <Box sx={{ pt: 0.5, borderTop: '1px solid rgba(255, 255, 255, 0.06)' }}>
+                <Box sx={{ pt: 0.5, borderTop: '1px solid #272f3c' }}>
                   <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
                     {embed.footerText}
                   </Typography>

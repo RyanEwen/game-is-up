@@ -1,7 +1,7 @@
 import { Avatar, Box, Button, Card, Chip, Stack, Typography } from '@mui/joy'
 import type { ActivePlayIntent, PlayIntentPreview } from '@game-is-up/shared'
 import { CompactPersonGameCard } from './PersonCard'
-import { formatNotifyScopeLabel, formatPlayIntentTimingSummary } from './dashboardUtils'
+import { formatNotifyScopeLabel, formatPlayIntentTimingSummary, topLevelCardSx } from './dashboardUtils'
 import type { DashboardLibraryQuickAddGame } from './types'
 
 const selectedGameGridSx = {
@@ -11,6 +11,19 @@ const selectedGameGridSx = {
 } as const
 
 type PlayIntentGame = ActivePlayIntent['games'][number] | PlayIntentPreview['games'][number]
+
+function InterestedCountLabel({ count }: { count: number }) {
+  return (
+    <>
+      <Box component="span" sx={{ display: { xs: 'inline', sm: 'none' } }}>
+        {count} interested
+      </Box>
+      <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+        {count} {count === 1 ? 'person interested' : 'people interested'}
+      </Box>
+    </>
+  )
+}
 
 export function PlayIntentGameList({
   games,
@@ -81,36 +94,46 @@ export function PlayIntentCard({
   const timingSummary = formatPlayIntentTimingSummary(intent.availabilityWindow.startsAt, intent.availabilityWindow.endsAt)
   const actionButtonSx = {
     flexShrink: 0,
+    width: { xs: '100%', sm: 'auto' },
+    alignSelf: { xs: 'stretch', sm: 'flex-start' },
     borderRadius: 'md',
-    minHeight: '2rem',
-    px: 1.25,
-    fontSize: 'xs',
+    minHeight: { xs: 44, sm: '2.25rem' },
+    px: { xs: 2, sm: 1.5 },
+    fontSize: { xs: 'sm', sm: 'sm' },
     fontWeight: 'md',
     lineHeight: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-    boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.04)',
+    backgroundColor: 'primary.500',
+    color: 'primary.50',
+    boxShadow: 'none',
     transition: 'background-color 180ms ease, border-color 180ms ease, color 180ms ease, transform 120ms ease',
     '&:hover': {
-      backgroundColor: 'rgba(255, 255, 255, 0.06)',
-      borderColor: 'rgba(181, 192, 208, 0.28)',
+      backgroundColor: 'primary.400',
+      borderColor: 'primary.400',
       transform: 'translateY(-1px)'
     },
     '&:active': {
+      backgroundColor: 'primary.600',
       transform: 'translateY(0)'
     }
   } as const
 
   return (
     <Card
-      variant="outlined"
+      variant="soft"
       sx={{
-        p: 3,
-        borderColor: 'rgba(255, 255, 255, 0.08)',
-        backgroundColor: 'rgba(13, 18, 30, 0.82)'
+        px: 3,
+        py: 2.25,
+        ...topLevelCardSx
       }}
     >
-      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} justifyContent="space-between" sx={{ mb: 1.5 }}>
-        <Stack direction="row" spacing={1.25} alignItems="center">
+      <Stack spacing={1.25} sx={{ mb: 1 }}>
+        <Stack
+          direction={{ xs: 'column', sm: 'row' }}
+          spacing={1.25}
+          justifyContent="space-between"
+          alignItems={{ xs: 'stretch', sm: 'center' }}
+        >
+          <Stack direction="row" spacing={1.25} alignItems="center">
           <Avatar src={intent.user.avatarUrl ?? undefined} alt={intent.user.displayName} size="lg" variant="soft" />
           <Box sx={{ minWidth: 0 }}>
             <Typography level="title-lg">{intent.title}</Typography>
@@ -122,6 +145,17 @@ export function PlayIntentCard({
             </Typography>
           </Box>
         </Stack>
+          <Button
+            variant="solid"
+            color="primary"
+            size="sm"
+            onClick={() => onOpenDetails(intent.id)}
+            sx={actionButtonSx}
+          >
+            Details
+          </Button>
+        </Stack>
+
         <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }} alignItems="center">
           {isEnded ? (
             <Chip size="sm" color="warning" variant="soft">
@@ -141,18 +175,9 @@ export function PlayIntentCard({
           ) : null}
           {intent.interestedCount > 0 ? (
             <Chip size="sm" color="success" variant="soft">
-              {intent.interestedCount} {intent.interestedCount === 1 ? 'person interested' : 'people interested'}
+              <InterestedCountLabel count={intent.interestedCount} />
             </Chip>
           ) : null}
-          <Button
-            variant="outlined"
-            color="neutral"
-            size="sm"
-            onClick={() => onOpenDetails(intent.id)}
-            sx={actionButtonSx}
-          >
-            Details
-          </Button>
         </Stack>
       </Stack>
 

@@ -3,7 +3,7 @@ import type { DiscoveryGame, DiscoveryGamePlayer } from '@game-is-up/shared'
 import { DashboardDeferredImage } from './DashboardDeferredImage'
 import { FriendActionPopover } from './FriendActionPopover'
 import { GameActionPopover } from './GameActionPopover'
-import { formatLibraryIntentLabel } from './dashboardUtils'
+import { formatLibraryIntentLabel, nestedInsetSurfaceSx, topLevelGridCardSx } from './dashboardUtils'
 import type { DashboardLibraryQuickAddGame, FriendTarget } from './types'
 
 type CompactCardBadge = {
@@ -53,7 +53,8 @@ export function CompactDiscoveryPlayerCard({
       sx={{
         p: 1.25,
         borderRadius: 'md',
-        height: '100%'
+        height: '100%',
+        ...nestedInsetSurfaceSx
       }}
     >
       <Stack direction="column" spacing={1.25} justifyContent="space-between" alignItems="stretch">
@@ -171,14 +172,10 @@ export function GameCard({
 
   return (
     <Card
-      variant="outlined"
+      variant="soft"
       sx={{
         p: compact ? 2 : 3,
-        borderColor: 'rgba(255, 255, 255, 0.08)',
-        backgroundColor: 'rgba(13, 18, 30, 0.82)',
-        height: '100%',
-        contentVisibility: 'auto',
-        containIntrinsicSize: compact ? '560px' : '760px'
+        ...topLevelGridCardSx
       }}
     >
       <Stack spacing={compact ? 1.5 : 2} sx={{ height: '100%' }}>
@@ -363,12 +360,10 @@ export function GameCard({
 export function GameCardSkeleton({ compact = false }: { compact?: boolean }) {
   return (
     <Card
-      variant="outlined"
+      variant="soft"
       sx={{
         p: compact ? 2 : 3,
-        borderColor: 'rgba(255, 255, 255, 0.08)',
-        backgroundColor: 'rgba(13, 18, 30, 0.82)',
-        height: '100%'
+        ...topLevelGridCardSx
       }}
     >
       <Stack spacing={compact ? 1.5 : 2} sx={{ height: '100%' }}>

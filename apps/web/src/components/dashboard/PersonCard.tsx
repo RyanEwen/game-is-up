@@ -3,7 +3,15 @@ import type { DiscoveryPerson } from '@game-is-up/shared'
 import { DashboardDeferredImage } from './DashboardDeferredImage'
 import { FriendActionPopover } from './FriendActionPopover'
 import { GameActionPopover } from './GameActionPopover'
-import { formatDiscordActivityTypeLabel, formatLibraryIntentLabel, formatRelativeTimeShort, memberGameGridSx } from './dashboardUtils'
+import {
+  formatDiscordActivityTypeLabel,
+  formatLibraryIntentLabel,
+  formatRelativeTimeShort,
+  memberGameGridSx,
+  nestedInsetMediaSx,
+  nestedInsetSurfaceSx,
+  topLevelCardSx
+} from './dashboardUtils'
 import type { DashboardLibraryQuickAddGame, FriendTarget } from './types'
 
 type CompactCardBadge = {
@@ -53,7 +61,8 @@ export function CompactPersonGameCard({
       sx={{
         p: 1.5,
         borderRadius: 'md',
-        height: '100%'
+        height: '100%',
+        ...nestedInsetSurfaceSx
       }}
     >
       <Stack spacing={1.25} sx={{ height: '100%' }}>
@@ -64,7 +73,7 @@ export function CompactPersonGameCard({
               height: 68,
               borderRadius: 'sm',
               overflow: 'hidden',
-              backgroundColor: 'rgba(255,255,255,0.06)',
+              ...nestedInsetMediaSx,
               flexShrink: 0
             }}
           >
@@ -181,15 +190,10 @@ export function PersonCard({
 }) {
   return (
     <Card
-      variant="outlined"
+      variant="soft"
       sx={{
         p: 3,
-        backdropFilter: 'blur(16px)',
-        backgroundColor: 'rgba(17, 24, 38, 0.74)',
-        borderColor: 'rgba(255, 255, 255, 0.08)',
-        boxShadow: 'lg',
-        contentVisibility: 'auto',
-        containIntrinsicSize: '780px'
+        ...topLevelCardSx
       }}
     >
       <Stack
@@ -304,7 +308,8 @@ export function PersonCard({
           sx={{
             mb: 2,
             p: 1.5,
-            borderRadius: 'md'
+            borderRadius: 'md',
+            ...nestedInsetSurfaceSx
           }}
         >
           <Typography level="title-sm">
@@ -362,7 +367,8 @@ export function PersonCard({
             variant="soft"
             sx={{
               p: 1.5,
-              borderRadius: 'md'
+              borderRadius: 'md',
+              ...nestedInsetSurfaceSx
             }}
           >
             <Typography level="title-sm">No games shared yet</Typography>

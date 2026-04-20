@@ -8,6 +8,11 @@ const mediaTokenParamsSchema = z.object({
 
 export const mediaRouter = Router()
 
+mediaRouter.use((_request, response, next) => {
+  response.setHeader('Cross-Origin-Resource-Policy', 'cross-origin')
+  next()
+})
+
 mediaRouter.get('/game-cover/:token', async (request, response, next) => {
   try {
     const { token } = mediaTokenParamsSchema.parse(request.params)

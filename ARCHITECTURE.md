@@ -42,6 +42,7 @@ External media (RAWG game covers, Steam CDN game headers, Discord CDN avatars, a
 
 - Server-side disk cache in `$TMPDIR/game-is-up/game-media-cache/` to avoid redundant fetches.
 - Per-type TTL: game covers are treated as immutable once cached; avatars are re-fetched after 7 days.
+- RAWG cover self-healing: when a stored RAWG media URL returns `404`, the API can refresh the game's stored cover URL from its persisted RAWG source id and retry the image once before surfacing a miss.
 - Proper `Cache-Control` / `ETag` headers so browsers and CDN layers can cache aggressively.
 
 The PWA service worker adds a second caching layer on top: all `/api/media/` responses are stored client-side via a Workbox `CacheFirst` strategy with a 30-day TTL and a cap of 500 entries, so media loads instantly on repeat visits even when offline.

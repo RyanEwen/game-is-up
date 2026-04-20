@@ -106,7 +106,7 @@ export function LibraryEditorCard({
               sx={{
                 mt: 1,
                 borderRadius: 'md',
-                border: '1px solid rgba(255,255,255,0.08)',
+                border: '1px solid #272f3c',
                 overflow: 'hidden'
               }}
             >
@@ -296,7 +296,7 @@ export function LibraryEditorCard({
               flex: 1,
               minHeight: 52,
               fontWeight: 700,
-              boxShadow: '0 12px 30px rgba(46, 125, 50, 0.28)'
+              boxShadow: 'none'
             }}
           >
             {librarySaving ? 'Saving game...' : editingLibraryEntry ? 'Save library changes' : 'Add game to library'}

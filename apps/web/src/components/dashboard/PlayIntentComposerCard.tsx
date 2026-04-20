@@ -572,7 +572,7 @@ export function PlayIntentComposerCard({
               p: 2,
               border: '1px solid',
               borderColor: 'warning.700',
-              boxShadow: '0 12px 24px rgba(114, 67, 13, 0.18)'
+              boxShadow: 'none'
             }}
           >
             <Stack spacing={0.75}>
@@ -624,7 +624,7 @@ export function PlayIntentComposerCard({
               flex: 1,
               minHeight: 52,
               fontWeight: 700,
-              boxShadow: '0 12px 30px rgba(46, 125, 50, 0.28)'
+              boxShadow: 'none'
             }}
           >
             {saveButtonLabel}

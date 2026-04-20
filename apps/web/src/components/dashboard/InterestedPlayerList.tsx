@@ -1,6 +1,7 @@
 import { Avatar, Box, Sheet, Stack, Typography } from '@mui/joy'
 import type { ActivePlayIntent, DiscoveryPerson, PlayIntentPreview } from '@game-is-up/shared'
 import { CompactDiscoveryPlayerCard } from './GameCard'
+import { nestedInsetSurfaceSx } from './dashboardUtils'
 import type { FriendTarget } from './types'
 
 const interestedPlayerGridSx = {
@@ -79,8 +80,9 @@ export function InterestedPlayerList({
               sx={{
                 p: 1.25,
                 borderRadius: 'lg',
-                border: '1px solid rgba(87, 244, 193, 0.14)',
-                background: 'linear-gradient(180deg, rgba(16, 45, 40, 0.72), rgba(15, 20, 33, 0.96))'
+                border: '1px solid #14886a',
+                background: 'linear-gradient(180deg, #14352f, #141b28)',
+                boxShadow: nestedInsetSurfaceSx.boxShadow
               }}
             >
               <Stack direction="row" spacing={1} alignItems="center" sx={{ minWidth: 0 }}>

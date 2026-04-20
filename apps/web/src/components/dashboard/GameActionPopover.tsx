@@ -20,7 +20,7 @@ const titleTriggerSx = {
   },
   '&:hover .game-trigger-title': {
     textDecoration: 'underline',
-    textDecorationColor: 'rgba(141, 255, 216, 0.85)',
+    textDecorationColor: '#8dffd8',
     textUnderlineOffset: '0.18em'
   },
   '&:focus-visible': {

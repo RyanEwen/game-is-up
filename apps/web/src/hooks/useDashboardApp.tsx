@@ -653,6 +653,7 @@ export function useDashboardApp() {
     buildApiUrl,
     libraryEntries,
     suggestedGames: suggestedLibraryGames,
+    trendingGames: trendingLibraryGames,
     libraryGameIds,
     addingLibraryGameId,
     currentUsualAvailability,
@@ -1002,8 +1003,8 @@ export function useDashboardApp() {
       variant="soft"
       sx={{
         p: 3,
-        border: '1px solid rgba(255, 255, 255, 0.1)',
-        backgroundColor: 'rgba(9, 18, 32, 0.72)'
+        border: '1px solid #272f3c',
+        backgroundColor: '#0b1220'
       }}
     >
       <Stack spacing={1.5}>

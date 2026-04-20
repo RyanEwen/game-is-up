@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Box, Button, Card, Input, Stack, Typography } from '@mui/joy'
+import { Button, Card, Input, Stack, Typography } from '@mui/joy'
 import type { LibraryEntry, UserPlatformAlias } from '@game-is-up/shared'
 
 type AliasDrafts = Record<string, string>
@@ -38,13 +38,6 @@ export function AliasManagementCard({
   return (
     <Card variant="soft" sx={{ p: 2.25 }}>
       <Stack spacing={2}>
-        <Box>
-          <Typography level="title-md">Aliases</Typography>
-          <Typography level="body-sm" sx={{ color: 'neutral.400', mt: 0.5 }}>
-            Save your platform-specific handles. Game-specific aliases are edited directly in each game card below.
-          </Typography>
-        </Box>
-
         {platforms.length > 0 ? (
           <Stack spacing={1}>
             <Typography level="title-sm">Platform aliases</Typography>

@@ -57,6 +57,19 @@ function buildGameBadges(platformLabels: string[]) {
   ]
 }
 
+function InterestedCountLabel({ count }: { count: number }) {
+  return (
+    <>
+      <Box component="span" sx={{ display: { xs: 'inline', sm: 'none' } }}>
+        {count} interested
+      </Box>
+      <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+        {count} {count === 1 ? 'person interested' : 'people interested'}
+      </Box>
+    </>
+  )
+}
+
 function DiscordChannelButton({
   href,
   label,
@@ -332,9 +345,9 @@ export function PlayIntentDetailView() {
         variant="soft"
         sx={{
           p: 3,
-          border: '1px solid rgba(87, 244, 193, 0.18)',
-          background: 'linear-gradient(180deg, rgba(15, 84, 68, 0.28), rgba(11, 16, 32, 0.94))',
-          boxShadow: '0 24px 40px -32px rgba(28, 171, 132, 0.5)'
+            border: '1px solid #14886a',
+            background: 'linear-gradient(180deg, #143b33, #0d1322)',
+            boxShadow: 'none'
         }}
       >
         <Stack spacing={2}>
@@ -342,9 +355,6 @@ export function PlayIntentDetailView() {
             <Stack direction="row" spacing={1.5} alignItems="center" sx={{ minWidth: 0 }}>
               <Avatar src={intent.user.avatarUrl ?? undefined} alt={intent.user.displayName} size="lg" variant="soft" />
               <Box sx={{ minWidth: 0 }}>
-                <Typography level="body-xs" sx={{ color: 'primary.200', textTransform: 'uppercase', letterSpacing: '0.08em', mb: 0.75 }}>
-                  Call to Play Details
-                </Typography>
                 <Typography level="h2" sx={{ fontSize: { xs: '1.6rem', md: '2rem' } }}>
                   {intent.title}
                 </Typography>
@@ -361,6 +371,7 @@ export function PlayIntentDetailView() {
               {isEditingCurrentIntent ? (
                 <Button
                   color="primary"
+                  sx={{ width: { xs: '100%', sm: 'auto' } }}
                   onClick={() => {
                     playViewProps.openPlayIntentComposer()
                     navigate('/play')
@@ -373,13 +384,22 @@ export function PlayIntentDetailView() {
                 <Button
                   variant="outlined"
                   color="neutral"
+                  sx={{ width: { xs: '100%', sm: 'auto' } }}
                   onClick={() => setIsDmEmulatorOpen(true)}
                 >
                   Open DM emulator
                 </Button>
               ) : null}
               {canRespond ? (
-                <ButtonGroup sx={{ width: { xs: '100%', sm: 'auto' } }}>
+                <ButtonGroup
+                  sx={{
+                    width: { xs: '100%', sm: 'auto' },
+                    '& > *': {
+                      flex: { xs: 1, sm: 'initial' },
+                      minWidth: 0
+                    }
+                  }}
+                >
                   {intent.viewerResponseChoice !== 'interested' ? (
                     <Button
                       variant="solid"
@@ -406,6 +426,7 @@ export function PlayIntentDetailView() {
                 <Button
                   variant={isMuted ? 'soft' : 'outlined'}
                   color="neutral"
+                  sx={{ width: { xs: '100%', sm: 'auto' } }}
                   onClick={() => void (isMuted ? playViewProps.onUnmutePlayIntentUser(intent.user.id) : playViewProps.onMutePlayIntentUser(intent.user.id))}
                 >
                   {isMuted ? 'Unmute creator' : 'Mute creator'}
@@ -415,6 +436,7 @@ export function PlayIntentDetailView() {
                 <Button
                   variant="outlined"
                   color="danger"
+                  sx={{ width: { xs: '100%', sm: 'auto' } }}
                   disabled={playViewProps.playIntentDiscordSpaceDeletePendingIntentId === intent.id}
                   onClick={() => void playViewProps.onDeletePlayIntentDiscordSpace(intent.id)}
                 >
@@ -443,7 +465,7 @@ export function PlayIntentDetailView() {
             ) : null}
             {intent.interestedCount > 0 ? (
               <Chip size="sm" color="success" variant="soft">
-                {intent.interestedCount} {intent.interestedCount === 1 ? 'person interested' : 'people interested'}
+                <InterestedCountLabel count={intent.interestedCount} />
               </Chip>
             ) : null}
           </Stack>
@@ -474,7 +496,7 @@ export function PlayIntentDetailView() {
             <Card
               variant="outlined"
               color="warning"
-              sx={{ p: 1.5, borderColor: 'rgba(255, 187, 82, 0.4)', backgroundColor: 'rgba(47, 27, 4, 0.22)' }}
+                sx={{ p: 1.5, borderColor: 'warning.700', backgroundColor: 'warning.900' }}
             >
               <Typography level="body-sm" sx={{ color: 'warning.200' }}>
                 This call is visible in your network, but it does not currently include you.
@@ -492,7 +514,7 @@ export function PlayIntentDetailView() {
         }}
       >
         <Stack spacing={2}>
-          <Card variant="outlined" sx={{ p: 3, borderColor: 'rgba(255, 255, 255, 0.08)', backgroundColor: 'rgba(13, 18, 30, 0.82)' }}>
+          <Card variant="outlined" sx={{ p: 3, borderColor: '#304159' }}>
             <Stack spacing={1.5}>
               <Typography level="title-md">Who this call can reach</Typography>
               <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
@@ -532,7 +554,7 @@ export function PlayIntentDetailView() {
           </Card>
 
           {libraryWideScope ? (
-            <Card variant="outlined" sx={{ p: 3, borderColor: 'rgba(255, 255, 255, 0.08)', backgroundColor: 'rgba(13, 18, 30, 0.82)' }}>
+            <Card variant="outlined" sx={{ p: 3, borderColor: '#304159' }}>
               <Stack spacing={1.5}>
                 <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }}>
                   <Box>
@@ -634,7 +656,7 @@ export function PlayIntentDetailView() {
               </Stack>
             </Card>
           ) : (
-            <Card variant="outlined" sx={{ p: 3, borderColor: 'rgba(255, 255, 255, 0.08)', backgroundColor: 'rgba(13, 18, 30, 0.82)' }}>
+            <Card variant="outlined" sx={{ p: 3, borderColor: '#304159' }}>
               <Stack spacing={1.5}>
                 <Typography level="title-md">Selected games</Typography>
                 <PlayIntentGameList
@@ -651,7 +673,7 @@ export function PlayIntentDetailView() {
         </Stack>
 
         <Stack spacing={2}>
-          <Card variant="outlined" sx={{ p: 3, borderColor: 'rgba(255, 255, 255, 0.08)', backgroundColor: 'rgba(13, 18, 30, 0.82)' }}>
+          <Card variant="outlined" sx={{ p: 3, borderColor: '#304159' }}>
             <Stack spacing={1.5}>
               <Typography level="title-md">Call details</Typography>
               <Stack spacing={0.75}>
@@ -671,8 +693,8 @@ export function PlayIntentDetailView() {
                     sx={{
                       p: 1.5,
                       mt: 0.5,
-                      border: '1px solid rgba(87, 244, 193, 0.18)',
-                      background: 'linear-gradient(180deg, rgba(15, 84, 68, 0.22), rgba(11, 16, 32, 0.88))'
+                      border: '1px solid #14886a',
+                      background: 'linear-gradient(180deg, #12342d, #0d1322)'
                     }}
                   >
                     <Stack spacing={1.25}>
@@ -752,7 +774,7 @@ export function PlayIntentDetailView() {
             </Stack>
           </Card>
 
-          <Card variant="outlined" sx={{ p: 3, borderColor: 'rgba(255, 255, 255, 0.08)', backgroundColor: 'rgba(13, 18, 30, 0.82)' }}>
+          <Card variant="outlined" sx={{ p: 3, borderColor: '#304159' }}>
             <InterestedPlayerList
               users={intent.interestedUsers}
               discoveryPeopleById={discoveryPeopleById}

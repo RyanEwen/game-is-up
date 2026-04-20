@@ -48,9 +48,50 @@ export const memberGameGridSx = {
   gap: '12px'
 } as const
 
+export const topLevelCardSx = {
+  borderColor: 'var(--joy-palette-neutral-700)',
+  boxShadow: 'none'
+} as const
+
+export const topLevelGridCardSx = {
+  ...topLevelCardSx,
+  height: '100%'
+} as const
+
+export const dashedTopLevelCardSx = {
+  ...topLevelCardSx,
+  border: '1px dashed var(--joy-palette-neutral-700)'
+} as const
+
+export const nestedInsetSurfaceSx = {
+  backgroundColor: 'var(--joy-palette-background-surface)',
+  border: '1px solid var(--joy-palette-neutral-700)',
+  boxShadow: 'none'
+} as const
+
+export const nestedInsetMediaSx = {
+  backgroundColor: '#111827'
+} as const
+
+export const headerFilterControlSx = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 1,
+  width: { xs: '100%', sm: 'auto' },
+  flexWrap: { xs: 'nowrap', sm: 'wrap' }
+} as const
+
+export function buildHeaderFilterSelectSx(desktopMinWidth: number) {
+  return {
+    flex: { xs: '1 1 0', sm: '0 0 auto' },
+    minWidth: { xs: 0, sm: desktopMinWidth },
+    maxWidth: '100%'
+  } as const
+}
+
 export const libraryEntryGridSx = {
   display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))',
+  gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 260px), 1fr))',
   gap: '16px'
 } as const
 

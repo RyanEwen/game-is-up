@@ -95,13 +95,13 @@ export function SectionNav({
           borderBottomLeftRadius: 'var(--joy-radius-xl, 16px)',
           borderBottomRightRadius: 'var(--joy-radius-xl, 16px)',
           transition: 'border-top-left-radius 120ms ease, border-top-right-radius 120ms ease',
-          backgroundColor: 'rgba(7, 12, 24, 0.86)',
-          backdropFilter: 'blur(10px) saturate(1.04)',
-          WebkitBackdropFilter: 'blur(10px) saturate(1.04)',
+          backgroundColor: 'rgba(18, 34, 48, 0.72)',
+          backdropFilter: 'blur(12px) saturate(1.06)',
+          WebkitBackdropFilter: 'blur(12px) saturate(1.06)',
           boxShadow: [
-            '0 14px 26px -18px rgba(0, 0, 0, 0.92)',
-            'inset 0 -1px 0 rgba(255, 255, 255, 0.04)',
-            '0 0 0 1px rgba(94, 144, 206, 0.14)'
+            '0 14px 26px -18px rgba(0, 0, 0, 0.72)',
+            'inset 0 -1px 0 rgba(255, 255, 255, 0.05)',
+            '0 0 0 1px rgba(113, 160, 214, 0.12)'
           ].join(', ')
         }}
       >
@@ -111,7 +111,7 @@ export function SectionNav({
               <Box
                 component="span"
                 aria-hidden
-                sx={{ mx: 1.5, color: 'rgba(255,255,255,0.18)', userSelect: 'none', fontSize: 'sm' }}
+                sx={{ mx: 1.5, color: 'rgba(255,255,255,0.26)', userSelect: 'none', fontSize: 'sm' }}
               >
                 ·
               </Box>
@@ -127,7 +127,7 @@ export function SectionNav({
                 border: 'none',
                 background: 'none',
                 padding: 0,
-                color: 'var(--joy-palette-neutral-400)',
+                color: 'var(--joy-palette-neutral-300)',
                 fontSize: { xs: 'var(--joy-fontSize-sm)', sm: 'var(--joy-fontSize-md)' },
                 fontWeight: 'var(--joy-fontWeight-md)',
                 fontFamily: 'var(--joy-fontFamily-body)',
@@ -152,7 +152,7 @@ export function SectionNav({
                 <Box
                   component="span"
                   sx={{
-                    color: 'var(--joy-palette-neutral-500)',
+                    color: 'var(--joy-palette-neutral-400)',
                     fontSize: { xs: 'var(--joy-fontSize-xs)', sm: 'var(--joy-fontSize-sm)' },
                     fontWeight: 'var(--joy-fontWeight-md)'
                   }}

@@ -5,6 +5,7 @@ import { DashboardModal } from '../components/dashboard/DashboardModal'
 import { EmptyStateCard } from '../components/dashboard/EmptyStateCard'
 import { LibraryEditorCard } from '../components/dashboard/LibraryEditorCard'
 import { PersonCard } from '../components/dashboard/PersonCard'
+import { buildHeaderFilterSelectSx, headerFilterControlSx } from '../components/dashboard/dashboardUtils'
 import { useDashboardContext } from '../contexts/useDashboardContext'
 import type { DashboardLibraryQuickAddGame, FriendTarget } from '../components/dashboard/types'
 
@@ -85,7 +86,7 @@ function FriendsViewContent({
   }
 
   const friendSortControl = friends.length > 0 || addableFriends.length > 0 ? (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+    <Box sx={headerFilterControlSx}>
       <Typography level="body-sm" sx={{ color: 'neutral.400', whiteSpace: 'nowrap' }}>Sort by</Typography>
       <Select
         size="sm"
@@ -95,7 +96,7 @@ function FriendsViewContent({
             setFriendSort(nextValue)
           }
         }}
-        sx={{ minWidth: 170 }}
+        sx={buildHeaderFilterSelectSx(170)}
       >
         <Option value="matching-games">Matching games</Option>
         <Option value="games">Number of games</Option>
@@ -104,23 +105,27 @@ function FriendsViewContent({
     </Box>
   ) : null
 
+  const friendHeaderControls = isSignedIn || friendSortControl ? (
+    <Stack spacing={1} alignItems={{ xs: 'stretch', sm: 'flex-end' }}>
+      {isSignedIn ? (
+        <Button color="primary" onClick={() => setIsAddFriendsModalOpen(true)} sx={{ alignSelf: { xs: 'stretch', sm: 'flex-end' } }}>
+          Add friends
+        </Button>
+      ) : null}
+      {friendSortControl}
+    </Stack>
+  ) : null
+
   return (
     <Stack spacing={3}>
-      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'flex-start' }}>
+      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }}>
         <Box>
           <Typography level="h2">Friends</Typography>
           <Typography level="body-md" sx={{ color: 'neutral.300', mt: 0.5 }}>
             Keep track of the people you care about most and what they are playing.
           </Typography>
         </Box>
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'center' }} justifyContent={{ xs: 'stretch', sm: 'flex-end' }}>
-          {friendSortControl}
-          {isSignedIn ? (
-            <Button color="primary" onClick={() => setIsAddFriendsModalOpen(true)}>
-              Add friends
-            </Button>
-          ) : null}
-        </Stack>
+        {friendHeaderControls}
       </Stack>
 
       {error ? (
