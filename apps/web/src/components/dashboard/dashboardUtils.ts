@@ -193,7 +193,7 @@ export function formatPlayIntentTimingSummary(startsAt: string, endsAt: string, 
   const startDate = new Date(startsAt)
   const endDate = new Date(endsAt)
   const durationMinutes = Math.max(1, Math.round((endDate.getTime() - startDate.getTime()) / (60 * 1000)))
-  const prefix = startDate.getTime() > baseDate.getTime() ? 'Starts ' : ''
+  const prefix = startDate.getTime() > baseDate.getTime() ? 'Scheduled for ' : ''
 
   return `${prefix}${formatMonthDayTime(startDate)} for ${formatPlayIntentDurationLabel(durationMinutes)}`
 }

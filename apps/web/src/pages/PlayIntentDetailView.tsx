@@ -2,6 +2,7 @@ import { type ReactNode, useEffect, useMemo, useState } from 'react'
 import ChatBubbleOutlineRoundedIcon from '@mui/icons-material/ChatBubbleOutlineRounded'
 import HeadsetMicRoundedIcon from '@mui/icons-material/HeadsetMicRounded'
 import OpenInNewRoundedIcon from '@mui/icons-material/OpenInNewRounded'
+import ScheduleRoundedIcon from '@mui/icons-material/ScheduleRounded'
 import { Avatar, Box, Button, ButtonGroup, Card, Chip, Stack, Typography } from '@mui/joy'
 import { dashboardInvalidationEventSchema, playIntentDetailResponseSchema, type PlayIntentDetail } from '@game-is-up/shared'
 import { useNavigate, useParams } from 'react-router-dom'
@@ -339,7 +340,8 @@ export function PlayIntentDetailView() {
   const canRespond = playViewProps.isSignedIn && !isOwnIntent && intent.status === 'active' && intent.appliesToViewer
   const responsePending = playViewProps.playIntentResponsePendingIntentId === intent.id
   const isMuted = playViewProps.mutedPlayIntentUserIds.has(intent.user.id)
-  const isEditingCurrentIntent = playViewProps.activePlayIntent?.id === intent.id
+  const isEditingCurrentIntent = isOwnIntent && intent.status === 'active'
+  const isScheduledIntent = intent.status === 'active' && new Date(intent.availabilityWindow.startsAt).getTime() > Date.now() + 60 * 1000
   const libraryWideScope = intent.selectionMode === 'library' ? intent.expandedGameScope : null
   const canRevealNonOverlappingGames = libraryWideScope?.kind === 'shared-library' && libraryWideScope.nonOverlappingGames.length > 0
   const canDeleteDiscordSpace = Boolean(
@@ -396,7 +398,7 @@ export function PlayIntentDetailView() {
                   color="primary"
                   sx={{ width: { xs: '100%', sm: 'auto' } }}
                   onClick={() => {
-                    playViewProps.openPlayIntentComposer()
+                    playViewProps.openPlayIntentComposerForIntent(intent)
                     navigate('/play')
                   }}
                 >
@@ -475,6 +477,11 @@ export function PlayIntentDetailView() {
             <Chip size="sm" color={intent.status === 'active' ? 'success' : 'warning'} variant="soft">
               {intent.status === 'active' ? 'Active' : 'Ended'}
             </Chip>
+            {isScheduledIntent ? (
+              <Chip size="sm" color="warning" variant="soft" startDecorator={<ScheduleRoundedIcon fontSize="small" />}>
+                Scheduled
+              </Chip>
+            ) : null}
             <Chip size="sm" color="primary" variant="soft">
               {intent.selectionMode === 'library' ? 'Any game in library' : 'Selected games'}
             </Chip>

@@ -25,7 +25,11 @@ import {
 import { env } from './env.js'
 import { syncCreatorPlayIntentSummaryMessages } from './play-intent-notification-responses.js'
 import { prisma } from './prisma.js'
-import { getCurrentPlayIntent, getPlayIntentRecipientUserIds, upsertCurrentPlayIntent } from './play-intents.js'
+import {
+  getPlayIntentRecipientUserIds,
+  minimumPlayIntentDurationMinutes,
+  upsertCurrentPlayIntent
+} from './play-intents.js'
 
 const autoPlayPromptDurations = [60, 120, 240] as const
 const autoPlayPromptCooldownMinutes = 10
@@ -639,11 +643,15 @@ export async function maybeSendDiscordAutoPlayPromptForObservation(observationId
     return
   }
 
+  const minimumPromptEndsAt = new Date(Date.now() + minimumPlayIntentDurationMinutes * 60 * 1000)
   const [activeIntent, libraryEntry, discordIdentity] = await Promise.all([
     prisma.playIntent.findFirst({
       where: {
         userId: observation.userId,
-        expiresAt: {
+        windowStartsAt: {
+          lt: minimumPromptEndsAt
+        },
+        windowEndsAt: {
           gt: new Date()
         }
       },
@@ -690,8 +698,8 @@ export async function maybeSendDiscordAutoPlayPromptForObservation(observationId
       gameId,
       sourceServerId: observation.sourceServerId,
       detail: activeIntent.selectionMode === 'SELECTED_GAMES' && activeIntent.games.some((entry) => entry.gameId === gameId)
-        ? 'Skipped because you already have an active call to play covering this game.'
-        : 'Skipped because the user already has an active call to play.'
+        ? 'Skipped because you already have an overlapping call to play covering this game.'
+        : 'Skipped because the user already has an overlapping call to play.'
     })
     return
   }
@@ -982,7 +990,20 @@ export async function handleDiscordAutoPlayPromptInteraction(interaction: Button
     return
   }
 
-  const activeIntent = await getCurrentPlayIntent(prompt.user.id)
+  const activeIntent = await prisma.playIntent.findFirst({
+    where: {
+      userId: prompt.user.id,
+      windowStartsAt: {
+        lt: new Date(Date.now() + action.durationMinutes * 60 * 1000)
+      },
+      windowEndsAt: {
+        gt: new Date()
+      }
+    },
+    select: {
+      id: true
+    }
+  })
 
   if (activeIntent) {
     await prisma.discordAutoPlayPrompt.update({
@@ -992,12 +1013,12 @@ export async function handleDiscordAutoPlayPromptInteraction(interaction: Button
       data: {
         status: DiscordAutoPlayPromptStatus.EXPIRED,
         respondedAt: new Date(),
-        statusDetail: 'The user already had an active call to play before accepting this prompt.'
+        statusDetail: 'The user already had an overlapping call to play before accepting this prompt.'
       }
     })
     await interaction.update({
       content: buildDiscordMessageHeading(`🛑 ${prompt.game.title} Prompt Closed`),
-      embeds: buildExpiredEmbeds(prompt.game.title, 'You already have an active call to play.'),
+      embeds: buildExpiredEmbeds(prompt.game.title, 'You already have an overlapping call to play.'),
       components: [buildLinkRow()]
     })
     return

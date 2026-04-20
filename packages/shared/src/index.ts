@@ -330,6 +330,7 @@ export const playIntentDiscordSpaceDeleteResponseSchema = z.object({
 })
 
 export const upsertPlayIntentRequestSchema = z.object({
+  playIntentId: z.string().uuid().optional(),
   title: z.string().trim().max(80).optional(),
   selectionMode: playIntentSelectionModeSchema,
   notifyScope: playIntentNotifyScopeSchema,

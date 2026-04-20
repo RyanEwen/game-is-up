@@ -37,7 +37,7 @@ function toNotifyScope(scope: PlayIntentScope): 'friends-only' | 'network' | 'sp
 
 function formatAvailabilityLabel(displayName: string, startsAt: Date, now: Date) {
   return startsAt.getTime() > now.getTime() + 60 * 1000
-    ? `${displayName} starts ${startsAt.toLocaleString([], {
+    ? `${displayName} is scheduled for ${startsAt.toLocaleString([], {
         month: 'short',
         day: 'numeric',
         hour: 'numeric',

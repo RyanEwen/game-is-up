@@ -22,7 +22,7 @@ import { DashboardModalActionBar } from './DashboardModalActionBar'
 import type { PlayIntentStartMode, PlayIntentTimingMode, PlayIntentVoiceMode } from './types'
 
 export function PlayIntentComposerCard({
-  activePlayIntent,
+  composerPlayIntent,
   isAdmin,
   playIntentFilteredAudienceMessage,
   playIntentNotifyScope,
@@ -72,7 +72,7 @@ export function PlayIntentComposerCard({
   onCancel,
   onClearPlayIntent
 }: {
-  activePlayIntent: ActivePlayIntent | null;
+  composerPlayIntent: ActivePlayIntent | null;
   isAdmin: boolean;
   playIntentFilteredAudienceMessage: string | null;
   playIntentNotifyScope: PlayIntentNotifyScope;
@@ -122,27 +122,27 @@ export function PlayIntentComposerCard({
   onCancel: () => void;
   onClearPlayIntent: () => Promise<void>;
 }) {
-  const isScheduledIntent = activePlayIntent ? new Date(activePlayIntent.windowStartsAt).getTime() > Date.now() + 60 * 1000 : false
-  const composerTitle = activePlayIntent
+  const isScheduledIntent = composerPlayIntent ? new Date(composerPlayIntent.windowStartsAt).getTime() > Date.now() + 60 * 1000 : false
+  const composerTitle = composerPlayIntent
     ? isScheduledIntent
-      ? 'Your call to play is scheduled'
-      : 'Your call to play is live'
+      ? 'Edit scheduled call to play'
+      : 'Edit live call to play'
     : playIntentStartMode === 'scheduled'
       ? 'Schedule a call to play'
       : 'Post a call to play'
   const saveButtonLabel = playIntentSaving
-    ? activePlayIntent
+    ? composerPlayIntent
       ? 'Saving call to play...'
       : playIntentStartMode === 'scheduled'
         ? 'Scheduling call to play...'
         : 'Posting call to play...'
-    : activePlayIntent
+    : composerPlayIntent
       ? 'Update call to play'
       : playIntentStartMode === 'scheduled'
         ? 'Schedule call to play'
         : 'Post call to play'
-  const saveToSelfButtonLabel = activePlayIntent ? 'Update for me only' : 'Post to me only'
-  const blockingMessageTitle = activePlayIntent
+  const saveToSelfButtonLabel = composerPlayIntent ? 'Update for me only' : 'Post to me only'
+  const blockingMessageTitle = composerPlayIntent
     ? 'This call to play cannot be updated yet'
     : 'This call to play cannot be posted yet'
   const isPrimaryActionBlocked = Boolean(playIntentFilteredAudienceMessage)
@@ -167,7 +167,7 @@ export function PlayIntentComposerCard({
       })
       return groups
     }, [])
-  const activeTargetServers = activePlayIntent?.targetServers ?? []
+  const activeTargetServers = composerPlayIntent?.targetServers ?? []
 
   return (
     <>
@@ -186,36 +186,36 @@ export function PlayIntentComposerCard({
           Let others with matching games know you want to play, whether that is now or later.
         </Typography>
 
-        {activePlayIntent ? (
+        {composerPlayIntent ? (
           <Card color="success" variant="soft" sx={{ p: 2 }}>
             <Stack spacing={1}>
-              <Typography level="title-md">{activePlayIntent.title}</Typography>
+              <Typography level="title-md">{composerPlayIntent.title}</Typography>
               <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
                 {isScheduledIntent ? (
                   <>
                     <Chip size="sm" color="warning" variant="soft">
-                      Starts {formatMonthDayTime(activePlayIntent.windowStartsAt)}
+                      Scheduled for {formatMonthDayTime(composerPlayIntent.windowStartsAt)}
                     </Chip>
                     <Chip size="sm" color="success" variant="soft">
-                      Ends {formatMonthDayTime(activePlayIntent.windowEndsAt)}
+                      Ends {formatMonthDayTime(composerPlayIntent.windowEndsAt)}
                     </Chip>
                   </>
                 ) : (
                   <Chip size="sm" color="success" variant="soft">
-                    Live until {formatClockTime(activePlayIntent.windowEndsAt)}
+                    Live until {formatClockTime(composerPlayIntent.windowEndsAt)}
                   </Chip>
                 )}
                 <Chip size="sm" color="primary" variant="outlined">
-                  {formatNotifyScopeLabel(activePlayIntent.notifyScope)}
+                  {formatNotifyScopeLabel(composerPlayIntent.notifyScope)}
                 </Chip>
                 <Chip size="sm" color="neutral" variant="outlined">
-                  {formatPlayIntentSelectionModeLabel(activePlayIntent.selectionMode)}
+                  {formatPlayIntentSelectionModeLabel(composerPlayIntent.selectionMode)}
                 </Chip>
               </Stack>
               <Typography level="body-xs" sx={{ color: 'neutral.300' }}>
-                {formatNotifyScopeDescription(activePlayIntent.notifyScope)}
+                {formatNotifyScopeDescription(composerPlayIntent.notifyScope)}
               </Typography>
-              {activePlayIntent.notifyScope === 'specific-discord-server' && activeTargetServers.length > 0 ? (
+              {composerPlayIntent.notifyScope === 'specific-discord-server' && activeTargetServers.length > 0 ? (
                 <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
                   {activeTargetServers.map((server) => (
                     <Chip
@@ -230,9 +230,9 @@ export function PlayIntentComposerCard({
                   ))}
                 </Stack>
               ) : null}
-              {activePlayIntent.notifyScope === 'specific-friends' && activePlayIntent.targetedFriends.length > 0 ? (
+              {composerPlayIntent.notifyScope === 'specific-friends' && composerPlayIntent.targetedFriends.length > 0 ? (
                 <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-                  {activePlayIntent.targetedFriends.map((friend) => (
+                  {composerPlayIntent.targetedFriends.map((friend) => (
                     <Chip
                       key={friend.id}
                       size="sm"
@@ -245,9 +245,9 @@ export function PlayIntentComposerCard({
                   ))}
                 </Stack>
               ) : null}
-              {activePlayIntent.note ? (
+              {composerPlayIntent.note ? (
                 <Typography level="body-sm" sx={{ color: 'neutral.100' }}>
-                  {activePlayIntent.note}
+                  {composerPlayIntent.note}
                 </Typography>
               ) : null}
             </Stack>
@@ -584,7 +584,7 @@ export function PlayIntentComposerCard({
         ) : null}
       </DialogContent>
       <DashboardModalActionBar
-        secondaryAction={isAdmin || activePlayIntent ? (
+        secondaryAction={isAdmin || composerPlayIntent ? (
           <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
             {isAdmin ? (
               <Button
@@ -597,7 +597,7 @@ export function PlayIntentComposerCard({
                 {saveToSelfButtonLabel}
               </Button>
             ) : null}
-            {activePlayIntent ? (
+            {composerPlayIntent ? (
               <Button
                 variant="outlined"
                 color="neutral"

@@ -143,6 +143,29 @@ playIntentRouter.delete('/me', async (request, response, next) => {
   }
 })
 
+playIntentRouter.delete('/:playIntentId', async (request, response, next) => {
+  const userId = requireSignedInUserId(request, response)
+
+  if (!userId) {
+    return
+  }
+
+  const paramsParse = playIntentParamSchema.safeParse(request.params)
+
+  if (!paramsParse.success) {
+    response.status(400).json({ error: 'Invalid play intent ID.' })
+    return
+  }
+
+  try {
+    await clearCurrentPlayIntent(userId, paramsParse.data.playIntentId)
+
+    response.status(204).send()
+  } catch (error) {
+    next(error)
+  }
+})
+
 playIntentRouter.get('/mutes', async (request, response, next) => {
   const userId = requireSignedInUserId(request, response)
 

@@ -62,6 +62,8 @@ Play intents can notify either explicit friends only, a specific hand-picked set
 
 The scheduling model uses an explicit start and end window so the same aggregate supports both live-now calls to play and scheduled future sessions without a second entity type.
 
+Users can keep multiple active play intents at once as long as their availability windows do not overlap. The API write path enforces that overlap rule against the creator's other active calls, and the web composer edits one explicitly selected active intent at a time instead of assuming there is only one current call.
+
 Notification rows can now also track whether a recipient explicitly said they would join from a Discord DM prompt. That keeps the response flow attached to the original play intent instead of introducing a second RSVP-specific entity.
 
 Play-intent feed and current-intent payloads now also include lightweight interested-user previews derived from interested responses. That lets the web app render interested-player summaries directly on the Play view without a second lookup for basic identity data.
@@ -92,7 +94,7 @@ The Discord bot runtime is now intentionally split by environment. Exactly one e
 
 Discord activity observations can also drive a secondary auto-prompt flow: when the presence bot sees a user start a game, the API can persist a prompt record, DM that user through the bot, and create a normal play intent if the user accepts.
 
-The gateway-owning Discord bot can also react to plain DM text commands from linked users for lightweight control and cleanup. That command surface currently supports status checks, ending the active call to play, toggling auto-play prompts, and removing settled bot-authored DM history.
+The gateway-owning Discord bot can also react to plain DM text commands from linked users for lightweight control and cleanup. That command surface currently supports status checks against the latest active call to play, ending active calls to play, toggling auto-play prompts, and removing settled bot-authored DM history.
 
 The same bot surface now also supports guild-only slash commands for server adoption and discovery shortcuts. Those commands generate richer invite flows, including a dedicated web invite landing page that preserves server and inviter context through Discord OAuth instead of dropping every invite into the generic app shell.
 

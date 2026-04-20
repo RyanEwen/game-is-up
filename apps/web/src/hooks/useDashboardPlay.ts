@@ -6,6 +6,7 @@ import type {
   DiscordVoiceChannel,
   DiscoveryPerson,
   LibraryEntry,
+  PlayIntentDetail,
   PlayIntentNotifyScope,
   PlayIntentPreview,
   PlayIntentRecipientResponseChoice,
@@ -54,12 +55,40 @@ function personHasGameOverlap(person: DiscoveryPerson, gameIds: ReadonlySet<stri
   return person.games.some((game) => gameIds.has(game.id))
 }
 
+function toComposerPlayIntent(intent: ActivePlayIntent | PlayIntentDetail): ActivePlayIntent {
+  if ('windowStartsAt' in intent) {
+    return intent
+  }
+
+  return {
+    id: intent.id,
+    title: intent.title,
+    selectionMode: intent.selectionMode,
+    notifyScope: intent.notifyScope,
+    targetServers: intent.targetServers,
+    targetedFriends: intent.targetedFriends,
+    platforms: intent.platforms,
+    games: intent.games,
+    note: intent.note,
+    voiceChannelId: intent.voiceChannelId,
+    voiceChannelName: intent.voiceChannelName,
+    discordSpace: intent.discordSpace,
+    windowStartsAt: intent.availabilityWindow.startsAt,
+    windowEndsAt: intent.availabilityWindow.endsAt,
+    expiresAt: intent.availabilityWindow.endsAt,
+    interestedUsers: intent.interestedUsers,
+    interestedCount: intent.interestedCount
+  }
+}
+
 export type DashboardPlayViewProps = {
   isSignedIn: boolean;
   isAdmin: boolean;
   activePlayIntent: ActivePlayIntent | null;
+  composerPlayIntent: ActivePlayIntent | null;
   isPlayIntentComposerOpen: boolean;
   openPlayIntentComposer: () => void;
+  openPlayIntentComposerForIntent: (intent: ActivePlayIntent | PlayIntentDetail) => void;
   closePlayIntentComposer: () => void;
   canPostPlayIntent: boolean;
   playIntentFilteredAudienceMessage: string | null;
@@ -133,7 +162,6 @@ export function useDashboardPlay({
   playIntentDiscordServerOptions,
   playIntentPreviews,
   loadDashboard,
-  setActivePlayIntent,
   setPlayIntentNotice
 }: {
   isSignedIn: boolean;
@@ -146,7 +174,6 @@ export function useDashboardPlay({
   playIntentDiscordServerOptions: DiscordServerPreference[];
   playIntentPreviews: PlayIntentPreview[];
   loadDashboard: () => Promise<void>;
-  setActivePlayIntent: (intent: ActivePlayIntent | null) => void;
   setPlayIntentNotice: Dispatch<SetStateAction<Notice | null>>;
 }) {
   const [playIntentSelectionMode, setPlayIntentSelectionMode] = useState<PlayIntentSelectionMode>('library')
@@ -171,6 +198,61 @@ export function useDashboardPlay({
   const [playIntentDiscordSpaceDeletePendingIntentId, setPlayIntentDiscordSpaceDeletePendingIntentId] = useState<string | null>(null)
   const [playIntentSaving, setPlayIntentSaving] = useState(false)
   const [isPlayIntentComposerOpen, setIsPlayIntentComposerOpen] = useState(false)
+  const [composerPlayIntent, setComposerPlayIntent] = useState<ActivePlayIntent | null>(null)
+
+  const resetPlayIntentComposer = useCallback(() => {
+    setPlayIntentSelectionMode('library')
+    setPlayIntentNotifyScope('network')
+    setPlayIntentStartMode('now')
+    setPlayIntentTimingMode('preset')
+    setPlayIntentDurationMinutes(defaultPlayIntentDurationMinutes)
+    setPlayIntentCustomDurationInput(String(defaultPlayIntentDurationMinutes))
+    setPlayIntentStartAtInput(buildDefaultScheduledStartAtInput())
+    setPlayIntentEndAtInput(buildPlayIntentEndTimeInputValue(defaultPlayIntentDurationMinutes))
+    setPlayIntentTitle('')
+    setPlayIntentNote('')
+    setPlayIntentVoiceMode('none')
+    setPlayIntentVoiceChannelId('')
+    setPlayIntentVoiceChannelName('')
+    setSelectedPlayIntentGameIds([])
+    setSelectedPlayIntentTargetDiscordServerIds([])
+    setSelectedPlayIntentTargetUserIds([])
+  }, [])
+
+  const populatePlayIntentComposer = useCallback((intent: ActivePlayIntent) => {
+    const durationMinutes = Math.max(
+      30,
+      Math.min(
+        480,
+        Math.round((new Date(intent.windowEndsAt).getTime() - new Date(intent.windowStartsAt).getTime()) / (60 * 1000))
+      )
+    )
+    const startsAt = new Date(intent.windowStartsAt)
+    const isScheduledIntent = startsAt.getTime() > Date.now() + 60 * 1000
+
+    setPlayIntentSelectionMode(intent.selectionMode)
+    setPlayIntentNotifyScope(intent.notifyScope)
+    setPlayIntentStartMode(isScheduledIntent ? 'scheduled' : 'now')
+    setPlayIntentTimingMode(playIntentPresetDurations.includes(durationMinutes as (typeof playIntentPresetDurations)[number]) ? 'preset' : 'end-time')
+    setPlayIntentDurationMinutes(durationMinutes)
+    setPlayIntentCustomDurationInput(String(durationMinutes))
+    setPlayIntentStartAtInput(toLocalDateTimeInputValue(intent.windowStartsAt))
+    setPlayIntentEndAtInput(toLocalDateTimeInputValue(intent.windowEndsAt))
+    setPlayIntentTitle(intent.title)
+    setPlayIntentNote(intent.note)
+    setPlayIntentVoiceMode(
+      intent.discordSpace
+        ? 'temporary'
+        : intent.voiceChannelId
+          ? 'existing'
+          : 'none'
+    )
+    setPlayIntentVoiceChannelId(intent.voiceChannelId ?? '')
+    setPlayIntentVoiceChannelName(intent.voiceChannelName ?? '')
+    setSelectedPlayIntentGameIds(intent.games.map((game) => game.id))
+    setSelectedPlayIntentTargetDiscordServerIds(intent.targetServers.map((server) => server.id))
+    setSelectedPlayIntentTargetUserIds(intent.targetedFriends.map((friend) => friend.id))
+  }, [])
 
   const canPostPlayIntent = libraryEntries.length > 0
   const libraryGameIdSet = new Set<string>(libraryEntries.map((entry) => entry.gameId))
@@ -285,7 +367,7 @@ export function useDashboardPlay({
     ? playIntentTimingValidationMessage
     : playIntentPreviewEndsAt && resolvedPlayIntentDurationMinutes != null
       ? playIntentStartMode === 'scheduled' && resolvedPlayIntentStartAt
-        ? `Starts ${formatMonthDayTime(resolvedPlayIntentStartAt)} and ends ${formatMonthDayTime(playIntentPreviewEndsAt)} (${formatPlayIntentDurationLabel(resolvedPlayIntentDurationMinutes)}).`
+        ? `Scheduled for ${formatMonthDayTime(resolvedPlayIntentStartAt)} and ending ${formatMonthDayTime(playIntentPreviewEndsAt)} (${formatPlayIntentDurationLabel(resolvedPlayIntentDurationMinutes)}).`
         : `Ends ${formatMonthDayTime(playIntentPreviewEndsAt)} (${formatPlayIntentDurationLabel(resolvedPlayIntentDurationMinutes)}).`
       : 'Choose how long this call to play should stay visible.'
   const playIntentTimingHasError = playIntentTimingValidationMessage != null
@@ -365,61 +447,6 @@ export function useDashboardPlay({
     }
   }, [buildApiUrl, isSignedIn])
 
-  useEffect(() => {
-    if (!activePlayIntent) {
-      setPlayIntentSelectionMode('library')
-      setPlayIntentNotifyScope('network')
-      setPlayIntentStartMode('now')
-      setPlayIntentTimingMode('preset')
-      setPlayIntentDurationMinutes(defaultPlayIntentDurationMinutes)
-      setPlayIntentCustomDurationInput(String(defaultPlayIntentDurationMinutes))
-      setPlayIntentStartAtInput(buildDefaultScheduledStartAtInput())
-      setPlayIntentEndAtInput(buildPlayIntentEndTimeInputValue(defaultPlayIntentDurationMinutes))
-      setPlayIntentTitle('')
-      setPlayIntentNote('')
-      setPlayIntentVoiceMode('none')
-      setPlayIntentVoiceChannelId('')
-      setPlayIntentVoiceChannelName('')
-      setSelectedPlayIntentGameIds([])
-      setSelectedPlayIntentTargetDiscordServerIds([])
-      setSelectedPlayIntentTargetUserIds([])
-      return
-    }
-
-    const durationMinutes = Math.max(
-      30,
-      Math.min(
-        480,
-        Math.round((new Date(activePlayIntent.windowEndsAt).getTime() - new Date(activePlayIntent.windowStartsAt).getTime()) / (60 * 1000))
-      )
-    )
-    const startsAt = new Date(activePlayIntent.windowStartsAt)
-    const isScheduledIntent = startsAt.getTime() > Date.now() + 60 * 1000
-
-    setPlayIntentSelectionMode(activePlayIntent.selectionMode)
-    setPlayIntentNotifyScope(activePlayIntent.notifyScope)
-    setPlayIntentStartMode(isScheduledIntent ? 'scheduled' : 'now')
-    setPlayIntentTimingMode(playIntentPresetDurations.includes(durationMinutes as (typeof playIntentPresetDurations)[number]) ? 'preset' : 'end-time')
-    setPlayIntentDurationMinutes(durationMinutes)
-    setPlayIntentCustomDurationInput(String(durationMinutes))
-    setPlayIntentStartAtInput(toLocalDateTimeInputValue(activePlayIntent.windowStartsAt))
-    setPlayIntentEndAtInput(toLocalDateTimeInputValue(activePlayIntent.windowEndsAt))
-    setPlayIntentTitle(activePlayIntent.title)
-    setPlayIntentNote(activePlayIntent.note)
-    setPlayIntentVoiceMode(
-      activePlayIntent.discordSpace
-        ? 'temporary'
-        : activePlayIntent.voiceChannelId
-          ? 'existing'
-          : 'none'
-    )
-    setPlayIntentVoiceChannelId(activePlayIntent.voiceChannelId ?? '')
-    setPlayIntentVoiceChannelName(activePlayIntent.voiceChannelName ?? '')
-    setSelectedPlayIntentGameIds(activePlayIntent.games.map((game) => game.id))
-    setSelectedPlayIntentTargetDiscordServerIds(activePlayIntent.targetServers.map((server) => server.id))
-    setSelectedPlayIntentTargetUserIds(activePlayIntent.targetedFriends.map((friend) => friend.id))
-  }, [activePlayIntent])
-
   const togglePlayIntentGame = useCallback((gameId: string) => {
     setSelectedPlayIntentGameIds((current) =>
       current.includes(gameId)
@@ -440,6 +467,7 @@ export function useDashboardPlay({
 
   const savePlayIntent = useCallback(async (selfTargetOnly: boolean) => {
     const shouldSelfTarget = selfTargetOnly && isAdmin
+    const editingPlayIntentId = composerPlayIntent?.id ?? null
 
     if (!canPostPlayIntent) {
       setPlayIntentNotice({
@@ -523,6 +551,7 @@ export function useDashboardPlay({
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
+          playIntentId: editingPlayIntentId ?? undefined,
           title: playIntentTitle.trim() || undefined,
           selectionMode: playIntentSelectionMode,
           notifyScope: playIntentNotifyScope,
@@ -555,6 +584,7 @@ export function useDashboardPlay({
       }
 
       const parsedResponse = upsertPlayIntentResponseSchema.parse(responseBody)
+      const isEditingIntent = editingPlayIntentId != null
       const isScheduledIntent = new Date(parsedResponse.activeIntent.windowStartsAt).getTime() > Date.now() + 60 * 1000
       const successMessage = shouldSelfTarget
         ? isScheduledIntent
@@ -562,15 +592,19 @@ export function useDashboardPlay({
           : 'Your test call to play is live. Only you are in the target audience.'
         : isScheduledIntent
           ? parsedResponse.notifiedFriendCount > 0
-            ? `Your call to play is scheduled. ${parsedResponse.notifiedFriendCount} ${parsedResponse.notifiedFriendCount === 1 ? 'person with a matching game was' : 'people with matching games were'} notified.`
-            : 'Your call to play is scheduled. No Discord DMs were delivered yet.'
+            ? `${isEditingIntent ? 'Your call to play was updated and is scheduled.' : 'Your call to play is scheduled.'} ${parsedResponse.notifiedFriendCount} ${parsedResponse.notifiedFriendCount === 1 ? 'person with a matching game was' : 'people with matching games were'} notified.`
+            : isEditingIntent
+              ? 'Your call to play was updated and is scheduled. No Discord DMs were delivered yet.'
+              : 'Your call to play is scheduled. No Discord DMs were delivered yet.'
           : parsedResponse.notifiedFriendCount > 0
-            ? `Your call to play is live. ${parsedResponse.notifiedFriendCount} ${parsedResponse.notifiedFriendCount === 1 ? 'person with a matching game was' : 'people with matching games were'} notified.`
-            : 'Your call to play is live. No Discord DMs were delivered yet.'
+            ? `${isEditingIntent ? 'Your call to play was updated and is live.' : 'Your call to play is live.'} ${parsedResponse.notifiedFriendCount} ${parsedResponse.notifiedFriendCount === 1 ? 'person with a matching game was' : 'people with matching games were'} notified.`
+            : isEditingIntent
+              ? 'Your call to play was updated and is live. No Discord DMs were delivered yet.'
+              : 'Your call to play is live. No Discord DMs were delivered yet.'
       const discordSpaceMessage = parsedResponse.activeIntent.discordSpace
         ? ' A temporary Discord channel request was saved for this call to play.'
         : ''
-      setActivePlayIntent(parsedResponse.activeIntent)
+      setComposerPlayIntent(null)
       setIsPlayIntentComposerOpen(false)
       setPlayIntentNotice({
         tone: 'success',
@@ -609,8 +643,8 @@ export function useDashboardPlay({
     selectedPlayIntentGameIds,
     selectedPlayIntentTargetDiscordServerIds,
     selectedPlayIntentTargetUserIds,
-    setActivePlayIntent,
-    setPlayIntentNotice
+    setPlayIntentNotice,
+    composerPlayIntent
   ])
 
   const handleSavePlayIntent = useCallback(async () => {
@@ -622,11 +656,15 @@ export function useDashboardPlay({
   }, [savePlayIntent])
 
   const handleClearPlayIntent = useCallback(async () => {
+    if (!composerPlayIntent) {
+      return
+    }
+
     setPlayIntentSaving(true)
     setPlayIntentNotice(null)
 
     try {
-      const response = await fetch(buildApiUrl('/api/play-intents/me'), {
+      const response = await fetch(buildApiUrl(`/api/play-intents/${composerPlayIntent.id}`), {
         method: 'DELETE',
         credentials: 'include'
       })
@@ -640,11 +678,11 @@ export function useDashboardPlay({
         return
       }
 
-      setActivePlayIntent(null)
+      setComposerPlayIntent(null)
       setIsPlayIntentComposerOpen(false)
       setPlayIntentNotice({
         tone: 'success',
-        message: 'Your call to play is no longer live.'
+        message: 'This call to play is no longer live.'
       })
       void loadDashboard()
     } catch (error) {
@@ -655,7 +693,7 @@ export function useDashboardPlay({
     } finally {
       setPlayIntentSaving(false)
     }
-  }, [buildApiUrl, loadDashboard, setActivePlayIntent, setPlayIntentNotice])
+  }, [buildApiUrl, composerPlayIntent, loadDashboard, setPlayIntentNotice])
 
   const handlePlayIntentNotifyScopeChange = useCallback((scope: PlayIntentNotifyScope) => {
     setPlayIntentNotifyScope(scope)
@@ -918,9 +956,20 @@ export function useDashboardPlay({
   }, [buildApiUrl, loadDashboard, setPlayIntentNotice])
 
   const openPlayIntentComposer = useCallback(() => {
+    setComposerPlayIntent(null)
+    resetPlayIntentComposer()
     setIsPlayIntentComposerOpen(true)
     setPlayIntentNotice(null)
-  }, [setPlayIntentNotice])
+  }, [resetPlayIntentComposer, setPlayIntentNotice])
+
+  const openPlayIntentComposerForIntent = useCallback((intent: ActivePlayIntent | PlayIntentDetail) => {
+    const nextComposerIntent = toComposerPlayIntent(intent)
+
+    setComposerPlayIntent(nextComposerIntent)
+    populatePlayIntentComposer(nextComposerIntent)
+    setIsPlayIntentComposerOpen(true)
+    setPlayIntentNotice(null)
+  }, [populatePlayIntentComposer, setPlayIntentNotice])
 
   const closePlayIntentComposer = useCallback(() => {
     setIsPlayIntentComposerOpen(false)
@@ -931,8 +980,10 @@ export function useDashboardPlay({
     isSignedIn,
     isAdmin,
     activePlayIntent,
+    composerPlayIntent,
     isPlayIntentComposerOpen,
     openPlayIntentComposer,
+    openPlayIntentComposerForIntent,
     closePlayIntentComposer,
     canPostPlayIntent,
     playIntentFilteredAudienceMessage,

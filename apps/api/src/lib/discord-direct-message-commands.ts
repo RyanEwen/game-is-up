@@ -285,8 +285,8 @@ function buildHelpMessage() {
     buildDiscordMessageHeading('Game\'s Up DM commands'),
     'Send any of these commands in this DM. A leading slash also works.',
     '- `help` shows this command list.',
-    '- `status` shows your active call to play and auto-play prompt setting.',
-    '- `end` ends your current call to play.',
+    '- `status` shows your latest active call to play and auto-play prompt setting.',
+    '- `end` ends your active calls to play.',
     '- `autoplay` shows whether Discord auto-play prompts are on.',
     '- `autoplay on` enables Discord auto-play prompts.',
     '- `autoplay off` disables Discord auto-play prompts.',
@@ -301,7 +301,7 @@ async function handleStatusCommand(context: DirectMessageCommandContext, identit
     await context.reply(
       [
         buildDiscordMessageHeading('Current status'),
-        'Call to play: None active.',
+        'Calls to play: None active.',
         `Auto-play prompts: ${identity.user.discordAutoPromptPlayIntent ? 'On' : 'Off'}.`
       ].join('\n\n')
     )
@@ -320,7 +320,7 @@ async function handleStatusCommand(context: DirectMessageCommandContext, identit
   await context.reply(
     [
       buildDiscordMessageHeading('Current status'),
-      `Call to play: ${activeIntent.title}`,
+      `Latest call to play: ${activeIntent.title}`,
       `Games: ${summarizeGames(activeIntent.games, activeIntent.selectionMode)}`,
       `When: ${whenLabel}`,
       `Audience: ${describeNotifyScope(activeIntent)}`,
@@ -338,7 +338,7 @@ async function handleEndCommand(context: DirectMessageCommandContext, identity: 
     await context.reply(
       [
         buildDiscordMessageHeading('No active call to play'),
-        'There is nothing active to end right now.'
+        'There are no active calls to play to end right now.'
       ].join('\n\n')
     )
     return
@@ -350,7 +350,7 @@ async function handleEndCommand(context: DirectMessageCommandContext, identity: 
     [
       buildDiscordMessageHeading('Call to play ended'),
       `Ended: ${activeIntent.title}`,
-      'Anyone who already received the call to play will see that it ended.'
+      'Any of your currently active calls to play are now marked as ended.'
     ].join('\n\n')
   )
 }

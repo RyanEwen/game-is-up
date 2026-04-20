@@ -509,13 +509,6 @@ export function useDashboardApp() {
     }
   }, [applyProfileUpdate, discordAutoPromptPlayIntentSaving, isSignedIn, loadDashboard, updateProfile])
 
-  const setActivePlayIntent = useCallback((activePlayIntent: ActivePlayIntent | null) => {
-    setState((current) => ({
-      ...current,
-      activePlayIntent
-    }))
-  }, [])
-
   const handleAddGameToLibrary = useCallback(async ({ gameId, title, coverUrl, platformLabels }: DashboardLibraryQuickAddGame) => {
     const alreadyInLibrary = libraryEntries.some((entry: LibraryEntry) => entry.gameId === gameId)
 
@@ -678,7 +671,6 @@ export function useDashboardApp() {
     playIntentDiscordServerOptions,
     playIntentPreviews: state.playIntents?.intents ?? [],
     loadDashboard,
-    setActivePlayIntent,
     setPlayIntentNotice
   })
 

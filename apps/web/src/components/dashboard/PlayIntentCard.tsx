@@ -1,3 +1,4 @@
+import ScheduleRoundedIcon from '@mui/icons-material/ScheduleRounded'
 import { Avatar, Box, Button, Card, Chip, Stack, Typography } from '@mui/joy'
 import type { ActivePlayIntent, PlayIntentPreview } from '@game-is-up/shared'
 import { CompactPersonGameCard } from './PersonCard'
@@ -90,6 +91,7 @@ export function PlayIntentCard({
 }) {
   const isLibraryWide = intent.selectionMode === 'library'
   const isEnded = intent.status === 'ended'
+  const isScheduled = !isEnded && new Date(intent.availabilityWindow.startsAt).getTime() > Date.now() + 60 * 1000
   const viewerResponseChoice = intent.viewerResponseChoice
   const timingSummary = formatPlayIntentTimingSummary(intent.availabilityWindow.startsAt, intent.availabilityWindow.endsAt)
   const actionButtonSx = {
@@ -157,6 +159,11 @@ export function PlayIntentCard({
         </Stack>
 
         <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }} alignItems="center">
+          {isScheduled ? (
+            <Chip size="sm" color="warning" variant="soft" startDecorator={<ScheduleRoundedIcon fontSize="small" />}>
+              Scheduled
+            </Chip>
+          ) : null}
           {isEnded ? (
             <Chip size="sm" color="warning" variant="soft">
               Ended

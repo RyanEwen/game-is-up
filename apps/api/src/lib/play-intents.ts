@@ -45,7 +45,7 @@ import { formatPlayIntentDurationLabel, formatPlayIntentWindowLabel } from './pl
 
 export class PlayIntentValidationError extends Error {}
 
-const minimumPlayIntentDurationMinutes = 15
+export const minimumPlayIntentDurationMinutes = 15
 const maximumPlayIntentDurationMinutes = 24 * 60
 
 const activePlayIntentInclude = Prisma.validator<Prisma.PlayIntentInclude>()({
@@ -398,6 +398,36 @@ function resolvePlayIntentWindow(payload: UpsertPlayIntentRequest, now: Date) {
     durationMinutes,
     endsAt: new Date(startsAt.getTime() + durationMinutes * 60 * 1000)
   }
+}
+
+async function findOverlappingOwnedPlayIntent(options: {
+  userId: string;
+  startsAt: Date;
+  endsAt: Date;
+  excludePlayIntentId?: string;
+}) {
+  return prisma.playIntent.findFirst({
+    where: {
+      userId: options.userId,
+      expiresAt: {
+        gt: new Date()
+      },
+      id: options.excludePlayIntentId
+        ? {
+            not: options.excludePlayIntentId
+          }
+        : undefined,
+      windowStartsAt: {
+        lt: options.endsAt
+      },
+      windowEndsAt: {
+        gt: options.startsAt
+      }
+    },
+    select: {
+      id: true
+    }
+  })
 }
 
 function serializeTargetDiscordServer(targetDiscordServer: { id: string; name: string; iconHash: string | null } | null) {
@@ -774,11 +804,16 @@ export async function getCurrentPlayIntent(userId: string) {
   return serializeActivePlayIntent(activeIntent, interestedUsersByPlayIntentId.get(activeIntent.id) ?? [])
 }
 
-export async function clearCurrentPlayIntent(userId: string) {
+export async function clearCurrentPlayIntent(userId: string, playIntentId?: string) {
   const now = new Date()
   const activeIntentIds = (await prisma.playIntent.findMany({
     where: {
       userId,
+      ...(playIntentId
+        ? {
+            id: playIntentId
+          }
+        : {}),
       expiresAt: {
         gt: now
       }
@@ -791,6 +826,11 @@ export async function clearCurrentPlayIntent(userId: string) {
   await prisma.playIntent.updateMany({
     where: {
       userId,
+      ...(playIntentId
+        ? {
+            id: playIntentId
+          }
+        : {}),
       expiresAt: {
         gt: now
       }
@@ -971,18 +1011,40 @@ export async function upsertCurrentPlayIntent(
     targetDiscordServers.flatMap((server) => server ? [server.id] : [])
   )
   const now = new Date()
-  const supersededIntentIds = (await prisma.playIntent.findMany({
-    where: {
-      userId,
-      expiresAt: {
-        gt: now
-      }
-    },
-    select: {
-      id: true
-    }
-  })).map((intent) => intent.id)
   const { startsAt, durationMinutes, endsAt } = resolvePlayIntentWindow(payload, now)
+  const editingPlayIntentId = payload.playIntentId ?? null
+
+  if (editingPlayIntentId) {
+    const editableIntent = await prisma.playIntent.findFirst({
+      where: {
+        id: editingPlayIntentId,
+        userId,
+        expiresAt: {
+          gt: now
+        }
+      },
+      select: {
+        id: true
+      }
+    })
+
+    if (!editableIntent) {
+      throw new PlayIntentValidationError('That call to play is no longer active.')
+    }
+  }
+
+  const overlappingIntent = await findOverlappingOwnedPlayIntent({
+    userId,
+    startsAt,
+    endsAt,
+    excludePlayIntentId: editingPlayIntentId ?? undefined
+  })
+
+  if (overlappingIntent) {
+    throw new PlayIntentValidationError('This call to play overlaps one of your other active calls. Adjust the timing so your calls do not overlap.')
+  }
+
+  const supersededIntentIds = editingPlayIntentId ? [editingPlayIntentId] : []
   const headline = normalizePlayIntentTitle(payload.title)
   const note = payload.note?.trim() ?? ''
   const [latestSupersededIntent, priorRecipientNotifications] = supersededIntentIds.length > 0
@@ -1122,18 +1184,19 @@ export async function upsertCurrentPlayIntent(
   let createdNotifications: Array<{ id: string; userId: string; title: string; body: string }> = []
 
   await prisma.$transaction(async (transaction) => {
-    await transaction.playIntent.updateMany({
-      where: {
-        userId,
-        expiresAt: {
-          gt: now
+    if (supersededIntentIds.length > 0) {
+      await transaction.playIntent.updateMany({
+        where: {
+          id: {
+            in: supersededIntentIds
+          }
+        },
+        data: {
+          expiresAt: now,
+          windowEndsAt: now
         }
-      },
-      data: {
-        expiresAt: now,
-        windowEndsAt: now
-      }
-    })
+      })
+    }
 
     const createdIntent = await transaction.playIntent.create({
       data: {
