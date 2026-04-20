@@ -276,6 +276,7 @@ export const playIntentExpandedGameScopeSchema = z.object({
 export const playIntentDetailSchema = playIntentPreviewSchema.extend({
   createdAt: z.string().datetime(),
   audienceSummary: z.string().min(1),
+  passedUsers: z.array(playIntentPreviewUserSchema).default([]),
   targetedFriends: z.array(playIntentPreviewUserSchema).default([]),
   expandedGameScope: playIntentExpandedGameScopeSchema.nullable().default(null)
 })

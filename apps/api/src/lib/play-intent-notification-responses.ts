@@ -1933,12 +1933,24 @@ function getPassAcknowledgementMode(scope: PlayIntentScope | null | undefined): 
   return scope === PlayIntentScope.SPECIFIC_FRIENDS ? 'creator-notified' : 'anonymous'
 }
 
+function getPassAcknowledgementBodyLine(mode: PassAcknowledgementMode) {
+  return mode === 'creator-notified'
+    ? 'The creator has been notified.'
+    : 'Passing is anonymous.'
+}
+
+function getPassAcknowledgementSubtext(mode: PassAcknowledgementMode) {
+  return mode === 'creator-notified'
+    ? 'The creator can see passes for this targeted call to play.'
+    : 'Passing is anonymous.'
+}
+
 function buildPassAcceptedMessage(mode: PassAcknowledgementMode = 'anonymous') {
   return buildDiscordPlainMessage(
     '👍 Passed for Now',
     [
       'You are marked as passing for now.',
-      mode === 'creator-notified' ? 'The creator has been notified.' : 'Passing is anonymous.'
+      getPassAcknowledgementBodyLine(mode)
     ],
     {
       trailingSubtext: 'If you change your mind you can switch to "I\'m interested" later.'
@@ -2017,9 +2029,7 @@ function buildPassResultMessage(message: string, mode: PassAcknowledgementMode =
       message
     ],
     {
-      trailingSubtext: mode === 'creator-notified'
-        ? 'The creator can see passes for this targeted call to play.'
-        : 'Passing is anonymous.'
+      trailingSubtext: getPassAcknowledgementSubtext(mode)
     }
   )
 }

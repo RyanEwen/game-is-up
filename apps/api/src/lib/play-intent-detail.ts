@@ -15,7 +15,11 @@ import {
 } from './discord-servers.js'
 import { buildDiscordChannelUrl } from './discord-channel-urls.js'
 import { toClientAvatarUrl, toClientGameCoverUrl } from './game-media.js'
-import { getInterestedUsersByPlayIntentId } from './play-intent-interested-users.js'
+import {
+  getInterestedUsersByPlayIntentId,
+  getPassedUsersByPlayIntentId,
+  type PlayIntentResponseUser
+} from './play-intent-interested-users.js'
 import { prisma } from './prisma.js'
 
 function toSelectionMode(selectionMode: PlayIntentSelectionMode): 'library' | 'subset' {
@@ -508,6 +512,12 @@ export async function buildPlayIntentDetail(viewerId: string, playIntentId: stri
   const recipientNotificationState = intent.notifications[0] ?? null
   const interestedUsersByPlayIntentId = await getInterestedUsersByPlayIntentId([intent.id])
   const interestedUsers = interestedUsersByPlayIntentId.get(intent.id) ?? []
+  const passedUsersByPlayIntentId = intent.scope === PlayIntentScope.SPECIFIC_FRIENDS
+    ? await getPassedUsersByPlayIntentId([intent.id])
+    : new Map<string, PlayIntentResponseUser[]>()
+  const passedUsers = intent.scope === PlayIntentScope.SPECIFIC_FRIENDS
+    ? passedUsersByPlayIntentId.get(intent.id) ?? []
+    : []
   const targetServers = serializeTargetDiscordServers(intent.targetDiscordServers)
   const primaryPlatform = intent.platforms[0]?.platformLabel ?? 'Unknown'
   const expandedGameScope = intent.selectionMode === PlayIntentSelectionMode.ENTIRE_LIBRARY
@@ -593,6 +603,7 @@ export async function buildPlayIntentDetail(viewerId: string, playIntentId: stri
       targetDiscordServers: intent.targetDiscordServers,
       targetFriends: intent.targetFriends
     }),
+    passedUsers,
     targetedFriends: isOwnIntent
       ? intent.targetFriends
         .map((entry) => ({

@@ -2,24 +2,24 @@ import { NotificationResponseChoice, NotificationType } from '@prisma/client'
 import { toClientAvatarUrl } from './game-media.js'
 import { prisma } from './prisma.js'
 
-type InterestedPlayIntentUser = {
+export type PlayIntentResponseUser = {
   id: string;
   handle: string;
   displayName: string;
   avatarUrl: string | null;
 }
 
-const joinResponseNotificationTypes = [
+const recipientResponseNotificationTypes = [
   NotificationType.FRIEND_PLAYING,
   NotificationType.SCHEDULED_PLAY_INTENT_REMINDER,
   NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED
 ] as NotificationType[]
 
-export async function getInterestedUsersByPlayIntentId(playIntentIds: string[]) {
+async function getResponseUsersByPlayIntentId(playIntentIds: string[], responseChoice: NotificationResponseChoice) {
   const uniquePlayIntentIds = [...new Set(playIntentIds.filter(Boolean))]
 
   if (uniquePlayIntentIds.length === 0) {
-    return new Map<string, InterestedPlayIntentUser[]>()
+    return new Map<string, PlayIntentResponseUser[]>()
   }
 
   const notifications = await prisma.notification.findMany({
@@ -27,9 +27,9 @@ export async function getInterestedUsersByPlayIntentId(playIntentIds: string[]) 
       playIntentId: {
         in: uniquePlayIntentIds
       },
-      responseChoice: NotificationResponseChoice.JOIN,
+      responseChoice,
       type: {
-        in: joinResponseNotificationTypes
+        in: recipientResponseNotificationTypes
       }
     },
     select: {
@@ -48,7 +48,7 @@ export async function getInterestedUsersByPlayIntentId(playIntentIds: string[]) 
     }
   })
 
-  const interestedUsersByPlayIntentId = new Map<string, InterestedPlayIntentUser[]>()
+  const responseUsersByPlayIntentId = new Map<string, PlayIntentResponseUser[]>()
   const seenKeys = new Set<string>()
 
   for (const notification of notifications) {
@@ -64,19 +64,27 @@ export async function getInterestedUsersByPlayIntentId(playIntentIds: string[]) 
 
     seenKeys.add(dedupeKey)
 
-    const interestedUsers = interestedUsersByPlayIntentId.get(notification.playIntentId) ?? []
-    interestedUsers.push({
+    const responseUsers = responseUsersByPlayIntentId.get(notification.playIntentId) ?? []
+    responseUsers.push({
       id: notification.user.id,
       handle: notification.user.handle,
       displayName: notification.user.displayName,
       avatarUrl: toClientAvatarUrl(notification.user.avatarUrl)
     })
-    interestedUsersByPlayIntentId.set(notification.playIntentId, interestedUsers)
+    responseUsersByPlayIntentId.set(notification.playIntentId, responseUsers)
   }
 
-  for (const interestedUsers of interestedUsersByPlayIntentId.values()) {
-    interestedUsers.sort((left, right) => left.displayName.localeCompare(right.displayName))
+  for (const responseUsers of responseUsersByPlayIntentId.values()) {
+    responseUsers.sort((left, right) => left.displayName.localeCompare(right.displayName))
   }
 
-  return interestedUsersByPlayIntentId
+  return responseUsersByPlayIntentId
+}
+
+export async function getInterestedUsersByPlayIntentId(playIntentIds: string[]) {
+  return getResponseUsersByPlayIntentId(playIntentIds, NotificationResponseChoice.JOIN)
+}
+
+export async function getPassedUsersByPlayIntentId(playIntentIds: string[]) {
+  return getResponseUsersByPlayIntentId(playIntentIds, NotificationResponseChoice.DECLINE)
 }

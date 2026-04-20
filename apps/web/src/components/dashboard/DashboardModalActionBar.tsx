@@ -24,7 +24,20 @@ export function DashboardModalActionBar({
     >
       {secondaryAction}
       {primaryAction}
-      {cancelAction ? <Box sx={{ ml: 'auto' }}>{cancelAction}</Box> : null}
+      {cancelAction ? (
+        <Box
+          sx={{
+            ml: 'auto',
+            display: 'flex',
+            alignSelf: 'stretch',
+            '& > *': {
+              height: '100%'
+            }
+          }}
+        >
+          {cancelAction}
+        </Box>
+      ) : null}
     </DialogActions>
   )
 }

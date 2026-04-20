@@ -113,7 +113,6 @@ function DiscordAutomationCard({
 
 function PlayViewContent({
   isSignedIn,
-  isAdmin,
   discordAutoPromptPlayIntent,
   discordAutoPromptPlayIntentSaving,
   activePlayIntent,
@@ -167,7 +166,6 @@ function PlayViewContent({
   onPlayIntentVoiceChannelSelect,
   playIntentSaving,
   onSavePlayIntent,
-  onSavePlayIntentToSelf,
   onClearPlayIntent,
   playIntentPreviews,
   onToggleDiscordAutoPromptPlayIntent
@@ -175,7 +173,6 @@ function PlayViewContent({
   openPlayIntentDetails,
 }: {
   isSignedIn: boolean;
-  isAdmin: boolean;
   discordAutoPromptPlayIntent: boolean;
   discordAutoPromptPlayIntentSaving: boolean;
   activePlayIntent: ActivePlayIntent | null;
@@ -229,7 +226,6 @@ function PlayViewContent({
   onPlayIntentVoiceChannelSelect: (channelId: string | null) => void;
   playIntentSaving: boolean;
   onSavePlayIntent: () => Promise<void>;
-  onSavePlayIntentToSelf: () => Promise<void>;
   onClearPlayIntent: () => Promise<void>;
   playIntentPreviews: PlayIntentPreview[];
   onToggleDiscordAutoPromptPlayIntent: (nextEnabled: boolean) => Promise<void>;
@@ -301,8 +297,8 @@ function PlayViewContent({
       {isSignedIn ? (
         <DashboardModal open={isPlayIntentComposerOpen} onClose={closePlayIntentComposer} width="min(96vw, 820px)">
             <PlayIntentComposerCard
+              isOpen={isPlayIntentComposerOpen}
               composerPlayIntent={composerPlayIntent}
-              isAdmin={isAdmin}
               playIntentFilteredAudienceMessage={playIntentFilteredAudienceMessage}
               playIntentTargetedAudienceWarningMessage={playIntentTargetedAudienceWarningMessage}
               playIntentUnmatchedTargetUsers={playIntentUnmatchedTargetUsers}
@@ -349,7 +345,6 @@ function PlayViewContent({
               onPlayIntentVoiceChannelSelect={onPlayIntentVoiceChannelSelect}
               playIntentSaving={playIntentSaving}
               onSavePlayIntent={onSavePlayIntent}
-              onSavePlayIntentToSelf={onSavePlayIntentToSelf}
               onCancel={closePlayIntentComposer}
               onClearPlayIntent={onClearPlayIntent}
             />

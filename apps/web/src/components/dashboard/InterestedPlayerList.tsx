@@ -12,9 +12,10 @@ const interestedPlayerGridSx = {
 
 type InterestedPlayer = ActivePlayIntent['interestedUsers'][number] | PlayIntentPreview['interestedUsers'][number]
 
-export function InterestedPlayerList({
+export function PlayIntentResponseUserList({
   users,
   label = 'Interested players',
+  tone = 'interested',
   sx = {},
   discoveryPeopleById,
   canManage = false,
@@ -23,6 +24,7 @@ export function InterestedPlayerList({
 }: {
   users: InterestedPlayer[];
   label?: string;
+  tone?: 'interested' | 'passed';
   sx?: Record<string, unknown>;
   discoveryPeopleById?: ReadonlyMap<string, DiscoveryPerson>;
   canManage?: boolean;
@@ -33,9 +35,18 @@ export function InterestedPlayerList({
     return null
   }
 
+  const isPassedTone = tone === 'passed'
+  const accentColor = isPassedTone ? 'warning.200' : 'success.300'
+  const responseLabel = isPassedTone ? 'Passed' : 'Interested'
+  const responseDetail = isPassedTone ? 'Passed on this call to play.' : 'Interested in this call to play.'
+  const borderColor = isPassedTone ? '#7c5a17' : '#14886a'
+  const background = isPassedTone
+    ? 'linear-gradient(180deg, #2b2312, #141b28)'
+    : 'linear-gradient(180deg, #14352f, #141b28)'
+
   return (
     <Box sx={sx}>
-      <Typography level="body-xs" sx={{ mb: 0.75, color: 'success.300', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+      <Typography level="body-xs" sx={{ mb: 0.75, color: accentColor, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
         {label}
       </Typography>
       <Box sx={interestedPlayerGridSx}>
@@ -59,12 +70,12 @@ export function InterestedPlayerList({
                 detailLines={[
                   person.contactHint,
                   person.mutualServers.length > 0 ? `Mutual servers: ${person.mutualServers.join(', ')}` : 'Visible to you through your friends list or network.',
-                  'Interested in this call to play.',
+                  responseDetail,
                   `Timezone: ${person.timezoneLabel}`,
                   person.usualAvailability ? `Usually plays: ${person.usualAvailability}` : ''
                 ]}
                 badges={[
-                  { label: 'Interested', color: 'success' },
+                  { label: responseLabel, color: isPassedTone ? 'warning' : 'success' },
                   { label: person.timezoneLabel, variant: 'outlined' }
                 ]}
                 footerBadge={person.usualAvailability ? { label: `Usually: ${person.usualAvailability}`, color: 'neutral' } : null}
@@ -80,8 +91,8 @@ export function InterestedPlayerList({
               sx={{
                 p: 1.25,
                 borderRadius: 'lg',
-                border: '1px solid #14886a',
-                background: 'linear-gradient(180deg, #14352f, #141b28)',
+                border: `1px solid ${borderColor}`,
+                background,
                 boxShadow: nestedInsetSurfaceSx.boxShadow
               }}
             >

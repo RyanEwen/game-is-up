@@ -138,7 +138,6 @@ export type DashboardPlayViewProps = {
   onPlayIntentVoiceChannelSelect: (channelId: string | null) => void;
   playIntentSaving: boolean;
   onSavePlayIntent: () => Promise<void>;
-  onSavePlayIntentToSelf: () => Promise<void>;
   onClearPlayIntent: () => Promise<void>;
   playIntentPreviews: PlayIntentPreview[];
   playIntentResponsePendingIntentId: string | null;
@@ -479,8 +478,7 @@ export function useDashboardPlay({
     setPlayIntentNotice(null)
   }, [setPlayIntentNotice])
 
-  const savePlayIntent = useCallback(async (selfTargetOnly: boolean) => {
-    const shouldSelfTarget = selfTargetOnly && isAdmin
+  const savePlayIntent = useCallback(async () => {
     const editingPlayIntentId = composerPlayIntent?.id ?? null
 
     if (!canPostPlayIntent) {
@@ -539,7 +537,7 @@ export function useDashboardPlay({
       return
     }
 
-    if (!shouldSelfTarget && playIntentFilteredAudienceMessage) {
+    if (playIntentFilteredAudienceMessage) {
       setPlayIntentNotice({
         tone: 'danger',
         message: playIntentFilteredAudienceMessage
@@ -569,7 +567,6 @@ export function useDashboardPlay({
           title: playIntentTitle.trim() || undefined,
           selectionMode: playIntentSelectionMode,
           notifyScope: playIntentNotifyScope,
-          includeSelf: shouldSelfTarget,
           createDiscordSpace: playIntentVoiceMode === 'temporary',
           ...schedulingPayload,
           ...timingPayload,
@@ -600,21 +597,17 @@ export function useDashboardPlay({
       const parsedResponse = upsertPlayIntentResponseSchema.parse(responseBody)
       const isEditingIntent = editingPlayIntentId != null
       const isScheduledIntent = new Date(parsedResponse.activeIntent.windowStartsAt).getTime() > Date.now() + 60 * 1000
-      const successMessage = shouldSelfTarget
-        ? isScheduledIntent
-          ? 'Your test call to play is scheduled. Only you are in the target audience.'
-          : 'Your test call to play is live. Only you are in the target audience.'
-        : isScheduledIntent
-          ? parsedResponse.notifiedFriendCount > 0
-            ? `${isEditingIntent ? 'Your call to play was updated and is scheduled.' : 'Your call to play is scheduled.'} ${parsedResponse.notifiedFriendCount} ${parsedResponse.notifiedFriendCount === 1 ? 'person with a matching game was' : 'people with matching games were'} notified.`
-            : isEditingIntent
-              ? 'Your call to play was updated and is scheduled. No Discord DMs were delivered yet.'
-              : 'Your call to play is scheduled. No Discord DMs were delivered yet.'
-          : parsedResponse.notifiedFriendCount > 0
-            ? `${isEditingIntent ? 'Your call to play was updated and is live.' : 'Your call to play is live.'} ${parsedResponse.notifiedFriendCount} ${parsedResponse.notifiedFriendCount === 1 ? 'person with a matching game was' : 'people with matching games were'} notified.`
-            : isEditingIntent
-              ? 'Your call to play was updated and is live. No Discord DMs were delivered yet.'
-              : 'Your call to play is live. No Discord DMs were delivered yet.'
+      const successMessage = isScheduledIntent
+        ? parsedResponse.notifiedFriendCount > 0
+          ? `${isEditingIntent ? 'Your call to play was updated and is scheduled.' : 'Your call to play is scheduled.'} ${parsedResponse.notifiedFriendCount} ${parsedResponse.notifiedFriendCount === 1 ? 'person with a matching game was' : 'people with matching games were'} notified.`
+          : isEditingIntent
+            ? 'Your call to play was updated and is scheduled. No Discord DMs were delivered yet.'
+            : 'Your call to play is scheduled. No Discord DMs were delivered yet.'
+        : parsedResponse.notifiedFriendCount > 0
+          ? `${isEditingIntent ? 'Your call to play was updated and is live.' : 'Your call to play is live.'} ${parsedResponse.notifiedFriendCount} ${parsedResponse.notifiedFriendCount === 1 ? 'person with a matching game was' : 'people with matching games were'} notified.`
+          : isEditingIntent
+            ? 'Your call to play was updated and is live. No Discord DMs were delivered yet.'
+            : 'Your call to play is live. No Discord DMs were delivered yet.'
       const discordSpaceMessage = parsedResponse.activeIntent.discordSpace
         ? ' A temporary Discord channel request was saved for this call to play.'
         : ''
@@ -649,7 +642,6 @@ export function useDashboardPlay({
     playIntentStartMode,
     playIntentStartValidationMessage,
     playIntentFilteredAudienceMessage,
-    isAdmin,
     playIntentTimingMode,
     playIntentTimingValidationMessage,
     parsedPlayIntentStartAt,
@@ -662,11 +654,7 @@ export function useDashboardPlay({
   ])
 
   const handleSavePlayIntent = useCallback(async () => {
-    await savePlayIntent(false)
-  }, [savePlayIntent])
-
-  const handleSavePlayIntentToSelf = useCallback(async () => {
-    await savePlayIntent(true)
+    await savePlayIntent()
   }, [savePlayIntent])
 
   const handleClearPlayIntent = useCallback(async () => {
@@ -1089,7 +1077,6 @@ export function useDashboardPlay({
     onPlayIntentVoiceChannelSelect: handlePlayIntentVoiceChannelSelect,
     playIntentSaving,
     onSavePlayIntent: handleSavePlayIntent,
-    onSavePlayIntentToSelf: handleSavePlayIntentToSelf,
     onClearPlayIntent: handleClearPlayIntent,
     playIntentPreviews,
     playIntentResponsePendingIntentId,

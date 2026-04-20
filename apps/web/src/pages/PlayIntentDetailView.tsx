@@ -7,7 +7,7 @@ import { Avatar, Box, Button, ButtonGroup, Card, Chip, Stack, Typography } from 
 import { dashboardInvalidationEventSchema, playIntentDetailResponseSchema, type PlayIntentDetail } from '@game-is-up/shared'
 import { useNavigate, useParams } from 'react-router-dom'
 import { EmptyStateCard } from '../components/dashboard/EmptyStateCard'
-import { InterestedPlayerList } from '../components/dashboard/InterestedPlayerList'
+import { PlayIntentResponseUserList } from '../components/dashboard/InterestedPlayerList'
 import { CompactPersonGameCard } from '../components/dashboard/PersonCard'
 import { PlayIntentGameList } from '../components/dashboard/PlayIntentCard'
 import { formatNotifyScopeLabel, formatPlayIntentTimingSummary, memberGameGridSx } from '../components/dashboard/dashboardUtils'
@@ -833,18 +833,44 @@ export function PlayIntentDetailView() {
           </Card>
 
           <Card variant="outlined" sx={{ p: 3, borderColor: '#304159' }}>
-            <InterestedPlayerList
-              users={intent.interestedUsers}
-              discoveryPeopleById={discoveryPeopleById}
-              canManage={playViewProps.isSignedIn}
-              friendPendingId={playViewProps.friendPendingId}
-              onToggleFriend={playViewProps.onToggleFriend}
-            />
-            {intent.interestedUsers.length === 0 ? (
-              <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
-                Nobody has marked themselves as interested yet.
-              </Typography>
-            ) : null}
+            <Stack spacing={2}>
+              <Typography level="title-md">Responses</Typography>
+              <Box>
+                <PlayIntentResponseUserList
+                  users={intent.interestedUsers}
+                  label="Interested players"
+                  tone="interested"
+                  discoveryPeopleById={discoveryPeopleById}
+                  canManage={playViewProps.isSignedIn}
+                  friendPendingId={playViewProps.friendPendingId}
+                  onToggleFriend={playViewProps.onToggleFriend}
+                />
+                {intent.interestedUsers.length === 0 ? (
+                  <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
+                    Nobody has marked themselves as interested yet.
+                  </Typography>
+                ) : null}
+              </Box>
+
+              {intent.notifyScope === 'specific-friends' ? (
+                <Box sx={{ pt: 2, borderTop: '1px solid #304159' }}>
+                  <PlayIntentResponseUserList
+                    users={intent.passedUsers}
+                    label="Passed on this call"
+                    tone="passed"
+                    discoveryPeopleById={discoveryPeopleById}
+                    canManage={playViewProps.isSignedIn}
+                    friendPendingId={playViewProps.friendPendingId}
+                    onToggleFriend={playViewProps.onToggleFriend}
+                  />
+                  {intent.passedUsers.length === 0 ? (
+                    <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
+                      Nobody has passed on this call yet.
+                    </Typography>
+                  ) : null}
+                </Box>
+              ) : null}
+            </Stack>
           </Card>
         </Stack>
       </Box>
