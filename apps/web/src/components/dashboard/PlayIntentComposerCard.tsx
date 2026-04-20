@@ -17,6 +17,7 @@ import {
   minimumPlayIntentDurationMinutes,
   playIntentPresetDurations
 } from './dashboardUtils'
+import { formatClockTime, formatMonthDayTime } from '../../lib/dateTime'
 import { DashboardModalActionBar } from './DashboardModalActionBar'
 import type { PlayIntentStartMode, PlayIntentTimingMode, PlayIntentVoiceMode } from './types'
 
@@ -193,15 +194,15 @@ export function PlayIntentComposerCard({
                 {isScheduledIntent ? (
                   <>
                     <Chip size="sm" color="warning" variant="soft">
-                      Starts {new Date(activePlayIntent.windowStartsAt).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                      Starts {formatMonthDayTime(activePlayIntent.windowStartsAt)}
                     </Chip>
                     <Chip size="sm" color="success" variant="soft">
-                      Ends {new Date(activePlayIntent.windowEndsAt).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                      Ends {formatMonthDayTime(activePlayIntent.windowEndsAt)}
                     </Chip>
                   </>
                 ) : (
                   <Chip size="sm" color="success" variant="soft">
-                    Live until {new Date(activePlayIntent.windowEndsAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                    Live until {formatClockTime(activePlayIntent.windowEndsAt)}
                   </Chip>
                 )}
                 <Chip size="sm" color="primary" variant="outlined">

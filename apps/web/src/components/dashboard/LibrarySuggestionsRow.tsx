@@ -1,11 +1,10 @@
 import { Box, Button, Card, Stack, Typography } from '@mui/joy'
 import type { LibrarySuggestedGame } from '@game-is-up/shared'
+import { formatWeekdayMonthDay } from '../../lib/dateTime'
 import type { DashboardLibraryQuickAddGame } from './types'
 
 function formatObservedLabel(lastObservedAt: string): string {
-  const observedDate = new Date(lastObservedAt)
-
-  return `Seen on Discord ${observedDate.toLocaleDateString([], { month: 'short', day: 'numeric' })}`
+  return `Seen on Discord ${formatWeekdayMonthDay(lastObservedAt)}`
 }
 
 export function LibrarySuggestionsRow({

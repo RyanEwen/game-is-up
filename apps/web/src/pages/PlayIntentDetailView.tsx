@@ -3,7 +3,7 @@ import ChatBubbleOutlineRoundedIcon from '@mui/icons-material/ChatBubbleOutlineR
 import HeadsetMicRoundedIcon from '@mui/icons-material/HeadsetMicRounded'
 import OpenInNewRoundedIcon from '@mui/icons-material/OpenInNewRounded'
 import { Avatar, Box, Button, ButtonGroup, Card, Chip, Stack, Typography } from '@mui/joy'
-import { playIntentDetailResponseSchema, type PlayIntentDetail } from '@game-is-up/shared'
+import { dashboardInvalidationEventSchema, playIntentDetailResponseSchema, type PlayIntentDetail } from '@game-is-up/shared'
 import { useNavigate, useParams } from 'react-router-dom'
 import { EmptyStateCard } from '../components/dashboard/EmptyStateCard'
 import { InterestedPlayerList } from '../components/dashboard/InterestedPlayerList'
@@ -12,15 +12,11 @@ import { PlayIntentGameList } from '../components/dashboard/PlayIntentCard'
 import { formatNotifyScopeLabel, formatPlayIntentTimingSummary, memberGameGridSx } from '../components/dashboard/dashboardUtils'
 import { useDashboardContext } from '../contexts/useDashboardContext'
 import { buildApiUrl } from '../hooks/useDashboardApp'
+import { formatMonthDayTime } from '../lib/dateTime'
 import { CtpDmInboxDialog } from './DebugDmSurface'
 
 function formatDateTimeLabel(value: string) {
-  return new Date(value).toLocaleString([], {
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit'
-  })
+  return formatMonthDayTime(value)
 }
 
 function formatDiscordSpaceStatusLabel(status: NonNullable<PlayIntentDetail['discordSpace']>['status']) {
@@ -149,6 +145,7 @@ export function PlayIntentDetailView() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [isDmEmulatorOpen, setIsDmEmulatorOpen] = useState(false)
   const [showNonOverlappingGames, setShowNonOverlappingGames] = useState(false)
+  const [invalidationVersion, setInvalidationVersion] = useState(0)
 
   const discoveryPeopleById = useMemo(
     () => new Map(playViewProps.discoveryPeople.map((person) => [person.id, person] as const)),
@@ -173,6 +170,32 @@ export function PlayIntentDetailView() {
       String(activeIntent?.interestedCount ?? '')
     ].join(':')
   }, [playIntentId, playViewProps.activePlayIntent, playViewProps.playIntentPreviews])
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !playViewProps.isSignedIn) {
+      return
+    }
+
+    const eventSource = new EventSource(buildApiUrl('/api/events/dashboard'), {
+      withCredentials: true
+    })
+
+    eventSource.onmessage = (messageEvent) => {
+      try {
+        const payload = dashboardInvalidationEventSchema.parse(JSON.parse(messageEvent.data) as unknown)
+
+        if (payload.domains.includes('play-intents')) {
+          setInvalidationVersion((current) => current + 1)
+        }
+      } catch {
+        // Ignore malformed invalidations and rely on the next valid payload.
+      }
+    }
+
+    return () => {
+      eventSource.close()
+    }
+  }, [playViewProps.isSignedIn])
 
   useEffect(() => {
     if (!playIntentId) {
@@ -245,7 +268,7 @@ export function PlayIntentDetailView() {
     return () => {
       cancelled = true
     }
-  }, [playIntentId, refreshToken])
+  }, [invalidationVersion, playIntentId, refreshToken])
 
   useEffect(() => {
     document.title = intent
@@ -767,6 +790,12 @@ export function PlayIntentDetailView() {
                           Voice channel: {intent.voiceChannelName}
                         </DiscordDetailTextRow>
                       ) : null}
+
+                      {intent.discordSpace?.lastSyncError ? (
+                        <Typography level="body-xs" sx={{ color: 'warning.200' }}>
+                          {intent.discordSpace.lastSyncError}
+                        </Typography>
+                      ) : null}
                     </Stack>
                   </Card>
                 ) : null}
@@ -801,7 +830,7 @@ export function PlayIntentDetailView() {
         open={isDmEmulatorOpen}
         onClose={() => setIsDmEmulatorOpen(false)}
         ctp={debugMailboxIntent}
-        formatDateTime={(value) => value ? new Date(value).toLocaleString() : 'Not available'}
+        formatDateTime={(value) => value ? formatMonthDayTime(value) : 'Not available'}
         buildApiUrl={debugViewProps.buildApiUrl}
         onRefreshDebug={debugViewProps.onRefreshDebug}
         parseDebugDmActionResponse={debugViewProps.parseDebugDmActionResponse}

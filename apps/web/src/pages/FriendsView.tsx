@@ -5,7 +5,12 @@ import { DashboardModal } from '../components/dashboard/DashboardModal'
 import { EmptyStateCard } from '../components/dashboard/EmptyStateCard'
 import { LibraryEditorCard } from '../components/dashboard/LibraryEditorCard'
 import { PersonCard } from '../components/dashboard/PersonCard'
-import { buildHeaderFilterSelectSx, headerFilterControlSx } from '../components/dashboard/dashboardUtils'
+import {
+  buildHeaderFilterSelectSx,
+  headerActionFilterButtonSx,
+  headerActionFilterStackSx,
+  headerFilterControlMatchActionWidthSx
+} from '../components/dashboard/dashboardUtils'
 import { useDashboardContext } from '../contexts/useDashboardContext'
 import type { DashboardLibraryQuickAddGame, FriendTarget } from '../components/dashboard/types'
 
@@ -86,7 +91,7 @@ function FriendsViewContent({
   }
 
   const friendSortControl = friends.length > 0 || addableFriends.length > 0 ? (
-    <Box sx={headerFilterControlSx}>
+    <Box sx={headerFilterControlMatchActionWidthSx}>
       <Typography level="body-sm" sx={{ color: 'neutral.400', whiteSpace: 'nowrap' }}>Sort by</Typography>
       <Select
         size="sm"
@@ -106,9 +111,9 @@ function FriendsViewContent({
   ) : null
 
   const friendHeaderControls = isSignedIn || friendSortControl ? (
-    <Stack spacing={1} alignItems={{ xs: 'stretch', sm: 'flex-end' }}>
+    <Stack spacing={1} alignItems="stretch" sx={headerActionFilterStackSx}>
       {isSignedIn ? (
-        <Button color="primary" onClick={() => setIsAddFriendsModalOpen(true)} sx={{ alignSelf: { xs: 'stretch', sm: 'flex-end' } }}>
+        <Button color="primary" onClick={() => setIsAddFriendsModalOpen(true)} sx={headerActionFilterButtonSx}>
           Add friends
         </Button>
       ) : null}

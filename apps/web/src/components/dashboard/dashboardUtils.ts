@@ -1,4 +1,5 @@
 import type { LibraryEntryIntent, PlayIntentPreview, PlayIntentSelectionMode } from '@game-is-up/shared'
+import { formatMonthDayTime } from '../../lib/dateTime'
 import type { DashboardTab } from './types'
 
 export const dashboardTabPaths: Record<DashboardTab, string> = {
@@ -79,6 +80,21 @@ export const headerFilterControlSx = {
   gap: 1,
   width: { xs: '100%', sm: 'auto' },
   flexWrap: { xs: 'nowrap', sm: 'wrap' }
+} as const
+
+export const headerActionFilterStackSx = {
+  width: { xs: '100%', sm: 'max-content' },
+  minWidth: { xs: 0, sm: 'fit-content' }
+} as const
+
+export const headerActionFilterButtonSx = {
+  width: '100%'
+} as const
+
+export const headerFilterControlMatchActionWidthSx = {
+  ...headerFilterControlSx,
+  width: '100%',
+  justifyContent: { xs: 'flex-start', sm: 'space-between' }
 } as const
 
 export function buildHeaderFilterSelectSx(desktopMinWidth: number) {
@@ -179,7 +195,7 @@ export function formatPlayIntentTimingSummary(startsAt: string, endsAt: string, 
   const durationMinutes = Math.max(1, Math.round((endDate.getTime() - startDate.getTime()) / (60 * 1000)))
   const prefix = startDate.getTime() > baseDate.getTime() ? 'Starts ' : ''
 
-  return `${prefix}${startDate.toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })} for ${formatPlayIntentDurationLabel(durationMinutes)}`
+  return `${prefix}${formatMonthDayTime(startDate)} for ${formatPlayIntentDurationLabel(durationMinutes)}`
 }
 
 export function parsePlayIntentDurationMinutes(value: string): number | null {

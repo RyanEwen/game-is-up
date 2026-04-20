@@ -152,7 +152,7 @@ export function PlayIntentCard({
             onClick={() => onOpenDetails(intent.id)}
             sx={actionButtonSx}
           >
-            Details
+            View Details
           </Button>
         </Stack>
 

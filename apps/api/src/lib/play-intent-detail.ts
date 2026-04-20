@@ -161,21 +161,28 @@ function serializeDiscordSpace(space: {
   voiceChannelName: string | null;
   inviteUrl: string | null;
   deleteAfter: Date | null;
+  lastSyncError: string | null;
+  accessGrants: Array<{
+    roleGrantedAt: Date | null;
+  }>;
 } | null): PlayIntentDetail['discordSpace'] {
   if (!space) {
     return null
   }
+
+  const viewerHasChannelAccess = space.accessGrants[0]?.roleGrantedAt != null
 
   return {
     status: toDiscordSpaceStatus(space.status),
     serverId: space.serverId,
     categoryChannelName: space.categoryChannelName,
     textChannelName: space.textChannelName,
-    textChannelUrl: buildDiscordChannelUrl(space.serverId, space.textChannelId),
+    textChannelUrl: viewerHasChannelAccess ? buildDiscordChannelUrl(space.serverId, space.textChannelId) : null,
     voiceChannelName: space.voiceChannelName,
-    voiceChannelUrl: buildDiscordChannelUrl(space.serverId, space.voiceChannelId),
+    voiceChannelUrl: viewerHasChannelAccess ? buildDiscordChannelUrl(space.serverId, space.voiceChannelId) : null,
     inviteUrl: space.inviteUrl,
-    deleteAfter: space.deleteAfter?.toISOString() ?? null
+    deleteAfter: space.deleteAfter?.toISOString() ?? null,
+    lastSyncError: space.lastSyncError
   }
 }
 
@@ -407,7 +414,18 @@ export async function buildPlayIntentDetail(viewerId: string, playIntentId: stri
             voiceChannelId: true,
             voiceChannelName: true,
             inviteUrl: true,
-            deleteAfter: true
+            deleteAfter: true,
+            lastSyncError: true,
+            accessGrants: {
+              where: {
+                userId: viewer.id,
+                revokedAt: null
+              },
+              select: {
+                roleGrantedAt: true
+              },
+              take: 1
+            }
           }
         },
         platforms: {

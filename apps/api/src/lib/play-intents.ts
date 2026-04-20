@@ -92,7 +92,8 @@ const activePlayIntentInclude = Prisma.validator<Prisma.PlayIntentInclude>()({
       voiceChannelId: true,
       voiceChannelName: true,
       inviteUrl: true,
-      deleteAfter: true
+      deleteAfter: true,
+      lastSyncError: true
     }
   },
   _count: {
@@ -449,6 +450,7 @@ function serializeDiscordSpace(space: {
   voiceChannelName: string | null;
   inviteUrl: string | null;
   deleteAfter: Date | null;
+  lastSyncError: string | null;
 } | null): ActivePlayIntent['discordSpace'] {
   if (!space) {
     return null
@@ -463,7 +465,8 @@ function serializeDiscordSpace(space: {
     voiceChannelName: space.voiceChannelName,
     voiceChannelUrl: buildDiscordChannelUrl(space.serverId, space.voiceChannelId),
     inviteUrl: space.inviteUrl,
-    deleteAfter: space.deleteAfter?.toISOString() ?? null
+    deleteAfter: space.deleteAfter?.toISOString() ?? null,
+    lastSyncError: space.lastSyncError
   }
 }
 
@@ -484,6 +487,7 @@ function serializeActivePlayIntent(intent: {
     voiceChannelName: string | null;
     inviteUrl: string | null;
     deleteAfter: Date | null;
+    lastSyncError: string | null;
   } | null;
   selectionMode: PrismaPlayIntentSelectionMode;
   scope: PlayIntentScope;

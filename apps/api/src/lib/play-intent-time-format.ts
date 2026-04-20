@@ -1,3 +1,4 @@
+import { formatDateTimeToParts } from '@game-is-up/shared'
 import { normalizeTimezoneId } from './timezone-label.js'
 
 function resolvePlayIntentTimezoneId(timezoneId: string | null | undefined) {
@@ -34,7 +35,7 @@ export function formatPlayIntentDurationLabel(durationMinutes: number) {
 
 export function formatPlayIntentDateLabel(date: Date, timezoneId: string | null | undefined) {
   const normalizedTimezoneId = resolvePlayIntentTimezoneId(timezoneId)
-  const parts = new Intl.DateTimeFormat('en-US', {
+  const parts = formatDateTimeToParts(date, {
     timeZone: normalizedTimezoneId,
     weekday: 'long',
     month: 'short',
@@ -42,7 +43,7 @@ export function formatPlayIntentDateLabel(date: Date, timezoneId: string | null 
     hour: 'numeric',
     minute: '2-digit',
     hour12: true
-  }).formatToParts(date)
+  }, 'en-US')
 
   const weekday = parts.find((part) => part.type === 'weekday')?.value ?? ''
   const month = parts.find((part) => part.type === 'month')?.value ?? ''

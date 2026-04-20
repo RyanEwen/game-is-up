@@ -218,7 +218,8 @@ export const playIntentDiscordSpaceSchema = z.object({
   voiceChannelName: z.string().min(1).nullable(),
   voiceChannelUrl: z.string().url().nullable(),
   inviteUrl: z.string().url().nullable(),
-  deleteAfter: z.string().datetime().nullable()
+  deleteAfter: z.string().datetime().nullable(),
+  lastSyncError: z.string().min(1).nullable().default(null)
 })
 
 export const playIntentGameSchema = z.object({
@@ -1015,3 +1016,5 @@ export type UserGameAliasesResponse = z.infer<typeof userGameAliasesResponseSche
 export type UpsertUserGameAliasRequest = z.infer<typeof upsertUserGameAliasRequestSchema>;
 export type PlayIntentMute = z.infer<typeof playIntentMuteSchema>;
 export type PlayIntentMutesResponse = z.infer<typeof playIntentMutesResponseSchema>;
+
+export * from './dateTime'

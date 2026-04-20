@@ -28,6 +28,7 @@ import { EmptyStateCard } from '../components/dashboard/EmptyStateCard'
 import { SectionNav } from '../components/dashboard/SectionNav'
 import { sectionScrollMarginTop } from '../components/dashboard/SectionNav.constants'
 import { useDashboardContext } from '../contexts/useDashboardContext'
+import { formatMonthDayYearTimeZone } from '../lib/dateTime'
 import { CtpDmInboxDialog, DmPreviewCard, DmPreviewDialog } from './DebugDmSurface'
 
 type SortDirection = 'asc' | 'desc'
@@ -41,26 +42,20 @@ const tablePageSize = 10
 
 function useLocalDateFormatter() {
   const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Etc/UTC'
-
-  const formatter = useMemo(() => new Intl.DateTimeFormat(undefined, {
-    timeZone,
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-    timeZoneName: 'short'
-  }), [timeZone])
-
-  return {
-    timeZone,
-    formatDateTime: (value: string | null) => {
+  const formatDateTime = useMemo(
+    () => (value: string | null) => {
       if (!value) {
         return 'Not available'
       }
 
-      return formatter.format(new Date(value))
-    }
+      return formatMonthDayYearTimeZone(value, timeZone)
+    },
+    [timeZone]
+  )
+
+  return {
+    timeZone,
+    formatDateTime
   }
 }
 

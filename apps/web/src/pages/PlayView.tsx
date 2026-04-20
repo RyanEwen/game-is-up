@@ -18,7 +18,16 @@ import { PlayIntentCard, PlayIntentGameList } from '../components/dashboard/Play
 import { PlayIntentComposerCard } from '../components/dashboard/PlayIntentComposerCard'
 import { SectionNav } from '../components/dashboard/SectionNav'
 import { sectionScrollMarginTop } from '../components/dashboard/SectionNav.constants'
-import { buildHeaderFilterSelectSx, formatNotifyScopeLabel, formatPlayIntentSelectionModeLabel, formatPlayIntentTimingSummary, headerFilterControlSx } from '../components/dashboard/dashboardUtils'
+import {
+  buildHeaderFilterSelectSx,
+  formatNotifyScopeLabel,
+  formatPlayIntentSelectionModeLabel,
+  formatPlayIntentTimingSummary,
+  headerActionFilterButtonSx,
+  headerActionFilterStackSx,
+  headerFilterControlMatchActionWidthSx,
+  headerFilterControlSx
+} from '../components/dashboard/dashboardUtils'
 import { useDashboardContext } from '../contexts/useDashboardContext'
 import type {
   DashboardLibraryQuickAddGame,
@@ -62,13 +71,15 @@ function sortPlayIntentPreviews(intents: PlayIntentPreview[], status: PlayIntent
 
 function PlayIntentFilterControl({
   value,
-  onChange
+  onChange,
+  matchActionWidth = false
 }: {
   value: PlayIntentAudienceFilter;
   onChange: (value: PlayIntentAudienceFilter) => void;
+  matchActionWidth?: boolean;
 }) {
   return (
-    <Box sx={headerFilterControlSx}>
+    <Box sx={matchActionWidth ? headerFilterControlMatchActionWidthSx : headerFilterControlSx}>
       <Typography level="body-sm" sx={{ color: 'neutral.400', whiteSpace: 'nowrap' }}>
         Show
       </Typography>
@@ -180,7 +191,7 @@ function OwnActivePlayIntentCard({
               </Typography>
             </Box>
             <Button variant="solid" color="primary" onClick={() => onOpenDetails(activePlayIntent.id)} sx={detailsActionButtonSx}>
-              Details
+              View Details
             </Button>
           </Stack>
           <Button variant="soft" color="neutral" onClick={onEdit} sx={secondaryActionButtonSx}>
@@ -429,11 +440,11 @@ function PlayViewContent({
   const filteredActivePlayIntentPreviews = activePlayIntentPreviews.filter((intent) => activeAudienceFilter === 'all' || intent.appliesToViewer)
   const filteredEndedPlayIntentPreviews = endedPlayIntentPreviews.filter((intent) => endedAudienceFilter === 'all' || intent.appliesToViewer)
   const activeHeaderControls = isSignedIn ? (
-    <Stack spacing={1} alignItems={{ xs: 'stretch', sm: 'flex-end' }}>
-      <Button color="primary" onClick={openPlayIntentComposer} sx={{ alignSelf: { xs: 'stretch', sm: 'flex-end' } }}>
+    <Stack spacing={1} alignItems="stretch" sx={headerActionFilterStackSx}>
+      <Button color="primary" onClick={openPlayIntentComposer} sx={headerActionFilterButtonSx}>
         {playComposerButtonLabel}
       </Button>
-      <PlayIntentFilterControl value={activeAudienceFilter} onChange={setActiveAudienceFilter} />
+      <PlayIntentFilterControl value={activeAudienceFilter} onChange={setActiveAudienceFilter} matchActionWidth />
     </Stack>
   ) : (
     <PlayIntentFilterControl value={activeAudienceFilter} onChange={setActiveAudienceFilter} />

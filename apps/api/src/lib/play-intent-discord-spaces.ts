@@ -24,6 +24,10 @@ const complementarySpaceActiveStatuses: PlayIntentDiscordSpaceStatus[] = [
   PlayIntentDiscordSpaceStatus.DELETE_REQUESTED
 ]
 const complementarySpaceRetentionMs = 7 * 24 * 60 * 60 * 1000
+const discordSpaceGrantFailureMessage = 'Some Discord channel access grants could not be applied. Check that the Game\'s Up bot can manage roles in the Discord server.'
+const discordSpaceCreatorMissingIdentityMessage = 'The call-to-play creator no longer has a linked Discord account, so the temporary Discord channels could not be granted.'
+const discordSpaceCreatorJoinServerMessage = 'The call-to-play creator is not currently in the Game\'s Up Discord server. Join the server to reveal the temporary channels.'
+const discordSpaceCreatorGrantFailureMessage = 'The call-to-play creator could not be granted the temporary Discord channel role. Check that the Game\'s Up bot can manage roles in the Discord server.'
 
 function normalizeNameSegment(value: string, fallback: string) {
   const normalized = value
@@ -310,16 +314,94 @@ async function addRoleToMember(serverId: string, discordUserId: string, roleId: 
   await rest.put(Routes.guildMemberRole(serverId, discordUserId, roleId))
 }
 
-async function tryGrantRoleToMember(serverId: string, discordUserId: string, roleId: string) {
+type DiscordRoleGrantResult = {
+  ok: boolean;
+  reason: 'granted' | 'member-missing' | 'role-missing' | 'missing-access' | 'missing-permissions' | 'invalid-request' | 'unknown-error';
+  message: string | null;
+}
+
+function getDiscordApiErrorCode(error: unknown) {
+  if (!error || typeof error !== 'object' || !('code' in error)) {
+    return null
+  }
+
+  const code = (error as { code?: unknown }).code
+
+  return typeof code === 'number' ? code : null
+}
+
+function getDiscordApiErrorStatus(error: unknown) {
+  if (!error || typeof error !== 'object' || !('status' in error)) {
+    return null
+  }
+
+  const status = (error as { status?: unknown }).status
+
+  return typeof status === 'number' ? status : null
+}
+
+function describeDiscordRoleGrantError(error: unknown): DiscordRoleGrantResult {
+  const code = getDiscordApiErrorCode(error)
+  const status = getDiscordApiErrorStatus(error)
+  const message = error instanceof Error ? error.message : String(error ?? 'Unknown Discord role grant error.')
+
+  if (code === 10007 || /Unknown Member/i.test(message)) {
+    return {
+      ok: false,
+      reason: 'member-missing',
+      message: 'Discord could not find that member in the server.'
+    }
+  }
+
+  if (code === 10011 || /Unknown Role/i.test(message)) {
+    return {
+      ok: false,
+      reason: 'role-missing',
+      message: 'Discord could not find the temporary role for this call to play.'
+    }
+  }
+
+  if (code === 50001 || /Missing Access/i.test(message)) {
+    return {
+      ok: false,
+      reason: 'missing-access',
+      message: 'The Game\'s Up bot does not have access to manage this Discord server.'
+    }
+  }
+
+  if (code === 50013 || /Missing Permissions/i.test(message) || status === 403) {
+    return {
+      ok: false,
+      reason: 'missing-permissions',
+      message: 'The Game\'s Up bot cannot assign the temporary role in this Discord server. Check Manage Roles permission and bot role hierarchy.'
+    }
+  }
+
+  if (code === 50035) {
+    return {
+      ok: false,
+      reason: 'invalid-request',
+      message: 'Discord rejected the temporary role grant request as invalid.'
+    }
+  }
+
+  return {
+    ok: false,
+    reason: 'unknown-error',
+    message
+  }
+}
+
+async function tryGrantRoleToMember(serverId: string, discordUserId: string, roleId: string): Promise<DiscordRoleGrantResult> {
   try {
     await addRoleToMember(serverId, discordUserId, roleId)
-    return true
-  } catch (error) {
-    if (isUnknownDiscordResourceError(error)) {
-      return false
+    return {
+      ok: true,
+      reason: 'granted',
+      message: null
     }
-
-    throw error
+  } catch (error) {
+    return describeDiscordRoleGrantError(error)
   }
 }
 
@@ -369,7 +451,9 @@ async function fetchGuildInviteUses(serverId: string) {
 
 async function syncGrantedMembers(space: NonNullable<ProvisionableSpace>) {
   if (!space.roleId) {
-    return
+    return {
+      lastSyncError: null
+    }
   }
 
   const membershipRows = await prisma.discordServerMembership.findMany({
@@ -385,25 +469,53 @@ async function syncGrantedMembers(space: NonNullable<ProvisionableSpace>) {
   })
   const membershipSet = new Set(membershipRows.map((row) => row.userId))
   const now = new Date()
+  let hadGrantErrors = false
+  let creatorSyncError: string | null = null
 
   for (const grant of space.accessGrants) {
+    const isCreatorGrant = grant.source === 'CREATOR'
     const discordUserId = grant.user.identities[0]?.providerUserId ?? null
-    let roleGranted = false
+    const hadRoleBefore = grant.roleGrantedAt != null
+    let roleGrantResult: DiscordRoleGrantResult = {
+      ok: false,
+      reason: 'member-missing',
+      message: null
+    }
 
     if (discordUserId) {
-      try {
-        roleGranted = await tryGrantRoleToMember(space.serverId, discordUserId, space.roleId)
-      } catch (error) {
+      roleGrantResult = await tryGrantRoleToMember(space.serverId, discordUserId, space.roleId)
+
+      if (!roleGrantResult.ok && roleGrantResult.reason !== 'member-missing') {
+        hadGrantErrors = true
         console.error('Failed to grant complementary Discord space role', {
           spaceId: space.id,
           userId: grant.userId,
           discordUserId,
-          error
+          reason: roleGrantResult.reason,
+          error: roleGrantResult.message
         })
       }
     }
 
-    const inServer = membershipSet.has(grant.userId) || roleGranted
+    const inServer = membershipSet.has(grant.userId) || roleGrantResult.ok
+
+    if (!hadRoleBefore && !roleGrantResult.ok) {
+      if (isCreatorGrant) {
+        creatorSyncError = creatorSyncError ?? (
+          !discordUserId
+            ? discordSpaceCreatorMissingIdentityMessage
+            : roleGrantResult.reason === 'missing-access' || roleGrantResult.reason === 'missing-permissions'
+              ? roleGrantResult.message ?? discordSpaceCreatorGrantFailureMessage
+              : roleGrantResult.reason === 'role-missing' || roleGrantResult.reason === 'invalid-request' || roleGrantResult.reason === 'unknown-error'
+                ? roleGrantResult.message ?? discordSpaceCreatorGrantFailureMessage
+                : inServer
+                  ? discordSpaceCreatorGrantFailureMessage
+                  : discordSpaceCreatorJoinServerMessage
+        )
+      } else if (discordUserId || inServer) {
+        hadGrantErrors = true
+      }
+    }
 
     await prisma.playIntentDiscordSpaceAccessGrant.update({
       where: {
@@ -414,9 +526,13 @@ async function syncGrantedMembers(space: NonNullable<ProvisionableSpace>) {
       },
       data: {
         inServer,
-        roleGrantedAt: roleGranted ? (grant.roleGrantedAt ?? now) : grant.roleGrantedAt
+        roleGrantedAt: roleGrantResult.ok ? (grant.roleGrantedAt ?? now) : grant.roleGrantedAt
       }
     })
+  }
+
+  return {
+    lastSyncError: creatorSyncError ?? (hadGrantErrors ? discordSpaceGrantFailureMessage : null)
   }
 }
 
@@ -765,7 +881,13 @@ export async function provisionPlayIntentDiscordSpace(spaceId: string) {
     const refreshed = await loadProvisionableSpace(space.id)
 
     if (refreshed) {
-      await syncGrantedMembers(refreshed)
+      const syncResult = await syncGrantedMembers(refreshed)
+      await prisma.playIntentDiscordSpace.update({
+        where: { id: space.id },
+        data: {
+          lastSyncError: syncResult.lastSyncError
+        }
+      })
     }
 
     publishPlayIntentInvalidation()
@@ -859,6 +981,9 @@ export async function handlePlayIntentDiscordSpaceMemberJoin(options: {
     return
   }
 
+  let changed = false
+  const creatorResolvedSpaceIds = new Set<string>()
+
   const [identity, spaces, inviteUses] = await Promise.all([
     prisma.userIdentity.findUnique({
       where: {
@@ -908,6 +1033,7 @@ export async function handlePlayIntentDiscordSpaceMemberJoin(options: {
       },
       select: {
         spaceId: true,
+        source: true,
         roleGrantedAt: true,
         joinedViaInviteAt: true,
         space: {
@@ -923,16 +1049,15 @@ export async function handlePlayIntentDiscordSpaceMemberJoin(options: {
         continue
       }
 
-      let roleGranted = false
+      const roleGrantResult = await tryGrantRoleToMember(options.serverId, options.discordUserId, grant.space.roleId)
 
-      try {
-        roleGranted = await tryGrantRoleToMember(options.serverId, options.discordUserId, grant.space.roleId)
-      } catch (error) {
+      if (!roleGrantResult.ok && roleGrantResult.reason !== 'member-missing') {
         console.error('Failed to grant complementary role on guild member join', {
           serverId: options.serverId,
           discordUserId: options.discordUserId,
           spaceId: grant.spaceId,
-          error
+          reason: roleGrantResult.reason,
+          error: roleGrantResult.message
         })
       }
 
@@ -945,10 +1070,16 @@ export async function handlePlayIntentDiscordSpaceMemberJoin(options: {
         },
         data: {
           inServer: true,
-          roleGrantedAt: roleGranted ? (grant.roleGrantedAt ?? new Date()) : grant.roleGrantedAt,
+          roleGrantedAt: roleGrantResult.ok ? (grant.roleGrantedAt ?? new Date()) : grant.roleGrantedAt,
           joinedViaInviteAt: grant.joinedViaInviteAt ?? new Date()
         }
       })
+
+      if (grant.source === 'CREATOR' && roleGrantResult.ok && !grant.roleGrantedAt) {
+        creatorResolvedSpaceIds.add(grant.spaceId)
+      }
+
+      changed = true
     }
   }
 
@@ -965,17 +1096,41 @@ export async function handlePlayIntentDiscordSpaceMemberJoin(options: {
     const matchedSpace = spacesWithInviteDelta[0]!
 
     if (matchedSpace.roleId) {
-      try {
-        await tryGrantRoleToMember(options.serverId, options.discordUserId, matchedSpace.roleId)
-      } catch (error) {
+      const roleGrantResult = await tryGrantRoleToMember(options.serverId, options.discordUserId, matchedSpace.roleId)
+
+      if (!roleGrantResult.ok && roleGrantResult.reason !== 'member-missing') {
         console.error('Failed to grant complementary role for invite-matched member join', {
           serverId: options.serverId,
           discordUserId: options.discordUserId,
           spaceId: matchedSpace.id,
-          error
+          reason: roleGrantResult.reason,
+          error: roleGrantResult.message
         })
       }
     }
+
+    if (creatorResolvedSpaceIds.size > 0) {
+      await prisma.playIntentDiscordSpace.updateMany({
+        where: {
+          id: {
+            in: [...creatorResolvedSpaceIds]
+          },
+          lastSyncError: {
+            in: [
+              discordSpaceCreatorJoinServerMessage,
+              discordSpaceCreatorGrantFailureMessage
+            ]
+          }
+        },
+        data: {
+          lastSyncError: null
+        }
+      })
+    }
+  }
+
+  if (changed) {
+    publishPlayIntentInvalidation()
   }
 
   for (const space of spaces) {

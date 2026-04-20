@@ -153,6 +153,7 @@ function serializeDiscordSpace(space: {
   voiceChannelName: string | null;
   inviteUrl: string | null;
   deleteAfter: Date | null;
+  lastSyncError: string | null;
 } | null): PlayIntentPreview['discordSpace'] {
   if (!space) {
     return null
@@ -167,7 +168,8 @@ function serializeDiscordSpace(space: {
     voiceChannelName: space.voiceChannelName,
     voiceChannelUrl: buildDiscordChannelUrl(space.serverId, space.voiceChannelId),
     inviteUrl: space.inviteUrl,
-    deleteAfter: space.deleteAfter?.toISOString() ?? null
+    deleteAfter: space.deleteAfter?.toISOString() ?? null,
+    lastSyncError: space.lastSyncError
   }
 }
 
@@ -309,7 +311,8 @@ export async function buildPlayIntentFeed(viewerId?: string | null): Promise<Pla
             voiceChannelId: true,
           voiceChannelName: true,
             inviteUrl: true,
-          deleteAfter: true
+          deleteAfter: true,
+          lastSyncError: true
         }
       },
       platforms: true,

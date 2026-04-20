@@ -30,6 +30,7 @@ import {
   playIntentPresetDurations,
   toLocalDateTimeInputValue
 } from '../components/dashboard/dashboardUtils'
+import { formatMonthDayTime } from '../lib/dateTime'
 import type {
   DashboardLibraryQuickAddGame,
   FriendTarget,
@@ -277,35 +278,15 @@ export function useDashboardPlay({
   const playIntentStartHelperText = playIntentStartValidationMessage
     ? playIntentStartValidationMessage
     : playIntentStartMode === 'scheduled' && resolvedPlayIntentStartAt
-      ? `This call to play reaches people in your network with matching games in their library as soon as you post it. We'll ask you to confirm it at ${resolvedPlayIntentStartAt.toLocaleString([], {
-          month: 'short',
-          day: 'numeric',
-          hour: 'numeric',
-          minute: '2-digit'
-        })}, then remind those people once you confirm.`
+      ? `This call to play reaches people in your network with matching games in their library as soon as you post it. We'll ask you to confirm it at ${formatMonthDayTime(resolvedPlayIntentStartAt)}, then remind those people once you confirm.`
       : 'This call to play reaches people in your network with matching games in their library as soon as you post it.'
   const playIntentStartHasError = playIntentStartValidationMessage != null
   const playIntentTimingHelperText = playIntentTimingValidationMessage
     ? playIntentTimingValidationMessage
     : playIntentPreviewEndsAt && resolvedPlayIntentDurationMinutes != null
       ? playIntentStartMode === 'scheduled' && resolvedPlayIntentStartAt
-        ? `Starts ${resolvedPlayIntentStartAt.toLocaleString([], {
-            month: 'short',
-            day: 'numeric',
-            hour: 'numeric',
-            minute: '2-digit'
-          })} and ends ${playIntentPreviewEndsAt.toLocaleString([], {
-            month: 'short',
-            day: 'numeric',
-            hour: 'numeric',
-            minute: '2-digit'
-          })} (${formatPlayIntentDurationLabel(resolvedPlayIntentDurationMinutes)}).`
-        : `Ends ${playIntentPreviewEndsAt.toLocaleString([], {
-            month: 'short',
-            day: 'numeric',
-            hour: 'numeric',
-            minute: '2-digit'
-          })} (${formatPlayIntentDurationLabel(resolvedPlayIntentDurationMinutes)}).`
+        ? `Starts ${formatMonthDayTime(resolvedPlayIntentStartAt)} and ends ${formatMonthDayTime(playIntentPreviewEndsAt)} (${formatPlayIntentDurationLabel(resolvedPlayIntentDurationMinutes)}).`
+        : `Ends ${formatMonthDayTime(playIntentPreviewEndsAt)} (${formatPlayIntentDurationLabel(resolvedPlayIntentDurationMinutes)}).`
       : 'Choose how long this call to play should stay visible.'
   const playIntentTimingHasError = playIntentTimingValidationMessage != null
 
