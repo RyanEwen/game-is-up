@@ -268,7 +268,8 @@ export const playIntentExpandedGameScopeSchema = z.object({
   title: z.string().min(1),
   description: z.string().min(1),
   totalCount: z.number().int().min(0),
-  games: z.array(playIntentExpandedGameSchema).default([])
+  games: z.array(playIntentExpandedGameSchema).default([]),
+  nonOverlappingGames: z.array(playIntentExpandedGameSchema).default([])
 })
 
 export const playIntentDetailSchema = playIntentPreviewSchema.extend({

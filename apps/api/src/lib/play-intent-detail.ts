@@ -504,11 +504,15 @@ export async function buildPlayIntentDetail(viewerId: string, playIntentId: stri
               ? 'This call is library-wide, so every active title in your library is currently included.'
               : 'This call is library-wide, but your library does not currently expose any active titles.',
             totalCount: games.length,
-            games
+            games,
+            nonOverlappingGames: []
           }
         }
 
         const games = serializeExpandedGames(overlappingLibraryInterests)
+        const nonOverlappingGames = serializeExpandedGames(
+          intent.user.gameInterests.filter((interest) => !viewerGameIdSet.has(interest.gameId))
+        )
 
         return {
           kind: 'shared-library' as const,
@@ -517,7 +521,8 @@ export async function buildPlayIntentDetail(viewerId: string, playIntentId: stri
             ? `This call is library-wide, so these are the current overlaps between your library and ${intent.user.displayName}'s library.`
             : `This call is library-wide, but none of your current games overlap with ${intent.user.displayName}'s library right now.`,
           totalCount: games.length,
-          games
+          games,
+          nonOverlappingGames
         }
       })()
     : null

@@ -135,6 +135,7 @@ export function PlayIntentDetailView() {
   const [requiresAuth, setRequiresAuth] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [isDmEmulatorOpen, setIsDmEmulatorOpen] = useState(false)
+  const [showNonOverlappingGames, setShowNonOverlappingGames] = useState(false)
 
   const discoveryPeopleById = useMemo(
     () => new Map(playViewProps.discoveryPeople.map((person) => [person.id, person] as const)),
@@ -239,6 +240,10 @@ export function PlayIntentDetailView() {
       : "Game's Up • Play"
   }, [intent])
 
+  useEffect(() => {
+    setShowNonOverlappingGames(false)
+  }, [playIntentId])
+
   if (!playIntentId) {
     return (
       <EmptyStateCard
@@ -300,6 +305,7 @@ export function PlayIntentDetailView() {
   const isMuted = playViewProps.mutedPlayIntentUserIds.has(intent.user.id)
   const isEditingCurrentIntent = playViewProps.activePlayIntent?.id === intent.id
   const libraryWideScope = intent.selectionMode === 'library' ? intent.expandedGameScope : null
+  const canRevealNonOverlappingGames = libraryWideScope?.kind === 'shared-library' && libraryWideScope.nonOverlappingGames.length > 0
   const canDeleteDiscordSpace = Boolean(
     isOwnIntent
     && intent.status === 'ended'
@@ -431,7 +437,7 @@ export function PlayIntentDetailView() {
               {formatNotifyScopeLabel(intent.notifyScope)}
             </Chip>
             {!intent.appliesToViewer ? (
-              <Chip size="sm" color="neutral" variant="soft">
+              <Chip size="sm" color="warning" variant="outlined">
                 Not for you right now
               </Chip>
             ) : null}
@@ -465,8 +471,12 @@ export function PlayIntentDetailView() {
           ) : null}
 
           {!intent.appliesToViewer ? (
-            <Card variant="soft" color="neutral" sx={{ p: 1.5, backgroundColor: 'rgba(23, 29, 40, 0.72)' }}>
-              <Typography level="body-sm" sx={{ color: 'neutral.200' }}>
+            <Card
+              variant="outlined"
+              color="warning"
+              sx={{ p: 1.5, borderColor: 'rgba(255, 187, 82, 0.4)', backgroundColor: 'rgba(47, 27, 4, 0.22)' }}
+            >
+              <Typography level="body-sm" sx={{ color: 'warning.200' }}>
                 This call is visible in your network, but it does not currently include you.
               </Typography>
             </Card>
@@ -531,9 +541,23 @@ export function PlayIntentDetailView() {
                       {libraryWideScope.description}
                     </Typography>
                   </Box>
-                  <Chip size="sm" color="primary" variant="soft">
-                    {libraryWideScope.totalCount} {libraryWideScope.totalCount === 1 ? 'game' : 'games'}
-                  </Chip>
+                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'flex-start', sm: 'center' }}>
+                    <Chip size="sm" color="primary" variant="soft">
+                      {libraryWideScope.totalCount} {libraryWideScope.totalCount === 1 ? 'game' : 'games'}
+                    </Chip>
+                    {canRevealNonOverlappingGames ? (
+                      <Button
+                        size="sm"
+                        variant="outlined"
+                        color={showNonOverlappingGames ? 'warning' : 'neutral'}
+                        onClick={() => setShowNonOverlappingGames((currentValue) => !currentValue)}
+                      >
+                        {showNonOverlappingGames
+                          ? 'Show only shared overlap'
+                          : `Show ${libraryWideScope.nonOverlappingGames.length} games that do not overlap`}
+                      </Button>
+                    ) : null}
+                  </Stack>
                 </Stack>
 
                 {libraryWideScope.games.length > 0 ? (
@@ -558,10 +582,12 @@ export function PlayIntentDetailView() {
                           `Platforms: ${game.platformLabels.join(', ')}`
                         ]}
                         badges={buildGameBadges(game.platformLabels)}
-                        footerBadge={{
-                          label: libraryWideScope.kind === 'creator-library' ? 'Creator library' : 'Shared overlap',
-                          color: libraryWideScope.kind === 'creator-library' ? 'primary' : 'success'
-                        }}
+                        footerBadge={libraryWideScope.kind === 'creator-library'
+                          ? {
+                              label: 'Creator library',
+                              color: 'primary'
+                            }
+                          : null}
                         onAddToLibrary={playViewProps.onAddGameToLibrary}
                       />
                     ))}
@@ -572,6 +598,39 @@ export function PlayIntentDetailView() {
                     body={libraryWideScope.description}
                   />
                 )}
+
+                {canRevealNonOverlappingGames && showNonOverlappingGames ? (
+                  <Stack spacing={1.5}>
+                    <Typography level="title-sm">Other games in {intent.user.displayName}&apos;s library</Typography>
+                    <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
+                      These titles are part of the creator&apos;s active library, but they do not currently overlap with yours.
+                    </Typography>
+                    <Box sx={memberGameGridSx}>
+                      {libraryWideScope.nonOverlappingGames.map((game) => (
+                        <CompactPersonGameCard
+                          key={`non-overlap-${game.id}`}
+                          game={{
+                            gameId: game.id,
+                            title: game.title,
+                            coverUrl: game.coverUrl,
+                            platformLabels: game.platformLabels
+                          }}
+                          canAddToLibrary={playViewProps.isSignedIn}
+                          isInLibrary={playViewProps.libraryGameIds.has(game.id)}
+                          isAddingToLibrary={playViewProps.addingLibraryGameId === game.id}
+                          supportingText="Not in your current overlap"
+                          detailLines={[
+                            `This title is in ${intent.user.displayName}'s library, but it does not currently overlap with yours.`,
+                            `Platforms: ${game.platformLabels.join(', ')}`
+                          ]}
+                          badges={buildGameBadges(game.platformLabels)}
+                          footerBadge={null}
+                          onAddToLibrary={playViewProps.onAddGameToLibrary}
+                        />
+                      ))}
+                    </Box>
+                  </Stack>
+                ) : null}
               </Stack>
             </Card>
           ) : (
