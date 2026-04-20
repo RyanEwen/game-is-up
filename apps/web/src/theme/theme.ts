@@ -1,5 +1,26 @@
 import { extendTheme } from '@mui/joy/styles'
 
+function buildSoftControlStyles(color: string) {
+  return {
+    backgroundColor: `var(--joy-palette-${color}-700, var(--joy-palette-neutral-700))`,
+    color: `var(--joy-palette-${color}-100, var(--joy-palette-neutral-100))`,
+    border: `1px solid var(--joy-palette-${color}-600, var(--joy-palette-neutral-600))`,
+    boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.04)',
+    '&:hover': {
+      backgroundColor: `var(--joy-palette-${color}-600, var(--joy-palette-neutral-600))`
+    },
+    '&:active': {
+      backgroundColor: `var(--joy-palette-${color}-500, var(--joy-palette-neutral-500))`
+    },
+    '&.Mui-disabled': {
+      backgroundColor: 'var(--joy-palette-neutral-800)',
+      color: 'var(--joy-palette-neutral-500)',
+      borderColor: 'var(--joy-palette-neutral-700)',
+      boxShadow: 'none'
+    }
+  }
+}
+
 export const theme = extendTheme({
   fontFamily: {
     body: 'IBM Plex Sans, sans-serif',
@@ -9,15 +30,20 @@ export const theme = extendTheme({
     JoyButton: {
       styleOverrides: {
         root: ({ ownerState }) => {
+          const color = ownerState.color ?? 'neutral'
+
+          if (ownerState.variant === 'soft') {
+            return buildSoftControlStyles(color)
+          }
+
           if (ownerState.variant !== 'outlined') {
             return {}
           }
 
-          const color = ownerState.color ?? 'neutral'
-
           return {
             backgroundColor: `var(--joy-palette-${color}-800, var(--joy-palette-neutral-800))`,
             borderColor: `var(--joy-palette-${color}-600, var(--joy-palette-neutral-600))`,
+            boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.04)',
             '&:hover': {
               backgroundColor: `var(--joy-palette-${color}-700, var(--joy-palette-neutral-700))`
             },
@@ -29,6 +55,28 @@ export const theme = extendTheme({
               borderColor: 'var(--joy-palette-neutral-700)'
             }
           }
+        }
+      }
+    },
+    JoyIconButton: {
+      styleOverrides: {
+        root: ({ ownerState }) => {
+          if (ownerState.variant !== 'soft') {
+            return {}
+          }
+
+          return buildSoftControlStyles(ownerState.color ?? 'neutral')
+        }
+      }
+    },
+    JoyChip: {
+      styleOverrides: {
+        root: ({ ownerState }) => {
+          if (ownerState.variant !== 'soft') {
+            return {}
+          }
+
+          return buildSoftControlStyles(ownerState.color ?? 'neutral')
         }
       }
     },

@@ -1990,7 +1990,7 @@ function buildGoTimeConfirmedCopy(creatorDisplayName: string) {
   }
 }
 
-function buildGoTimeReminderCopy(creatorDisplayName: string) {
+export function buildGoTimeReminderCopy(creatorDisplayName: string) {
   return {
     title: `${creatorDisplayName} confirmed the session is on`,
     body: `Update: ${creatorDisplayName} confirmed this session is still on.\nWhen: Right now.`

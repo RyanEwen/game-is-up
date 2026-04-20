@@ -31,10 +31,13 @@ import {
   buildPlayIntentDirectMessageHeading,
   buildPlayIntentDirectMessageEmbeds,
   buildPlayIntentNotificationComponents,
+  buildPlayIntentNotificationPromptPreview,
+  buildGoTimeReminderCopy,
   expirePendingPlayIntentNotifications,
   syncCreatorPlayIntentSummaryMessages
 } from './play-intent-notification-responses.js'
 import {
+  ensurePlayIntentDiscordSpaceAudienceAccess,
   getPlayIntentDiscordSpaceRecipientContexts,
   provisionPlayIntentDiscordSpaceByPlayIntentId,
   type PlayIntentDiscordSpaceRecipientContext
@@ -200,6 +203,36 @@ function summarizeTitles(titles: string[]) {
   }
 
   return 'one of the following games'
+}
+
+function buildPlayIntentGameEmbeds(games: Array<{ title: string; coverUrl: string | null }>) {
+  const gamesWithCover = games
+    .map((game) => ({
+      title: game.title,
+      coverUrl: toClientGameCoverUrl(game.coverUrl)
+    }))
+    .filter((game): game is { title: string; coverUrl: string } => Boolean(game.coverUrl))
+
+  if (gamesWithCover.length === 0) {
+    return []
+  }
+
+  if (gamesWithCover.length === 1) {
+    const firstGame = gamesWithCover[0]!
+    return [{
+      title: `Game: ${firstGame.title}`,
+      image: { url: firstGame.coverUrl }
+    }]
+  }
+
+  const firstGame = gamesWithCover[0]!
+  const bulletList = gamesWithCover.map((game) => `• ${game.title}`).join('\n')
+
+  return [{
+    title: `${gamesWithCover.length} games`,
+    description: bulletList,
+    image: { url: firstGame.coverUrl }
+  }]
 }
 
 const defaultPlayIntentTitle = 'Call to play'
@@ -753,6 +786,502 @@ async function getPlayableLibraryEntries(userId: string) {
   })
 }
 
+const retroactivePlayIntentNotificationTypes: NotificationType[] = [
+  NotificationType.FRIEND_PLAYING,
+  NotificationType.SCHEDULED_PLAY_INTENT_REMINDER,
+  NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED
+]
+
+type RetroactivePlayIntentCandidate = Awaited<ReturnType<typeof loadRetroactivePlayIntentCandidates>>[number]
+
+type RetroactiveNotificationDraft = {
+  playIntentId: string;
+  creatorUserId: string;
+  notificationType: NotificationType;
+  title: string;
+  body: string;
+  creatorDisplayName: string;
+  creatorDiscordUserId: string | null;
+  voiceChannelId: string | null;
+  voiceChannelName: string | null;
+  interestedUserLabels: string[];
+  gameEmbeds: ReturnType<typeof buildPlayIntentGameEmbeds>;
+}
+
+async function loadRetroactivePlayIntentCandidates(options: {
+  recipientUserId: string;
+  candidateCreatorUserIds: string[];
+  candidateDiscordServerIds: string[];
+  now: Date;
+}) {
+  const candidateClauses: Prisma.PlayIntentWhereInput[] = []
+
+  if (options.candidateCreatorUserIds.length > 0) {
+    candidateClauses.push({
+      userId: {
+        in: options.candidateCreatorUserIds
+      }
+    })
+  }
+
+  if (options.candidateDiscordServerIds.length > 0) {
+    candidateClauses.push({
+      scope: PlayIntentScope.SPECIFIC_DISCORD_SERVER,
+      targetDiscordServers: {
+        some: {
+          serverId: {
+            in: options.candidateDiscordServerIds
+          }
+        }
+      }
+    })
+  }
+
+  if (candidateClauses.length === 0) {
+    return []
+  }
+
+  return prisma.playIntent.findMany({
+    where: {
+      userId: {
+        not: options.recipientUserId
+      },
+      expiresAt: {
+        gt: options.now
+      },
+      OR: candidateClauses
+    },
+    select: {
+      id: true,
+      userId: true,
+      selectionMode: true,
+      scope: true,
+      windowStartsAt: true,
+      windowEndsAt: true,
+      voiceChannelId: true,
+      voiceChannelName: true,
+      games: {
+        select: {
+          gameId: true,
+          game: {
+            select: {
+              title: true,
+              coverUrl: true
+            }
+          }
+        },
+        orderBy: {
+          createdAt: 'asc'
+        }
+      },
+      user: {
+        select: {
+          displayName: true,
+          identities: {
+            where: {
+              provider: AuthProvider.DISCORD
+            },
+            select: {
+              providerUserId: true
+            }
+          }
+        }
+      },
+      targetFriends: {
+        select: {
+          friendUserId: true
+        }
+      },
+      targetDiscordServers: {
+        select: {
+          serverId: true
+        }
+      },
+      notifications: {
+        where: {
+          type: NotificationType.SCHEDULED_PLAY_INTENT_CHECK_IN
+        },
+        select: {
+          responseChoice: true
+        },
+        orderBy: {
+          createdAt: 'desc'
+        },
+        take: 1
+      }
+    },
+    orderBy: [
+      {
+        windowStartsAt: 'asc'
+      },
+      {
+        createdAt: 'asc'
+      }
+    ]
+  })
+}
+
+function buildRetroactiveNotificationDraft(options: {
+  intent: RetroactivePlayIntentCandidate;
+  now: Date;
+  recipientTimezoneId: string | null;
+  interestedUserLabels: string[];
+}) {
+  const selectionMode = toClientSelectionMode(options.intent.selectionMode)
+  const selectedGames = [...options.intent.games]
+    .map((game) => ({
+      gameId: game.gameId,
+      title: game.game.title,
+      coverUrl: game.game.coverUrl
+    }))
+    .sort((left, right) => left.title.localeCompare(right.title))
+  const selectedTitles = selectedGames.map((game) => game.title)
+  const durationMinutes = Math.max(
+    minimumPlayIntentDurationMinutes,
+    Math.ceil((options.intent.windowEndsAt.getTime() - options.intent.windowStartsAt.getTime()) / (60 * 1000))
+  )
+  const latestCheckIn = options.intent.notifications[0] ?? null
+  const notificationType = latestCheckIn?.responseChoice === NotificationResponseChoice.CONFIRMED
+    ? NotificationType.SCHEDULED_PLAY_INTENT_REMINDER
+    : NotificationType.FRIEND_PLAYING
+  const copy = notificationType === NotificationType.SCHEDULED_PLAY_INTENT_REMINDER
+    ? buildGoTimeReminderCopy(options.intent.user.displayName)
+    : buildPlayIntentNotificationCopy(
+        options.intent.user.displayName,
+        selectionMode,
+        selectedTitles,
+        durationMinutes,
+        options.intent.windowStartsAt,
+        options.now,
+        options.recipientTimezoneId
+      )
+
+  return {
+    playIntentId: options.intent.id,
+    creatorUserId: options.intent.userId,
+    notificationType,
+    title: copy.title,
+    body: copy.body,
+    creatorDisplayName: options.intent.user.displayName,
+    creatorDiscordUserId: options.intent.user.identities[0]?.providerUserId ?? null,
+    voiceChannelId: options.intent.voiceChannelId,
+    voiceChannelName: options.intent.voiceChannelName,
+    interestedUserLabels: options.interestedUserLabels,
+    gameEmbeds: notificationType === NotificationType.FRIEND_PLAYING ? buildPlayIntentGameEmbeds(selectedGames) : []
+  } satisfies RetroactiveNotificationDraft
+}
+
+export async function backfillPlayIntentNotificationsForUserLibraryChange(userId: string) {
+  const now = new Date()
+  const [recipient, playableLibraryEntries, mutedCreators, discoveryAudienceUserIds, targetableDiscordServerIds, explicitFriendships, recipientDiscordIdentity] = await Promise.all([
+    prisma.user.findUnique({
+      where: {
+        id: userId
+      },
+      select: {
+        timezoneId: true
+      }
+    }),
+    getPlayableLibraryEntries(userId),
+    prisma.playIntentMute.findMany({
+      where: {
+        userId
+      },
+      select: {
+        mutedUserId: true
+      }
+    }),
+    getMutualDiscoveryAudienceUserIds(userId),
+    getSelectedDiscordServerIds(userId),
+    prisma.friend.findMany({
+      where: {
+        friendedUserId: userId
+      },
+      select: {
+        userId: true
+      }
+    }),
+    prisma.userIdentity.findFirst({
+      where: {
+        userId,
+        provider: AuthProvider.DISCORD
+      },
+      select: {
+        providerUserId: true
+      }
+    })
+  ])
+
+  if (!recipient || playableLibraryEntries.length === 0) {
+    return {
+      createdCount: 0,
+      deliveredCount: 0
+    }
+  }
+
+  const mutedCreatorIds = new Set(mutedCreators.map((mute) => mute.mutedUserId))
+  const candidateCreatorUserIds = [...new Set([
+    ...explicitFriendships.map((friend) => friend.userId),
+    ...discoveryAudienceUserIds
+  ])].filter((candidateUserId) => !mutedCreatorIds.has(candidateUserId))
+  const candidateIntents = await loadRetroactivePlayIntentCandidates({
+    recipientUserId: userId,
+    candidateCreatorUserIds,
+    candidateDiscordServerIds: targetableDiscordServerIds,
+    now
+  })
+
+  if (candidateIntents.length === 0) {
+    return {
+      createdCount: 0,
+      deliveredCount: 0
+    }
+  }
+
+  const existingNotifications = await prisma.notification.findMany({
+    where: {
+      userId,
+      playIntentId: {
+        in: candidateIntents.map((intent) => intent.id)
+      },
+      type: {
+        in: retroactivePlayIntentNotificationTypes
+      }
+    },
+    select: {
+      playIntentId: true
+    }
+  })
+  const existingNotificationPlayIntentIds = new Set(
+    existingNotifications
+      .map((notification) => notification.playIntentId)
+      .filter((playIntentId): playIntentId is string => Boolean(playIntentId))
+  )
+  const interestedUsersByPlayIntentId = await getInterestedUsersByPlayIntentId(candidateIntents.map((intent) => intent.id))
+  const recipientGameIds = [...new Set(playableLibraryEntries.map((entry) => entry.gameId))]
+  const drafts: RetroactiveNotificationDraft[] = []
+
+  for (const intent of candidateIntents) {
+    if (existingNotificationPlayIntentIds.has(intent.id)) {
+      continue
+    }
+
+    const recipientUserIds = await getPlayIntentRecipientUserIds(
+      intent.userId,
+      toClientNotifyScope(intent.scope),
+      intent.selectionMode === PrismaPlayIntentSelectionMode.ENTIRE_LIBRARY
+        ? recipientGameIds
+        : intent.games.map((game) => game.gameId),
+      intent.targetFriends.map((friend) => friend.friendUserId),
+      intent.targetDiscordServers.map((server) => server.serverId)
+    )
+
+    if (!recipientUserIds.includes(userId)) {
+      continue
+    }
+
+    drafts.push(buildRetroactiveNotificationDraft({
+      intent,
+      now,
+      recipientTimezoneId: recipient.timezoneId,
+      interestedUserLabels: (interestedUsersByPlayIntentId.get(intent.id) ?? []).map((entry) => entry.displayName)
+    }))
+  }
+
+  if (drafts.length === 0) {
+    return {
+      createdCount: 0,
+      deliveredCount: 0
+    }
+  }
+
+  const draftByPlayIntentId = new Map(drafts.map((draft) => [draft.playIntentId, draft]))
+  const createdNotifications = await prisma.$transaction(async (transaction) => {
+    const created: Array<{
+      id: string;
+      playIntentId: string;
+      type: NotificationType;
+      title: string;
+      body: string;
+    }> = []
+
+    for (const draft of drafts) {
+      const existingNotification = await transaction.notification.findFirst({
+        where: {
+          userId,
+          playIntentId: draft.playIntentId,
+          type: {
+            in: retroactivePlayIntentNotificationTypes
+          }
+        },
+        select: {
+          id: true
+        }
+      })
+
+      if (existingNotification) {
+        continue
+      }
+
+      const createdNotification = await transaction.notification.create({
+        data: {
+          userId,
+          triggeredByUserId: draft.creatorUserId,
+          playIntentId: draft.playIntentId,
+          type: draft.notificationType,
+          title: draft.title,
+          body: draft.body
+        },
+        select: {
+          id: true,
+          playIntentId: true,
+          type: true,
+          title: true,
+          body: true
+        }
+      })
+
+      if (!createdNotification.playIntentId) {
+        continue
+      }
+
+      created.push({
+        ...createdNotification,
+        playIntentId: createdNotification.playIntentId
+      })
+    }
+
+    return created
+  })
+
+  if (createdNotifications.length === 0) {
+    return {
+      createdCount: 0,
+      deliveredCount: 0
+    }
+  }
+
+  await Promise.all(
+    createdNotifications.map((notification) => ensurePlayIntentDiscordSpaceAudienceAccess(notification.playIntentId, [userId]))
+  )
+
+  const creatorIdsWithVoiceChannels = [...new Set(
+    createdNotifications
+      .map((notification) => draftByPlayIntentId.get(notification.playIntentId))
+      .filter((draft): draft is RetroactiveNotificationDraft => Boolean(draft?.voiceChannelId))
+      .map((draft) => draft.creatorUserId)
+  )]
+  const [creatorMemberships, recipientMemberships] = await Promise.all([
+    creatorIdsWithVoiceChannels.length > 0
+      ? prisma.discordServerMembership.findMany({
+          where: {
+            userId: {
+              in: creatorIdsWithVoiceChannels
+            }
+          },
+          select: {
+            userId: true,
+            serverId: true
+          }
+        })
+      : Promise.resolve([] as Array<{ userId: string; serverId: string }>),
+    creatorIdsWithVoiceChannels.length > 0
+      ? prisma.discordServerMembership.findMany({
+          where: {
+            userId
+          },
+          select: {
+            serverId: true
+          }
+        })
+      : Promise.resolve([] as Array<{ serverId: string }>)
+  ])
+  const creatorServerIdsByUserId = new Map<string, Set<string>>()
+
+  for (const membership of creatorMemberships) {
+    const serverIds = creatorServerIdsByUserId.get(membership.userId) ?? new Set<string>()
+    serverIds.add(membership.serverId)
+    creatorServerIdsByUserId.set(membership.userId, serverIds)
+  }
+
+  const recipientServerIdSet = new Set(recipientMemberships.map((membership) => membership.serverId))
+  const discordSpaceContexts = await Promise.all(
+    createdNotifications.map(async (notification) => ({
+      playIntentId: notification.playIntentId,
+      context: (await getPlayIntentDiscordSpaceRecipientContexts(notification.playIntentId, [userId])).get(userId) ?? null
+    }))
+  )
+  const discordSpaceContextByPlayIntentId = new Map(discordSpaceContexts.map((entry) => [entry.playIntentId, entry.context]))
+  let deliveredCount = 0
+
+  if (recipientDiscordIdentity?.providerUserId) {
+    for (const notification of createdNotifications) {
+      const draft = draftByPlayIntentId.get(notification.playIntentId)
+
+      if (!draft) {
+        continue
+      }
+
+      const creatorServerIds = creatorServerIdsByUserId.get(draft.creatorUserId) ?? new Set<string>()
+      const sharesServer = [...creatorServerIds].some((serverId) => recipientServerIdSet.has(serverId))
+      const voiceChannel = draft.voiceChannelId || draft.voiceChannelName
+        ? {
+            channelId: draft.voiceChannelId,
+            channelName: draft.voiceChannelName,
+            recipientSharesServer: sharesServer
+          }
+        : null
+      const preview = buildPlayIntentNotificationPromptPreview({
+        notificationId: notification.id,
+        playIntentId: draft.playIntentId,
+        notificationType: draft.notificationType,
+        title: draft.title,
+        body: draft.body,
+        responseChoice: null,
+        creatorUserId: draft.creatorUserId,
+        creatorDiscordUserId: draft.creatorDiscordUserId,
+        creatorDisplayName: draft.creatorDisplayName,
+        voiceChannel,
+        discordSpace: discordSpaceContextByPlayIntentId.get(draft.playIntentId) ?? null,
+        interestedCount: draft.interestedUserLabels.length > 0 ? draft.interestedUserLabels.length : undefined,
+        interestedUserLabels: draft.interestedUserLabels
+      })
+      const [dmResult] = await sendDiscordDirectMessages([
+        {
+          discordUserId: recipientDiscordIdentity.providerUserId,
+          content: preview.content,
+          embeds: [...(preview.embeds ?? []), ...draft.gameEmbeds],
+          components: preview.components
+        }
+      ])
+
+      if (!dmResult || dmResult.status !== 'sent' || dmResult.emulated) {
+        continue
+      }
+
+      deliveredCount += 1
+
+      await prisma.notification.update({
+        where: {
+          id: notification.id
+        },
+        data: {
+          deliveredAt: new Date(),
+          discordDmChannelId: dmResult.channelId,
+          discordDmMessageId: dmResult.messageId
+        }
+      })
+    }
+  }
+
+  await syncCreatorPlayIntentSummaryMessages(createdNotifications.map((notification) => notification.playIntentId))
+
+  return {
+    createdCount: createdNotifications.length,
+    deliveredCount
+  }
+}
+
 export async function getCurrentPlayIntent(userId: string) {
   const now = new Date()
   const expiredIntentIds = (await prisma.playIntent.findMany({
@@ -916,35 +1445,10 @@ export async function upsertCurrentPlayIntent(
   const selectedGameIds = selectedEntries.map((entry) => entry.gameId)
   const selectedTitles = selectedEntries.map((entry) => entry.game.title)
   const dmGameEmbeds = payload.selectionMode === 'subset' && selectedEntries.length > 0 && selectedEntries.length < 12
-    ? (() => {
-        const gamesWithCover = selectedEntries
-          .map((entry) => ({
-            title: entry.game.title,
-            coverUrl: toClientGameCoverUrl(entry.game.coverUrl)
-          }))
-          .filter((entry): entry is { title: string; coverUrl: string } => Boolean(entry.coverUrl))
-
-        if (gamesWithCover.length === 0) {
-          return []
-        }
-
-        if (gamesWithCover.length === 1) {
-          const firstGame = gamesWithCover[0]!
-          return [{
-            title: `Game: ${firstGame.title}`,
-            image: { url: firstGame.coverUrl }
-          }]
-        }
-
-        // Multiple games: bullet list with first game's cover as embed image
-        const firstGame = gamesWithCover[0]!
-        const bulletList = gamesWithCover.map((game) => `• ${game.title}`).join('\n')
-        return [{
-          title: `${gamesWithCover.length} games`,
-          description: bulletList,
-          image: { url: firstGame.coverUrl }
-        }]
-      })()
+    ? buildPlayIntentGameEmbeds(selectedEntries.map((entry) => ({
+        title: entry.game.title,
+        coverUrl: entry.game.coverUrl
+      })))
     : []
   const platformLabels = dedupePlatformLabels(
     selectedEntries.flatMap((entry) => entry.platforms.map((platform) => platform.platformLabel))

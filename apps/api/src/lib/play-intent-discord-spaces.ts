@@ -1,4 +1,4 @@
-import { AuthProvider, PlayIntentDiscordSpaceStatus } from '@prisma/client'
+import { AuthProvider, PlayIntentDiscordSpaceAccessSource, PlayIntentDiscordSpaceStatus } from '@prisma/client'
 import { ChannelType, OverwriteType, PermissionFlagsBits, Routes } from 'discord.js'
 import { publishPlayIntentInvalidation } from './dashboard-events.js'
 import { buildDiscordChannelUrl } from './discord-channel-urls.js'
@@ -598,6 +598,51 @@ export async function getPlayIntentDiscordSpaceRecipientContexts(playIntentId: s
       inviteUrl: space.inviteUrl
     }
   ]))
+}
+
+export async function ensurePlayIntentDiscordSpaceAudienceAccess(playIntentId: string, userIds: string[]) {
+  const uniqueUserIds = [...new Set(userIds.filter(Boolean))]
+
+  if (uniqueUserIds.length === 0) {
+    return
+  }
+
+  const space = await prisma.playIntentDiscordSpace.findUnique({
+    where: {
+      playIntentId
+    },
+    select: {
+      id: true,
+      status: true,
+      roleId: true
+    }
+  })
+
+  if (!space) {
+    return
+  }
+
+  await prisma.playIntentDiscordSpaceAccessGrant.createMany({
+    data: uniqueUserIds.map((userId) => ({
+      spaceId: space.id,
+      userId,
+      source: PlayIntentDiscordSpaceAccessSource.AUDIENCE_SYNC,
+      inServer: false
+    })),
+    skipDuplicates: true
+  })
+
+  if (!complementarySpaceActiveStatuses.includes(space.status) || !space.roleId) {
+    return
+  }
+
+  const refreshedSpace = await loadProvisionableSpace(space.id)
+
+  if (!refreshedSpace) {
+    return
+  }
+
+  await syncGrantedMembers(refreshedSpace)
 }
 
 export async function markPlayIntentDiscordSpaceInviteSent(playIntentId: string, userId: string) {

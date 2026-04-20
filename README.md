@@ -210,7 +210,7 @@ This repo now treats Prisma migrations as the source of truth for schema changes
 10. Install the bot in shared Discord servers and enable the Presence Intent in the Discord developer portal if you want lossy recording of currently played Discord games from the gateway-owning environment.
 11. Bot-based activity tracking only records activity while the bot is online and present in a shared server, so it should be treated as opportunistic rather than authoritative history.
 12. If you want the app to browse every member in a selected Discord server for invite targeting, the bot also needs the Server Members intent enabled in the Discord developer portal.
-13. When a call to play matches someone who should be notified and that user has a linked Discord account, the bot can DM them directly. Quick response buttons in Discord are only active in the gateway-owning environment.
+13. When a call to play matches someone who should be notified and that user has a linked Discord account, the bot can DM them directly. If someone becomes newly eligible later because they add overlapping library games while the call is still active, the app now backfills the missing call notification for them as well. Quick response buttons in Discord are only active in the gateway-owning environment.
 14. If a notified recipient marks themselves interested from Discord, the creator gets a follow-up DM confirmation. Recipients can also choose Pass without notifying the creator, and can still switch to interested later. The original recipient invite stays in place and updates its buttons to match the current choice, while a separate recipient confirmation DM below it is reused as a single rolling acknowledgement instead of stacking a new confirmation each time the user changes their mind. Recipients who already have an overlapping active call to play are still filtered out before those call notifications are sent.
 15. Calls to play can optionally request temporary Discord channels in the Game's Up Discord server. People who are already in that server can have access granted immediately, people who join later can be granted access on demand, and creators can delete the retained channels early after the call ends.
 16. Users can leave a Play page setting on by default so the gateway-owning bot can DM them after it sees them start a game and offer to create a call to play straight from Discord. Those prompts only go out when there is no overlapping active call already, at least one person in the user's network with a matching game in their library could receive it, and the same game has not already prompted that user in the last 10 minutes.
@@ -287,7 +287,7 @@ Calls to play can also control who sees them:
 - a specific hand-picked set of friends
 - one or more specific opted-in Discord servers within that broader discovery audience
 
-Calls to play can start immediately or be scheduled for later, and they remain visible until the configured end time.
+Calls to play can start immediately or be scheduled for later, and they remain visible until the configured end time. If a currently active call starts applying to someone later because their library changes, the app will surface it retroactively and backfill the missing invite or go-time reminder.
 
 The Play view keeps recently ended calls to play visible for a short closed-history window and marks whether each visible call currently applies to the signed-in viewer's library.
 

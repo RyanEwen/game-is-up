@@ -31,7 +31,7 @@ The product loop is intentionally narrow:
 2. Discovery surfaces other users through explicit friendships plus opted-in shared Discord servers.
 3. Users add people they want to keep track of as friends.
 4. A play intent can target either the full library or a chosen subset.
-5. Notifications trigger when a friend or opted-in shared-server user expresses intent that overlaps with the recipient.
+5. Notifications trigger when a friend or opted-in shared-server user expresses intent that overlaps with the recipient, and active calls can be backfilled later if a recipient's library changes and creates a new overlap.
 6. Discord-delivered call-to-play notifications can capture an explicit interested response from the recipient and fan a confirmation back to the original creator.
 
 Game catalog search is provider-backed rather than store-specific. The current implementation targets a broad catalog source and normalizes platform labels so the product can treat a title as one canonical game with multiple supported platforms. Catalog lookup also normalizes storefront-only title decoration such as trademark symbols so Steam imports, manual entry, and Discord activity resolution can converge on the same canonical game row.
@@ -62,7 +62,7 @@ Play intents can notify either explicit friends only, a specific hand-picked set
 
 The scheduling model uses an explicit start and end window so the same aggregate supports both live-now calls to play and scheduled future sessions without a second entity type.
 
-Users can keep multiple active play intents at once as long as their availability windows do not overlap. The API write path enforces that overlap rule against the creator's other active calls, and the web composer edits one explicitly selected active intent at a time instead of assuming there is only one current call.
+Users can keep multiple active play intents at once as long as their availability windows do not overlap. The API write path enforces that overlap rule against the creator's other active calls, and the web composer edits one explicitly selected active intent at a time instead of assuming there is only one current call. Library writes can also retroactively backfill missing notification rows and Discord delivery for still-active calls that newly apply to the updated recipient.
 
 Notification rows can now also track whether a recipient explicitly said they would join from a Discord DM prompt. That keeps the response flow attached to the original play intent instead of introducing a second RSVP-specific entity.
 

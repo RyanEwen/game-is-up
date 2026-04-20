@@ -23,6 +23,7 @@ import {
 import { publishDashboardInvalidation } from '../lib/dashboard-events.js'
 import { toClientGameCoverUrl } from '../lib/game-media.js'
 import { getNetworkTrendingGames, getObservedLibrarySuggestions } from '../lib/library-suggestions.js'
+import { backfillPlayIntentNotificationsForUserLibraryChange } from '../lib/play-intents.js'
 import { prisma } from '../lib/prisma.js'
 import { fetchSteamOwnedGames, fetchSteamProfileSummary, isSteamImportConfigured } from '../lib/steam-auth.js'
 import { getAuthSession } from '../lib/session.js'
@@ -389,6 +390,8 @@ libraryRouter.post('/me', async (request, response, next) => {
       })
     })
 
+    await backfillPlayIntentNotificationsForUserLibraryChange(userId)
+
     publishDashboardInvalidation({
       domains: ['library', 'discovery', 'play-intents']
     })
@@ -417,6 +420,7 @@ libraryRouter.post('/imports/steam', async (request, response, next) => {
     const payload = importSteamLibrarySelectionRequestSchema.parse(request.body)
 
     await importSteamGamesForUser(userId, payload.games)
+    await backfillPlayIntentNotificationsForUserLibraryChange(userId)
 
     publishDashboardInvalidation({
       domains: ['library', 'discovery', 'play-intents']
