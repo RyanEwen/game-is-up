@@ -125,26 +125,16 @@ export async function buildDiscoveryFeed(viewerId?: string | null): Promise<Disc
     getSelectedDiscordServerIds(viewer.id),
     prisma.friend.findMany({
       where: {
-        OR: [
-          {
-            userId: viewer.id
-          },
-          {
-            friendedUserId: viewer.id
-          }
-        ]
+        userId: viewer.id
       },
       select: {
-        userId: true,
         friendedUserId: true
       }
     })
   ])
 
   const viewerGameTitleKeys = new Set(viewerInterests.map((interest) => normalizeGameTitle(interest.game.title)))
-  const friendIds = new Set(
-    friendLinks.map((friendLink) => (friendLink.userId === viewer.id ? friendLink.friendedUserId : friendLink.userId))
-  )
+  const friendIds = new Set(friendLinks.map((friendLink) => friendLink.friendedUserId))
 
   const candidateFilters: Array<Record<string, unknown>> = []
 

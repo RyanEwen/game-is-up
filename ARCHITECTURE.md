@@ -28,8 +28,8 @@ The current event fan-out is process-local in the API runtime. That is sufficien
 The product loop is intentionally narrow:
 
 1. Users build a library and mark games they want to play.
-2. Discovery surfaces other users through explicit friendships plus opted-in shared Discord servers.
-3. Users add people they want to keep track of as friends.
+2. Discovery surfaces other users through explicit app follow links plus opted-in shared Discord servers.
+3. Users add people they want to keep track of to a one-way favorites/follow list rather than forming a mutual friendship.
 4. A play intent can target either the full library or a chosen subset.
 5. Notifications trigger when a friend or opted-in shared-server user expresses intent that overlaps with the recipient, and active calls can be backfilled later if a recipient's library changes and creates a new overlap.
 6. Discord-delivered call-to-play notifications can capture an explicit interested response from the recipient and fan a confirmation back to the original creator.
@@ -58,7 +58,7 @@ Play intent is represented as a call-to-play aggregate rather than a single game
 
 This keeps the schema aligned with the product requirement that users can say “I’m up for anything tonight” without creating one event per game.
 
-Play intents can notify either explicit friends only, a specific hand-picked set of friends, the broader discovery audience formed by opted-in shared Discord servers plus explicit friends, or one or more specific opted-in Discord servers that narrow that broader discovery audience down to selected shared servers.
+Play intents can notify either explicit followed users only, a specific hand-picked set of followed users, the broader discovery audience formed by opted-in shared Discord servers plus explicit followed users, or one or more specific opted-in Discord servers that narrow that broader discovery audience down to selected shared servers.
 
 The scheduling model uses an explicit start and end window so the same aggregate supports both live-now calls to play and scheduled future sessions without a second entity type.
 
@@ -106,7 +106,7 @@ The API now runs a lightweight cleanup sweep for expired play intents so unanswe
 
 Discord presence tracking now also maintains a lossy observed-game history keyed by Discord identity rather than only by app user. That lets the library API return suggested games based on titles the bot has seen the user playing, while still allowing non-members to contribute to the raw observation set. On API startup, a lightweight maintenance pass also repairs preexisting duplicate game rows whose titles collapse to the same normalized form so older trademark-split records do not keep fragmenting library, prompt, and observation state.
 
-Discovery currently depends on explicit app friendships plus opted-in shared Discord servers. The Discord Activity-based friend import path has been removed.
+Discovery currently depends on explicit app follow links plus opted-in shared Discord servers. Those app links are directional, so one user can follow another without creating a mutual relationship. The Discord Activity-based friend import path has been removed.
 
 ## Repository guidance
 

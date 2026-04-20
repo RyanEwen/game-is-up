@@ -329,6 +329,11 @@ export const playIntentDiscordSpaceDeleteResponseSchema = z.object({
   message: z.string().min(1)
 })
 
+export const playIntentDiscordSpaceRetryResponseSchema = z.object({
+  status: z.enum(['retrying', 'missing']),
+  message: z.string().min(1)
+})
+
 export const upsertPlayIntentRequestSchema = z.object({
   playIntentId: z.string().uuid().optional(),
   title: z.string().trim().max(80).optional(),
@@ -971,6 +976,7 @@ export type PlayIntentCurrentResponse = z.infer<typeof playIntentCurrentResponse
 export type PlayIntentRecipientResponseChoice = z.infer<typeof playIntentRecipientResponseChoiceSchema>;
 export type PlayIntentRecipientResponseRequest = z.infer<typeof playIntentRecipientResponseRequestSchema>;
 export type PlayIntentRecipientResponseResult = z.infer<typeof playIntentRecipientResponseResultSchema>;
+export type PlayIntentDiscordSpaceRetryResponse = z.infer<typeof playIntentDiscordSpaceRetryResponseSchema>;
 export type UpsertPlayIntentRequest = z.infer<typeof upsertPlayIntentRequestSchema>;
 export type UpsertPlayIntentResponse = z.infer<typeof upsertPlayIntentResponseSchema>;
 export type HealthResponse = z.infer<typeof healthResponseSchema>;

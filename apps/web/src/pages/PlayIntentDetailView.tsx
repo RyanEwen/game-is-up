@@ -352,6 +352,12 @@ export function PlayIntentDetailView() {
     && intent.discordSpace.status !== 'provisioning'
     && intent.discordSpace.status !== 'deleted'
   )
+  const canRetryDiscordSpace = Boolean(
+    isOwnIntent
+    && intent.discordSpace?.lastSyncError
+    && intent.discordSpace.status !== 'deleted'
+    && intent.discordSpace.status !== 'provisioning'
+  )
   const debugMailboxIntent = debugViewProps.debugAdmin?.recentPlayIntents.find((candidate) => candidate.id === intent.id) ?? null
   const canOpenDmEmulator = debugViewProps.debugAdmin != null && debugMailboxIntent != null
 
@@ -750,7 +756,7 @@ export function PlayIntentDetailView() {
                             gap: 1,
                             gridTemplateColumns: {
                               xs: '1fr',
-                              sm: 'repeat(auto-fit, minmax(0, 1fr))'
+                              sm: 'repeat(2, minmax(0, 1fr))'
                             }
                           }}
                         >
@@ -799,9 +805,25 @@ export function PlayIntentDetailView() {
                       ) : null}
 
                       {intent.discordSpace?.lastSyncError ? (
-                        <Typography level="body-xs" sx={{ color: 'warning.200' }}>
-                          {intent.discordSpace.lastSyncError}
-                        </Typography>
+                        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'flex-start', sm: 'center' }}>
+                          <Typography level="body-xs" sx={{ color: 'warning.200', flex: 1 }}>
+                            {intent.discordSpace.lastSyncError}
+                          </Typography>
+                          {canRetryDiscordSpace ? (
+                            <Button
+                              size="sm"
+                              variant="soft"
+                              color="warning"
+                              disabled={playViewProps.playIntentDiscordSpaceRetryPendingIntentId === intent.id}
+                              onClick={() => void playViewProps.onRetryPlayIntentDiscordSpace(intent.id)}
+                              sx={{ flexShrink: 0 }}
+                            >
+                              {playViewProps.playIntentDiscordSpaceRetryPendingIntentId === intent.id
+                                ? 'Retrying...'
+                                : 'Retry access'}
+                            </Button>
+                          ) : null}
+                        </Stack>
                       ) : null}
                     </Stack>
                   </Card>

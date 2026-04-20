@@ -231,7 +231,11 @@ export function LibraryEditorCard({
                   color="primary"
                   disabled={aliasSaving || !aliasDraft.trim() || !aliasChanged}
                   onClick={() => void onSaveGameAlias(aliasTarget.gameId, aliasDraft)}
-                  sx={{ flex: 1 }}
+                  sx={{
+                    flex: { xs: 1, sm: 'none' },
+                    minWidth: { sm: '8rem' },
+                    whiteSpace: 'nowrap'
+                  }}
                 >
                   Save alias
                 </Button>
@@ -244,7 +248,11 @@ export function LibraryEditorCard({
                     setAliasDraft('')
                     void onDeleteGameAlias(aliasTarget.gameId)
                   }}
-                  sx={{ flex: 1 }}
+                  sx={{
+                    flex: { xs: 1, sm: 'none' },
+                    minWidth: { sm: '6rem' },
+                    whiteSpace: 'nowrap'
+                  }}
                 >
                   Clear
                 </Button>

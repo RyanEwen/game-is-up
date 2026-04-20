@@ -17,6 +17,7 @@ import type {
 import {
   discordVoiceChannelsResponseSchema,
   playIntentDiscordSpaceDeleteResponseSchema,
+  playIntentDiscordSpaceRetryResponseSchema,
   playIntentRecipientResponseResultSchema,
   upsertPlayIntentResponseSchema
 } from '@game-is-up/shared'
@@ -142,6 +143,8 @@ export type DashboardPlayViewProps = {
   playIntentPreviews: PlayIntentPreview[];
   playIntentResponsePendingIntentId: string | null;
   onRespondToPlayIntent: (playIntentId: string, responseChoice: PlayIntentRecipientResponseChoice) => Promise<void>;
+  playIntentDiscordSpaceRetryPendingIntentId: string | null;
+  onRetryPlayIntentDiscordSpace: (playIntentId: string) => Promise<void>;
   playIntentDiscordSpaceDeletePendingIntentId: string | null;
   onDeletePlayIntentDiscordSpace: (playIntentId: string) => Promise<void>;
   mutedPlayIntentUserIds: ReadonlySet<string>;
@@ -197,6 +200,7 @@ export function useDashboardPlay({
   const [selectedPlayIntentTargetUserIds, setSelectedPlayIntentTargetUserIds] = useState<string[]>([])
   const [mutedPlayIntentUserIds, setMutedPlayIntentUserIds] = useState<Set<string>>(new Set())
   const [playIntentResponsePendingIntentId, setPlayIntentResponsePendingIntentId] = useState<string | null>(null)
+  const [playIntentDiscordSpaceRetryPendingIntentId, setPlayIntentDiscordSpaceRetryPendingIntentId] = useState<string | null>(null)
   const [playIntentDiscordSpaceDeletePendingIntentId, setPlayIntentDiscordSpaceDeletePendingIntentId] = useState<string | null>(null)
   const [playIntentSaving, setPlayIntentSaving] = useState(false)
   const [isPlayIntentComposerOpen, setIsPlayIntentComposerOpen] = useState(false)
@@ -965,6 +969,45 @@ export function useDashboardPlay({
     }
   }, [buildApiUrl, loadDashboard, setPlayIntentNotice])
 
+  const handleRetryPlayIntentDiscordSpace = useCallback(async (playIntentId: string) => {
+    setPlayIntentDiscordSpaceRetryPendingIntentId(playIntentId)
+    setPlayIntentNotice(null)
+
+    try {
+      const response = await fetch(buildApiUrl(`/api/play-intents/${playIntentId}/discord-space/retry`), {
+        method: 'POST',
+        credentials: 'include'
+      })
+
+      const responseBody = await response.json() as { error?: string }
+
+      if (!response.ok) {
+        setPlayIntentNotice({
+          tone: 'danger',
+          message: typeof responseBody.error === 'string'
+            ? responseBody.error
+            : 'Unable to retry the temporary Discord channel access right now.'
+        })
+        return
+      }
+
+      const parsed = playIntentDiscordSpaceRetryResponseSchema.parse(responseBody)
+
+      setPlayIntentNotice({
+        tone: 'success',
+        message: parsed.message
+      })
+      await loadDashboard()
+    } catch (error) {
+      setPlayIntentNotice({
+        tone: 'danger',
+        message: error instanceof Error ? error.message : 'Unable to retry the temporary Discord channel access right now.'
+      })
+    } finally {
+      setPlayIntentDiscordSpaceRetryPendingIntentId(null)
+    }
+  }, [buildApiUrl, loadDashboard, setPlayIntentNotice])
+
   const openPlayIntentComposer = useCallback(() => {
     setComposerPlayIntent(null)
     resetPlayIntentComposer()
@@ -1051,6 +1094,8 @@ export function useDashboardPlay({
     playIntentPreviews,
     playIntentResponsePendingIntentId,
     onRespondToPlayIntent: handleRespondToPlayIntent,
+    playIntentDiscordSpaceRetryPendingIntentId,
+    onRetryPlayIntentDiscordSpace: handleRetryPlayIntentDiscordSpace,
     playIntentDiscordSpaceDeletePendingIntentId,
     onDeletePlayIntentDiscordSpace: handleDeletePlayIntentDiscordSpace,
     mutedPlayIntentUserIds,

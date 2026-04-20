@@ -4,6 +4,7 @@ import { Prisma } from '@prisma/client'
 import { z } from 'zod'
 import {
   playIntentDiscordSpaceDeleteResponseSchema,
+  playIntentDiscordSpaceRetryResponseSchema,
   playIntentCurrentResponseSchema,
   playIntentDetailResponseSchema,
   playIntentFeedSchema,
@@ -16,7 +17,7 @@ import { NotificationResponseChoice, PlayIntentDiscordSpaceStatus } from '@prism
 import { publishPlayIntentInvalidation } from '../lib/dashboard-events.js'
 import { buildPlayIntentFeed } from '../lib/play-intent-feed.js'
 import { buildPlayIntentDetail } from '../lib/play-intent-detail.js'
-import { deletePlayIntentDiscordSpaceByPlayIntentId } from '../lib/play-intent-discord-spaces.js'
+import { deletePlayIntentDiscordSpaceByPlayIntentId, provisionPlayIntentDiscordSpaceByPlayIntentId } from '../lib/play-intent-discord-spaces.js'
 import {
   clearCurrentPlayIntent,
   getCurrentPlayIntent,
@@ -326,6 +327,86 @@ playIntentRouter.post('/:playIntentId/respond', async (request, response, next) 
       return
     }
 
+    next(error)
+  }
+})
+
+playIntentRouter.post('/:playIntentId/discord-space/retry', async (request, response, next) => {
+  const userId = requireSignedInUserId(request, response)
+
+  if (!userId) {
+    return
+  }
+
+  const paramsParse = playIntentParamSchema.safeParse(request.params)
+
+  if (!paramsParse.success) {
+    response.status(400).json({ error: 'Invalid play intent ID.' })
+    return
+  }
+
+  try {
+    const playIntent = await prisma.playIntent.findFirst({
+      where: {
+        id: paramsParse.data.playIntentId,
+        userId
+      },
+      select: {
+        id: true,
+        discordSpace: {
+          select: {
+            status: true,
+            lastSyncError: true
+          }
+        }
+      }
+    })
+
+    if (!playIntent) {
+      response.status(404).json({ error: 'Call to play not found.' })
+      return
+    }
+
+    if (!playIntent.discordSpace) {
+      response.status(404).json({ error: 'No temporary Discord channels were found for this call to play.' })
+      return
+    }
+
+    if (playIntent.discordSpace.status === PlayIntentDiscordSpaceStatus.DELETED) {
+      response.status(409).json({ error: 'These temporary Discord channels have already been deleted.' })
+      return
+    }
+
+    if (!playIntent.discordSpace.lastSyncError) {
+      response.status(409).json({ error: 'There is no Discord access error to retry right now.' })
+      return
+    }
+
+    const result = await provisionPlayIntentDiscordSpaceByPlayIntentId(playIntent.id)
+
+    if (result.status === 'missing') {
+      response.json(playIntentDiscordSpaceRetryResponseSchema.parse({
+        status: 'missing',
+        message: 'No temporary Discord channels were found for this call to play.'
+      }))
+      return
+    }
+
+    if (result.status === 'failed') {
+      response.status(502).json({ error: 'Unable to retry the temporary Discord channel access right now.' })
+      return
+    }
+
+    if (result.status === 'skipped') {
+      response.status(409).json({ error: 'These temporary Discord channels can no longer be retried.' })
+      return
+    }
+
+    response.json(playIntentDiscordSpaceRetryResponseSchema.parse({
+      status: 'retrying',
+      message: 'Retried the temporary Discord channel access grants.'
+    }))
+  } catch (error) {
     next(error)
   }
 })
