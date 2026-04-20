@@ -292,9 +292,9 @@ export function PersonCard({
           </Chip>
         </Box>
         {person.mutualServers.length > 0 ? (
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, justifyContent: 'flex-end' }}>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, justifyContent: { xs: 'flex-start', md: 'flex-end' } }}>
             {person.mutualServers.map((serverName) => (
-              <Chip key={serverName} size="sm" color="neutral" variant="soft">
+              <Chip key={serverName} size="sm" color="primary" variant="soft">
                 {serverName}
               </Chip>
             ))}
