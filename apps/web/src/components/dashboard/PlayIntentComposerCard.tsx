@@ -1,4 +1,8 @@
 import { Avatar, Button, Card, Chip, DialogContent, DialogTitle, Input, Option, Select, Stack, Typography } from '@mui/joy'
+import { THEME_ID as MATERIAL_THEME_ID, ThemeProvider, createTheme } from '@mui/material/styles'
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
+import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker'
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
 import type {
   ActivePlayIntent,
   DiscordServerPreference,
@@ -20,11 +24,135 @@ import {
 import { formatClockTime, formatMonthDayTime } from '../../lib/dateTime'
 import { DashboardModalActionBar } from './DashboardModalActionBar'
 import type { PlayIntentStartMode, PlayIntentTimingMode, PlayIntentVoiceMode } from './types'
+import dayjs, { type Dayjs } from 'dayjs'
+
+const localDateTimeFormat = 'YYYY-MM-DDTHH:mm'
+
+const playIntentPickerTheme = createTheme({
+  palette: {
+    mode: 'dark',
+    primary: {
+      main: '#33d7a6',
+      light: '#57f4c1',
+      dark: '#14886a'
+    },
+    background: {
+      default: '#070b14',
+      paper: '#121a28'
+    },
+    text: {
+      primary: '#ffffff',
+      secondary: '#d1dbe5'
+    },
+    divider: '#3b4d66'
+  },
+  shape: {
+    borderRadius: 16
+  },
+  typography: {
+    fontFamily: 'IBM Plex Sans, sans-serif'
+  }
+})
+
+function toPickerValue(value: string): Dayjs | null {
+  if (!value) {
+    return null
+  }
+
+  const parsedValue = dayjs(value)
+
+  return parsedValue.isValid() ? parsedValue : null
+}
+
+function toLocalDateTimeValue(value: Dayjs | null): string {
+  return value && value.isValid() ? value.format(localDateTimeFormat) : ''
+}
+
+function PlayIntentDateTimeInput({
+  value,
+  minDateTime,
+  maxDateTime,
+  error,
+  onChange
+}: {
+  value: string;
+  minDateTime?: string;
+  maxDateTime?: string;
+  error: boolean;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <ThemeProvider theme={{ [MATERIAL_THEME_ID]: playIntentPickerTheme }}>
+      <LocalizationProvider dateAdapter={AdapterDayjs}>
+        <DateTimePicker
+          value={toPickerValue(value)}
+          minDateTime={toPickerValue(minDateTime ?? '') ?? undefined}
+          maxDateTime={toPickerValue(maxDateTime ?? '') ?? undefined}
+          format="ddd, MMM D, h:mm A"
+          minutesStep={5}
+          timeSteps={{ minutes: 5 }}
+          onChange={(nextValue) => onChange(toLocalDateTimeValue(nextValue))}
+          slotProps={{
+            textField: {
+              fullWidth: true,
+              error,
+              size: 'small',
+              sx: {
+                '& .MuiInputBase-root': {
+                  minHeight: 48,
+                  backgroundColor: 'rgba(31, 42, 58, 0.87)',
+                  color: '#ffffff'
+                },
+                '& .MuiOutlinedInput-notchedOutline': {
+                  borderColor: '#3b4d66'
+                },
+                '&:hover .MuiOutlinedInput-notchedOutline': {
+                  borderColor: '#506077'
+                },
+                '& .Mui-focused .MuiOutlinedInput-notchedOutline': {
+                  borderColor: '#33d7a6'
+                },
+                '& .MuiIconButton-root': {
+                  color: '#d1dbe5'
+                }
+              }
+            },
+            desktopPaper: {
+              sx: {
+                backgroundImage: 'none',
+                backgroundColor: '#121a28',
+                border: '1px solid #3b4d66'
+              }
+            },
+            mobilePaper: {
+              sx: {
+                backgroundImage: 'none',
+                backgroundColor: '#121a28',
+                border: '1px solid #3b4d66'
+              }
+            },
+            popper: {
+              sx: {
+                '& .MuiPaper-root': {
+                  backgroundImage: 'none',
+                  backgroundColor: '#121a28',
+                  border: '1px solid #3b4d66'
+                }
+              }
+            }
+          }}
+        />
+      </LocalizationProvider>
+    </ThemeProvider>
+  )
+}
 
 export function PlayIntentComposerCard({
   composerPlayIntent,
   isAdmin,
   playIntentFilteredAudienceMessage,
+  playIntentTargetedAudienceWarningMessage,
+  playIntentUnmatchedTargetUsers,
   playIntentNotifyScope,
   onPlayIntentNotifyScopeChange,
   playIntentFriendOptions,
@@ -75,6 +203,8 @@ export function PlayIntentComposerCard({
   composerPlayIntent: ActivePlayIntent | null;
   isAdmin: boolean;
   playIntentFilteredAudienceMessage: string | null;
+  playIntentTargetedAudienceWarningMessage: string | null;
+  playIntentUnmatchedTargetUsers: Array<Pick<DiscoveryPerson, 'id' | 'displayName' | 'avatarUrl'>>;
   playIntentNotifyScope: PlayIntentNotifyScope;
   onPlayIntentNotifyScopeChange: (scope: PlayIntentNotifyScope) => void;
   playIntentFriendOptions: Array<Pick<DiscoveryPerson, 'id' | 'handle' | 'displayName' | 'avatarUrl'>>;
@@ -350,6 +480,36 @@ export function PlayIntentComposerCard({
                     )
                   })}
                 </Stack>
+                {playIntentTargetedAudienceWarningMessage && playIntentUnmatchedTargetUsers.length > 0 ? (
+                  <Card
+                    color="warning"
+                    variant="soft"
+                    sx={{
+                      p: 1.5,
+                      border: '1px solid',
+                      borderColor: 'warning.700',
+                      boxShadow: 'none'
+                    }}
+                  >
+                    <Stack spacing={1}>
+                      <Typography level="title-sm">Some selected friends will not receive this call</Typography>
+                      <Typography level="body-sm">{playIntentTargetedAudienceWarningMessage}</Typography>
+                      <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+                        {playIntentUnmatchedTargetUsers.map((friend) => (
+                          <Chip
+                            key={friend.id}
+                            size="sm"
+                            color="warning"
+                            variant="soft"
+                            startDecorator={<Avatar src={friend.avatarUrl ?? undefined} alt={friend.displayName} size="sm" variant="soft" />}
+                          >
+                            {friend.displayName}
+                          </Chip>
+                        ))}
+                      </Stack>
+                    </Stack>
+                  </Card>
+                ) : null}
               </Stack>
             ) : (
               <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
@@ -409,16 +569,11 @@ export function PlayIntentComposerCard({
             ))}
           </Stack>
           {playIntentStartMode === 'scheduled' ? (
-            <Input
-              type="datetime-local"
+            <PlayIntentDateTimeInput
               value={playIntentStartAtInput}
-              onChange={(event) => onPlayIntentStartAtInputChange(event.target.value)}
-              slotProps={{
-                input: {
-                  min: minPlayIntentStartAtInput,
-                  step: 60
-                }
-              }}
+              minDateTime={minPlayIntentStartAtInput}
+              error={playIntentStartHasError}
+              onChange={onPlayIntentStartAtInputChange}
             />
           ) : null}
           <Typography level="body-xs" sx={{ color: playIntentStartHasError ? 'danger.300' : 'neutral.300' }}>
@@ -474,17 +629,12 @@ export function PlayIntentComposerCard({
           ) : null}
 
           {playIntentTimingMode === 'end-time' ? (
-            <Input
-              type="datetime-local"
+            <PlayIntentDateTimeInput
               value={playIntentEndAtInput}
-              onChange={(event) => onPlayIntentEndAtInputChange(event.target.value)}
-              slotProps={{
-                input: {
-                  min: minPlayIntentEndAtInput,
-                  max: maxPlayIntentEndAtInput,
-                  step: 60
-                }
-              }}
+              minDateTime={minPlayIntentEndAtInput}
+              maxDateTime={maxPlayIntentEndAtInput}
+              error={playIntentTimingHasError}
+              onChange={onPlayIntentEndAtInputChange}
             />
           ) : null}
 

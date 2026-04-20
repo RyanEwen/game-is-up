@@ -10,7 +10,8 @@ import {
 import {
   AuthProvider,
   NotificationResponseChoice,
-  NotificationType
+  NotificationType,
+  PlayIntentScope
 } from '@prisma/client'
 import {
   archivePlayIntentDirectMessages,
@@ -93,6 +94,8 @@ type DirectMessagePreviewPayload = {
   components: ActionRowBuilder<MessageActionRowComponentBuilder>[];
 }
 
+type PassAcknowledgementMode = 'anonymous' | 'creator-notified'
+
 type ResolvablePlayIntentNotification = {
   id: string;
   userId: string;
@@ -109,6 +112,7 @@ type ResolvablePlayIntentNotification = {
   } | null;
   playIntent: {
     id: string;
+    scope: PlayIntentScope;
     user: {
       id: string;
       displayName: string;
@@ -763,6 +767,7 @@ export function buildNotificationDirectMessagePreview(options: {
   interestedUserLabels?: string[];
   actorDisplayName?: string | null;
   actorDiscordUserId?: string | null;
+  passAcknowledgementMode?: PassAcknowledgementMode;
 }): DirectMessagePreviewPayload {
   const creatorLabel = options.creatorDisplayName
     ? buildDiscordUserLabel(options.creatorDisplayName, options.creatorDiscordUserId)
@@ -819,7 +824,7 @@ export function buildNotificationDirectMessagePreview(options: {
 
     if (options.responseChoice === NotificationResponseChoice.DECLINE) {
       return {
-        content: buildPassAcceptedMessage(),
+        content: buildPassAcceptedMessage(options.passAcknowledgementMode),
         components: []
       }
     }
@@ -1618,6 +1623,7 @@ export async function refreshTrackedPlayIntentNotificationDirectMessages() {
         select: {
           id: true,
           userId: true,
+          scope: true,
           selectionMode: true,
           expiresAt: true,
           voiceChannelId: true,
@@ -1767,6 +1773,7 @@ export async function refreshTrackedPlayIntentNotificationDirectMessages() {
     const discordSpace = notification.playIntentId
       ? complementarySpaceRecipientContextByPlayIntentId.get(notification.playIntentId)?.get(notification.userId) ?? null
       : null
+    const passAcknowledgementMode = getPassAcknowledgementMode(playIntent?.scope)
 
     const preview = buildNotificationDirectMessagePreview({
       notificationId: notification.id,
@@ -1784,6 +1791,7 @@ export async function refreshTrackedPlayIntentNotificationDirectMessages() {
       discordSpace,
       interestedCount: interestedUsers.length > 0 ? interestedUsers.length : undefined,
       interestedUserLabels: interestedUsers.map((user) => user.displayName),
+      passAcknowledgementMode,
       actorDisplayName: actor?.displayName ?? null,
       actorDiscordUserId: actor?.identities[0]?.providerUserId ?? null
     })
@@ -1838,6 +1846,7 @@ export async function refreshTrackedPlayIntentNotificationDirectMessages() {
         discordSpace,
         interestedCount: interestedUsers.length > 0 ? interestedUsers.length : undefined,
         interestedUserLabels: interestedUsers.map((user) => user.displayName),
+        passAcknowledgementMode,
         actorDisplayName: actor?.displayName ?? null,
         actorDiscordUserId: actor?.identities[0]?.providerUserId ?? null
       })
@@ -1920,12 +1929,16 @@ function buildInterestedAcceptedMessage(
   )
 }
 
-function buildPassAcceptedMessage() {
+function getPassAcknowledgementMode(scope: PlayIntentScope | null | undefined): PassAcknowledgementMode {
+  return scope === PlayIntentScope.SPECIFIC_FRIENDS ? 'creator-notified' : 'anonymous'
+}
+
+function buildPassAcceptedMessage(mode: PassAcknowledgementMode = 'anonymous') {
   return buildDiscordPlainMessage(
     '👍 Passed for Now',
     [
       'You are marked as passing for now.',
-      'Passing is anonymous.'
+      mode === 'creator-notified' ? 'The creator has been notified.' : 'Passing is anonymous.'
     ],
     {
       trailingSubtext: 'If you change your mind you can switch to "I\'m interested" later.'
@@ -1997,14 +2010,16 @@ export function buildGoTimeReminderCopy(creatorDisplayName: string) {
   }
 }
 
-function buildAnonymousPassResultMessage(message: string) {
+function buildPassResultMessage(message: string, mode: PassAcknowledgementMode = 'anonymous') {
   return buildDiscordPlainMessage(
     '👍 Passed for Now',
     [
       message
     ],
     {
-      trailingSubtext: 'Passing is anonymous.'
+      trailingSubtext: mode === 'creator-notified'
+        ? 'The creator can see passes for this targeted call to play.'
+        : 'Passing is anonymous.'
     }
   )
 }
@@ -2241,6 +2256,7 @@ async function applyRecipientResponseToPlayIntentNotification(options: {
   const previousChoice = notification.responseChoice
   const creatorDiscordUserId = playIntent.user.identities?.[0]?.providerUserId ?? null
   const creatorDiscordLabel = buildDiscordUserLabel(playIntent.user.displayName, creatorDiscordUserId)
+  const passAcknowledgementMode = getPassAcknowledgementMode(playIntent.scope)
   const discordSpace = (await getPlayIntentDiscordSpaceRecipientContexts(playIntent.id, [notification.userId]))
     .get(notification.userId) ?? null
 
@@ -2250,8 +2266,10 @@ async function applyRecipientResponseToPlayIntentNotification(options: {
       recipientDiscordUserId: notification.user.identities?.[0]?.providerUserId ?? null,
       gameTitle: notification.game?.title ?? null
     })
+    const shouldCreateCreatorPassNotification = previousChoice !== NotificationResponseChoice.DECLINE
+      && (playIntent.scope === PlayIntentScope.SPECIFIC_FRIENDS || previousChoice === NotificationResponseChoice.JOIN)
 
-    const passResult = previousChoice === NotificationResponseChoice.JOIN
+    const passResult = shouldCreateCreatorPassNotification
       ? await prisma.$transaction(async (transaction) => {
           await transaction.notification.update({
             where: {
@@ -2299,7 +2317,7 @@ async function applyRecipientResponseToPlayIntentNotification(options: {
       notifyOnActiveChange: false
     })
 
-    if (previousChoice === NotificationResponseChoice.JOIN && creatorDiscordUserId) {
+    if (shouldCreateCreatorPassNotification && creatorDiscordUserId) {
       const dmResult = (await sendDiscordDirectMessages([
         {
           discordUserId: creatorDiscordUserId,
@@ -2329,15 +2347,21 @@ async function applyRecipientResponseToPlayIntentNotification(options: {
 
     return {
       content: previousChoice === NotificationResponseChoice.JOIN
-        ? buildAnonymousPassResultMessage(`Understood. I marked you as passing on ${playIntent.user.displayName}'s call to play.`)
+        ? buildPassResultMessage(
+            `Understood. I marked you as passing on ${playIntent.user.displayName}'s call to play.${passAcknowledgementMode === 'creator-notified' ? ` ${playIntent.user.displayName} has been notified.` : ''}`,
+            passAcknowledgementMode
+          )
         : previousChoice === NotificationResponseChoice.DECLINE
-          ? buildAnonymousPassResultMessage('You are still marked as passed on this call to play.')
-          : buildPassAcceptedMessage(),
+          ? buildPassResultMessage('You are still marked as passed on this call to play.', passAcknowledgementMode)
+          : buildPassAcceptedMessage(passAcknowledgementMode),
       discordContent: previousChoice === NotificationResponseChoice.JOIN
-        ? buildAnonymousPassResultMessage(`Understood. I marked you as passing on ${creatorDiscordLabel}'s call to play.`)
+        ? buildPassResultMessage(
+            `Understood. I marked you as passing on ${creatorDiscordLabel}'s call to play.${passAcknowledgementMode === 'creator-notified' ? ` ${creatorDiscordLabel} has been notified.` : ''}`,
+            passAcknowledgementMode
+          )
         : previousChoice === NotificationResponseChoice.DECLINE
-          ? buildAnonymousPassResultMessage('You are still marked as passed on this call to play.')
-          : buildPassAcceptedMessage()
+          ? buildPassResultMessage('You are still marked as passed on this call to play.', passAcknowledgementMode)
+          : buildPassAcceptedMessage(passAcknowledgementMode)
     }
   }
 
@@ -2476,6 +2500,7 @@ export async function respondToPlayIntentFromWeb(options: {
       playIntent: {
         select: {
           id: true,
+          scope: true,
           expiresAt: true,
           user: {
             select: {
@@ -3262,6 +3287,7 @@ export async function handlePlayIntentNotificationInteraction(interaction: Butto
           select: {
             id: true,
             userId: true,
+            scope: true,
             headline: true,
             selectionMode: true,
             voiceChannelId: true,

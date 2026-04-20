@@ -122,6 +122,8 @@ function PlayViewContent({
   openPlayIntentComposer,
   closePlayIntentComposer,
   playIntentFilteredAudienceMessage,
+  playIntentTargetedAudienceWarningMessage,
+  playIntentUnmatchedTargetUsers,
   playIntentNotifyScope,
   onPlayIntentNotifyScopeChange,
   playIntentFriendOptions,
@@ -182,6 +184,8 @@ function PlayViewContent({
   openPlayIntentComposer: () => void;
   closePlayIntentComposer: () => void;
   playIntentFilteredAudienceMessage: string | null;
+  playIntentTargetedAudienceWarningMessage: string | null;
+  playIntentUnmatchedTargetUsers: Array<Pick<DiscoveryPerson, 'id' | 'displayName' | 'avatarUrl'>>;
   playIntentNotifyScope: PlayIntentNotifyScope;
   onPlayIntentNotifyScopeChange: (scope: PlayIntentNotifyScope) => void;
   playIntentFriendOptions: Array<Pick<DiscoveryPerson, 'id' | 'handle' | 'displayName' | 'avatarUrl'>>;
@@ -300,6 +304,8 @@ function PlayViewContent({
               composerPlayIntent={composerPlayIntent}
               isAdmin={isAdmin}
               playIntentFilteredAudienceMessage={playIntentFilteredAudienceMessage}
+              playIntentTargetedAudienceWarningMessage={playIntentTargetedAudienceWarningMessage}
+              playIntentUnmatchedTargetUsers={playIntentUnmatchedTargetUsers}
               playIntentNotifyScope={playIntentNotifyScope}
               onPlayIntentNotifyScopeChange={onPlayIntentNotifyScopeChange}
               playIntentFriendOptions={playIntentFriendOptions}

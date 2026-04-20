@@ -428,7 +428,7 @@ function buildDebugDmTemplateDefinitions(now: Date): DebugDmTemplateGroupDefinit
         {
           id: 'recipient-pass-confirmation',
           label: 'Pass confirmation',
-          description: 'The confirmation a recipient sees after pressing Pass.',
+          description: 'The confirmation a recipient sees after pressing Pass on an audience-wide call.',
           previewPayload: buildNotificationDirectMessagePreview({
             notificationId: 'template-pass-confirmation',
             notificationType: NotificationType.FRIEND_PLAYING,
@@ -441,6 +441,25 @@ function buildDebugDmTemplateDefinitions(now: Date): DebugDmTemplateGroupDefinit
             gameTitle,
             playIntentIsActive: true,
             voiceChannel: templateVoiceChannel
+          })
+        },
+        {
+          id: 'recipient-pass-confirmation-specific-friends',
+          label: 'Pass confirmation (specific friends)',
+          description: 'The confirmation a targeted friend sees after pressing Pass on a specific-friends call.',
+          previewPayload: buildNotificationDirectMessagePreview({
+            notificationId: 'template-pass-confirmation-specific-friends',
+            notificationType: NotificationType.FRIEND_PLAYING,
+            title: liveInviteCopy.title,
+            body: liveInviteCopy.body,
+            responseChoice: NotificationResponseChoice.DECLINE,
+            creatorUserId: 'template-creator',
+            creatorDiscordUserId,
+            creatorDisplayName,
+            gameTitle,
+            playIntentIsActive: true,
+            voiceChannel: templateVoiceChannel,
+            passAcknowledgementMode: 'creator-notified'
           })
         },
         {
@@ -952,6 +971,7 @@ function buildNotificationFollowUpPreview(options: {
   voiceChannel: { channelId: string | null; channelName: string | null; recipientSharesServer: boolean } | null;
   discordSpace?: Parameters<typeof buildNotificationDirectMessagePreview>[0]['discordSpace'];
   interestedCount?: number;
+  passAcknowledgementMode?: Parameters<typeof buildNotificationDirectMessagePreview>[0]['passAcknowledgementMode'];
   actorDisplayName?: string | null;
   actorDiscordUserId?: string | null;
 }) {
@@ -968,6 +988,7 @@ function buildNotificationFollowUpPreview(options: {
     voiceChannel: options.voiceChannel,
     discordSpace: options.discordSpace,
     interestedCount: options.interestedCount,
+    passAcknowledgementMode: options.passAcknowledgementMode,
     actorDisplayName: options.actorDisplayName,
     actorDiscordUserId: options.actorDiscordUserId,
     playIntentIsActive: options.responseChoice !== NotificationResponseChoice.EXPIRED
@@ -1979,7 +2000,8 @@ export async function buildDebugAdminSnapshot() {
                 }
               : null,
             discordSpace: intentDiscordSpaceRecipientContexts.get(recipientUserId) ?? null,
-            interestedCount: undefined
+            interestedCount: undefined,
+            passAcknowledgementMode: intent.scope === PlayIntentScope.SPECIFIC_FRIENDS ? 'creator-notified' : 'anonymous'
           })
           const followUpMessage = {
             id: `notification:${notification.id}:follow-up`,

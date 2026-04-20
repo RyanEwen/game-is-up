@@ -92,6 +92,8 @@ export type DashboardPlayViewProps = {
   closePlayIntentComposer: () => void;
   canPostPlayIntent: boolean;
   playIntentFilteredAudienceMessage: string | null;
+  playIntentTargetedAudienceWarningMessage: string | null;
+  playIntentUnmatchedTargetUsers: Array<Pick<DiscoveryPerson, 'id' | 'displayName' | 'avatarUrl'>>;
   playIntentNotifyScope: PlayIntentNotifyScope;
   onPlayIntentNotifyScopeChange: (scope: PlayIntentNotifyScope) => void;
   playIntentFriendOptions: Array<Pick<DiscoveryPerson, 'id' | 'handle' | 'displayName' | 'avatarUrl'>>;
@@ -261,6 +263,7 @@ export function useDashboardPlay({
   const selectedPlayIntentTargetUserIdSet = new Set<string>(selectedPlayIntentTargetUserIds)
   const friendDiscoveryPeople = discoveryPeople.filter((person) => person.isFriend)
   const targetedDiscoveryPeople = friendDiscoveryPeople.filter((person) => selectedPlayIntentTargetUserIdSet.has(person.id))
+  const unmatchedTargetedDiscoveryPeople = targetedDiscoveryPeople.filter((person) => !personHasGameOverlap(person, currentPlayIntentGameIdSet))
   const networkRecipientsForLibrary = discoveryPeople.filter((person) => personHasGameOverlap(person, libraryGameIdSet))
   const friendRecipientsForLibrary = friendDiscoveryPeople.filter((person) => personHasGameOverlap(person, libraryGameIdSet))
   const targetedRecipientsForLibrary = targetedDiscoveryPeople.filter((person) => personHasGameOverlap(person, libraryGameIdSet))
@@ -289,6 +292,13 @@ export function useDashboardPlay({
       : playIntentNotifyScope === 'specific-friends'
         ? 'the friends you selected'
         : 'that Discord server'
+  const playIntentTargetedAudienceWarningMessage = playIntentNotifyScope === 'specific-friends'
+    && currentRecipientCount > 0
+    && unmatchedTargetedDiscoveryPeople.length > 0
+    ? unmatchedTargetedDiscoveryPeople.length === 1
+      ? `${unmatchedTargetedDiscoveryPeople[0]!.displayName} will not receive this call to play because ${playIntentSelectionMode === 'subset' ? 'none of the selected games match their library.' : 'your libraries do not overlap.'}`
+      : `${unmatchedTargetedDiscoveryPeople.length} selected friends will not receive this call to play because ${playIntentSelectionMode === 'subset' ? 'none of the selected games match their libraries.' : 'their libraries do not overlap with yours.'}`
+    : null
   const playIntentFilteredAudienceMessage = !canPostPlayIntent
     ? 'You must have at least one game in your library before you can post a call to play.'
     : playIntentNotifyScope === 'specific-friends' && selectedPlayIntentTargetUserIds.length === 0
@@ -987,6 +997,12 @@ export function useDashboardPlay({
     closePlayIntentComposer,
     canPostPlayIntent,
     playIntentFilteredAudienceMessage,
+    playIntentTargetedAudienceWarningMessage,
+    playIntentUnmatchedTargetUsers: unmatchedTargetedDiscoveryPeople.map((person) => ({
+      id: person.id,
+      displayName: person.displayName,
+      avatarUrl: person.avatarUrl
+    })),
     playIntentNotifyScope,
     onPlayIntentNotifyScopeChange: handlePlayIntentNotifyScopeChange,
     playIntentFriendOptions,
