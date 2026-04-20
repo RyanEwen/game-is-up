@@ -548,13 +548,13 @@ export function PlayIntentDetailView() {
                     {canRevealNonOverlappingGames ? (
                       <Button
                         size="sm"
-                        variant="outlined"
+                        variant="soft"
                         color={showNonOverlappingGames ? 'warning' : 'neutral'}
                         onClick={() => setShowNonOverlappingGames((currentValue) => !currentValue)}
                       >
                         {showNonOverlappingGames
-                          ? 'Show only shared overlap'
-                          : `Show ${libraryWideScope.nonOverlappingGames.length} games that do not overlap`}
+                          ? 'Show overlap only'
+                          : `Show non-overlap (${libraryWideScope.nonOverlappingGames.length})`}
                       </Button>
                     ) : null}
                   </Stack>

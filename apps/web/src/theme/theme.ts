@@ -6,6 +6,30 @@ export const theme = extendTheme({
     display: 'Space Grotesk, sans-serif'
   },
   components: {
+    JoyButton: {
+      styleOverrides: {
+        root: ({ ownerState }) => {
+          if (ownerState.variant !== 'outlined') {
+            return {}
+          }
+
+          const color = ownerState.color ?? 'neutral'
+
+          return {
+            backgroundColor: `rgba(var(--joy-palette-${color}-mainChannel) / 0.12)`,
+            '&:hover': {
+              backgroundColor: `rgba(var(--joy-palette-${color}-mainChannel) / 0.18)`
+            },
+            '&:active': {
+              backgroundColor: `rgba(var(--joy-palette-${color}-mainChannel) / 0.24)`
+            },
+            '&.Mui-disabled': {
+              backgroundColor: 'rgba(23, 29, 40, 0.72)'
+            }
+          }
+        }
+      }
+    },
     JoyStack: {
       defaultProps: {
         useFlexGap: true
