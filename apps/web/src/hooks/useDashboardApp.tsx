@@ -40,6 +40,7 @@ import type { DashboardLibraryQuickAddGame, FriendTarget, Notice } from '../comp
 import { useDashboardInvites } from './useDashboardInvites'
 import { useDashboardLibrary } from './useDashboardLibrary'
 import { useDashboardPlay } from './useDashboardPlay'
+import { checkForAppUpdate } from '../lib/appUpdate'
 
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>;
@@ -721,6 +722,12 @@ export function useDashboardApp() {
     const eventSource = new EventSource(buildApiUrl('/api/events/dashboard'), {
       withCredentials: true
     })
+
+    eventSource.onopen = () => {
+      // A deploy restarts the SSE stream, so checking the service worker here
+      // helps signed-in users pick up the new web bundle promptly after reconnect.
+      checkForAppUpdate()
+    }
 
     eventSource.onmessage = (messageEvent) => {
       try {

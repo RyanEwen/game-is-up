@@ -512,7 +512,7 @@ async function syncGrantedMembers(space: NonNullable<ProvisionableSpace>) {
                   ? discordSpaceCreatorGrantFailureMessage
                   : discordSpaceCreatorJoinServerMessage
         )
-      } else if (discordUserId || inServer) {
+      } else if (!discordUserId && inServer) {
         hadGrantErrors = true
       }
     }

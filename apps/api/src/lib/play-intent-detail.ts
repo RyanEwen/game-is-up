@@ -3,6 +3,7 @@ import {
   GameIntentType,
   NotificationResponseChoice,
   NotificationType,
+  PlayIntentDiscordSpaceAccessSource,
   PlayIntentDiscordSpaceStatus,
   PlayIntentScope,
   PlayIntentSelectionMode
@@ -21,6 +22,8 @@ import {
   type PlayIntentResponseUser
 } from './play-intent-interested-users.js'
 import { prisma } from './prisma.js'
+
+const discordSpaceGrantFailureMessage = 'Some Discord channel access grants could not be applied. Check that the Game\'s Up bot can manage roles in the Discord server.'
 
 function toSelectionMode(selectionMode: PlayIntentSelectionMode): 'library' | 'subset' {
   return selectionMode === PlayIntentSelectionMode.ENTIRE_LIBRARY ? 'library' : 'subset'
@@ -167,14 +170,34 @@ function serializeDiscordSpace(space: {
   deleteAfter: Date | null;
   lastSyncError: string | null;
   accessGrants: Array<{
+    userId: string;
+    source: PlayIntentDiscordSpaceAccessSource;
+    inServer: boolean;
     roleGrantedAt: Date | null;
   }>;
-} | null): PlayIntentDetail['discordSpace'] {
+} | null, viewerId: string): PlayIntentDetail['discordSpace'] {
   if (!space) {
     return null
   }
 
-  const viewerHasChannelAccess = space.accessGrants[0]?.roleGrantedAt != null
+  const viewerHasChannelAccess = space.accessGrants.some((grant) => grant.userId === viewerId && grant.roleGrantedAt != null)
+  const creatorGrantMissingRole = space.accessGrants.some((grant) => grant.source === PlayIntentDiscordSpaceAccessSource.CREATOR && grant.roleGrantedAt == null)
+  const audienceGrantWaitingToJoin = space.accessGrants.some((grant) => {
+    return grant.source !== PlayIntentDiscordSpaceAccessSource.CREATOR
+      && !grant.inServer
+      && grant.roleGrantedAt == null
+  })
+  const audienceGrantMissingRoleAfterJoin = space.accessGrants.some((grant) => {
+    return grant.source !== PlayIntentDiscordSpaceAccessSource.CREATOR
+      && grant.inServer
+      && grant.roleGrantedAt == null
+  })
+  const visibleLastSyncError = space.lastSyncError === discordSpaceGrantFailureMessage
+    && !creatorGrantMissingRole
+    && !audienceGrantMissingRoleAfterJoin
+    && audienceGrantWaitingToJoin
+    ? null
+    : space.lastSyncError
 
   return {
     status: toDiscordSpaceStatus(space.status),
@@ -186,7 +209,7 @@ function serializeDiscordSpace(space: {
     voiceChannelUrl: viewerHasChannelAccess ? buildDiscordChannelUrl(space.serverId, space.voiceChannelId) : null,
     inviteUrl: space.inviteUrl,
     deleteAfter: space.deleteAfter?.toISOString() ?? null,
-    lastSyncError: space.lastSyncError
+    lastSyncError: visibleLastSyncError
   }
 }
 
@@ -422,13 +445,17 @@ export async function buildPlayIntentDetail(viewerId: string, playIntentId: stri
             lastSyncError: true,
             accessGrants: {
               where: {
-                userId: viewer.id,
                 revokedAt: null
               },
               select: {
+                userId: true,
+                source: true,
+                inServer: true,
                 roleGrantedAt: true
               },
-              take: 1
+              orderBy: {
+                createdAt: 'asc'
+              }
             }
           }
         },
@@ -583,7 +610,7 @@ export async function buildPlayIntentDetail(viewerId: string, playIntentId: stri
     note: intent.note,
     voiceChannelId: intent.voiceChannelId,
     voiceChannelName: intent.voiceChannelName,
-    discordSpace: serializeDiscordSpace(intent.discordSpace),
+    discordSpace: serializeDiscordSpace(intent.discordSpace, viewer.id),
     viewerResponseChoice: recipientNotificationState?.responseChoice === NotificationResponseChoice.JOIN
       ? 'interested'
       : recipientNotificationState?.responseChoice === NotificationResponseChoice.DECLINE
