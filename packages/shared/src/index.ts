@@ -427,6 +427,7 @@ export const discoveryPersonSchema = z.object({
   timezoneId: timezoneIdSchema,
   timezoneLabel: z.string().min(2).max(24),
   usualAvailability: z.string().nullable(),
+  mutualServerIds: z.array(z.string().min(1)),
   mutualServers: z.array(z.string().min(1)),
   games: z.array(discoveryPersonGameSchema),
   discordActivity: z.object({

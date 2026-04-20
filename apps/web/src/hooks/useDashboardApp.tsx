@@ -1120,6 +1120,7 @@ export function useDashboardApp() {
       browseGames,
       trendingGames: trendingLibraryGames,
       discoveryPeople,
+      selectedDiscoveryServers: playIntentDiscordServerOptions,
       noDiscoveryServersSelected,
       isSignedIn,
       libraryGameIds,

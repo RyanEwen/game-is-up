@@ -1,6 +1,7 @@
-import { Box, Card, Option, Select, Stack, Typography } from '@mui/joy'
-import { useState } from 'react'
-import type { DiscoveryGame, DiscoveryPerson, LibraryTrendingGame } from '@game-is-up/shared'
+import { Box, Button, Card, Option, Select, Stack, Typography } from '@mui/joy'
+import { useEffect, useState } from 'react'
+import type { DiscordServerPreference, DiscoveryGame, DiscoveryPerson, LibraryTrendingGame } from '@game-is-up/shared'
+import { DiscordServerPicker } from '../components/dashboard/DiscordServerPicker'
 import { DashboardModal } from '../components/dashboard/DashboardModal'
 import { EmptyStateCard } from '../components/dashboard/EmptyStateCard'
 import { GameCard, GameCardSkeleton } from '../components/dashboard/GameCard'
@@ -79,6 +80,7 @@ function DiscoveryViewContent({
   browseGames,
   trendingGames,
   discoveryPeople,
+  selectedDiscoveryServers,
   noDiscoveryServersSelected,
   isSignedIn,
   libraryGameIds,
@@ -99,6 +101,7 @@ function DiscoveryViewContent({
   browseGames: DiscoveryGame[];
   trendingGames: LibraryTrendingGame[];
   discoveryPeople: DiscoveryPerson[];
+  selectedDiscoveryServers: DiscordServerPreference[];
   noDiscoveryServersSelected: boolean;
   isSignedIn: boolean;
   libraryGameIds: ReadonlySet<string>;
@@ -116,6 +119,17 @@ function DiscoveryViewContent({
   const networkPeople = discoveryPeople.filter((person) => !person.isFriend)
   const [gameSort, setGameSort] = useState<GameSort>('players')
   const [memberSort, setMemberSort] = useState<MemberSort>('games')
+  const [memberServerFilterId, setMemberServerFilterId] = useState('')
+
+  useEffect(() => {
+    if (!memberServerFilterId) {
+      return
+    }
+
+    if (!selectedDiscoveryServers.some((server) => server.id === memberServerFilterId)) {
+      setMemberServerFilterId('')
+    }
+  }, [memberServerFilterId, selectedDiscoveryServers])
 
   if (!isSignedIn) {
     return (
@@ -128,7 +142,11 @@ function DiscoveryViewContent({
 
   const sortedOverlapGames = sortGames(overlapGames, gameSort)
   const sortedBrowseGames = sortGames(browseGames, gameSort)
-  const sortedNetworkPeople = sortPeople(networkPeople, memberSort)
+  const filteredNetworkPeople = memberServerFilterId
+    ? networkPeople.filter((person) => person.mutualServerIds.includes(memberServerFilterId))
+    : networkPeople
+  const activeMemberServerFilter = selectedDiscoveryServers.find((server) => server.id === memberServerFilterId) ?? null
+  const sortedNetworkPeople = sortPeople(filteredNetworkPeople, memberSort)
 
   const gameSortControl = (
     <Box sx={headerFilterControlSx}>
@@ -159,6 +177,34 @@ function DiscoveryViewContent({
       </Select>
     </Box>
   )
+
+  const memberFilterControl = selectedDiscoveryServers.length > 1 ? (
+    <Box sx={{ minWidth: { xs: '100%', sm: 240 } }}>
+      <DiscordServerPicker
+        options={selectedDiscoveryServers}
+        value={memberServerFilterId}
+        placeholder="All selected servers"
+        onChange={setMemberServerFilterId}
+        getOptionDescription={(option) =>
+          option.knownUserCount > 0
+            ? `${option.knownUserCount} network member${option.knownUserCount === 1 ? '' : 's'} visible`
+            : 'No network members visible yet'
+        }
+      />
+    </Box>
+  ) : null
+
+  const memberControls = networkPeople.length > 0 || selectedDiscoveryServers.length > 1 ? (
+    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ width: { xs: '100%', sm: 'auto' }, alignItems: { xs: 'stretch', sm: 'center' } }}>
+      {memberFilterControl}
+      {memberServerFilterId ? (
+        <Button size="sm" variant="soft" color="neutral" onClick={() => setMemberServerFilterId('')}>
+          Clear
+        </Button>
+      ) : null}
+      {memberSortControl}
+    </Stack>
+  ) : undefined
 
   return (
     <Stack spacing={0}>
@@ -306,7 +352,8 @@ function DiscoveryViewContent({
         sectionId="network-members"
         title="Network members"
         description="People in your network who are not already on your friends list."
-        sortControl={networkPeople.length > 0 ? memberSortControl : undefined}
+        helperText={activeMemberServerFilter ? `Showing members visible through ${activeMemberServerFilter.name}.` : undefined}
+        sortControl={memberControls}
       >
         {sortedNetworkPeople.length > 0 ? (
           <Stack spacing={2}>
@@ -336,6 +383,8 @@ function DiscoveryViewContent({
             body={
               noDiscoveryServersSelected
                 ? 'You do not have any Discord servers in your network to find others on.'
+                : activeMemberServerFilter
+                  ? `No other people from ${activeMemberServerFilter.name} are available yet. Try another server or clear the filter.`
                 : isSignedIn
                   ? 'No other people in your network are available yet. Friends appear in the Friends view.'
                   : showsDemoDiscoveryCopy

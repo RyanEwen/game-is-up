@@ -222,7 +222,10 @@ export async function buildDiscoveryFeed(viewerId?: string | null): Promise<Disc
   const people: DiscoveryPerson[] = candidates
     .map((candidate) => {
       const isFriend = friendIds.has(candidate.id)
-      const mutualServers = candidate.discordServers.map((membership) => membership.server.name)
+      const mutualServerIds = [...new Set(candidate.discordServers.map((membership) => membership.serverId))]
+        .sort((left, right) => left.localeCompare(right))
+      const mutualServers = [...new Set(candidate.discordServers.map((membership) => membership.server.name))]
+        .sort((left, right) => left.localeCompare(right))
       const gamesByTitleKey = new Map<string, DiscoveryPerson['games'][number]>()
 
       for (const interest of candidate.gameInterests) {
@@ -254,7 +257,8 @@ export async function buildDiscoveryFeed(viewerId?: string | null): Promise<Disc
         timezoneId: candidate.timezoneId,
         timezoneLabel: formatTimezoneLabel(candidate.timezoneId),
         usualAvailability: candidate.usualAvailability,
-        mutualServers: [...mutualServers].sort((left, right) => left.localeCompare(right)),
+        mutualServerIds,
+        mutualServers,
         games: [...gamesByTitleKey.values()]
           .sort((left, right) => left.title.localeCompare(right.title)),
         discordActivity: latestActivitiesByUserId.get(candidate.id) ?? null,
