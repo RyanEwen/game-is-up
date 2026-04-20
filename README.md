@@ -89,6 +89,51 @@ npm run validate
 
 That runs ESLint, TypeScript checks, and `prisma validate`.
 
+## Logo PNG export
+
+The web app keeps the SVG files in `apps/web/public` as the source of truth, and generates square PNGs from them when the app icon set needs to be refreshed.
+
+Use the checked-in helper:
+
+```bash
+npm run web:icons:export
+```
+
+That exports the current logo variants:
+
+- `apps/web/public/icon-gamepad-voice-green-bubble.svg`
+- `apps/web/public/icon-gamepad-voice-red-bubble.svg`
+
+And writes these PNG sizes for each variant:
+
+- `1024x1024`
+- `512x512`
+- `192x192`
+
+The exact conversion flow is intentionally two-step because a direct one-step SVG-to-square ImageMagick export introduced an opaque white matte around the artwork.
+
+Exact manual steps:
+
+```bash
+cd apps/web/public
+
+convert -background none icon-gamepad-voice-green-bubble.svg PNG32:icon-gamepad-voice-green-bubble-render.png
+convert icon-gamepad-voice-green-bubble-render.png -background none -gravity center -extent 1063x1063 -resize 1024x1024 PNG32:icon-gamepad-voice-green-bubble-1024.png
+convert icon-gamepad-voice-green-bubble-render.png -background none -gravity center -extent 1063x1063 -resize 512x512 PNG32:icon-gamepad-voice-green-bubble-512.png
+convert icon-gamepad-voice-green-bubble-render.png -background none -gravity center -extent 1063x1063 -resize 192x192 PNG32:icon-gamepad-voice-green-bubble-192.png
+rm -f icon-gamepad-voice-green-bubble-render.png
+
+convert -background none icon-gamepad-voice-red-bubble.svg PNG32:icon-gamepad-voice-red-bubble-render.png
+convert icon-gamepad-voice-red-bubble-render.png -background none -gravity center -extent 1063x1063 -resize 1024x1024 PNG32:icon-gamepad-voice-red-bubble-1024.png
+convert icon-gamepad-voice-red-bubble-render.png -background none -gravity center -extent 1063x1063 -resize 512x512 PNG32:icon-gamepad-voice-red-bubble-512.png
+convert icon-gamepad-voice-red-bubble-render.png -background none -gravity center -extent 1063x1063 -resize 192x192 PNG32:icon-gamepad-voice-red-bubble-192.png
+rm -f icon-gamepad-voice-red-bubble-render.png
+```
+
+Why `1063x1063`: the current logo SVGs are `1063x824`, so the square padding step uses the larger source dimension to preserve transparent space rather than stretching the art.
+
+The helper script computes that square padding size dynamically from the source SVG dimensions, so it stays reusable if the source art changes later.
+
 ## Database helpers
 
 - `npm run db:wait` waits for the configured PostgreSQL host and port before starting app processes.

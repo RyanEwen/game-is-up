@@ -25,6 +25,7 @@
     "db:migrate:deploy": "npm run prisma:migrate:deploy --workspace @game-is-up/api",
     "db:migrate:bootstrap": "npm run prisma:migrate:bootstrap --workspace @game-is-up/api",
     "db:seed": "npm run prisma:seed --workspace @game-is-up/api",
+    "web:icons:export": "node scripts/dev/export-web-logo-pngs.mjs",
     "prepare": "husky"
   },
   "devDependencies": {

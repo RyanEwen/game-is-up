@@ -170,65 +170,79 @@ export const DashboardLayout = ({
               p: { xs: 3, md: 4 },
               borderRadius: 'lg',
               border: '1px solid #304159',
-                background: 'linear-gradient(135deg, #162338, #1d2f48)',
+              background: 'linear-gradient(135deg, #162338, #1d2f48)',
               boxShadow: 'xl'
             }}
           >
             <Stack spacing={2}>
-              <Stack
-                direction="row"
-                spacing={{ xs: 2, sm: 2.5 }}
-                sx={{ alignItems: { xs: 'flex-start', sm: 'center' }, width: '100%' }}
+              <Box
+                sx={{
+                  display: 'grid',
+                  width: '100%',
+                  columnGap: { xs: 2, sm: 2.5 },
+                  rowGap: 1.25,
+                  gridTemplateColumns: 'auto 1fr',
+                  gridTemplateAreas: {
+                    xs: '"logo title" "body body"',
+                    sm: '"logo title" "logo body"'
+                  },
+                  alignItems: 'center'
+                }}
               >
                 <Box
                   aria-hidden="true"
                   sx={{
-                    width: { xs: 72, md: 92 },
-                    height: { xs: 72, md: 92 },
+                    gridArea: 'logo',
+                    width: { xs: 64, md: 128 },
+                    height: { xs: 64, md: 128 },
                     flexShrink: 0,
-                    borderRadius: '24px',
-                    p: 1,
+                    borderRadius: { xs: '14px', md: '28px' },
+                    p: { xs: 0.6, md: 1 },
                     display: 'grid',
                     placeItems: 'center',
-                    background: 'linear-gradient(180deg, #20304a, #151d2b)',
-                    border: '1px solid #3b516c',
+                    overflow: 'hidden',
+                    background: 'rgba(8, 14, 24, 0.25)',
+                    border: '1px solid rgba(80, 96, 119, 0.48)',
                     boxShadow: 'none'
                   }}
                 >
                   <Box
+                    component="img"
+                    src="/icon-gamepad-voice-green-bubble.svg"
+                    alt=""
                     sx={{
+                      position: 'relative',
                       width: '100%',
                       height: '100%',
-                      backgroundImage: ambientSpectrumGradient,
-                      backgroundSize: '100% 100%',
-                      backgroundPosition: 'center',
-                      WebkitMaskImage: 'url(/icon-discord-transparent.svg)',
-                      maskImage: 'url(/icon-discord-transparent.svg)',
-                      WebkitMaskRepeat: 'no-repeat',
-                      maskRepeat: 'no-repeat',
-                      WebkitMaskPosition: 'center',
-                      maskPosition: 'center',
-                      WebkitMaskSize: 'contain',
-                      maskSize: 'contain',
-                      filter: 'saturate(1.12) brightness(1.06) contrast(1.03) drop-shadow(0 10px 22px #02050d)'
+                      display: 'block',
+                      objectFit: 'contain',
+                      objectPosition: 'center',
                     }}
                   />
                 </Box>
-                <Stack spacing={1.25} sx={{ minWidth: 0, flex: 1 }}>
-                  <Stack
-                    direction="row"
-                    spacing={1.5}
-                    sx={{ alignItems: 'center' }}
-                  >
-                    <Typography level="h1" sx={{ fontSize: { xs: '2.4rem', md: '4rem' } }}>
-                      Game's Up
-                    </Typography>
-                  </Stack>
-                  <Typography level="body-lg" sx={{ color: 'neutral.200', maxWidth: 'none' }}>
-                    Build your library, find others who play, and turn "anyone up for a game?" into an actual plan.
-                  </Typography>
-                </Stack>
-              </Stack>
+                <Typography
+                  level="h1"
+                  sx={{
+                    gridArea: 'title',
+                    minWidth: 0,
+                    fontSize: { xs: '2.4rem', md: '4rem' },
+                    alignSelf: 'center'
+                  }}
+                >
+                  Game's Up
+                </Typography>
+                <Typography
+                  level="body-lg"
+                  sx={{
+                    gridArea: 'body',
+                    color: 'neutral.200',
+                    maxWidth: 'none',
+                    minWidth: 0
+                  }}
+                >
+                  Build your library, find others that want to play the same games, and connect with them to make it happen.
+                </Typography>
+              </Box>
             </Stack>
           </Sheet>
 
