@@ -208,10 +208,13 @@ export const DashboardLayout = ({
                   width: '100%',
                   columnGap: { xs: 2, sm: 2.5 },
                   rowGap: 1.25,
-                  gridTemplateColumns: 'auto 1fr',
+                  gridTemplateColumns: {
+                    xs: '1fr auto',
+                    sm: '1fr auto'
+                  },
                   gridTemplateAreas: {
-                    xs: '"logo title" "body body"',
-                    sm: '"logo title" "logo body"'
+                    xs: '"title logo" "body body"',
+                    sm: '"title logo" "logo body"'
                   },
                   alignItems: 'center'
                 }}
