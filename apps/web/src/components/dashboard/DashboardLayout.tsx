@@ -1,4 +1,5 @@
-import { type ReactNode, type RefObject } from 'react'
+import { type ReactNode, type RefObject, useEffect, useRef, useState } from 'react'
+import HomeRoundedIcon from '@mui/icons-material/HomeRounded'
 import { Link } from 'react-router-dom'
 import {
   Alert,
@@ -17,12 +18,13 @@ import { theme } from '../../theme/theme'
 import { dashboardTabPaths, dashboardTabSx } from './dashboardUtils'
 import type { DashboardTab, DashboardToast } from './types'
 
-const dashboardTabs: Array<{ value: DashboardTab; label: string }> = [
-  { value: 'overview', label: 'Overview' },
-  { value: 'friends', label: 'Friends' },
-  { value: 'library', label: 'Library' },
-  { value: 'discovery', label: 'Discover' },
-  { value: 'play', label: 'Play' }
+const dashboardTabs: Array<{ value: DashboardTab; label?: string; desktopLabel?: string; icon?: ReactNode; ariaLabel: string }> = [
+  { value: 'overview', label: 'Overview', desktopLabel: 'Overview', icon: <HomeRoundedIcon fontSize="small" />, ariaLabel: 'Overview' },
+  { value: 'network', label: 'Network', ariaLabel: 'Network' },
+  { value: 'friends', label: 'Friends', ariaLabel: 'Friends' },
+  { value: 'library', label: 'Library', ariaLabel: 'Library' },
+  { value: 'discovery', label: 'Discover', ariaLabel: 'Discover' },
+  { value: 'play', label: 'Play', ariaLabel: 'Play' }
 ]
 
 const ambientSpectrumGradient = 'linear-gradient(115deg, #92f7de 0%, #70ebcd 28%, #61d4bf 58%, #a9f3de 100%)'
@@ -54,6 +56,31 @@ export const DashboardLayout = ({
   tabsAnchorRef: RefObject<HTMLDivElement>;
   children: ReactNode;
 }) => {
+  const stickyTabsRef = useRef<HTMLDivElement | null>(null)
+  const [isTabsStuck, setIsTabsStuck] = useState(false)
+
+  useEffect(() => {
+    const stickyTabs = stickyTabsRef.current
+
+    if (!stickyTabs || typeof window === 'undefined') {
+      return
+    }
+
+    const updateStickyState = () => {
+      const stickyTop = Number.parseFloat(window.getComputedStyle(stickyTabs).top) || 0
+      setIsTabsStuck(stickyTabs.getBoundingClientRect().top <= stickyTop + 0.5)
+    }
+
+    updateStickyState()
+    window.addEventListener('scroll', updateStickyState, { passive: true })
+    window.addEventListener('resize', updateStickyState)
+
+    return () => {
+      window.removeEventListener('scroll', updateStickyState)
+      window.removeEventListener('resize', updateStickyState)
+    }
+  }, [])
+
   return (
     <CssVarsProvider theme={theme} defaultMode="dark">
       <CssBaseline />
@@ -301,6 +328,7 @@ export const DashboardLayout = ({
             }}
           >
             <Box
+              ref={stickyTabsRef}
               sx={{
                 position: 'sticky',
                 top: {
@@ -313,12 +341,20 @@ export const DashboardLayout = ({
               <TabList
                 disableUnderline
                 sx={{
-                  m: 0.5,
-                  p: { xs: 0.75, sm: 1 },
-                  gap: { xs: 0.5, sm: 1 },
+                  my: { xs: 0.25, sm: 0.5 },
+                  mx: isTabsStuck ? { xs: 0.25, sm: 0.5 } : 0,
+                  py: { xs: 0.75, sm: 1 },
+                  px: { xs: 0.5, sm: 1 },
+                  gap: { xs: 0.25, sm: 1 },
+                  transition: 'margin 180ms ease',
                   position: 'relative',
                   borderRadius: 'xl',
                   flexWrap: 'nowrap',
+                  overflowX: { xs: 'auto', sm: 'visible' },
+                  scrollbarWidth: 'none',
+                  '&::-webkit-scrollbar': {
+                    display: 'none'
+                  },
                   backgroundColor: 'rgba(13, 23, 38, 0.84)',
                   border: '1px solid rgba(118, 164, 220, 0.18)',
                   backdropFilter: 'blur(10px) saturate(1.04)',
@@ -332,8 +368,25 @@ export const DashboardLayout = ({
                 }}
               >
                 {dashboardTabs.map((tab) => (
-                  <Tab key={tab.value} value={tab.value} sx={dashboardTabSx}>
-                    {tab.label}
+                  <Tab
+                    key={tab.value}
+                    value={tab.value}
+                    sx={dashboardTabSx}
+                    aria-label={tab.ariaLabel}
+                    title={tab.ariaLabel}
+                  >
+                    {tab.value === 'overview' ? (
+                      <>
+                        <Box component="span" sx={{ display: { xs: 'inline-flex', sm: 'none' }, alignItems: 'center' }}>
+                          {tab.icon}
+                        </Box>
+                        <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+                          {tab.desktopLabel ?? tab.label}
+                        </Box>
+                      </>
+                    ) : (
+                      tab.icon ?? tab.label
+                    )}
                   </Tab>
                 ))}
               </TabList>

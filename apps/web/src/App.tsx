@@ -29,6 +29,11 @@ const FriendsView = lazy(async () => {
   return { default: module.FriendsView }
 })
 
+const NetworkView = lazy(async () => {
+  const module = await import('./pages/NetworkView')
+  return { default: module.NetworkView }
+})
+
 const LibraryView = lazy(async () => {
   const module = await import('./pages/LibraryView')
   return { default: module.LibraryView }
@@ -52,7 +57,8 @@ const PlayIntentDetailView = lazy(async () => {
 const appTitle = "Game's Up"
 
 const dashboardTabTitles: Record<Exclude<ReturnType<typeof getDashboardTabFromPathname>, null>, string> = {
-  overview: `${appTitle} • Overview`,
+  overview: `${appTitle} • Home`,
+  network: `${appTitle} • Network`,
   friends: `${appTitle} • Friends`,
   library: `${appTitle} • Library`,
   play: `${appTitle} • Play`,
@@ -117,6 +123,10 @@ function DashboardAppShell() {
             element={<OverviewView />}
           />
           <Route path="/overview" element={<Navigate to={dashboardTabPaths.overview} replace />} />
+          <Route
+            path={dashboardTabPaths.network}
+            element={<NetworkView />}
+          />
           <Route
             path={dashboardTabPaths.library}
             element={<LibraryView />}

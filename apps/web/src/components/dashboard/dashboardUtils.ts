@@ -4,6 +4,7 @@ import type { DashboardTab } from './types'
 
 export const dashboardTabPaths: Record<DashboardTab, string> = {
   overview: '/',
+  network: '/network',
   library: '/library',
   friends: '/friends',
   discovery: '/discovery',
@@ -16,10 +17,10 @@ export const maximumPlayIntentDurationMinutes = 24 * 60
 export const playIntentPresetDurations = [60, 120, 240] as const
 
 export const dashboardTabSx = {
-  flex: '1 1 0',
+  flex: { xs: '1 0 auto', sm: '1 1 0' },
   minHeight: { xs: 44, sm: 52 },
-  minWidth: 0,
-  px: { xs: 1.5, sm: 2 },
+  minWidth: { xs: 'max-content', sm: 0 },
+  px: { xs: 1, sm: 2 },
   borderRadius: 'lg',
   color: 'neutral.300',
   fontSize: { xs: 'sm', sm: 'md' },
@@ -124,6 +125,8 @@ export function getDashboardTabFromPathname(pathname: string): DashboardTab | nu
     case '/':
     case '/overview':
       return 'overview'
+    case dashboardTabPaths.network:
+      return 'network'
     case dashboardTabPaths.discovery:
       return 'discovery'
     case dashboardTabPaths.library:

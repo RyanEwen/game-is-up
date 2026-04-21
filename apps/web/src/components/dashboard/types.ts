@@ -3,7 +3,7 @@ export type Notice = {
   message: string;
 };
 
-export type DashboardTab = 'overview' | 'friends' | 'library' | 'discovery' | 'play' | 'debug';
+export type DashboardTab = 'overview' | 'network' | 'friends' | 'library' | 'discovery' | 'play' | 'debug';
 export type PlayIntentStartMode = 'now' | 'scheduled';
 export type PlayIntentTimingMode = 'preset' | 'custom' | 'end-time';
 export type PlayIntentVoiceMode = 'none' | 'existing' | 'temporary';

@@ -67,7 +67,7 @@ Optional: set `VITE_PUBLIC_APP_URL` when you want in-app invites to point at a p
 
 Optional: set `VITE_API_BASE_URL` to an explicit origin if the web app should call an API on a different host. Leave it empty when the app is served behind a reverse proxy on the same origin.
 
-The dashboard uses route-backed tabs, so the main views live at `/`, `/library`, `/discovery`, and `/play`. Admin users also get a `/debug` tab for bot, prompt, notification, DM-emulator, and invite-attribution diagnostics. Discord sign-in now preserves same-origin return URLs so a user can authenticate and land back on the view they started from, and invite links can land on a dedicated `/invite` route before handing off into Discord OAuth.
+The dashboard uses route-backed tabs, so the main views live at `/` for Home, `/network`, `/friends`, `/library`, `/discovery`, and `/play`. Admin users also get a `/debug` tab for bot, prompt, notification, DM-emulator, and invite-attribution diagnostics. Discord sign-in now preserves same-origin return URLs so a user can authenticate and land back on the view they started from, and invite links can land on a dedicated `/invite` route before handing off into Discord OAuth.
 
 The Play tab now keeps both active and recently ended calls to play visible across the viewer's network, including targeted friend-only or selected-server calls that explicitly include that viewer. By default, the Play page filters those lists to calls that apply to the viewer's current library, but each section can be switched to show all visible calls.
 

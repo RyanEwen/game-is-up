@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Box, Button, Card, Checkbox, Chip, DialogContent, DialogTitle, Input, Option, Select, Sheet, Stack, Typography } from '@mui/joy'
-import type { GameSearchResponse, GameSearchResult, ImportSteamLibrarySelectionRequest, LibraryEntry, LibraryEntryIntent, LibrarySuggestedGame, LibraryTrendingGame, SteamLibraryImportGame, SteamLibraryImportPreviewResponse, UserGameAlias, UserPlatformAlias } from '@game-is-up/shared'
+import type { GameSearchResponse, GameSearchResult, ImportSteamLibrarySelectionRequest, LibraryEntry, LibraryEntryIntent, LibrarySuggestedGame, SteamLibraryImportGame, SteamLibraryImportPreviewResponse, UserGameAlias, UserPlatformAlias } from '@game-is-up/shared'
 import { DashboardModal } from '../components/dashboard/DashboardModal'
 import { AliasManagementCard } from '../components/dashboard/AliasManagementCard'
 import { DashboardModalActionBar } from '../components/dashboard/DashboardModalActionBar'
@@ -9,7 +9,6 @@ import { EmptyStateCard } from '../components/dashboard/EmptyStateCard'
 import { LibraryEditorCard } from '../components/dashboard/LibraryEditorCard'
 import { LibraryEntryCard } from '../components/dashboard/LibraryEntryCard'
 import { LibrarySuggestionsRow } from '../components/dashboard/LibrarySuggestionsRow'
-import { LibraryTrendingRow } from '../components/dashboard/LibraryTrendingRow'
 import { SectionNav } from '../components/dashboard/SectionNav'
 import { sectionScrollMarginTop } from '../components/dashboard/SectionNav.constants'
 import { formatLibraryIntentLabel, libraryEntryGridSx } from '../components/dashboard/dashboardUtils'
@@ -870,7 +869,6 @@ function LibraryViewContent({
   onCancelLibraryEdit,
   libraryEntries,
   suggestedGames,
-  trendingGames,
   platformAliases,
   gameAliases,
   aliasSavingKey,
@@ -931,7 +929,6 @@ function LibraryViewContent({
   onCancelLibraryEdit: () => void;
   libraryEntries: LibraryEntry[];
   suggestedGames: LibrarySuggestedGame[];
-  trendingGames: LibraryTrendingGame[];
   platformAliases: UserPlatformAlias[];
   gameAliases: UserGameAlias[];
   aliasSavingKey: string | null;
@@ -1073,13 +1070,6 @@ function LibraryViewContent({
             libraryGameIds={libraryGameIds}
             addingLibraryGameId={addingLibraryGameId}
             onAddToLibrary={onAddGameToLibrary}
-          />
-
-          <LibraryTrendingRow
-            trendingGames={trendingGames}
-            addingLibraryGameId={addingLibraryGameId}
-            onAddToLibrary={onAddGameToLibrary}
-            showWhenEmpty
           />
 
           {libraryEntries.length > 0 ? (

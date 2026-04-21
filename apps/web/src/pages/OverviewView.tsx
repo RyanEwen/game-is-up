@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { Avatar, Box, Button, Card, Chip, DialogContent, DialogTitle, Input, Sheet, Stack, Switch, Typography } from '@mui/joy'
 import type {
   AuthSessionResponse,
@@ -6,7 +5,6 @@ import type {
   DiscordServerPreferencesResponse,
   SendDiscordServerInvitesResponse
 } from '@game-is-up/shared'
-import { DashboardModal } from '../components/dashboard/DashboardModal'
 import { DiscordServerPicker } from '../components/dashboard/DiscordServerPicker'
 import { DashboardModalActionBar } from '../components/dashboard/DashboardModalActionBar'
 import { EmptyStateCard } from '../components/dashboard/EmptyStateCard'
@@ -215,7 +213,7 @@ function WhatIsGamesUpCard() {
   )
 }
 
-function DiscoveryServersSection({
+export function DiscoveryServersSection({
   discordBotInstallUrl,
   availableDiscoveryServers,
   hasSyncedServers,
@@ -360,7 +358,7 @@ function DiscoveryServersSection({
   )
 }
 
-function InviteUsersCard({
+export function InviteUsersCard({
   onClose,
   inviteUrl,
   selectedDiscoveryServers,
@@ -593,141 +591,49 @@ function InviteUsersCard({
 function OverviewViewContent({
   session,
   discordEnabled,
-  isSignedIn,
-  discordBotInstallUrl,
-  availableDiscoveryServers,
-  hasSyncedDiscordServers,
-  serverPreferencePendingId,
   onLogout,
-  onDiscordLogin,
-  onToggleDiscordServer,
-  inviteUrl,
-  selectedDiscoveryServers,
-  activeInviteServer,
-  onSelectInviteServer,
-  inviteMemberQuery,
-  onInviteMemberQueryChange,
-  inviteMembersLoading,
-  inviteMembersNotice,
-  inviteMembers,
-  filteredInviteMembers,
-  selectedInviteUserIds,
-  onToggleInviteUser,
-  onRetryInviteMembers,
-  inviteSending,
-  onSendBotInvites,
-  inviteSendSummary
+  onDiscordLogin
 }: {
   session: AuthSessionResponse | null;
   discordEnabled: boolean;
-  isSignedIn: boolean;
-  discordBotInstallUrl: string | null;
-  availableDiscoveryServers: DiscoveryServer[];
-  hasSyncedDiscordServers: boolean;
-  serverPreferencePendingId: string | null;
   onLogout: () => Promise<void>;
   onDiscordLogin: () => Promise<void>;
-  onToggleDiscordServer: (serverId: string, nextSelected: boolean) => Promise<void>;
-  inviteUrl: string | null;
-  selectedDiscoveryServers: DiscoveryServer[];
-  activeInviteServer: DiscoveryServer | null;
-  onSelectInviteServer: (serverId: string) => void;
-  inviteMemberQuery: string;
-  onInviteMemberQueryChange: (value: string) => void;
-  inviteMembersLoading: boolean;
-  inviteMembersNotice: Notice | null;
-  inviteMembers: InviteMember[];
-  filteredInviteMembers: InviteMember[];
-  selectedInviteUserIds: string[];
-  onToggleInviteUser: (userId: string) => void;
-  onRetryInviteMembers: () => void;
-  inviteSending: boolean;
-  onSendBotInvites: () => Promise<void>;
-  inviteSendSummary: SendDiscordServerInvitesResponse | null;
 }) {
-  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false)
-  const handleOpenInviteServer = (serverId: string) => {
-    onSelectInviteServer(serverId)
-    setIsInviteModalOpen(true)
-  }
-
   return (
-    <>
-      <Stack spacing={3}>
-        <SectionNav
-          aria-label="Overview sections"
-          mb={0}
-          sections={[
-            { id: 'account', label: 'Account', desktopLabel: 'Your Account' },
-            { id: 'what-is-games-up', label: 'About', desktopLabel: "What Is Game's Up?" },
-            { id: 'quick-start', label: 'Quick start', desktopLabel: 'Quick Start Guide', ariaLabel: 'Quick start' },
-            ...(isSignedIn
-              ? [{ id: 'your-network', label: 'Network', desktopLabel: 'Your Network', ariaLabel: 'Your network' }]
-              : [])
-          ]}
-        />
-        <Box id="account" sx={{ scrollMarginTop: sectionScrollMarginTop }}>
-          <Stack spacing={1.5}>
-            <Typography level="h2">Account</Typography>
-            <AccountCard
-              session={session}
-              discordEnabled={discordEnabled}
-              onLogout={onLogout}
-              onDiscordLogin={onDiscordLogin}
-            />
-          </Stack>
-        </Box>
-        <Box id="what-is-games-up" sx={{ scrollMarginTop: sectionScrollMarginTop }}>
-          <Stack spacing={1.5}>
-            <Typography level="h2">What is Game's Up?</Typography>
-            <WhatIsGamesUpCard />
-          </Stack>
-        </Box>
-        <Box id="quick-start" sx={{ scrollMarginTop: sectionScrollMarginTop }}>
-          <Stack spacing={1.5}>
-            <Typography level="h2">Quick start</Typography>
-            <QuickStartCard />
-          </Stack>
-        </Box>
-
-        {isSignedIn ? (
-          <Box id="your-network" sx={{ scrollMarginTop: sectionScrollMarginTop }}>
-            <DiscoveryServersSection
-              discordBotInstallUrl={discordBotInstallUrl}
-              availableDiscoveryServers={availableDiscoveryServers}
-              hasSyncedServers={hasSyncedDiscordServers}
-              serverPreferencePendingId={serverPreferencePendingId}
-              onToggleDiscordServer={onToggleDiscordServer}
-              onOpenInviteServer={handleOpenInviteServer}
-            />
-          </Box>
-        ) : null}
-      </Stack>
-
-      {isSignedIn ? (
-        <DashboardModal open={isInviteModalOpen} onClose={() => setIsInviteModalOpen(false)} width="min(96vw, 920px)">
-          <InviteUsersCard
-            onClose={() => setIsInviteModalOpen(false)}
-            inviteUrl={inviteUrl}
-            selectedDiscoveryServers={selectedDiscoveryServers}
-            activeInviteServer={activeInviteServer}
-            onSelectInviteServer={onSelectInviteServer}
-            inviteMemberQuery={inviteMemberQuery}
-            onInviteMemberQueryChange={onInviteMemberQueryChange}
-            inviteMembersLoading={inviteMembersLoading}
-            inviteMembersNotice={inviteMembersNotice}
-            inviteMembers={inviteMembers}
-            filteredInviteMembers={filteredInviteMembers}
-            selectedInviteUserIds={selectedInviteUserIds}
-            onToggleInviteUser={onToggleInviteUser}
-            onRetryInviteMembers={onRetryInviteMembers}
-            inviteSending={inviteSending}
-            onSendBotInvites={onSendBotInvites}
-            inviteSendSummary={inviteSendSummary}
+    <Stack spacing={3}>
+      <SectionNav
+        aria-label="Overview sections"
+        mb={0}
+        sections={[
+          { id: 'account', label: 'Account', desktopLabel: 'Your Account' },
+          { id: 'what-is-games-up', label: 'About', desktopLabel: "What Is Game's Up?" },
+          { id: 'quick-start', label: 'Quick start', desktopLabel: 'Quick Start Guide', ariaLabel: 'Quick start' }
+        ]}
+      />
+      <Box id="account" sx={{ scrollMarginTop: sectionScrollMarginTop }}>
+        <Stack spacing={1.5}>
+          <Typography level="h2">Account</Typography>
+          <AccountCard
+            session={session}
+            discordEnabled={discordEnabled}
+            onLogout={onLogout}
+            onDiscordLogin={onDiscordLogin}
           />
-        </DashboardModal>
-      ) : null}
-    </>
+        </Stack>
+      </Box>
+      <Box id="what-is-games-up" sx={{ scrollMarginTop: sectionScrollMarginTop }}>
+        <Stack spacing={1.5}>
+          <Typography level="h2">What is Game's Up?</Typography>
+          <WhatIsGamesUpCard />
+        </Stack>
+      </Box>
+      <Box id="quick-start" sx={{ scrollMarginTop: sectionScrollMarginTop }}>
+        <Stack spacing={1.5}>
+          <Typography level="h2">Quick start</Typography>
+          <QuickStartCard />
+        </Stack>
+      </Box>
+    </Stack>
   )
 }
 
