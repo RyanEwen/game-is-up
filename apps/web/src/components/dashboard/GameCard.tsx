@@ -166,9 +166,8 @@ export function GameCard({
   }
   const visiblePlatformLabels = compact ? game.platformLabels.slice(0, 3) : game.platformLabels
   const hiddenPlatformCount = game.platformLabels.length - visiblePlatformLabels.length
-  const visiblePlayers = compact ? game.players.slice(0, 3) : game.players
-  const hiddenPlayerCount = game.players.length - visiblePlayers.length
-  const showCompactSignInHint = compact && !canManage && visiblePlayers.length > 0
+  const showCompactSignInHint = compact && !canManage && game.players.length > 0
+  const compactPlayerListMaxHeight = '21rem'
 
   return (
     <Card
@@ -307,45 +306,60 @@ export function GameCard({
           </Stack>
         </Stack>
 
-        <Stack spacing={1.25}>
+        <Stack spacing={1.25} sx={{ minHeight: 0 }}>
           <Box
             sx={{
-              display: 'grid',
-              gridTemplateColumns: compact
-                ? 'repeat(auto-fill, minmax(min(100%, 220px), 1fr))'
-                : 'repeat(auto-fill, minmax(min(100%, 260px), 1fr))',
-              gap: 1.25
+              minHeight: 0,
+              maxHeight: compact ? compactPlayerListMaxHeight : 'none',
+              overflowY: compact ? 'auto' : 'visible',
+              pr: compact ? 0.5 : 0,
+              mr: compact ? -0.5 : 0,
+              scrollbarWidth: compact ? 'thin' : 'auto',
+              '&::-webkit-scrollbar': compact ? { width: 8 } : undefined,
+              '&::-webkit-scrollbar-thumb': compact ? {
+                backgroundColor: 'rgba(193, 204, 218, 0.28)',
+                borderRadius: 999
+              } : undefined,
+              '&::-webkit-scrollbar-track': compact ? {
+                backgroundColor: 'rgba(7, 11, 20, 0.24)',
+                borderRadius: 999
+              } : undefined
             }}
           >
-            {visiblePlayers.map((player: DiscoveryGamePlayer) => (
-              <CompactDiscoveryPlayerCard
-                key={player.id}
-                target={player}
-                handle={player.handle}
-                canManage={canManage}
-                isPending={pendingFriendId === player.id}
-                detailLines={[
-                  player.contactHint,
-                  player.mutualServers.length > 0 ? `Mutual servers: ${player.mutualServers.join(', ')}` : 'Visible to you through your friends list or network.',
-                  `Matching game: ${game.title}`,
-                  player.availability && player.availabilitySource === 'game-specific' ? `Availability: ${player.availability}` : ''
-                ]}
-                badges={[
-                  { label: formatLibraryIntentLabel(player.intent), color: player.intent === 'playing-now' ? 'success' : 'primary' },
-                  ...player.platformLabels.map((platform: string) => ({ label: platform, variant: 'outlined' as const }))
-                ]}
-                footerBadge={player.availability && player.availabilitySource === 'game-specific'
-                  ? { label: `Plays: ${player.availability}` }
-                  : null}
-                onToggleFriend={onToggleFriend}
-              />
-            ))}
+            <Box
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: compact
+                  ? 'repeat(auto-fill, minmax(min(100%, 220px), 1fr))'
+                  : 'repeat(auto-fill, minmax(min(100%, 260px), 1fr))',
+                gap: 1.25
+              }}
+            >
+              {game.players.map((player: DiscoveryGamePlayer) => (
+                <CompactDiscoveryPlayerCard
+                  key={player.id}
+                  target={player}
+                  handle={player.handle}
+                  canManage={canManage}
+                  isPending={pendingFriendId === player.id}
+                  detailLines={[
+                    player.contactHint,
+                    player.mutualServers.length > 0 ? `Mutual servers: ${player.mutualServers.join(', ')}` : 'Visible to you through your friends list or network.',
+                    `Matching game: ${game.title}`,
+                    player.availability && player.availabilitySource === 'game-specific' ? `Availability: ${player.availability}` : ''
+                  ]}
+                  badges={[
+                    { label: formatLibraryIntentLabel(player.intent), color: player.intent === 'playing-now' ? 'success' : 'primary' },
+                    ...player.platformLabels.map((platform: string) => ({ label: platform, variant: 'outlined' as const }))
+                  ]}
+                  footerBadge={player.availability && player.availabilitySource === 'game-specific'
+                    ? { label: `Plays: ${player.availability}` }
+                    : null}
+                  onToggleFriend={onToggleFriend}
+                />
+              ))}
+            </Box>
           </Box>
-          {hiddenPlayerCount > 0 ? (
-            <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
-              +{hiddenPlayerCount} more players
-            </Typography>
-          ) : null}
           {showCompactSignInHint ? (
             <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
               Sign in to enable friend actions from the player cards.

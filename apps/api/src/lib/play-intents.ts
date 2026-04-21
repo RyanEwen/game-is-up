@@ -1374,6 +1374,10 @@ export async function clearCurrentPlayIntent(userId: string, playIntentId?: stri
     notifyAudienceOnEnd: true,
     publishInvalidation: false
   })
+
+  if (activeIntentIds.length > 0) {
+    publishPlayIntentInvalidation()
+  }
 }
 
 export async function upsertCurrentPlayIntent(

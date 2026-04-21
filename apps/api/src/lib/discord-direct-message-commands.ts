@@ -25,7 +25,7 @@ type ParsedDirectMessageCommand = {
   args: string[];
 }
 
-type DirectMessageReplyOptions = {
+export type DirectMessageReplyOptions = {
   dismissButtonForUserId?: string;
   autoDeleteAfterMs?: number;
   includeOpenAppButton?: boolean;
@@ -75,7 +75,7 @@ function buildPlayUrl() {
 
 function buildOpenAppRow() {
   return new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
-    buildOpenInAppButton(buildPlayUrl())
+    buildOpenInAppButton(buildPlayUrl(), 'Open App')
   )
 }
 
@@ -89,7 +89,7 @@ function buildDismissAndOpenAppRow(discordUserId: string) {
       .setCustomId(buildDirectMessageDismissCustomId(discordUserId))
       .setLabel('Dismiss')
       .setStyle(ButtonStyle.Secondary),
-    buildOpenInAppButton(buildPlayUrl())
+    buildOpenInAppButton(buildPlayUrl(), 'Open App')
   )
 }
 

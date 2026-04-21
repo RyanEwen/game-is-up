@@ -123,7 +123,7 @@ function AccountCard({
               variant="outlined"
               color="neutral"
               onClick={() => void onLogout()}
-              sx={{ alignSelf: { xs: 'stretch', sm: 'flex-start' }, flexShrink: 0 }}
+              sx={{ alignSelf: { xs: 'stretch', sm: 'auto' }, flexShrink: 0 }}
             >
               Sign out
             </Button>

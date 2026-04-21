@@ -1053,7 +1053,7 @@ export function useDashboardApp() {
     layoutProps: {
       toastNotices,
       showDebugView,
-      installPrompt: installSupport
+      installPrompt: isSignedIn && installSupport
         ? {
             label: 'Install app',
             pending: installPromptPending,

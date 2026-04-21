@@ -16,6 +16,7 @@ import {
 import { DiscordActivityType } from '@prisma/client'
 import {
   discordPresenceBotState,
+  deleteDiscordDirectMessage,
   getDiscordBotMode,
   getDiscordBotClient,
   isDiscordBotGatewayMode,
@@ -37,6 +38,7 @@ import {
 } from './play-intent-notification-responses.js'
 import {
   buildDirectMessageReplyPayload,
+  type DirectMessageReplyOptions,
   handleDiscordDirectMessageButtonInteraction,
   handleDiscordDirectMessageCommand,
   handleDiscordDirectMessagePayload
@@ -78,6 +80,17 @@ type DiscordRestGuildSummary = {
   id: string;
   name: string;
 };
+
+function scheduleGatewayDirectMessageDeletion(channelId: string, messageId: string, delayMs: number) {
+  const timeout = setTimeout(() => {
+    void deleteDiscordDirectMessage({
+      channelId,
+      messageId
+    })
+  }, delayMs)
+
+  timeout.unref?.()
+}
 
 type DiscordRestUser = {
   id: string;
@@ -890,16 +903,25 @@ export async function startDiscordPresenceBot() {
       authorId: directMessage.author.id,
       content: typeof directMessage.content === 'string' ? directMessage.content : '',
       source: `gateway-raw:${shardId}`,
-      reply: async (content) => {
+      reply: async (content, options: DirectMessageReplyOptions = {}) => {
         const [result] = await sendDiscordDirectMessages([
           {
             discordUserId: directMessage.author.id,
-            ...buildDirectMessageReplyPayload(content)
+            ...buildDirectMessageReplyPayload(content, options)
           }
         ])
 
         if (!result || result.status !== 'sent') {
           throw new Error(result?.error ?? 'Discord did not confirm the DM reply send.')
+        }
+
+        if (
+          options.autoDeleteAfterMs
+          && options.autoDeleteAfterMs > 0
+          && result.channelId
+          && result.messageId
+        ) {
+          scheduleGatewayDirectMessageDeletion(result.channelId, result.messageId, options.autoDeleteAfterMs)
         }
       }
     }).catch((error) => {

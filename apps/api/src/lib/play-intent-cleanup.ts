@@ -1,6 +1,7 @@
 import { NotificationType } from '@prisma/client'
 import { sweepOldDiscordDirectMessages } from './discord-dm-cleanup.js'
 import { refreshTrackedDiscordAutoPlayPromptDirectMessages } from './discord-auto-play-prompts.js'
+import { publishPlayIntentInvalidation } from './dashboard-events.js'
 import {
   expirePendingPlayIntentNotifications,
   refreshTrackedCreatorPlayIntentSummaryMessages,
@@ -20,6 +21,37 @@ let cleanupLoopStarted = false
 let cleanupInFlight = false
 let lastStaleDiscordDmSweepStartedAt = 0
 let trackedDiscordDmRefreshCompleted = false
+let lastPlayIntentTimeBoundarySweepCompletedAt = Date.now()
+
+async function publishElapsedPlayIntentTimeBoundaryInvalidation() {
+  const sweepStartedAt = Date.now()
+  const priorSweepCompletedAt = lastPlayIntentTimeBoundarySweepCompletedAt
+
+  const elapsedBoundaryCount = await prisma.playIntent.count({
+    where: {
+      OR: [
+        {
+          windowStartsAt: {
+            gt: new Date(priorSweepCompletedAt),
+            lte: new Date(sweepStartedAt)
+          }
+        },
+        {
+          expiresAt: {
+            gt: new Date(priorSweepCompletedAt),
+            lte: new Date(sweepStartedAt)
+          }
+        }
+      ]
+    }
+  })
+
+  lastPlayIntentTimeBoundarySweepCompletedAt = sweepStartedAt
+
+  if (elapsedBoundaryCount > 0) {
+    publishPlayIntentInvalidation()
+  }
+}
 
 export async function sweepExpiredPlayIntentNotifications() {
   const expiredIntentIds = (await prisma.playIntent.findMany({
@@ -63,6 +95,7 @@ async function runCleanupSweep() {
     await sweepProvisionPendingPlayIntentDiscordSpaces()
     await sweepDeleteDuePlayIntentDiscordSpaces()
     await sweepExpiredPlayIntentNotifications()
+    await publishElapsedPlayIntentTimeBoundaryInvalidation()
 
     if (Date.now() - lastStaleDiscordDmSweepStartedAt >= staleDiscordDmSweepIntervalMs) {
       lastStaleDiscordDmSweepStartedAt = Date.now()
