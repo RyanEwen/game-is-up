@@ -108,7 +108,7 @@ function FriendsViewContent({
         }}
         sx={buildHeaderFilterSelectSx(170)}
       >
-        <Option value="matching-games">Matching games</Option>
+        <Option value="matching-games">Number of matching games</Option>
         <Option value="games">Number of games</Option>
         <Option value="name">Name</Option>
       </Select>

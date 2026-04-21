@@ -184,19 +184,22 @@ function DiscoveryViewContent({
   )
 
   const memberFilterControl = selectedDiscoveryServers.length > 1 ? (
-    <Box sx={{ minWidth: { xs: '100%', sm: 240 } }}>
-      <DiscordServerPicker
-        options={selectedDiscoveryServers}
-        value={memberServerFilterId}
-        placeholder="All selected servers"
-        onChange={setMemberServerFilterId}
-        emptyOptionLabel="All selected servers"
-        getOptionDescription={(option) =>
-          option.knownUserCount > 0
-            ? `${option.knownUserCount} network member${option.knownUserCount === 1 ? '' : 's'} visible`
-            : 'No network members visible yet'
-        }
-      />
+    <Box sx={headerFilterControlSx}>
+      <Typography level="body-sm" sx={{ color: 'neutral.400', whiteSpace: 'nowrap' }}>Filter</Typography>
+      <Box sx={{ flex: { xs: '1 1 0', sm: '0 0 auto' }, minWidth: { xs: 0, sm: 240 }, maxWidth: '100%' }}>
+        <DiscordServerPicker
+          options={selectedDiscoveryServers}
+          value={memberServerFilterId}
+          placeholder="Entire network"
+          onChange={setMemberServerFilterId}
+          emptyOptionLabel="Entire network"
+          getOptionDescription={(option) =>
+            option.knownUserCount > 0
+              ? `${option.knownUserCount} network member${option.knownUserCount === 1 ? '' : 's'} visible`
+              : 'No network members visible yet'
+          }
+        />
+      </Box>
     </Box>
   ) : null
 

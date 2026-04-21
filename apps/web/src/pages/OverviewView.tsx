@@ -152,12 +152,14 @@ function QuickStartStepCard({
   title,
   body,
   tabLabel,
-  to
+  to,
+  scrollToId
 }: {
   title: string;
   body: string;
   tabLabel?: string;
   to?: string;
+  scrollToId?: string;
 }) {
   return (
     <Card variant="soft" sx={{ p: 3 }}>
@@ -180,6 +182,25 @@ function QuickStartStepCard({
             Open {tabLabel}
           </Typography>
         ) : null}
+        {tabLabel && scrollToId ? (
+          <Typography
+            component="button"
+            type="button"
+            onClick={() => document.getElementById(scrollToId)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+            level="body-xs"
+            sx={{
+              color: 'primary.200',
+              border: 'none',
+              background: 'none',
+              p: 0,
+              textDecoration: 'none',
+              cursor: 'pointer',
+              '&:hover': { color: 'primary.100', textDecoration: 'underline' }
+            }}
+          >
+            {tabLabel}
+          </Typography>
+        ) : null}
       </Stack>
     </Card>
   )
@@ -191,6 +212,8 @@ function QuickStartCard() {
       <QuickStartStepCard
         title="1. Sign in"
         body="Sign in using your Discord account."
+        tabLabel="Sign in above"
+        scrollToId="account"
       />
       <QuickStartStepCard
         title="2. Form your network"
@@ -718,7 +741,7 @@ function OverviewViewContent({
       />
       <Box id="account" sx={{ scrollMarginTop: sectionScrollMarginTop }}>
         <Stack spacing={1.5}>
-          <Typography level="h2">Account</Typography>
+          <Typography level="h2">Your Account</Typography>
           <AccountCard
             session={session}
             discordEnabled={discordEnabled}
