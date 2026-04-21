@@ -21,6 +21,14 @@ function buildSoftControlStyles(color: string) {
   }
 }
 
+function buildInsetSurfaceStyles() {
+  return {
+    backgroundColor: 'var(--joy-palette-background-surface)',
+    borderColor: 'var(--joy-palette-neutral-700)',
+    boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.03)'
+  }
+}
+
 export const theme = extendTheme({
   fontFamily: {
     body: 'IBM Plex Sans, sans-serif',
@@ -84,20 +92,22 @@ export const theme = extendTheme({
       styleOverrides: {
         root: ({ ownerState }) => {
           if (ownerState.variant === 'outlined') {
-            return {
-              backgroundColor: 'var(--joy-palette-background-surface)',
-              borderColor: 'var(--joy-palette-neutral-700)',
-              backdropFilter: 'blur(18px)',
-              WebkitBackdropFilter: 'blur(18px)',
-              boxShadow: 'none'
-            }
+            return buildInsetSurfaceStyles()
           }
 
           if (ownerState.variant === 'soft') {
+            if (ownerState.color === 'primary') {
+              return {
+                background: 'linear-gradient(180deg, #12342d, #0d1322)',
+                border: '1px solid var(--joy-palette-primary-600)',
+                boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.03)'
+              }
+            }
+
             return {
               backgroundColor: 'var(--joy-palette-background-level1)',
               border: '1px solid var(--joy-palette-neutral-700)',
-              boxShadow: 'none'
+              boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.03)'
             }
           }
 
@@ -193,9 +203,9 @@ export const theme = extendTheme({
         },
         background: {
           body: '#070b14',
-          surface: 'rgba(19, 27, 42, 0.4)',
+          surface: 'rgba(19, 27, 42, 0.5)',
           popup: '#121a28',
-          level1: 'rgba(31, 42, 58, 0.87)',
+          level1: 'rgba(19, 27, 42, 0.65)',
           level2: '#24364d',
           level3: '#355076'
         },

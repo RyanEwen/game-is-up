@@ -532,7 +532,7 @@ export function PlayIntentDetailView() {
             <Card
               variant="outlined"
               color="warning"
-                sx={{ p: 1.5, borderColor: 'warning.700', backgroundColor: 'warning.900' }}
+              sx={{ p: 1.5, borderColor: 'warning.700', backgroundColor: 'warning.900' }}
             >
               <Typography level="body-sm" sx={{ color: 'warning.200' }}>
                 This call is visible in your network, but it does not currently include you.
@@ -550,7 +550,7 @@ export function PlayIntentDetailView() {
         }}
       >
         <Stack spacing={2}>
-          <Card variant="outlined" sx={{ p: 3, borderColor: '#304159' }}>
+          <Card variant="outlined" sx={{ p: 3 }}>
             <Stack spacing={1.5}>
               <Typography level="title-md">Who this call can reach</Typography>
               <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
@@ -590,7 +590,7 @@ export function PlayIntentDetailView() {
           </Card>
 
           {libraryWideScope ? (
-            <Card variant="outlined" sx={{ p: 3, borderColor: '#304159' }}>
+            <Card variant="outlined" sx={{ p: 3 }}>
               <Stack spacing={1.5}>
                 <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }}>
                   <Box>
@@ -692,7 +692,7 @@ export function PlayIntentDetailView() {
               </Stack>
             </Card>
           ) : (
-            <Card variant="outlined" sx={{ p: 3, borderColor: '#304159' }}>
+            <Card variant="outlined" sx={{ p: 3 }}>
               <Stack spacing={1.5}>
                 <Typography level="title-md">Selected games</Typography>
                 <PlayIntentGameList
@@ -709,7 +709,7 @@ export function PlayIntentDetailView() {
         </Stack>
 
         <Stack spacing={2}>
-          <Card variant="outlined" sx={{ p: 3, borderColor: '#304159' }}>
+          <Card variant="outlined" sx={{ p: 3 }}>
             <Stack spacing={1.5}>
               <Typography level="title-md">Call details</Typography>
               <Stack spacing={0.75}>
@@ -726,12 +726,7 @@ export function PlayIntentDetailView() {
                   <Card
                     variant="soft"
                     color="primary"
-                    sx={{
-                      p: 1.5,
-                      mt: 0.5,
-                      border: '1px solid #14886a',
-                      background: 'linear-gradient(180deg, #12342d, #0d1322)'
-                    }}
+                    sx={{ p: 1.5, mt: 0.5 }}
                   >
                     <Stack spacing={1.25}>
                       {intent.discordSpace?.status === 'deleted' ? (
@@ -832,7 +827,7 @@ export function PlayIntentDetailView() {
             </Stack>
           </Card>
 
-          <Card variant="outlined" sx={{ p: 3, borderColor: '#304159' }}>
+          <Card variant="outlined" sx={{ p: 3 }}>
             <Stack spacing={2}>
               <Typography level="title-md">Responses</Typography>
               <Box>
@@ -853,7 +848,7 @@ export function PlayIntentDetailView() {
               </Box>
 
               {intent.notifyScope === 'specific-friends' ? (
-                <Box sx={{ pt: 2, borderTop: '1px solid #304159' }}>
+                <Box sx={{ pt: 2, borderTop: '1px solid', borderColor: 'neutral.700' }}>
                   <PlayIntentResponseUserList
                     users={intent.passedUsers}
                     label="Passed on this call"
