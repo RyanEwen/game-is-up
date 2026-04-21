@@ -69,7 +69,8 @@ export const steamLibraryImportGameSchema = z.object({
   platformLabels: z.array(platformLabelSchema).min(1),
   minutesPlayedTotal: z.number().int().nonnegative(),
   minutesPlayedRecent: z.number().int().nonnegative(),
-  alreadyInLibrary: z.boolean()
+  alreadyInLibrary: z.boolean(),
+  gameplayClassification: z.enum(['singleplayer-only', 'multiplayer', 'unknown']).default('unknown')
 })
 
 export const steamLibraryImportAccountSchema = z.object({
@@ -107,11 +108,62 @@ export const gameSearchResultSchema = z.object({
   sourceId: z.string().trim().min(1).max(96),
   title: z.string().min(1),
   coverUrl: z.string().url().nullable(),
-  platformLabels: z.array(platformLabelSchema)
+  platformLabels: z.array(platformLabelSchema),
+  gameplayClassification: z.enum(['singleplayer-only', 'multiplayer', 'unknown']).default('unknown')
 })
 
 export const gameSearchResponseSchema = z.object({
   results: z.array(gameSearchResultSchema)
+})
+
+export const gameDetailsClassificationSchema = z.enum(['singleplayer-only', 'multiplayer', 'unknown'])
+
+export const gameDetailsGameplaySchema = z.object({
+  classification: gameDetailsClassificationSchema,
+  isSinglePlayer: z.boolean(),
+  isMultiplayer: z.boolean(),
+  isCoOp: z.boolean(),
+  evidence: z.array(z.string().trim().min(1).max(64)).default([])
+})
+
+export const gameDetailsMediaItemSchema = z.object({
+  kind: z.enum(['image', 'video']),
+  url: z.string().url(),
+  thumbnailUrl: z.string().url().nullable(),
+  label: z.string().trim().min(1).max(120).nullable()
+})
+
+export const gameDetailsStoreLinkSchema = z.object({
+  label: z.string().trim().min(1).max(80),
+  url: z.string().url()
+})
+
+export const gameDetailsSchema = z.object({
+  id: z.string().min(1),
+  source: catalogProviderSchema,
+  sourceId: z.string().trim().min(1).max(96),
+  title: z.string().min(1),
+  coverUrl: z.string().url().nullable(),
+  heroImageUrl: z.string().url().nullable(),
+  description: z.string().trim().max(12000).nullable(),
+  shortDescription: z.string().trim().max(1200).nullable(),
+  websiteUrl: z.string().url().nullable(),
+  releasedAt: z.string().date().nullable(),
+  developers: z.array(z.string().trim().min(1).max(120)).default([]),
+  publishers: z.array(z.string().trim().min(1).max(120)).default([]),
+  genres: z.array(z.string().trim().min(1).max(64)).default([]),
+  tags: z.array(z.string().trim().min(1).max(64)).default([]),
+  platformLabels: z.array(platformLabelSchema).default([]),
+  rating: z.number().min(0).max(5).nullable(),
+  reviewCount: z.number().int().nonnegative().nullable(),
+  metacritic: z.number().int().min(0).max(100).nullable(),
+  gameplay: gameDetailsGameplaySchema,
+  storeLinks: z.array(gameDetailsStoreLinkSchema).default([]),
+  media: z.array(gameDetailsMediaItemSchema).default([])
+})
+
+export const gameDetailsResponseSchema = z.object({
+  game: gameDetailsSchema.nullable()
 })
 
 export const discordServerPreferenceSchema = z.object({
@@ -948,6 +1000,12 @@ export type SteamLibraryImportSelection = z.infer<typeof steamLibraryImportSelec
 export type ImportSteamLibrarySelectionRequest = z.infer<typeof importSteamLibrarySelectionRequestSchema>;
 export type GameSearchResult = z.infer<typeof gameSearchResultSchema>;
 export type GameSearchResponse = z.infer<typeof gameSearchResponseSchema>;
+export type GameDetailsClassification = z.infer<typeof gameDetailsClassificationSchema>;
+export type GameDetailsGameplay = z.infer<typeof gameDetailsGameplaySchema>;
+export type GameDetailsMediaItem = z.infer<typeof gameDetailsMediaItemSchema>;
+export type GameDetailsStoreLink = z.infer<typeof gameDetailsStoreLinkSchema>;
+export type GameDetails = z.infer<typeof gameDetailsSchema>;
+export type GameDetailsResponse = z.infer<typeof gameDetailsResponseSchema>;
 export type DiscordServerPreference = z.infer<typeof discordServerPreferenceSchema>;
 export type DiscordServerPreferencesResponse = z.infer<typeof discordServerPreferencesResponseSchema>;
 export type DiscordServerMember = z.infer<typeof discordServerMemberSchema>;

@@ -2,6 +2,7 @@ import { Router } from 'express'
 import type { Request, Response } from 'express'
 import { AuthProvider as PrismaAuthProvider, GameIntentType } from '@prisma/client'
 import {
+  gameDetailsResponseSchema,
   gameSearchResponseSchema,
   importSteamLibrarySelectionRequestSchema,
   libraryResponseSchema,
@@ -20,6 +21,7 @@ import {
   normalizeGameTitleForMatch,
   searchGamesByTitle
 } from '../lib/game-catalog.js'
+import { getGameDetails } from '../lib/game-details.js'
 import { publishDashboardInvalidation } from '../lib/dashboard-events.js'
 import { toClientGameCoverUrl } from '../lib/game-media.js'
 import { getNetworkTrendingGames, getObservedLibrarySuggestions } from '../lib/library-suggestions.js'
@@ -35,6 +37,11 @@ const libraryEntryParamsSchema = z.object({
 
 const libraryCatalogQuerySchema = z.object({
   query: z.string().trim().max(80).default('')
+})
+
+const libraryCatalogDetailsParamsSchema = z.object({
+  source: z.string().trim().min(1).max(32),
+  sourceId: z.string().trim().min(1).max(96)
 })
 
 export const libraryRouter = Router()
@@ -303,6 +310,17 @@ libraryRouter.get('/catalog', async (request, response, next) => {
         results
       })
     )
+  } catch (error) {
+    next(error)
+  }
+})
+
+libraryRouter.get('/catalog/:source/:sourceId/details', async (request, response, next) => {
+  try {
+    const { source, sourceId } = libraryCatalogDetailsParamsSchema.parse(request.params)
+    response.json(gameDetailsResponseSchema.parse({
+      game: await getGameDetails(source, sourceId)
+    }))
   } catch (error) {
     next(error)
   }

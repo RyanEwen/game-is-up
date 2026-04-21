@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
-import { Box, Button, DialogContent, DialogTitle, Input, Link, Sheet, Stack, Typography } from '@mui/joy'
+import { Box, Button, Chip, DialogContent, DialogTitle, Input, Link, Sheet, Stack, Typography } from '@mui/joy'
 import type { GameSearchResponse, GameSearchResult, LibraryEntry, LibraryEntryIntent } from '@game-is-up/shared'
 import { DashboardDeferredImage } from './DashboardDeferredImage'
 import { formatLibraryIntentLabel } from './dashboardUtils'
 import { DashboardModalActionBar } from './DashboardModalActionBar'
+import { useDashboardContext } from '../../contexts/useDashboardContext'
 
 export function LibraryEditorCard({
   editingLibraryEntry,
@@ -52,6 +53,7 @@ export function LibraryEditorCard({
   onAddLibraryEntry: () => Promise<void>;
   onCancelLibraryEdit: () => void;
 }) {
+  const { gameDetailsViewProps } = useDashboardContext()
   const [aliasDraft, setAliasDraft] = useState(gameAlias ?? '')
 
   useEffect(() => {
@@ -131,13 +133,28 @@ export function LibraryEditorCard({
                     >
                       <Stack direction="row" spacing={1.25} alignItems="center" sx={{ width: '100%' }}>
                         <Box
+                          component="button"
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation()
+                            gameDetailsViewProps.openGameDetails({
+                              source: result.source,
+                              sourceId: result.sourceId,
+                              title: result.title,
+                              coverUrl: result.coverUrl,
+                              platformLabels: result.platformLabels
+                            })
+                          }}
                           sx={{
                             width: 36,
                             height: 48,
                             borderRadius: 'sm',
                             overflow: 'hidden',
                             backgroundColor: 'rgba(255,255,255,0.08)',
-                            flexShrink: 0
+                            flexShrink: 0,
+                            border: 'none',
+                            padding: 0,
+                            cursor: 'pointer'
                           }}
                         >
                           {result.coverUrl ? (
@@ -145,7 +162,12 @@ export function LibraryEditorCard({
                           ) : null}
                         </Box>
                         <Box sx={{ textAlign: 'left', minWidth: 0 }}>
-                          <Typography level="title-sm">{result.title}</Typography>
+                          <Stack direction="row" spacing={0.75} alignItems="center" sx={{ flexWrap: 'wrap' }}>
+                            <Typography level="title-sm">{result.title}</Typography>
+                            {result.gameplayClassification === 'singleplayer-only' ? (
+                              <Chip size="sm" color="warning" variant="soft">Single-player</Chip>
+                            ) : null}
+                          </Stack>
                           <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
                             {result.platformLabels.join(', ') || 'Platforms unknown'}
                           </Typography>
@@ -165,13 +187,25 @@ export function LibraryEditorCard({
             <Sheet variant="soft" sx={{ mt: 1, p: 1.25, borderRadius: 'md' }}>
               <Stack direction="row" spacing={1.25} alignItems="center">
                 <Box
+                  component="button"
+                  type="button"
+                  onClick={() => gameDetailsViewProps.openGameDetails({
+                    source: selectedCatalogResult.source,
+                    sourceId: selectedCatalogResult.sourceId,
+                    title: selectedCatalogResult.title,
+                    coverUrl: selectedCatalogResult.coverUrl,
+                    platformLabels: selectedCatalogResult.platformLabels
+                  })}
                   sx={{
                     width: 36,
                     height: 48,
                     borderRadius: 'sm',
                     overflow: 'hidden',
                     backgroundColor: 'rgba(255,255,255,0.08)',
-                    flexShrink: 0
+                    flexShrink: 0,
+                    border: 'none',
+                    padding: 0,
+                    cursor: 'pointer'
                   }}
                 >
                   {selectedCatalogResult.coverUrl ? (
@@ -179,9 +213,14 @@ export function LibraryEditorCard({
                   ) : null}
                 </Box>
                 <Box>
-                  <Typography level="body-sm" sx={{ color: 'primary.300' }}>
-                    Catalog match selected: {selectedCatalogResult.title}
-                  </Typography>
+                  <Stack direction="row" spacing={0.75} alignItems="center" sx={{ flexWrap: 'wrap' }}>
+                    <Typography level="body-sm" sx={{ color: 'primary.300' }}>
+                      Catalog match selected: {selectedCatalogResult.title}
+                    </Typography>
+                    {selectedCatalogResult.gameplayClassification === 'singleplayer-only' ? (
+                      <Chip size="sm" color="warning" variant="soft">Single-player</Chip>
+                    ) : null}
+                  </Stack>
                   {selectedCatalogResult.platformLabels.length ? (
                     <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
                       Known platforms: {selectedCatalogResult.platformLabels.join(', ')}.

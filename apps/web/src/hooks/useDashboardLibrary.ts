@@ -1,5 +1,5 @@
 import type { Dispatch, SetStateAction } from 'react'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type {
   GameSearchResponse,
   GameSearchResult,
@@ -22,6 +22,7 @@ import {
   userPlatformAliasesResponseSchema
 } from '@game-is-up/shared'
 import type { DashboardLibraryQuickAddGame, Notice } from '../components/dashboard/types'
+import { useLocation } from 'react-router-dom'
 
 const defaultPlatformOptions = ['PC', 'Xbox', 'PlayStation', 'Switch', 'Mobile', 'macOS', 'Linux'] as const
 
@@ -129,6 +130,8 @@ export function useDashboardLibrary({
   onStartSteamLink: () => Promise<void>;
   onAddGameToLibrary: (game: DashboardLibraryQuickAddGame) => Promise<void>;
 }) {
+  const location = useLocation()
+  const previousPathnameRef = useRef(location.pathname)
   const [libraryTitle, setLibraryTitle] = useState('')
   const [selectedPlatformLabels, setSelectedPlatformLabels] = useState<string[]>([])
   const [libraryAvailability, setLibraryAvailability] = useState('')
@@ -348,7 +351,8 @@ export function useDashboardLibrary({
       sourceId: gameId,
       title,
       coverUrl,
-      platformLabels: normalizedPlatformLabels
+      platformLabels: normalizedPlatformLabels,
+      gameplayClassification: 'unknown'
     })
     setLibraryIntent('interested')
     setActionNotice(null)
@@ -370,6 +374,22 @@ export function useDashboardLibrary({
     setActionNotice(null)
     resetLibraryForm()
   }, [resetLibraryForm, setActionNotice])
+
+  useEffect(() => {
+    if (previousPathnameRef.current === location.pathname) {
+      return
+    }
+
+    previousPathnameRef.current = location.pathname
+
+    if (isLibraryEditorOpen) {
+      handleCancelLibraryEdit()
+    }
+
+    if (isSteamImportModalOpen) {
+      setIsSteamImportModalOpen(false)
+    }
+  }, [handleCancelLibraryEdit, isLibraryEditorOpen, isSteamImportModalOpen, location.pathname])
 
   const handleSaveUsualAvailability = useCallback(async () => {
     setProfileSaving(true)

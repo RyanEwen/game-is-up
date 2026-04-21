@@ -13,6 +13,7 @@ import {
   topLevelCardSx
 } from './dashboardUtils'
 import type { DashboardLibraryQuickAddGame, FriendTarget } from './types'
+import { useDashboardContext } from '../../contexts/useDashboardContext'
 
 type CompactCardBadge = {
   label: string;
@@ -55,6 +56,8 @@ export function CompactPersonGameCard({
   footerBadge?: CompactCardBadge | null;
   onAddToLibrary: (game: DashboardLibraryQuickAddGame) => Promise<void>;
 }) {
+  const { gameDetailsViewProps } = useDashboardContext()
+
   return (
     <Sheet
       variant="soft"
@@ -68,13 +71,25 @@ export function CompactPersonGameCard({
       <Stack spacing={1.25} sx={{ height: '100%' }}>
         <Stack direction="row" spacing={1.25} alignItems="flex-start">
           <Box
+            component="button"
+            type="button"
+            onClick={() => gameDetailsViewProps.openGameDetails({
+              source: 'local',
+              sourceId: game.gameId,
+              title: game.title,
+              coverUrl: game.coverUrl,
+              platformLabels: game.platformLabels
+            })}
             sx={{
               width: 52,
               height: 68,
               borderRadius: 'sm',
               overflow: 'hidden',
               ...nestedInsetMediaSx,
-              flexShrink: 0
+              flexShrink: 0,
+              border: 'none',
+              padding: 0,
+              cursor: 'pointer'
             }}
           >
             {game.coverUrl ? (

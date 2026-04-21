@@ -2,6 +2,7 @@ import { type ReactNode, useEffect, useMemo, useState } from 'react'
 import HeadsetMicRoundedIcon from '@mui/icons-material/HeadsetMicRounded'
 import OpenInNewRoundedIcon from '@mui/icons-material/OpenInNewRounded'
 import ScheduleRoundedIcon from '@mui/icons-material/ScheduleRounded'
+import WestRoundedIcon from '@mui/icons-material/WestRounded'
 import { Avatar, Box, Button, ButtonGroup, Card, Chip, Stack, Typography } from '@mui/joy'
 import { dashboardInvalidationEventSchema, playIntentDetailResponseSchema, type PlayIntentDetail } from '@game-is-up/shared'
 import { useNavigate, useParams } from 'react-router-dom'
@@ -17,6 +18,10 @@ import { CtpDmInboxDialog } from './DebugDmSurface'
 
 function formatDateTimeLabel(value: string) {
   return formatMonthDayTime(value)
+}
+
+function formatCallDetailTimingLabel(startsAt: string, endsAt: string) {
+  return formatPlayIntentTimingSummary(startsAt, endsAt).replace(/^Scheduled for /, '')
 }
 
 function formatDiscordSpaceStatusLabel(status: NonNullable<PlayIntentDetail['discordSpace']>['status']) {
@@ -130,6 +135,38 @@ function DiscordDetailTextRow({
       </Box>
       <Typography level="body-sm" sx={{ color: 'neutral.200' }}>
         {children}
+      </Typography>
+    </Stack>
+  )
+}
+
+function CallDetailRow({
+  label,
+  value
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <Stack
+      direction={{ xs: 'column', sm: 'row' }}
+      spacing={{ xs: 0.25, sm: 1.25 }}
+      alignItems={{ xs: 'flex-start', sm: 'baseline' }}
+    >
+      <Typography
+        level="body-xs"
+        sx={{
+          minWidth: { sm: '4.5rem' },
+          color: 'neutral.500',
+          fontWeight: 700,
+          letterSpacing: '0.08em',
+          textTransform: 'uppercase'
+        }}
+      >
+        {label}
+      </Typography>
+      <Typography level="body-sm" sx={{ color: 'neutral.100', fontWeight: 500 }}>
+        {value}
       </Typography>
     </Stack>
   )
@@ -312,7 +349,7 @@ export function PlayIntentDetailView() {
             <Button color="primary" onClick={() => void overviewViewProps.onDiscordLogin()}>
               Sign in with Discord
             </Button>
-            <Button variant="outlined" color="neutral" onClick={() => navigate('/play')}>
+            <Button variant="outlined" color="neutral" onClick={() => navigate('/play')} startDecorator={<WestRoundedIcon fontSize="small" />}>
               Back to play feed
             </Button>
           </Stack>
@@ -327,7 +364,13 @@ export function PlayIntentDetailView() {
         <Stack spacing={1.5}>
           <Typography level="title-lg">Call to play unavailable</Typography>
           <Typography level="body-sm">{errorMessage ?? 'This call to play could not be loaded.'}</Typography>
-          <Button variant="outlined" color="neutral" onClick={() => navigate('/play')} sx={{ alignSelf: 'flex-start' }}>
+          <Button
+            variant="outlined"
+            color="neutral"
+            onClick={() => navigate('/play')}
+            startDecorator={<WestRoundedIcon fontSize="small" />}
+            sx={{ alignSelf: 'flex-start' }}
+          >
             Back to play feed
           </Button>
         </Stack>
@@ -376,9 +419,10 @@ export function PlayIntentDetailView() {
         variant="plain"
         color="neutral"
         onClick={() => navigate('/play')}
+        startDecorator={<WestRoundedIcon fontSize="small" />}
         sx={{ alignSelf: 'flex-start', px: 1.5 }}
       >
-        ← Back to play feed
+        Back to play feed
       </Button>
 
       <Card
@@ -722,15 +766,18 @@ export function PlayIntentDetailView() {
             <Stack spacing={1.5}>
               <Typography level="title-md">Call details</Typography>
               <Stack spacing={0.75}>
-                <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
-                  Timing: {formatPlayIntentTimingSummary(intent.availabilityWindow.startsAt, intent.availabilityWindow.endsAt)}
-                </Typography>
-                <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
-                  Ends: {formatDateTimeLabel(intent.availabilityWindow.endsAt)}
-                </Typography>
-                <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
-                  Created: {formatDateTimeLabel(intent.createdAt)}
-                </Typography>
+                <CallDetailRow
+                  label="Timing"
+                  value={formatCallDetailTimingLabel(intent.availabilityWindow.startsAt, intent.availabilityWindow.endsAt)}
+                />
+                <CallDetailRow
+                  label="Ends"
+                  value={formatDateTimeLabel(intent.availabilityWindow.endsAt)}
+                />
+                <CallDetailRow
+                  label="Created"
+                  value={formatDateTimeLabel(intent.createdAt)}
+                />
                 {(intent.discordSpace || intent.voiceChannelName) ? (
                   <Card
                     variant="soft"
@@ -838,7 +885,7 @@ export function PlayIntentDetailView() {
                 />
                 {intent.interestedUsers.length === 0 ? (
                   <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
-                    Nobody has marked themselves as interested yet.
+                    Nobody has shown interest yet.
                   </Typography>
                 ) : null}
               </Box>
@@ -856,7 +903,7 @@ export function PlayIntentDetailView() {
                   />
                   {intent.passedUsers.length === 0 ? (
                     <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
-                      Nobody has passed on this call yet.
+                      Nobody has passed yet.
                     </Typography>
                   ) : null}
                 </Box>

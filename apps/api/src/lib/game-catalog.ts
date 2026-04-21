@@ -1,6 +1,7 @@
 import type { CatalogGameMatch, GameSearchResult } from '@game-is-up/shared'
 import { prisma } from './prisma.js'
 import { resolveStoredGameCoverUrl, toClientGameCoverUrl } from './game-media.js'
+import { getGameDetails } from './game-details.js'
 import { isRawgCatalogConfigured, searchRawgGamesByTitle, type ProviderCatalogResult } from './rawg-game-catalog.js'
 
 function slugifyTitle(title: string): string {
@@ -266,19 +267,35 @@ function normalizeLocalSearchResult(game: {
     sourceId: game.id,
     title: game.title,
     coverUrl: toClientGameCoverUrl(game.coverUrl),
-    platformLabels: dedupePlatformLabels(game.platforms.map((platform) => platform.platformLabel))
+    platformLabels: dedupePlatformLabels(game.platforms.map((platform) => platform.platformLabel)),
+    gameplayClassification: 'unknown'
   }
 }
 
-function normalizeProviderSearchResult(result: ProviderCatalogResult): GameSearchResult {
+function normalizeProviderSearchResult(result: ProviderCatalogResult, gameplayClassification: GameSearchResult['gameplayClassification'] = 'unknown'): GameSearchResult {
   return {
     id: normalizeSearchResultId(result.source, result.sourceId),
     source: result.source,
     sourceId: result.sourceId,
     title: result.title,
     coverUrl: toClientGameCoverUrl(result.coverUrl),
-    platformLabels: dedupePlatformLabels(result.platformLabels)
+    platformLabels: dedupePlatformLabels(result.platformLabels),
+    gameplayClassification
   }
+}
+
+function compareSearchResults(left: GameSearchResult, right: GameSearchResult): number {
+  const leftPenalty = left.gameplayClassification === 'singleplayer-only' ? 1 : 0
+  const rightPenalty = right.gameplayClassification === 'singleplayer-only' ? 1 : 0
+
+  if (leftPenalty !== rightPenalty) {
+    return leftPenalty - rightPenalty
+  }
+
+  return left.title.localeCompare(right.title, undefined, {
+    sensitivity: 'base',
+    numeric: true
+  })
 }
 
 async function syncGamePlatforms(gameId: string, platformLabels: string[]) {
@@ -555,7 +572,16 @@ export async function searchGamesByTitle(query: string) {
   })
 
   const providerResults = isRawgCatalogConfigured() ? await searchRawgGamesByTitle(normalizedQuery) : []
-  const mergedResults = [...providerResults.map(normalizeProviderSearchResult), ...localResults.map(normalizeLocalSearchResult)]
+  const providerSearchResults = await Promise.all(providerResults.map(async (result) => {
+    try {
+      const details = await getGameDetails(result.source, result.sourceId)
+
+      return normalizeProviderSearchResult(result, details?.gameplay.classification ?? 'unknown')
+    } catch {
+      return normalizeProviderSearchResult(result)
+    }
+  }))
+  const mergedResults = [...providerSearchResults, ...localResults.map(normalizeLocalSearchResult)]
   const dedupedByTitle = new Map<string, GameSearchResult>()
 
   for (const result of mergedResults) {
@@ -566,5 +592,5 @@ export async function searchGamesByTitle(query: string) {
     }
   }
 
-  return [...dedupedByTitle.values()].slice(0, 8)
+  return [...dedupedByTitle.values()].sort(compareSearchResults).slice(0, 8)
 }

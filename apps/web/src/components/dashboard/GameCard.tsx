@@ -5,6 +5,7 @@ import { FriendActionPopover } from './FriendActionPopover'
 import { GameActionPopover } from './GameActionPopover'
 import { commonWideGameCoverAspectRatio, formatLibraryIntentLabel, nestedInsetSurfaceSx, topLevelGridCardSx } from './dashboardUtils'
 import type { DashboardLibraryQuickAddGame, FriendTarget } from './types'
+import { useDashboardContext } from '../../contexts/useDashboardContext'
 
 type CompactCardBadge = {
   label: string;
@@ -164,6 +165,7 @@ export function GameCard({
     coverUrl: game.coverUrl,
     platformLabels: game.platformLabels
   }
+  const { gameDetailsViewProps } = useDashboardContext()
   const visiblePlatformLabels = compact ? game.platformLabels.slice(0, 3) : game.platformLabels
   const hiddenPlatformCount = game.platformLabels.length - visiblePlatformLabels.length
   const showCompactSignInHint = compact && !canManage && game.players.length > 0
@@ -179,13 +181,26 @@ export function GameCard({
     >
       <Stack spacing={compact ? 1.5 : 2} sx={{ height: '100%' }}>
         <Box
+          component="button"
+          type="button"
+          onClick={() => gameDetailsViewProps.openGameDetails({
+            source: 'local',
+            sourceId: game.id,
+            title: game.title,
+            coverUrl: game.coverUrl,
+            platformLabels: game.platformLabels
+          })}
           sx={{
             width: '100%',
             aspectRatio: commonWideGameCoverAspectRatio,
             borderRadius: 'md',
             overflow: 'hidden',
             backgroundColor: 'rgba(255,255,255,0.06)',
-            flexShrink: 0
+            flexShrink: 0,
+            border: 'none',
+            padding: 0,
+            textAlign: 'inherit',
+            cursor: 'pointer'
           }}
         >
           {game.coverUrl ? (

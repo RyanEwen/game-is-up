@@ -1,5 +1,6 @@
 import { Chip, Divider, Dropdown, Menu, MenuButton, MenuItem, Stack, Typography } from '@mui/joy'
 import type { DashboardLibraryQuickAddGame } from './types'
+import { useDashboardContext } from '../../contexts/useDashboardContext'
 
 const titleTriggerSx = {
   px: 0,
@@ -69,6 +70,7 @@ export function GameActionPopover({
   large?: boolean;
   onAddToLibrary: (game: DashboardLibraryQuickAddGame) => Promise<void>;
 }) {
+  const { gameDetailsViewProps } = useDashboardContext()
   const visibleDetailLines = detailLines.map((line) => line.trim()).filter(Boolean)
 
   return (
@@ -120,6 +122,16 @@ export function GameActionPopover({
         ))}
 
         <Divider inset="context" />
+
+        <MenuItem onClick={() => gameDetailsViewProps.openGameDetails({
+          source: 'local',
+          sourceId: game.gameId,
+          title: game.title,
+          coverUrl: game.coverUrl,
+          platformLabels: game.platformLabels
+        })}>
+          View details
+        </MenuItem>
 
         <MenuItem disabled={!canAddToLibrary || isInLibrary || isAddingToLibrary} onClick={() => void onAddToLibrary(game)}>
           {!canAddToLibrary

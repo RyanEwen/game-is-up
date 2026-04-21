@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Box, Button, Card, Checkbox, Chip, DialogContent, DialogTitle, Input, Option, Select, Sheet, Stack, Typography } from '@mui/joy'
-import type { GameSearchResponse, GameSearchResult, ImportSteamLibrarySelectionRequest, LibraryEntry, LibraryEntryIntent, LibrarySuggestedGame, SteamLibraryImportGame, SteamLibraryImportPreviewResponse, UserGameAlias, UserPlatformAlias } from '@game-is-up/shared'
+import type { GameDetails, GameSearchResponse, GameSearchResult, ImportSteamLibrarySelectionRequest, LibraryEntry, LibraryEntryIntent, LibrarySuggestedGame, SteamLibraryImportGame, SteamLibraryImportPreviewResponse, UserGameAlias, UserPlatformAlias } from '@game-is-up/shared'
+import { gameDetailsResponseSchema } from '@game-is-up/shared'
 import { DashboardModal } from '../components/dashboard/DashboardModal'
 import { AliasManagementCard } from '../components/dashboard/AliasManagementCard'
 import { DashboardApiIssueCard } from '../components/dashboard/DashboardApiIssueCard'
@@ -15,6 +16,7 @@ import { sectionScrollMarginTop } from '../components/dashboard/SectionNav.const
 import { formatLibraryIntentLabel, libraryEntryGridSx } from '../components/dashboard/dashboardUtils'
 import type { DashboardLibraryQuickAddGame } from '../components/dashboard/types'
 import { useDashboardContext } from '../contexts/useDashboardContext'
+import { buildApiUrl } from '../hooks/useDashboardApp'
 
 const steamImportPlatformOptions = ['PC', 'Xbox', 'PlayStation', 'Switch', 'Mobile', 'macOS', 'Linux'] as const
 const steamImportListMinHeight = 280
@@ -423,6 +425,8 @@ function SteamImportModalPicker({
   const [selectedSourceIds, setSelectedSourceIds] = useState<string[]>([])
   const [selectionOptions, setSelectionOptions] = useState<Record<string, SteamImportSelection>>({})
   const [expandedSourceIds, setExpandedSourceIds] = useState<string[]>([])
+  const [steamDetailsBySourceId, setSteamDetailsBySourceId] = useState<Record<string, GameDetails | null>>({})
+  const [steamDetailsLoadingIds, setSteamDetailsLoadingIds] = useState<string[]>([])
   const listScrollRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
@@ -437,6 +441,8 @@ function SteamImportModalPicker({
       Object.fromEntries(importableGames.map((game) => [game.sourceId, buildDefaultSteamImportSelection(game)]))
     )
     setExpandedSourceIds([])
+    setSteamDetailsBySourceId({})
+    setSteamDetailsLoadingIds([])
   }, [preview])
 
   const normalizedQuery = query.trim().toLowerCase()
@@ -460,7 +466,23 @@ function SteamImportModalPicker({
   const totalPages = Math.max(1, Math.ceil(filteredGames.length / steamImportPageSize))
   const currentPage = Math.min(page, totalPages)
   const pageStartIndex = (currentPage - 1) * steamImportPageSize
-  const pageGames = filteredGames.slice(pageStartIndex, pageStartIndex + steamImportPageSize)
+  const pageCandidateGames = filteredGames.slice(pageStartIndex, pageStartIndex + steamImportPageSize)
+  const pageGames = [...pageCandidateGames].sort((left, right) => {
+    const leftClassification = steamDetailsBySourceId[left.sourceId]?.gameplay.classification ?? left.gameplayClassification
+    const rightClassification = steamDetailsBySourceId[right.sourceId]?.gameplay.classification ?? right.gameplayClassification
+    const leftPenalty = leftClassification === 'singleplayer-only' ? 1 : 0
+    const rightPenalty = rightClassification === 'singleplayer-only' ? 1 : 0
+
+    if (leftPenalty !== rightPenalty) {
+      return leftPenalty - rightPenalty
+    }
+
+    return left.title.localeCompare(right.title, undefined, {
+      sensitivity: 'base',
+      numeric: true
+    })
+  })
+  const steamPageMetadataLoading = pageCandidateGames.some((game) => steamDetailsLoadingIds.includes(game.sourceId))
   const selectedSourceIdSet = new Set(selectedSourceIds)
   const expandedSourceIdSet = new Set(expandedSourceIds)
 
@@ -481,6 +503,62 @@ function SteamImportModalPicker({
   useEffect(() => {
     listScrollRef.current?.scrollTo({ top: 0 })
   }, [currentPage, libraryFilter, normalizedQuery, playtimeFilter, preview])
+
+  useEffect(() => {
+    const sourceIdsToLoad = pageCandidateGames
+      .map((game) => game.sourceId)
+      .filter((sourceId) => !(sourceId in steamDetailsBySourceId) && !steamDetailsLoadingIds.includes(sourceId))
+
+    if (sourceIdsToLoad.length === 0) {
+      return
+    }
+
+    let cancelled = false
+    setSteamDetailsLoadingIds((current) => [...new Set([...current, ...sourceIdsToLoad])])
+
+    void Promise.all(sourceIdsToLoad.map(async (sourceId) => {
+      try {
+        const response = await fetch(buildApiUrl(`/api/library/catalog/steam/${encodeURIComponent(sourceId)}/details`), {
+          credentials: 'include'
+        })
+        const responseBody = await response.json()
+
+        if (!response.ok) {
+          throw new Error(typeof responseBody === 'object' && responseBody && 'error' in responseBody && typeof responseBody.error === 'string'
+            ? responseBody.error
+            : 'Unable to load Steam metadata right now.')
+        }
+
+        const parsed = gameDetailsResponseSchema.parse(responseBody)
+
+        if (cancelled) {
+          return
+        }
+
+        setSteamDetailsBySourceId((current) => ({
+          ...current,
+          [sourceId]: parsed.game
+        }))
+      } catch {
+        if (cancelled) {
+          return
+        }
+
+        setSteamDetailsBySourceId((current) => ({
+          ...current,
+          [sourceId]: null
+        }))
+      } finally {
+        if (!cancelled) {
+          setSteamDetailsLoadingIds((current) => current.filter((entry) => entry !== sourceId))
+        }
+      }
+    }))
+
+    return () => {
+      cancelled = true
+    }
+  }, [pageCandidateGames, steamDetailsBySourceId, steamDetailsLoadingIds])
 
   const updateSelectionOptions = (
     sourceId: string,
@@ -582,6 +660,9 @@ function SteamImportModalPicker({
                 ? '0 results'
                 : `Showing ${pageStartIndex + 1}-${Math.min(pageStartIndex + pageGames.length, filteredGames.length)} of ${filteredGames.length}`}
             </Typography>
+            {steamPageMetadataLoading ? (
+              <Chip size="sm" color="neutral" variant="soft">Sorting single-player titles last...</Chip>
+            ) : null}
           </Stack>
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }}>
             <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
@@ -620,11 +701,13 @@ function SteamImportModalPicker({
                 const selected = selectedSourceIdSet.has(game.sourceId)
                 const options = selectionOptions[game.sourceId] ?? buildDefaultSteamImportSelection(game)
                 const showOptions = selected && !game.alreadyInLibrary && expandedSourceIdSet.has(game.sourceId)
+                const gameplayClassification = steamDetailsBySourceId[game.sourceId]?.gameplay.classification ?? game.gameplayClassification
 
                 return (
                   <SteamImportRow
                     key={game.sourceId}
                     game={game}
+                    gameplayClassification={gameplayClassification}
                     selected={selected}
                     options={options}
                     showOptions={showOptions}
@@ -651,6 +734,7 @@ function SteamImportModalPicker({
 
 function SteamImportRow({
   game,
+  gameplayClassification,
   selected,
   options,
   showOptions,
@@ -661,6 +745,7 @@ function SteamImportRow({
   onUpdateSelectionOptions
 }: {
   game: SteamLibraryImportGame;
+  gameplayClassification: SteamLibraryImportGame['gameplayClassification'];
   selected: boolean;
   options: SteamImportSelection;
   showOptions: boolean;
@@ -670,6 +755,7 @@ function SteamImportRow({
   onToggleExpanded: (sourceId: string) => void;
   onUpdateSelectionOptions: (sourceId: string, updater: (current: SteamImportSelection) => SteamImportSelection) => void;
 }) {
+  const { gameDetailsViewProps } = useDashboardContext()
   const platformOptions = [...new Set([...steamImportPlatformOptions, ...game.platformLabels, ...options.platformLabels])]
 
   return (
@@ -691,13 +777,28 @@ function SteamImportRow({
           onChange={() => onToggleSelection(game)}
         />
         <Box
+          component="button"
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation()
+            gameDetailsViewProps.openGameDetails({
+              source: 'steam',
+              sourceId: game.sourceId,
+              title: game.title,
+              coverUrl: game.coverUrl,
+              platformLabels: game.platformLabels
+            })
+          }}
           sx={{
             width: 56,
             height: 32,
             borderRadius: 'sm',
             overflow: 'hidden',
             backgroundColor: 'rgba(255,255,255,0.08)',
-            flexShrink: 0
+            flexShrink: 0,
+            border: 'none',
+            padding: 0,
+            cursor: 'pointer'
           }}
         >
           {game.coverUrl ? (
@@ -706,10 +807,28 @@ function SteamImportRow({
         </Box>
         <Stack spacing={0.5} sx={{ minWidth: 0, flex: 1 }}>
           <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }} alignItems="center">
-            <Typography level="title-sm">{game.title}</Typography>
-            {game.alreadyInLibrary ? <Chip size="sm" color="success" variant="soft">Already in library</Chip> : null}
-            {selected && !game.alreadyInLibrary ? <Chip size="sm" variant="soft" color="primary">{formatLibraryIntentLabel(options.intent)}</Chip> : null}
-          </Stack>
+              <Button
+                size="sm"
+                variant="plain"
+                color="neutral"
+                onClick={(event) => {
+                  event.stopPropagation()
+                  gameDetailsViewProps.openGameDetails({
+                    source: 'steam',
+                    sourceId: game.sourceId,
+                    title: game.title,
+                    coverUrl: game.coverUrl,
+                    platformLabels: game.platformLabels
+                  })
+                }}
+                sx={{ px: 0, py: 0, minHeight: 0, justifyContent: 'flex-start', color: 'neutral.100', fontSize: 'sm', fontWeight: 'lg' }}
+              >
+                {game.title}
+              </Button>
+              {gameplayClassification === 'singleplayer-only' ? <Chip size="sm" color="warning" variant="soft">Single-player</Chip> : null}
+              {game.alreadyInLibrary ? <Chip size="sm" color="success" variant="soft">Already in library</Chip> : null}
+              {selected && !game.alreadyInLibrary ? <Chip size="sm" variant="soft" color="primary">{formatLibraryIntentLabel(options.intent)}</Chip> : null}
+            </Stack>
           <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
             {options.platformLabels.join(', ')}
           </Typography>

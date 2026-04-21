@@ -6,7 +6,7 @@ import type { FriendTarget } from './types'
 
 const interestedPlayerGridSx = {
   display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 180px), 1fr))',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))',
   gap: 1
 } as const
 

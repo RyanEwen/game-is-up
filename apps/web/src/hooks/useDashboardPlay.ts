@@ -1,5 +1,5 @@
 import type { Dispatch, SetStateAction } from 'react'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type {
   ActivePlayIntent,
   DiscordServerPreference,
@@ -32,7 +32,9 @@ import {
   playIntentPresetDurations,
   toLocalDateTimeInputValue
 } from '../components/dashboard/dashboardUtils'
+import { dashboardTabPaths } from '../components/dashboard/dashboardUtils'
 import { formatMonthDayTime } from '../lib/dateTime'
+import { useLocation } from 'react-router-dom'
 import type {
   DashboardLibraryQuickAddGame,
   FriendTarget,
@@ -180,6 +182,8 @@ export function useDashboardPlay({
   loadDashboard: () => Promise<void>;
   setPlayIntentNotice: Dispatch<SetStateAction<Notice | null>>;
 }) {
+  const location = useLocation()
+  const previousPathnameRef = useRef(location.pathname)
   const [playIntentSelectionMode, setPlayIntentSelectionMode] = useState<PlayIntentSelectionMode>('library')
   const [playIntentNotifyScope, setPlayIntentNotifyScope] = useState<PlayIntentNotifyScope>('network')
   const [playIntentStartMode, setPlayIntentStartMode] = useState<PlayIntentStartMode>('now')
@@ -384,6 +388,25 @@ export function useDashboardPlay({
         : `Ends ${formatMonthDayTime(playIntentPreviewEndsAt)} (${formatPlayIntentDurationLabel(resolvedPlayIntentDurationMinutes)}).`
       : 'Choose how long this call to play should stay visible.'
   const playIntentTimingHasError = playIntentTimingValidationMessage != null
+
+  useEffect(() => {
+    if (previousPathnameRef.current === location.pathname) {
+      return
+    }
+
+    previousPathnameRef.current = location.pathname
+
+    if (location.pathname === dashboardTabPaths.play) {
+      return
+    }
+
+    if (!isPlayIntentComposerOpen) {
+      return
+    }
+
+    setIsPlayIntentComposerOpen(false)
+    setPlayIntentNotice(null)
+  }, [isPlayIntentComposerOpen, location.pathname, setPlayIntentNotice])
 
   useEffect(() => {
     if (!isSignedIn) {

@@ -2,6 +2,7 @@ import { Suspense, lazy, useEffect, useRef, type ReactNode, type RefObject } fro
 import { Box, Typography } from '@mui/joy'
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { DashboardLayout } from './components/dashboard/DashboardLayout'
+import { GameDetailsDialog } from './components/dashboard/GameDetailsDialog'
 import {
   dashboardTabPaths,
   getDashboardTabFromPathname
@@ -92,7 +93,7 @@ export default function App() {
 function DashboardAppShell() {
   const location = useLocation()
   const navigate = useNavigate()
-  const { layoutProps } = useDashboardContext()
+  const { layoutProps, gameDetailsViewProps } = useDashboardContext()
   const requestedTab = getDashboardTabFromPathname(location.pathname)
   const activeTab = requestedTab === 'debug' && !layoutProps.showDebugView ? 'overview' : (requestedTab ?? 'overview')
   const tabsAnchorRef = useRef<HTMLDivElement | null>(null)
@@ -153,6 +154,14 @@ function DashboardAppShell() {
           <Route path="*" element={<Navigate to={dashboardTabPaths.overview} replace />} />
         </Routes>
       </RouteSuspense>
+      <GameDetailsDialog
+        open={gameDetailsViewProps.isOpen}
+        target={gameDetailsViewProps.target}
+        gameDetails={gameDetailsViewProps.gameDetails}
+        loading={gameDetailsViewProps.loading}
+        error={gameDetailsViewProps.error}
+        onClose={gameDetailsViewProps.closeGameDetails}
+      />
     </DashboardLayout>
   )
 }

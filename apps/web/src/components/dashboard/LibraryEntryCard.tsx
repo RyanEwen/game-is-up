@@ -3,6 +3,7 @@ import type { LibraryEntry } from '@game-is-up/shared'
 import { AvailabilityChip } from './AvailabilityChip'
 import { DashboardDeferredImage } from './DashboardDeferredImage'
 import { commonWideGameCoverAspectRatio, formatLibraryIntentLabel, topLevelGridCardSx } from './dashboardUtils'
+import { useDashboardContext } from '../../contexts/useDashboardContext'
 
 export function LibraryEntryCard({
   entry,
@@ -19,6 +20,8 @@ export function LibraryEntryCard({
   onEdit: (entry: LibraryEntry) => void;
   onRemove: (entryId: string) => Promise<void>;
 }) {
+  const { gameDetailsViewProps } = useDashboardContext()
+
   return (
     <Card
       variant="soft"
@@ -29,6 +32,15 @@ export function LibraryEntryCard({
       }}
     >
       <Box
+        component="button"
+        type="button"
+        onClick={() => gameDetailsViewProps.openGameDetails({
+          source: 'local',
+          sourceId: entry.gameId,
+          title: entry.title,
+          coverUrl: entry.coverUrl,
+          platformLabels: entry.platformLabels
+        })}
         sx={{
           position: 'relative',
           display: 'block',
@@ -37,7 +49,13 @@ export function LibraryEntryCard({
           flexShrink: 0,
           overflow: 'hidden',
           background: 'linear-gradient(160deg, #1a4b56, #121a28 58%, #5b3807)',
-          borderBottom: '1px solid #304159'
+          borderBottom: '1px solid #304159',
+          borderLeft: 'none',
+          borderRight: 'none',
+          borderTop: 'none',
+          padding: 0,
+          textAlign: 'inherit',
+          cursor: 'pointer'
         }}
       >
         {entry.coverUrl ? (
@@ -61,9 +79,21 @@ export function LibraryEntryCard({
       <Stack spacing={1.5} sx={{ p: 2, height: '100%' }}>
         <Stack spacing={1}>
           <Stack direction="row" spacing={1} alignItems="flex-start" justifyContent="space-between">
-            <Typography level="title-md" sx={{ pr: 1 }}>
+            <Button
+              size="sm"
+              variant="plain"
+              color="neutral"
+              onClick={() => gameDetailsViewProps.openGameDetails({
+                source: 'local',
+                sourceId: entry.gameId,
+                title: entry.title,
+                coverUrl: entry.coverUrl,
+                platformLabels: entry.platformLabels
+              })}
+              sx={{ px: 0, py: 0, minHeight: 0, justifyContent: 'flex-start', color: 'common.white', fontSize: 'md', fontWeight: 'lg' }}
+            >
               {entry.title}
-            </Typography>
+            </Button>
             {isEditing ? (
               <Chip size="sm" variant="soft" color="success" sx={{ flexShrink: 0 }}>
                 Editing

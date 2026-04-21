@@ -9,6 +9,8 @@ import type {
   DiscordServerPreferencesResponse,
   DiscoveryFeed,
   DiscoveryGame,
+  GameDetails,
+  GameDetailsResponse,
   DiscoveryPerson,
   DiscoveryPersonGame,
   HealthResponse,
@@ -28,6 +30,7 @@ import {
   debugDmActionResponseSchema,
   discordServerPreferencesResponseSchema,
   discoveryFeedSchema,
+  gameDetailsResponseSchema,
   healthResponseSchema,
   libraryResponseSchema,
   playIntentCurrentResponseSchema,
@@ -37,7 +40,7 @@ import {
 } from '@game-is-up/shared'
 import { Button, Card, Chip, Stack, Typography } from '@mui/joy'
 import { EmptyStateCard } from '../components/dashboard/EmptyStateCard'
-import type { DashboardLibraryQuickAddGame, FriendTarget, Notice } from '../components/dashboard/types'
+import type { DashboardGameDetailsTarget, DashboardLibraryQuickAddGame, FriendTarget, Notice } from '../components/dashboard/types'
 import { useDashboardInvites } from './useDashboardInvites'
 import { useDashboardLibrary } from './useDashboardLibrary'
 import { useDashboardPlay } from './useDashboardPlay'
@@ -130,8 +133,20 @@ function buildAbsoluteApiUrl(path: string): string {
   return buildApiUrl(path)
 }
 
+function getIsDiscordInAppBrowser(): boolean {
+  if (typeof window === 'undefined') {
+    return false
+  }
+
+  return /discord/i.test(window.navigator.userAgent)
+}
+
 function getInstallSupport(installPromptEvent: BeforeInstallPromptEvent | null): 'prompt' | 'ios-manual' | null {
   if (typeof window === 'undefined') {
+    return null
+  }
+
+  if (getIsDiscordInAppBrowser()) {
     return null
   }
 
@@ -177,6 +192,10 @@ export function useDashboardApp() {
   const [friendPendingId, setFriendPendingId] = useState<string | null>(null)
   const [addingLibraryGameId, setAddingLibraryGameId] = useState<string | null>(null)
   const [serverPreferencePendingId, setServerPreferencePendingId] = useState<string | null>(null)
+  const [gameDetailsTarget, setGameDetailsTarget] = useState<DashboardGameDetailsTarget | null>(null)
+  const [gameDetailsByKey, setGameDetailsByKey] = useState<Record<string, GameDetails | null>>({})
+  const [gameDetailsErrorByKey, setGameDetailsErrorByKey] = useState<Record<string, string>>({})
+  const [gameDetailsLoadingKey, setGameDetailsLoadingKey] = useState<string | null>(null)
   const timezoneSyncPendingIdRef = useRef<string | null>(null)
   const sseRefreshTimeoutIdRef = useRef<number | null>(null)
   const sseDeferredRefreshRef = useRef(false)
@@ -186,6 +205,7 @@ export function useDashboardApp() {
   const installSupport = !isInstalledBrowserApp ? getInstallSupport(installPromptEvent) : null
 
   const isSignedIn = Boolean(state.session?.authenticated && state.session.user)
+  const selectedGameDetailsKey = gameDetailsTarget ? `${gameDetailsTarget.source}:${gameDetailsTarget.sourceId}` : null
   const libraryEntries = state.library?.entries ?? emptyLibraryEntries
   const suggestedLibraryGames = state.library?.suggestedGames ?? []
   const trendingLibraryGames = state.library?.trendingGames ?? []
@@ -916,6 +936,70 @@ export function useDashboardApp() {
     }
   }, [installPromptEvent, installPromptPending, installSupport])
 
+  const openGameDetails = useCallback((target: DashboardGameDetailsTarget) => {
+    setGameDetailsTarget(target)
+  }, [])
+
+  const closeGameDetails = useCallback(() => {
+    setGameDetailsTarget(null)
+  }, [])
+
+  useEffect(() => {
+    if (!gameDetailsTarget || !selectedGameDetailsKey) {
+      return
+    }
+
+    if (Object.prototype.hasOwnProperty.call(gameDetailsByKey, selectedGameDetailsKey) || gameDetailsErrorByKey[selectedGameDetailsKey]) {
+      return
+    }
+
+    let cancelled = false
+    setGameDetailsLoadingKey(selectedGameDetailsKey)
+
+    void (async () => {
+      try {
+        const response = await fetch(buildApiUrl(`/api/library/catalog/${encodeURIComponent(gameDetailsTarget.source)}/${encodeURIComponent(gameDetailsTarget.sourceId)}/details`), {
+          credentials: 'include'
+        })
+        const responseBody = (await response.json()) as GameDetailsResponse | { error?: string }
+
+        if (!response.ok) {
+          throw new Error(typeof responseBody === 'object' && responseBody && 'error' in responseBody && typeof responseBody.error === 'string'
+            ? responseBody.error
+            : 'Unable to load game details right now.')
+        }
+
+        const parsed = gameDetailsResponseSchema.parse(responseBody)
+
+        if (cancelled) {
+          return
+        }
+
+        setGameDetailsByKey((current) => ({
+          ...current,
+          [selectedGameDetailsKey]: parsed.game
+        }))
+      } catch (error) {
+        if (cancelled) {
+          return
+        }
+
+        setGameDetailsErrorByKey((current) => ({
+          ...current,
+          [selectedGameDetailsKey]: error instanceof Error ? error.message : 'Unable to load game details right now.'
+        }))
+      } finally {
+        if (!cancelled) {
+          setGameDetailsLoadingKey((current) => current === selectedGameDetailsKey ? null : current)
+        }
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [gameDetailsByKey, gameDetailsErrorByKey, gameDetailsTarget, selectedGameDetailsKey])
+
   const handleToggleFriend = useCallback(async (target: FriendTarget) => {
     setFriendPendingId(target.id)
     setActionNotice(null)
@@ -1068,6 +1152,15 @@ export function useDashboardApp() {
           ) : null}
         </Stack>
       ) : undefined
+    },
+    gameDetailsViewProps: {
+      isOpen: gameDetailsTarget != null,
+      target: gameDetailsTarget,
+      gameDetails: selectedGameDetailsKey ? (gameDetailsByKey[selectedGameDetailsKey] ?? null) : null,
+      loading: selectedGameDetailsKey != null && gameDetailsLoadingKey === selectedGameDetailsKey,
+      error: selectedGameDetailsKey ? (gameDetailsErrorByKey[selectedGameDetailsKey] ?? null) : null,
+      openGameDetails,
+      closeGameDetails
     },
     overviewViewProps: {
       error: state.error,

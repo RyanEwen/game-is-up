@@ -23,6 +23,14 @@ export type DashboardLibraryQuickAddGame = {
   platformLabels: string[];
 };
 
+export type DashboardGameDetailsTarget = {
+  source: string;
+  sourceId: string;
+  title: string;
+  coverUrl: string | null;
+  platformLabels: string[];
+};
+
 export type DashboardToast = {
   id: string;
   notice: Notice;
