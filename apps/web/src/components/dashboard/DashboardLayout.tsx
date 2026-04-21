@@ -196,8 +196,9 @@ export const DashboardLayout = ({
             sx={{
               p: { xs: 3, md: 4 },
               borderRadius: 'lg',
-              border: '1px solid #304159',
-              background: 'linear-gradient(135deg, #162338, #1d2f48)',
+              border: '1px solid var(--joy-palette-neutral-700)',
+              backgroundColor: 'var(--joy-palette-background-level2)',
+              backgroundImage: 'linear-gradient(135deg, var(--joy-palette-neutral-900) 0%, var(--joy-palette-background-level2) 64%, rgba(var(--joy-palette-primary-darkChannel) / 0.22) 100%)',
               boxShadow: 'xl'
             }}
           >
@@ -214,25 +215,26 @@ export const DashboardLayout = ({
                   },
                   gridTemplateAreas: {
                     xs: '"title logo" "body body"',
-                    sm: '"title logo" "logo body"'
+                    sm: '"title logo" "body logo"'
                   },
-                  alignItems: 'center'
+                  alignItems: 'start'
                 }}
               >
                 <Box
                   aria-hidden="true"
                   sx={{
                     gridArea: 'logo',
-                    width: { xs: 64, md: 128 },
-                    height: { xs: 64, md: 128 },
+                    width: { xs: 50, md: 128 },
+                    height: { xs: 50, md: 128 },
                     flexShrink: 0,
                     borderRadius: { xs: '14px', md: '28px' },
                     p: { xs: 0.6, md: 1 },
                     display: 'grid',
                     placeItems: 'center',
                     overflow: 'hidden',
-                    background: 'rgba(8, 14, 24, 0.25)',
-                    border: '1px solid rgba(80, 96, 119, 0.48)',
+                    backgroundColor: 'var(--joy-palette-neutral-900)',
+                    backgroundImage: 'linear-gradient(180deg, rgba(var(--joy-palette-primary-darkChannel) / 0.1), rgba(var(--joy-palette-neutral-darkChannel) / 0.08))',
+                    border: '1px solid rgba(var(--joy-palette-neutral-mainChannel) / 0.22)',
                     boxShadow: 'none'
                   }}
                 >
@@ -256,7 +258,7 @@ export const DashboardLayout = ({
                     gridArea: 'title',
                     minWidth: 0,
                     fontSize: { xs: '2.4rem', md: '4rem' },
-                    alignSelf: 'center'
+                    alignSelf: 'start'
                   }}
                 >
                   Game's Up
@@ -398,25 +400,54 @@ export const DashboardLayout = ({
             <Box sx={{ pt: 3 }}>{children}</Box>
           </Tabs>
 
-          {showDebugLink ? (
-            <Box
-              component="footer"
-              sx={{ textAlign: 'center', pb: 1 }}
-            >
-              <Typography
-                component={Link}
-                to={dashboardTabPaths.debug}
-                level="body-xs"
-                sx={{
-                  color: 'neutral.500',
-                  textDecoration: 'none',
-                  '&:hover': { color: 'neutral.300' }
-                }}
-              >
-                Debug
-              </Typography>
-            </Box>
-          ) : null}
+          <Box
+            component="footer"
+            sx={{ textAlign: 'center', pb: 1 }}
+          >
+            <Stack direction="row" spacing={0.75} justifyContent="center" alignItems="center" sx={{ flexWrap: 'wrap' }}>
+              <Stack direction="row" spacing={0.5} justifyContent="center" alignItems="center" sx={{ flexWrap: 'wrap' }}>
+                <Typography level="body-xs" sx={{ color: 'neutral.600' }}>
+                  Designed and built by
+                </Typography>
+                <Typography level="body-xs" sx={{ color: 'neutral.500' }}>
+                  Ryan Ewen
+                </Typography>
+                <Typography
+                  component="a"
+                  href="https://discord.com/users/521605287291240448"
+                  target="_blank"
+                  rel="noreferrer"
+                  level="body-xs"
+                  sx={{
+                    color: 'neutral.400',
+                    textDecoration: 'none',
+                    '&:hover': { color: 'primary.200', textDecoration: 'underline' }
+                  }}
+                >
+                  @technicallyreal
+                </Typography>
+              </Stack>
+              {showDebugLink ? (
+                <>
+                  <Typography level="body-xs" sx={{ color: 'neutral.700' }}>
+                    •
+                  </Typography>
+                  <Typography
+                    component={Link}
+                    to={dashboardTabPaths.debug}
+                    level="body-xs"
+                    sx={{
+                      color: 'neutral.500',
+                      textDecoration: 'none',
+                      '&:hover': { color: 'neutral.300' }
+                    }}
+                  >
+                    Debug
+                  </Typography>
+                </>
+              ) : null}
+            </Stack>
+          </Box>
         </Stack>
       </Box>
     </CssVarsProvider>

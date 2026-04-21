@@ -5,12 +5,13 @@ import type {
   DiscordServerPreferencesResponse,
   SendDiscordServerInvitesResponse
 } from '@game-is-up/shared'
+import { Link } from 'react-router-dom'
 import { DiscordServerPicker } from '../components/dashboard/DiscordServerPicker'
 import { DashboardModalActionBar } from '../components/dashboard/DashboardModalActionBar'
 import { EmptyStateCard } from '../components/dashboard/EmptyStateCard'
 import { SectionNav } from '../components/dashboard/SectionNav'
 import { sectionScrollMarginTop } from '../components/dashboard/SectionNav.constants'
-import { nestedInsetSurfaceSx } from '../components/dashboard/dashboardUtils'
+import { dashboardTabPaths, nestedInsetSurfaceSx } from '../components/dashboard/dashboardUtils'
 import { useDashboardContext } from '../contexts/useDashboardContext'
 import type { Notice } from '../components/dashboard/types'
 
@@ -146,39 +147,80 @@ function AccountCard({
   )
 }
 
+function QuickStartStepCard({
+  title,
+  body,
+  tabLabel,
+  to
+}: {
+  title: string;
+  body: string;
+  tabLabel?: string;
+  to?: string;
+}) {
+  return (
+    <Card variant="soft" sx={{ p: 3 }}>
+      <Stack spacing={0.75} alignItems="flex-start">
+        <Typography level="title-sm">{title}</Typography>
+        <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
+          {body}
+        </Typography>
+        {tabLabel && to ? (
+          <Typography
+            component={Link}
+            to={to}
+            level="body-xs"
+            sx={{
+              color: 'primary.200',
+              textDecoration: 'none',
+              '&:hover': { color: 'primary.100', textDecoration: 'underline' }
+            }}
+          >
+            Open {tabLabel}
+          </Typography>
+        ) : null}
+      </Stack>
+    </Card>
+  )
+}
+
 function QuickStartCard() {
   return (
     <Stack spacing={1}>
-      <Card variant="soft" sx={{ p: 3 }}>
-        <Typography level="title-sm">1. Sign in</Typography>
-        <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
-          Sign in using your Discord account.
-        </Typography>
-      </Card>
-      <Card variant="soft" sx={{ p: 3 }}>
-        <Typography level="title-sm">2. Form your network</Typography>
-        <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
-          Select the Discord servers where your friends and other players are active. If one isn't shown, invite the bot there first.
-        </Typography>
-      </Card>
-      <Card variant="soft" sx={{ p: 3 }}>
-        <Typography level="title-sm">3. Add friends</Typography>
-        <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
-          Add the friends you want to keep track of most from your network.
-        </Typography>
-      </Card>
-      <Card variant="soft" sx={{ p: 3 }}>
-        <Typography level="title-sm">4. Build your library</Typography>
-        <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
-          Add games to your library so that you can be matched with other players in your network.
-        </Typography>
-      </Card>
-      <Card variant="soft" sx={{ p: 3 }}>
-        <Typography level="title-sm">5. Send a call to play</Typography>
-        <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
-          Choose what you want to play and let matching friends or other players in your network know when you're ready, and invite them to join.
-        </Typography>
-      </Card>
+      <QuickStartStepCard
+        title="1. Sign in"
+        body="Sign in using your Discord account."
+      />
+      <QuickStartStepCard
+        title="2. Form your network"
+        body="Select the Discord servers where your friends and other players are active. If one isn't shown, invite the bot there first."
+        tabLabel="Network"
+        to={dashboardTabPaths.network}
+      />
+      <QuickStartStepCard
+        title="3. Add friends"
+        body="Add the friends you want to keep track of most from your network."
+        tabLabel="Friends"
+        to={dashboardTabPaths.friends}
+      />
+      <QuickStartStepCard
+        title="4. Build your library"
+        body="Add games to your library so that you can be matched with other players in your network."
+        tabLabel="Library"
+        to={dashboardTabPaths.library}
+      />
+      <QuickStartStepCard
+        title="5. Discover shared games"
+        body="Browse Discovery to find the people in your network who play the same games you do and see where your libraries overlap."
+        tabLabel="Discovery"
+        to={dashboardTabPaths.discovery}
+      />
+      <QuickStartStepCard
+        title="6. Send a call to play"
+        body="Choose what you want to play and let matching friends or other players in your network know you want to play, then invite them to join."
+        tabLabel="Play"
+        to={dashboardTabPaths.play}
+      />
     </Stack>
   )
 }
@@ -188,12 +230,12 @@ function WhatIsGamesUpCard() {
     <Card variant="soft" sx={{ p: 3 }}>
       <Stack spacing={2}>
         <Typography level="body-md" sx={{ color: 'neutral.200' }}>
-          Game's Up is an app that helps you find people who are into the same games you are.
+          Game's Up is a web app that helps you find people who are interested in the same games as you.
         </Typography>
         <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5}>
           <Sheet variant="outlined" sx={{ p: 2, borderRadius: 'lg', flex: 1, ...nestedInsetSurfaceSx }}>
             <Stack spacing={0.75}>
-              <Typography level="title-sm">Shared-interest app</Typography>
+              <Typography level="title-sm">Shared-interest web app</Typography>
               <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
                 Build your game library, form a network of friends and other players from your favorite Discord servers, then discover who is interested in the same games as you.
               </Typography>
@@ -201,9 +243,9 @@ function WhatIsGamesUpCard() {
           </Sheet>
           <Sheet variant="outlined" sx={{ p: 2, borderRadius: 'lg', flex: 1, ...nestedInsetSurfaceSx }}>
             <Stack spacing={0.75}>
-              <Typography level="title-sm">Matchmaking bot</Typography>
+              <Typography level="title-sm">Discord coordination bot</Typography>
               <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
-                The Discord bot helps you arrange gaming sessions by finding users interested in the same games, sending calls to play them, and following-up when necessary.
+                The Discord bot helps coordinate sessions by delivering calls to play, surfacing shared interest, and following up with the right people when plans evolve.
               </Typography>
             </Stack>
           </Sheet>
