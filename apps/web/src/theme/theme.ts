@@ -203,7 +203,7 @@ export const theme = extendTheme({
         },
         background: {
           body: '#070b14',
-          surface: 'rgba(19, 27, 42, 0.5)',
+          surface: 'rgba(19, 27, 42, 0.55)',
           popup: '#121a28',
           level1: 'rgba(19, 27, 42, 0.65)',
           level2: '#24364d',
