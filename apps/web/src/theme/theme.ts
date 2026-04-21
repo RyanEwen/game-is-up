@@ -203,9 +203,9 @@ export const theme = extendTheme({
         },
         background: {
           body: '#070b14',
-          surface: 'rgba(19, 27, 42, 0.55)',
+          surface: 'rgba(19, 27, 42, 0.5)',
           popup: '#121a28',
-          level1: 'rgba(19, 27, 42, 0.65)',
+          level1: 'rgba(19, 27, 42, 0.6)',
           level2: '#24364d',
           level3: '#355076'
         },
