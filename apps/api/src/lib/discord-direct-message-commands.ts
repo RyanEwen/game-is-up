@@ -27,6 +27,8 @@ type ParsedDirectMessageCommand = {
 
 type DirectMessageReplyOptions = {
   dismissButtonForUserId?: string;
+  autoDeleteAfterMs?: number;
+  includeOpenAppButton?: boolean;
 }
 
 type DirectMessageReply = (content: string, options?: DirectMessageReplyOptions) => Promise<void>
@@ -60,6 +62,7 @@ const directMessageCommandAliases = new Map<string, DirectMessageCommandName>([
 ])
 
 const DISCORD_DM_FETCH_TIMEOUT_MS = 5_000
+const CLEANUP_COMMAND_REPLY_LIFETIME_MS = 10_000
 const directMessageCommandDismissPrefix = 'dm-command'
 
 function buildPlayUrl() {
@@ -91,12 +94,29 @@ function buildDismissAndOpenAppRow(discordUserId: string) {
 }
 
 export function buildDirectMessageReplyPayload(content: string, options: DirectMessageReplyOptions = {}) {
+  const components = options.dismissButtonForUserId
+    ? [buildDismissAndOpenAppRow(options.dismissButtonForUserId)]
+    : options.includeOpenAppButton === false
+      ? []
+      : [buildOpenAppRow()]
+
   return {
     content,
-    components: options.dismissButtonForUserId
-      ? [buildDismissAndOpenAppRow(options.dismissButtonForUserId)]
-      : [buildOpenAppRow()]
+    components
   }
+}
+
+function scheduleDirectMessageDeletion(message: Message, delayMs: number) {
+  const timeout = setTimeout(() => {
+    void deleteDiscordDirectMessage({
+      channelId: message.channelId,
+      messageId: message.id
+    }).catch(() => {
+      void message.delete().catch(() => {})
+    })
+  }, delayMs)
+
+  timeout.unref?.()
 }
 
 function parseDirectMessageCommandButtonAction(customId: string) {
@@ -258,11 +278,21 @@ async function replyToDirectMessage(message: Message, content: string, options: 
   const payload = buildDirectMessageReplyPayload(content, options)
 
   try {
-    await message.reply(payload)
+    const sentMessage = await message.reply(payload)
+
+    if (options.autoDeleteAfterMs && options.autoDeleteAfterMs > 0) {
+      scheduleDirectMessageDeletion(sentMessage, options.autoDeleteAfterMs)
+    }
+
     return
   } catch {
     if ('send' in message.channel && typeof message.channel.send === 'function') {
-      await message.channel.send(payload)
+      const sentMessage = await message.channel.send(payload)
+
+      if (options.autoDeleteAfterMs && options.autoDeleteAfterMs > 0) {
+        scheduleDirectMessageDeletion(sentMessage, options.autoDeleteAfterMs)
+      }
+
       return
     }
 
@@ -425,7 +455,8 @@ async function handleCleanupCommand(context: DirectMessageCommandContext, identi
         'There are no older bot messages or settled prompts to remove right now.'
       ].join('\n\n'),
       {
-        dismissButtonForUserId: context.authorId
+        autoDeleteAfterMs: CLEANUP_COMMAND_REPLY_LIFETIME_MS,
+        includeOpenAppButton: false
       }
     )
     return
@@ -441,7 +472,8 @@ async function handleCleanupCommand(context: DirectMessageCommandContext, identi
       summary
     ].join('\n\n'),
     {
-      dismissButtonForUserId: context.authorId
+      autoDeleteAfterMs: CLEANUP_COMMAND_REPLY_LIFETIME_MS,
+      includeOpenAppButton: false
     }
   )
 }
