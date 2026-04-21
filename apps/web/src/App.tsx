@@ -109,7 +109,6 @@ function DashboardAppShell() {
     <DashboardLayout
       activeTab={activeTab}
       onTabChange={(tab) => navigate(dashboardTabPaths[tab])}
-      installPrompt={layoutProps.installPrompt}
       toastNotices={layoutProps.toastNotices}
       onboarding={layoutProps.onboarding}
       showDebugLink={layoutProps.showDebugView}

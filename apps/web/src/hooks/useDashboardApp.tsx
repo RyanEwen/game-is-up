@@ -1053,13 +1053,6 @@ export function useDashboardApp() {
     layoutProps: {
       toastNotices,
       showDebugView,
-      installPrompt: isSignedIn && installSupport
-        ? {
-            label: 'Install app',
-            pending: installPromptPending,
-            onInstall: handleInstallApp
-          }
-        : undefined,
       onboarding: inviteAttributionOnboarding || showSignedInOnboarding ? (
         <Stack spacing={2}>
           {inviteAttributionOnboarding}
@@ -1084,6 +1077,13 @@ export function useDashboardApp() {
       onLogout: handleLogout,
       onDiscordLogin: handleDiscordLogin,
       onToggleDiscordServer: handleToggleDiscordServer,
+      installPrompt: isSignedIn && installSupport
+        ? {
+            label: 'Install app',
+            pending: installPromptPending,
+            onInstall: handleInstallApp
+          }
+        : undefined,
       ...inviteOverviewProps
     },
     libraryViewProps,

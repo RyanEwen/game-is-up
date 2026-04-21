@@ -213,6 +213,54 @@ function WhatIsGamesUpCard() {
   )
 }
 
+function InstallAppCard({
+  installPrompt
+}: {
+  installPrompt: {
+    label: string;
+    pending: boolean;
+    onInstall: () => void | Promise<void>;
+  };
+}) {
+  return (
+    <Card
+      variant="soft"
+      color="primary"
+      sx={{
+        p: { xs: 2, md: 2.5 },
+        borderRadius: 'xl',
+        border: '1px solid #245f74',
+        background: 'linear-gradient(135deg, #173048, #16273a)',
+        boxShadow: 'none'
+      }}
+    >
+      <Stack
+        direction={{ xs: 'column', sm: 'row' }}
+        spacing={1.5}
+        sx={{ alignItems: { xs: 'stretch', sm: 'center' }, justifyContent: 'space-between' }}
+      >
+        <Box>
+          <Typography level="title-md" sx={{ color: 'primary.100', mb: 0.5 }}>
+            Keep Game's Up on your home screen.
+          </Typography>
+          <Typography level="body-sm" sx={{ color: 'neutral.200' }}>
+            Install it for faster launches and an app-like shell in supported browsers.
+          </Typography>
+        </Box>
+        <Button
+          size="md"
+          color="primary"
+          onClick={installPrompt.onInstall}
+          loading={installPrompt.pending}
+          sx={{ flexShrink: 0, minWidth: { sm: 150 } }}
+        >
+          {installPrompt.label}
+        </Button>
+      </Stack>
+    </Card>
+  )
+}
+
 export function DiscoveryServersSection({
   discordBotInstallUrl,
   availableDiscoveryServers,
@@ -592,12 +640,18 @@ function OverviewViewContent({
   session,
   discordEnabled,
   onLogout,
-  onDiscordLogin
+  onDiscordLogin,
+  installPrompt
 }: {
   session: AuthSessionResponse | null;
   discordEnabled: boolean;
   onLogout: () => Promise<void>;
   onDiscordLogin: () => Promise<void>;
+  installPrompt?: {
+    label: string;
+    pending: boolean;
+    onInstall: () => void | Promise<void>;
+  };
 }) {
   return (
     <Stack spacing={3}>
@@ -607,7 +661,10 @@ function OverviewViewContent({
         sections={[
           { id: 'account', label: 'Account', desktopLabel: 'Your Account' },
           { id: 'what-is-games-up', label: 'About', desktopLabel: "What Is Game's Up?" },
-          { id: 'quick-start', label: 'Quick start', desktopLabel: 'Quick Start Guide', ariaLabel: 'Quick start' }
+          { id: 'quick-start', label: 'Quick start', desktopLabel: 'Quick Start Guide', ariaLabel: 'Quick start' },
+          ...(installPrompt
+            ? [{ id: 'install-app', label: 'Install', desktopLabel: 'Install App', ariaLabel: 'Install app' }]
+            : [])
         ]}
       />
       <Box id="account" sx={{ scrollMarginTop: sectionScrollMarginTop }}>
@@ -633,6 +690,14 @@ function OverviewViewContent({
           <QuickStartCard />
         </Stack>
       </Box>
+      {installPrompt ? (
+        <Box id="install-app" sx={{ scrollMarginTop: sectionScrollMarginTop }}>
+          <Stack spacing={1.5}>
+            <Typography level="h2">Install app</Typography>
+            <InstallAppCard installPrompt={installPrompt} />
+          </Stack>
+        </Box>
+      ) : null}
     </Stack>
   )
 }
