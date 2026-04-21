@@ -342,6 +342,16 @@ export function PlayIntentDetailView() {
   const isEditingCurrentIntent = isOwnIntent && intent.status === 'active'
   const isScheduledIntent = intent.status === 'active' && new Date(intent.availabilityWindow.startsAt).getTime() > Date.now() + 60 * 1000
   const libraryWideScope = intent.selectionMode === 'library' ? intent.expandedGameScope : null
+  const libraryWideScopeHeading = libraryWideScope?.kind === 'creator-library'
+      ? 'Games covered by this call'
+      : libraryWideScope?.kind === 'shared-library'
+        ? 'Games that match this call'
+        : ''
+  const libraryWideScopeDescription = libraryWideScope?.kind === 'creator-library'
+      ? 'This call covers the creator\'s full active library, so these are the games currently included in it.'
+      : libraryWideScope?.kind === 'shared-library'
+        ? 'This call is library-wide, so these are the games that currently match between your library and the creator\'s library.'
+        : ''
   const canRevealNonOverlappingGames = libraryWideScope?.kind === 'shared-library' && libraryWideScope.nonOverlappingGames.length > 0
   const canDeleteDiscordSpace = Boolean(
     isOwnIntent
@@ -593,9 +603,9 @@ export function PlayIntentDetailView() {
               <Stack spacing={1.5}>
                 <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }}>
                   <Box>
-                    <Typography level="title-md">{libraryWideScope.title}</Typography>
+                    <Typography level="title-md">{libraryWideScopeHeading}</Typography>
                     <Typography level="body-sm" sx={{ color: 'neutral.300', mt: 0.5 }}>
-                      {libraryWideScope.description}
+                      {libraryWideScopeDescription}
                     </Typography>
                   </Box>
                   <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'flex-start', sm: 'center' }}>
@@ -652,7 +662,7 @@ export function PlayIntentDetailView() {
                 ) : (
                   <EmptyStateCard
                     title={libraryWideScope.kind === 'creator-library' ? 'No active library titles yet' : 'No shared games yet'}
-                    body={libraryWideScope.description}
+                    body={libraryWideScopeDescription}
                   />
                 )}
 

@@ -441,6 +441,7 @@ export const discoveryPersonSchema = z.object({
     title: z.string().min(1),
     applicationId: z.string().nullable(),
     activityType: z.enum(['playing', 'competing']),
+    isActive: z.boolean(),
     details: z.string().nullable(),
     state: z.string().nullable(),
     startedAt: z.string().datetime().nullable(),

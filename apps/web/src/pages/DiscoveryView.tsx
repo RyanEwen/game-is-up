@@ -1,6 +1,7 @@
-import { Box, Card, Option, Select, Stack, Typography } from '@mui/joy'
+import { Box, Option, Select, Stack, Typography } from '@mui/joy'
 import { useEffect, useState } from 'react'
 import type { DiscordServerPreference, DiscoveryGame, DiscoveryPerson, LibraryTrendingGame } from '@game-is-up/shared'
+import { DashboardApiIssueCard } from '../components/dashboard/DashboardApiIssueCard'
 import { DiscordServerPicker } from '../components/dashboard/DiscordServerPicker'
 import { DashboardModal } from '../components/dashboard/DashboardModal'
 import { EmptyStateCard } from '../components/dashboard/EmptyStateCard'
@@ -131,6 +132,10 @@ function DiscoveryViewContent({
     }
   }, [memberServerFilterId, selectedDiscoveryServers])
 
+  if (error) {
+    return <DashboardApiIssueCard error={error} />
+  }
+
   if (!isSignedIn) {
     return (
       <EmptyStateCard
@@ -248,14 +253,6 @@ function DiscoveryViewContent({
         description="Games you have in common with people in your network."
         sortControl={overlapGames.length > 0 || browseGames.length > 0 ? gameSortControl : undefined}
       >
-        {error ? (
-          <Card color="danger" variant="soft">
-            <Typography level="body-md">{error}</Typography>
-            <Typography level="body-sm" sx={{ mt: 1 }}>
-              Retrying in the background every 5 seconds. The dashboard will refresh automatically when the API responds again.
-            </Typography>
-          </Card>
-        ) : null}
         {discoveryLoading ? (
           <Box sx={discoveryGameGridSx}>
             {Array.from({ length: 6 }, (_, i) => <GameCardSkeleton key={i} compact />)}

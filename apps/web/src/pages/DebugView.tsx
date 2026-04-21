@@ -13,6 +13,7 @@ import {
   Table,
   Typography
 } from '@mui/joy'
+import { DashboardApiIssueCard } from '../components/dashboard/DashboardApiIssueCard'
 import type {
   DebugAdminResponse,
   DebugAutoPlayPrompt,
@@ -1378,6 +1379,7 @@ function NotificationLogCard({
 }
 
 function DebugViewContent({
+  error,
   isSignedIn,
   debugAdmin,
   debugLoading,
@@ -1385,6 +1387,7 @@ function DebugViewContent({
   buildApiUrl,
   parseDebugDmActionResponse
 }: {
+  error: string | null;
   isSignedIn: boolean;
   debugAdmin: DebugAdminResponse | null;
   debugLoading: boolean;
@@ -1400,6 +1403,10 @@ function DebugViewContent({
     subtitle: string;
     preview: DebugDmPreview | null;
   } | null>(null)
+
+  if (error) {
+    return <DashboardApiIssueCard error={error} />
+  }
 
   if (!isSignedIn) {
     return (

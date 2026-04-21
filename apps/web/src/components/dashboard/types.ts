@@ -1,5 +1,5 @@
 export type Notice = {
-  tone: 'neutral' | 'success' | 'danger';
+  tone: 'neutral' | 'success' | 'warning' | 'danger';
   message: string;
 };
 
@@ -26,5 +26,5 @@ export type DashboardLibraryQuickAddGame = {
 export type DashboardToast = {
   id: string;
   notice: Notice;
-  dismiss: () => void;
+  dismiss?: () => void;
 };

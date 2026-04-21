@@ -19,6 +19,7 @@ import type {
   SteamLinkIntentResponse,
   UserProfileResponse
 } from '@game-is-up/shared'
+import { buildApiIssueMessage } from '../components/dashboard/apiIssue'
 import {
   authProvidersResponseSchema,
   authSessionResponseSchema,
@@ -241,6 +242,9 @@ export function useDashboardApp() {
     : false
   const showInviteAttributionOnboarding = isSignedIn && hasRecentInviteAttribution && (showSignedInOnboarding || !inviterAlreadyFriend)
   const toastNotices = [
+    state.error
+      ? { id: 'api-issue', notice: { tone: 'warning' as const, message: buildApiIssueMessage(state.error) } }
+      : null,
     actionNotice
       ? { id: 'action', notice: actionNotice, dismiss: () => setActionNotice(null) }
       : null,
@@ -1066,6 +1070,7 @@ export function useDashboardApp() {
       ) : undefined
     },
     overviewViewProps: {
+      error: state.error,
       session: state.session,
       discordEnabled: Boolean(discordProvider?.enabled),
       discordBotInstallUrl: discordProvider?.serverInstallUrl ?? discordProvider?.installUrl ?? null,
@@ -1086,7 +1091,10 @@ export function useDashboardApp() {
         : undefined,
       ...inviteOverviewProps
     },
-    libraryViewProps,
+    libraryViewProps: {
+      ...libraryViewProps,
+      error: state.error
+    },
     friendsViewProps: {
       error: state.error,
       isSignedIn,
@@ -1107,6 +1115,7 @@ export function useDashboardApp() {
     },
     playViewProps: {
       ...playViewProps,
+      error: state.error,
       isSignedIn,
       isAdmin: Boolean(state.session?.user?.isAdmin),
       playIntentUnavailableAudienceMessage,
@@ -1143,6 +1152,7 @@ export function useDashboardApp() {
       onUnmutePlayIntentUser: playViewProps.onUnmutePlayIntentUser
     },
     debugViewProps: {
+      error: state.error,
       isSignedIn,
       debugAdmin: state.debugAdmin,
       debugLoading: showDebugView && isSignedIn && state.debugAdmin == null && !state.error,

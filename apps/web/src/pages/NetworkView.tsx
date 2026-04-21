@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Button, Card, Stack, Typography } from '@mui/joy'
+import { DashboardApiIssueCard } from '../components/dashboard/DashboardApiIssueCard'
 import { DashboardModal } from '../components/dashboard/DashboardModal'
 import { useDashboardContext } from '../contexts/useDashboardContext'
 import { DiscoveryServersSection, InviteUsersCard } from './OverviewView'
@@ -7,6 +8,7 @@ import { DiscoveryServersSection, InviteUsersCard } from './OverviewView'
 export function NetworkView() {
   const { overviewViewProps } = useDashboardContext()
   const {
+    error,
     isSignedIn,
     discordEnabled,
     discordBotInstallUrl,
@@ -33,6 +35,10 @@ export function NetworkView() {
     inviteSendSummary
   } = overviewViewProps
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false)
+
+  if (error) {
+    return <DashboardApiIssueCard error={error} />
+  }
 
   const handleOpenInviteServer = (serverId: string) => {
     onSelectInviteServer(serverId)

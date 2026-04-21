@@ -11,6 +11,7 @@ import type {
   PlayIntentPreview,
   PlayIntentSelectionMode
 } from '@game-is-up/shared'
+import { DashboardApiIssueCard } from '../components/dashboard/DashboardApiIssueCard'
 import { EmptyStateCard } from '../components/dashboard/EmptyStateCard'
 import { DashboardModal } from '../components/dashboard/DashboardModal'
 import { PlayIntentCard } from '../components/dashboard/PlayIntentCard'
@@ -155,6 +156,7 @@ function DiscordAutomationCard({
 }
 
 function PlayViewContent({
+  error,
   isSignedIn,
   discordAutoPromptPlayIntent,
   discordAutoPromptPlayIntentSaving,
@@ -215,6 +217,7 @@ function PlayViewContent({
   ,
   openPlayIntentDetails,
 }: {
+  error: string | null;
   isSignedIn: boolean;
   discordAutoPromptPlayIntent: boolean;
   discordAutoPromptPlayIntentSaving: boolean;
@@ -278,6 +281,10 @@ function PlayViewContent({
   const [endedAudienceFilter, setEndedAudienceFilter] = useState<PlayIntentAudienceFilter>('applicable')
   const [endedWindowFilter, setEndedWindowFilter] = useState<EndedPlayIntentWindowFilter>('1d')
 
+  if (error) {
+    return <DashboardApiIssueCard error={error} />
+  }
+
   if (!isSignedIn) {
     return (
       <EmptyStateCard
@@ -321,7 +328,7 @@ function PlayViewContent({
       mobileLabel: 'Active',
       desktopLabel: 'Active Calls',
       ariaLabel: 'Active calls to play',
-      count: activePlayIntentPreviews.length
+      count: filteredActivePlayIntentPreviews.length
     },
     {
       id: 'ended-calls-to-play',
@@ -329,7 +336,7 @@ function PlayViewContent({
       mobileLabel: 'Ended',
       desktopLabel: 'Ended Calls',
       ariaLabel: 'Ended calls to play',
-      count: windowedEndedPlayIntentPreviews.length
+      count: filteredEndedPlayIntentPreviews.length
     },
     ...(isSignedIn ? [{ id: 'play-settings', label: 'Settings', ariaLabel: 'Play settings' }] : [])
   ]

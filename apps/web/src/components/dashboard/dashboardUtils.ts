@@ -240,8 +240,15 @@ export function parsePlayIntentEndAt(value: string): Date | null {
   return parseLocalDateTimeInput(value)
 }
 
-export function formatDiscordActivityTypeLabel(activityType: 'playing' | 'competing'): string {
-  return activityType === 'competing' ? 'Competing in' : 'Playing on Discord'
+export function formatDiscordActivityTypeLabel(
+  activityType: 'playing' | 'competing',
+  isActive: boolean
+): string {
+  if (activityType === 'competing') {
+    return isActive ? 'Competing in' : 'Last competed in'
+  }
+
+  return isActive ? 'Playing on Discord' : 'Last played on Discord'
 }
 
 export function formatRelativeTimeShort(dateInput: string | Date, baseDate = new Date()): string {

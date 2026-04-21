@@ -313,7 +313,7 @@ export function PersonCard({
           }}
         >
           <Typography level="title-sm">
-            {formatDiscordActivityTypeLabel(person.discordActivity.activityType)} {person.discordActivity.title}
+            {formatDiscordActivityTypeLabel(person.discordActivity.activityType, person.discordActivity.isActive)} {person.discordActivity.title}
           </Typography>
           <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
             Seen {formatRelativeTimeShort(person.discordActivity.lastObservedAt)}

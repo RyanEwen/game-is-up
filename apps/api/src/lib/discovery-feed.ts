@@ -1,6 +1,6 @@
 import type { DiscoveryFeed, DiscoveryGame, DiscoveryGamePlayer, DiscoveryPerson } from '@game-is-up/shared'
 import { GameIntentType } from '@prisma/client'
-import { getLatestActiveDiscordActivitiesForUsers } from './discord-activity.js'
+import { getLatestDiscordActivitiesForUsers } from './discord-activity.js'
 import { prisma } from './prisma.js'
 import { getViewer } from './demo-viewer.js'
 import { getSelectedDiscordServerIds } from './discord-servers.js'
@@ -216,7 +216,7 @@ export async function buildDiscoveryFeed(viewerId?: string | null): Promise<Disc
       }
     }
   })
-  const latestActivitiesByUserId = await getLatestActiveDiscordActivitiesForUsers(candidates.map((candidate) => candidate.id))
+  const latestActivitiesByUserId = await getLatestDiscordActivitiesForUsers(candidates.map((candidate) => candidate.id))
 
   const people: DiscoveryPerson[] = candidates
     .map((candidate) => {

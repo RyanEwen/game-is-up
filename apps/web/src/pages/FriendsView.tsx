@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Box, Button, DialogContent, DialogTitle, Option, Select, Stack, Typography } from '@mui/joy'
 import type { DiscoveryPerson } from '@game-is-up/shared'
 import { DashboardModal } from '../components/dashboard/DashboardModal'
+import { DashboardApiIssueCard } from '../components/dashboard/DashboardApiIssueCard'
 import { EmptyStateCard } from '../components/dashboard/EmptyStateCard'
 import { LibraryEditorCard } from '../components/dashboard/LibraryEditorCard'
 import { PersonCard } from '../components/dashboard/PersonCard'
@@ -81,6 +82,10 @@ function FriendsViewContent({
   const sortedFriends = sortPeople(friends, friendSort, libraryGameIds)
   const sortedAddableFriends = sortPeople(addableFriends, friendSort, libraryGameIds)
 
+  if (error) {
+    return <DashboardApiIssueCard error={error} />
+  }
+
   if (!isSignedIn) {
     return (
       <EmptyStateCard
@@ -133,12 +138,7 @@ function FriendsViewContent({
         {friendHeaderControls}
       </Stack>
 
-      {error ? (
-        <EmptyStateCard
-          title="Friends are temporarily unavailable"
-          body={`${error} Retrying in the background every 5 seconds. The dashboard will refresh automatically when the API responds again.`}
-        />
-      ) : friends.length > 0 ? (
+      {friends.length > 0 ? (
         <Stack spacing={2}>
           {sortedFriends.map((person) => (
             <PersonCard

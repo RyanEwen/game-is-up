@@ -1,3 +1,4 @@
+import EastRoundedIcon from '@mui/icons-material/EastRounded'
 import ScheduleRoundedIcon from '@mui/icons-material/ScheduleRounded'
 import { Avatar, Box, Button, Card, Chip, Stack, Typography } from '@mui/joy'
 import type { ActivePlayIntent, PlayIntentPreview } from '@game-is-up/shared'
@@ -94,27 +95,35 @@ export function PlayIntentCard({
   const isScheduled = !isEnded && new Date(intent.availabilityWindow.startsAt).getTime() > Date.now() + 60 * 1000
   const viewerResponseChoice = intent.viewerResponseChoice
   const timingSummary = formatPlayIntentTimingSummary(intent.availabilityWindow.startsAt, intent.availabilityWindow.endsAt)
+  const viewerResponseLabel = viewerResponseChoice === 'interested'
+    ? 'You are marked as interested in this call to play.'
+    : 'You are marked as passed on this call to play.'
   const actionButtonSx = {
-    flexShrink: 0,
-    width: { xs: '100%', sm: 'auto' },
-    alignSelf: { xs: 'stretch', sm: 'flex-start' },
-    borderRadius: 'md',
-    minHeight: { xs: 44, sm: '2.25rem' },
-    px: { xs: 2, sm: 1.5 },
-    fontSize: { xs: 'sm', sm: 'sm' },
+    width: '100%',
+    justifyContent: 'space-between',
+    borderRadius: 'lg',
+    minHeight: { xs: 46, sm: 44 },
+    px: 1.75,
+    fontSize: 'sm',
     fontWeight: 'md',
     lineHeight: 1,
-    backgroundColor: 'primary.500',
-    color: 'primary.50',
-    boxShadow: 'none',
+    backgroundColor: 'neutral.800',
+    color: 'neutral.50',
+    border: '1px solid',
+    borderColor: 'neutral.700',
+    boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.03)',
     transition: 'background-color 180ms ease, border-color 180ms ease, color 180ms ease, transform 120ms ease',
+    '& .MuiButton-endDecorator': {
+      ml: 1.5,
+      color: 'primary.300'
+    },
     '&:hover': {
-      backgroundColor: 'primary.400',
-      borderColor: 'primary.400',
+      backgroundColor: 'neutral.700',
+      borderColor: 'neutral.600',
       transform: 'translateY(-1px)'
     },
     '&:active': {
-      backgroundColor: 'primary.600',
+      backgroundColor: 'neutral.800',
       transform: 'translateY(0)'
     }
   } as const
@@ -128,89 +137,102 @@ export function PlayIntentCard({
         ...topLevelCardSx
       }}
     >
-      <Stack spacing={1.25} sx={{ mb: 1 }}>
-        <Stack
-          direction={{ xs: 'column', sm: 'row' }}
-          spacing={1.25}
-          justifyContent="space-between"
-          alignItems={{ xs: 'stretch', sm: 'center' }}
-        >
-          <Stack direction="row" spacing={1.25} alignItems="center">
-          <Avatar src={intent.user.avatarUrl ?? undefined} alt={intent.user.displayName} size="lg" variant="soft" />
-          <Box sx={{ minWidth: 0 }}>
-            <Typography level="title-lg">{intent.title}</Typography>
-            <Typography level="body-sm" sx={{ color: 'neutral.200', mt: 0.25 }}>
-              by {intent.user.displayName}
+      <Stack spacing={1.25}>
+        <Stack direction="row" spacing={1.5} justifyContent="space-between" alignItems={{ xs: 'center', sm: 'flex-start' }} sx={{ minWidth: 0 }}>
+          <Stack direction="row" spacing={1.25} alignItems="center" sx={{ minWidth: 0, flex: '1 1 auto' }}>
+            <Avatar src={intent.user.avatarUrl ?? undefined} alt={intent.user.displayName} size="lg" variant="soft" />
+            <Box sx={{ minWidth: 0 }}>
+              <Typography level="title-lg">{intent.title}</Typography>
+              <Typography level="body-sm" sx={{ color: 'neutral.200', mt: 0.25 }}>
+                by {intent.user.displayName}
+              </Typography>
+              <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
+                {timingSummary}
+              </Typography>
+            </Box>
+          </Stack>
+          {viewerResponseChoice ? (
+            <Typography
+              level="body-xs"
+              sx={{
+                display: { xs: 'none', sm: 'block' },
+                maxWidth: 280,
+                ml: 2,
+                textAlign: 'right',
+                color: viewerResponseChoice === 'interested' ? 'success.300' : 'neutral.400'
+              }}
+            >
+              {viewerResponseLabel}
             </Typography>
-            <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
-              {timingSummary}
-            </Typography>
-          </Box>
-        </Stack>
-          <Button
-            variant="solid"
-            color="primary"
-            size="sm"
-            onClick={() => onOpenDetails(intent.id)}
-            sx={actionButtonSx}
-          >
-            View Details
-          </Button>
+          ) : null}
         </Stack>
 
         <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }} alignItems="center">
-          {isScheduled ? (
-            <Chip size="sm" color="warning" variant="soft" startDecorator={<ScheduleRoundedIcon fontSize="small" />}>
-              Scheduled
-            </Chip>
-          ) : null}
-          {isEnded ? (
-            <Chip size="sm" color="warning" variant="soft">
-              Ended
-            </Chip>
-          ) : null}
-          <Chip size="sm" color="primary" variant="soft">
-            {isLibraryWide ? 'Any game in library' : 'Selected games'}
+        {isScheduled ? (
+          <Chip size="sm" color="warning" variant="soft" startDecorator={<ScheduleRoundedIcon fontSize="small" />}>
+            Scheduled
           </Chip>
-          <Chip size="sm" color="neutral" variant="outlined">
-            {formatNotifyScopeLabel(intent.notifyScope)}
+        ) : null}
+        {isEnded ? (
+          <Chip size="sm" color="warning" variant="soft">
+            Ended
           </Chip>
-          {!intent.appliesToViewer ? (
-            <Chip size="sm" color="neutral" variant="soft">
-              Not for you right now
-            </Chip>
-          ) : null}
-          {intent.interestedCount > 0 ? (
-            <Chip size="sm" color="success" variant="soft">
-              <InterestedCountLabel count={intent.interestedCount} />
-            </Chip>
-          ) : null}
+        ) : null}
+        <Chip size="sm" color="primary" variant="soft">
+          {isLibraryWide ? 'Any game in library' : 'Selected games'}
+        </Chip>
+        <Chip size="sm" color="neutral" variant="outlined">
+          {formatNotifyScopeLabel(intent.notifyScope)}
+        </Chip>
+        {!intent.appliesToViewer ? (
+          <Chip size="sm" color="neutral" variant="soft">
+            Not for you right now
+          </Chip>
+        ) : null}
+        {intent.interestedCount > 0 ? (
+          <Chip size="sm" color="success" variant="soft">
+            <InterestedCountLabel count={intent.interestedCount} />
+          </Chip>
+        ) : null}
         </Stack>
+
+        <Stack spacing={1.5} sx={{ minWidth: 0 }}>
+        {!intent.appliesToViewer ? (
+          <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
+            This call is visible in your network, but it does not currently include you.
+          </Typography>
+        ) : null}
+
+        {viewerResponseChoice ? (
+          <Typography level="body-xs" sx={{ display: { xs: 'block', sm: 'none' }, color: viewerResponseChoice === 'interested' ? 'success.300' : 'neutral.400' }}>
+            {viewerResponseLabel}
+          </Typography>
+        ) : null}
+
+        {!intent.discordSpace && intent.voiceChannelName ? (
+          <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
+            Voice channel: {intent.voiceChannelName}
+          </Typography>
+        ) : null}
+
+        {intent.notifyScope === 'specific-discord-server' && intent.targetServers.length > 0 ? (
+          <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
+            Target Discord servers: {intent.targetServers.map((server) => server.name).join(', ')}
+          </Typography>
+        ) : null}
+        </Stack>
+
+        <Button
+          variant="soft"
+          color="neutral"
+          size="sm"
+          endDecorator={<EastRoundedIcon fontSize="small" />}
+          onClick={() => onOpenDetails(intent.id)}
+          sx={actionButtonSx}
+        >
+          View details
+        </Button>
       </Stack>
-
-      {!intent.appliesToViewer ? (
-        <Typography level="body-xs" sx={{ mb: 1.5, color: 'neutral.400' }}>
-          This call is visible in your network, but it does not currently include you.
-        </Typography>
-      ) : null}
-
-      {viewerResponseChoice ? (
-        <Typography level="body-xs" sx={{ mb: 1.5, color: viewerResponseChoice === 'interested' ? 'success.300' : 'neutral.400' }}>
-          {viewerResponseChoice === 'interested' ? 'You are marked as interested in this call to play.' : 'You are marked as passed on this call to play.'}
-        </Typography>
-      ) : null}
-
-      {!intent.discordSpace && intent.voiceChannelName ? (
-        <Typography level="body-sm" sx={{ mb: 1.5, color: 'neutral.300' }}>
-          Voice channel: {intent.voiceChannelName}
-        </Typography>
-      ) : null}
-
-      {intent.notifyScope === 'specific-discord-server' && intent.targetServers.length > 0 ? (
-        <Typography level="body-sm" sx={{ mb: 1.5, color: 'neutral.300' }}>
-          Target Discord servers: {intent.targetServers.map((server) => server.name).join(', ')}
-        </Typography>
-      ) : null}
     </Card>
   )
 }

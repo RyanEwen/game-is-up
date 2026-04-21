@@ -22,6 +22,7 @@ type DiscordActivityObservationRecord = {
   activityName: string;
   applicationId: string | null;
   activityType: DiscordActivityType;
+  endedAt: Date | null;
   details: string | null;
   state: string | null;
   startedAt: Date | null;
@@ -43,6 +44,7 @@ function toDiscordActivitySummary(
     title: observation.activityName,
     applicationId: observation.applicationId,
     activityType: activityTypeToClientLabel(observation.activityType),
+    isActive: observation.endedAt == null,
     details: observation.details,
     state: observation.state,
     startedAt: observation.startedAt?.toISOString() ?? null,
@@ -268,7 +270,7 @@ export async function getLatestDiscordActivityForUser(userId: string) {
   }
 }
 
-export async function getLatestActiveDiscordActivitiesForUsers(userIds: string[]) {
+export async function getLatestDiscordActivitiesForUsers(userIds: string[]) {
   if (userIds.length === 0) {
     return new Map<string, NonNullable<DiscoveryPerson['discordActivity']>>()
   }
@@ -277,8 +279,7 @@ export async function getLatestActiveDiscordActivitiesForUsers(userIds: string[]
     where: {
       userId: {
         in: userIds
-      },
-      isActive: true
+      }
     },
     orderBy: [
       {

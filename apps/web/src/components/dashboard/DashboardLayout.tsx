@@ -160,8 +160,8 @@ export const DashboardLayout = ({
                 key={toast.id}
                 color={toast.notice.tone}
                 variant="soft"
-                role={toast.notice.tone === 'danger' ? 'alert' : 'status'}
-                endDecorator={
+                role={toast.notice.tone === 'neutral' ? 'status' : 'alert'}
+                endDecorator={toast.dismiss ? (
                   <Button
                     size="sm"
                     variant="plain"
@@ -171,7 +171,7 @@ export const DashboardLayout = ({
                   >
                     Dismiss
                   </Button>
-                }
+                ) : null}
                 sx={{
                   p: 1.5,
                   borderRadius: 'sm',

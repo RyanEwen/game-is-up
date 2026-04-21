@@ -6,6 +6,7 @@ import type {
   SendDiscordServerInvitesResponse
 } from '@game-is-up/shared'
 import { Link } from 'react-router-dom'
+import { DashboardApiIssueCard } from '../components/dashboard/DashboardApiIssueCard'
 import { DiscordServerPicker } from '../components/dashboard/DiscordServerPicker'
 import { DashboardModalActionBar } from '../components/dashboard/DashboardModalActionBar'
 import { EmptyStateCard } from '../components/dashboard/EmptyStateCard'
@@ -679,12 +680,14 @@ export function InviteUsersCard({
 }
 
 function OverviewViewContent({
+  error,
   session,
   discordEnabled,
   onLogout,
   onDiscordLogin,
   installPrompt
 }: {
+  error: string | null;
   session: AuthSessionResponse | null;
   discordEnabled: boolean;
   onLogout: () => Promise<void>;
@@ -695,6 +698,10 @@ function OverviewViewContent({
     onInstall: () => void | Promise<void>;
   };
 }) {
+  if (error) {
+    return <DashboardApiIssueCard error={error} />
+  }
+
   return (
     <Stack spacing={3}>
       <SectionNav

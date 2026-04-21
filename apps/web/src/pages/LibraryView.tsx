@@ -3,6 +3,7 @@ import { Box, Button, Card, Checkbox, Chip, DialogContent, DialogTitle, Input, O
 import type { GameSearchResponse, GameSearchResult, ImportSteamLibrarySelectionRequest, LibraryEntry, LibraryEntryIntent, LibrarySuggestedGame, SteamLibraryImportGame, SteamLibraryImportPreviewResponse, UserGameAlias, UserPlatformAlias } from '@game-is-up/shared'
 import { DashboardModal } from '../components/dashboard/DashboardModal'
 import { AliasManagementCard } from '../components/dashboard/AliasManagementCard'
+import { DashboardApiIssueCard } from '../components/dashboard/DashboardApiIssueCard'
 import { DashboardModalActionBar } from '../components/dashboard/DashboardModalActionBar'
 import { DashboardDeferredImage } from '../components/dashboard/DashboardDeferredImage'
 import { EmptyStateCard } from '../components/dashboard/EmptyStateCard'
@@ -824,6 +825,7 @@ function SteamImportRow({
 }
 
 function LibraryViewContent({
+  error,
   isSignedIn,
   steamImportEnabled,
   steamConnected,
@@ -884,6 +886,7 @@ function LibraryViewContent({
   onRemoveLibraryEntry,
   onAddGameToLibrary
 }: {
+  error: string | null;
   isSignedIn: boolean;
   steamImportEnabled: boolean;
   steamConnected: boolean;
@@ -944,6 +947,10 @@ function LibraryViewContent({
   onRemoveLibraryEntry: (entryId: string) => Promise<void>;
   onAddGameToLibrary: (game: DashboardLibraryQuickAddGame) => Promise<void>;
 }) {
+  if (error) {
+    return <DashboardApiIssueCard error={error} />
+  }
+
   const gameAliasByGameId = new Map(gameAliases.map((alias) => [alias.gameId, alias.aliasValue]))
   const editorGameAlias = editingLibraryEntry ? (gameAliasByGameId.get(editingLibraryEntry.gameId) ?? null) : null
 
