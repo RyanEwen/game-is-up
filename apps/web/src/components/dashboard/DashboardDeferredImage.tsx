@@ -54,7 +54,7 @@ export function DashboardDeferredImage({
   }, [rootMargin, shouldLoad, src])
 
   return (
-    <Box ref={containerRef} sx={{ width: '100%', height: '100%', position: 'relative' }}>
+    <Box ref={containerRef} sx={{ width: '100%', height: '100%', minHeight: 0, position: 'relative', display: 'block', overflow: 'hidden' }}>
       {!loaded ? (
         <Skeleton
           variant="overlay"
@@ -70,6 +70,8 @@ export function DashboardDeferredImage({
           decoding="async"
           onLoad={() => setLoaded(true)}
           sx={{
+            position: 'absolute',
+            inset: 0,
             display: 'block',
             width: '100%',
             height: '100%',

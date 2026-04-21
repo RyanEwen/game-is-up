@@ -31,7 +31,11 @@ export function LibraryEntryCard({
       <Box
         sx={{
           position: 'relative',
+          display: 'block',
+          width: '100%',
           aspectRatio: commonWideGameCoverAspectRatio,
+          flexShrink: 0,
+          overflow: 'hidden',
           background: 'linear-gradient(160deg, #1a4b56, #121a28 58%, #5b3807)',
           borderBottom: '1px solid #304159'
         }}

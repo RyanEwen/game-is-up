@@ -253,6 +253,36 @@ async function main() {
         sources: { create: { source: 'rawg', externalId: '269228', canonical: true } },
         platforms: { create: [{ platformLabel: 'PC' }] }
       }
+    }),
+    prisma.game.create({
+      data: {
+        slug: 'warframe',
+        title: 'Warframe',
+        coverUrl: 'https://media.rawg.io/media/games/6d9/6d9b20f0a0fabc0877d102f23b46301f.jpg',
+        description: 'Fast co-op looter shooter with endless progression systems.',
+        sources: { create: { source: 'rawg', externalId: '766', canonical: true } },
+        platforms: { create: [{ platformLabel: 'PC' }, { platformLabel: 'Xbox' }, { platformLabel: 'PlayStation' }, { platformLabel: 'Switch' }] }
+      }
+    }),
+    prisma.game.create({
+      data: {
+        slug: 'valheim',
+        title: 'Valheim',
+        coverUrl: 'https://media.rawg.io/media/games/2fe/2fe625b052a63eb0b7f3f610f1c0a1f6.jpg',
+        description: 'Survival crafting with long co-op sessions and boss progression.',
+        sources: { create: { source: 'rawg', externalId: '442786', canonical: true } },
+        platforms: { create: [{ platformLabel: 'PC' }, { platformLabel: 'Xbox' }] }
+      }
+    }),
+    prisma.game.create({
+      data: {
+        slug: 'phasmophobia',
+        title: 'Phasmophobia',
+        coverUrl: 'https://media.rawg.io/media/games/e21/e2164ce5b4fbfdb40d4b2f9f5dbbab81.jpg',
+        description: 'Ghost-hunting co-op that works well for short sessions and voice chat chaos.',
+        sources: { create: { source: 'rawg', externalId: '370370', canonical: true } },
+        platforms: { create: [{ platformLabel: 'PC' }] }
+      }
     })
   ])
 
@@ -584,6 +614,136 @@ async function main() {
         lastObservedAt: hoursAgo(2)
       },
       {
+        discordUserId: 'discord-alex',
+        gameId: bySlug['lethal-company'].id,
+        sourceServerId: lateQueue.id,
+        activityName: 'Lethal Company',
+        applicationId: 'discord-app-lethal-company',
+        activityType: DiscordActivityType.PLAYING,
+        firstObservedAt: daysAgo(2),
+        lastObservedAt: hoursAgo(8)
+      },
+      {
+        discordUserId: 'discord-alex',
+        gameId: bySlug['warframe'].id,
+        sourceServerId: coopCorner.id,
+        activityName: 'Warframe',
+        applicationId: 'discord-app-warframe',
+        activityType: DiscordActivityType.PLAYING,
+        firstObservedAt: daysAgo(6),
+        lastObservedAt: hoursAgo(12)
+      },
+      {
+        discordUserId: 'discord-alex',
+        gameId: bySlug['valheim'].id,
+        sourceServerId: weekendRaid.id,
+        activityName: 'Valheim',
+        applicationId: 'discord-app-valheim',
+        activityType: DiscordActivityType.PLAYING,
+        firstObservedAt: daysAgo(4),
+        lastObservedAt: hoursAgo(16)
+      },
+      {
+        discordUserId: 'discord-alex',
+        gameId: bySlug['phasmophobia'].id,
+        sourceServerId: coopCorner.id,
+        activityName: 'Phasmophobia',
+        applicationId: 'discord-app-phasmophobia',
+        activityType: DiscordActivityType.PLAYING,
+        firstObservedAt: daysAgo(1),
+        lastObservedAt: minutesAgo(35)
+      },
+      {
+        discordUserId: 'discord-mira',
+        gameId: bySlug['helldivers-2'].id,
+        sourceServerId: coopCorner.id,
+        activityName: 'Helldivers 2',
+        applicationId: 'discord-app-helldivers-2',
+        activityType: DiscordActivityType.PLAYING,
+        firstObservedAt: hoursAgo(8),
+        lastObservedAt: minutesAgo(18)
+      },
+      {
+        discordUserId: 'discord-mira',
+        gameId: bySlug['monster-hunter-wilds'].id,
+        sourceServerId: weekendRaid.id,
+        activityName: 'Monster Hunter Wilds',
+        applicationId: 'discord-app-mhw',
+        activityType: DiscordActivityType.COMPETING,
+        firstObservedAt: daysAgo(2),
+        lastObservedAt: hoursAgo(6)
+      },
+      {
+        discordUserId: 'discord-mira',
+        gameId: bySlug['destiny-2'].id,
+        sourceServerId: coopCorner.id,
+        activityName: 'Destiny 2',
+        applicationId: 'discord-app-destiny-2',
+        activityType: DiscordActivityType.PLAYING,
+        firstObservedAt: daysAgo(4),
+        lastObservedAt: hoursAgo(10)
+      },
+      {
+        discordUserId: 'discord-jordan',
+        gameId: bySlug['apex-legends'].id,
+        sourceServerId: lateQueue.id,
+        activityName: 'Apex Legends',
+        applicationId: 'discord-app-apex',
+        activityType: DiscordActivityType.PLAYING,
+        firstObservedAt: daysAgo(1),
+        lastObservedAt: minutesAgo(7)
+      },
+      {
+        discordUserId: 'discord-jordan',
+        gameId: bySlug['helldivers-2'].id,
+        sourceServerId: lateQueue.id,
+        activityName: 'Helldivers 2',
+        applicationId: 'discord-app-helldivers-2',
+        activityType: DiscordActivityType.PLAYING,
+        firstObservedAt: daysAgo(3),
+        lastObservedAt: hoursAgo(14)
+      },
+      {
+        discordUserId: 'discord-jordan',
+        gameId: bySlug['lethal-company'].id,
+        sourceServerId: lateQueue.id,
+        activityName: 'Lethal Company',
+        applicationId: 'discord-app-lethal-company',
+        activityType: DiscordActivityType.PLAYING,
+        firstObservedAt: daysAgo(2),
+        lastObservedAt: minutesAgo(55)
+      },
+      {
+        discordUserId: 'discord-noa',
+        gameId: bySlug['deep-rock-galactic'].id,
+        sourceServerId: coopCorner.id,
+        activityName: 'Deep Rock Galactic',
+        applicationId: 'discord-app-drg',
+        activityType: DiscordActivityType.PLAYING,
+        firstObservedAt: daysAgo(2),
+        lastObservedAt: minutesAgo(32)
+      },
+      {
+        discordUserId: 'discord-noa',
+        gameId: bySlug['sea-of-thieves'].id,
+        sourceServerId: weekendRaid.id,
+        activityName: 'Sea of Thieves',
+        applicationId: 'discord-app-sea-of-thieves',
+        activityType: DiscordActivityType.PLAYING,
+        firstObservedAt: daysAgo(5),
+        lastObservedAt: hoursAgo(9)
+      },
+      {
+        discordUserId: 'discord-noa',
+        gameId: bySlug['monster-hunter-wilds'].id,
+        sourceServerId: coopCorner.id,
+        activityName: 'Monster Hunter Wilds',
+        applicationId: 'discord-app-mhw',
+        activityType: DiscordActivityType.COMPETING,
+        firstObservedAt: daysAgo(1),
+        lastObservedAt: hoursAgo(3)
+      },
+      {
         discordUserId: 'discord-mystery-friend',
         gameId: bySlug['lethal-company'].id,
         sourceServerId: weekendRaid.id,
@@ -598,7 +758,7 @@ async function main() {
 
   console.log(`Seeded ${5} sample users, ${games.length} games, and ${3} Discord servers.`)
   console.log(`Sample account ${viewer.handle} now has ${5} library entries, ${3} friends, and ${4} seeded play intents to inspect.`)
-  console.log('Added live Discord activity plus seeded join responses so admins can test richer call-to-play states.')
+  console.log('Added live Discord activity, friend observed-game history for trending suggestions, and seeded join responses so admins can test richer call-to-play states.')
 }
 
 main()
