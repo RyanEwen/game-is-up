@@ -3229,11 +3229,13 @@ export async function handleScheduledPlayIntentCheckInInteraction(interaction: B
     components: preservedPrompt.components
   })
 
+  await syncCreatorPlayIntentSummaryMessages([playIntent.id], {
+    notifyOnActiveChange: false
+  })
+
   await interaction.followUp({
     content: buildCreatorConfirmedMessage()
   })
-
-  await syncCreatorPlayIntentSummaryMessages([playIntent.id])
 }
 
 export async function handlePlayIntentNotificationInteraction(interaction: ButtonInteraction) {
