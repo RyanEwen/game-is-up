@@ -58,6 +58,9 @@ export function LibrarySuggestionsRow({
                 platformLabels: game.platformLabels
               })}
               sx={{
+                flexShrink: 0,
+                minWidth: 'max-content',
+                whiteSpace: 'nowrap',
                 justifyContent: 'flex-start',
                 alignSelf: 'flex-start',
                 cursor: 'pointer',

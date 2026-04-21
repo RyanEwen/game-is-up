@@ -59,6 +59,9 @@ export function LibraryTrendingRow({
                   platformLabels: game.platformLabels
                 })}
                 sx={{
+                  flexShrink: 0,
+                  minWidth: 'max-content',
+                  whiteSpace: 'nowrap',
                   boxShadow: 'none',
                   transition: 'background-color 180ms ease, color 180ms ease, transform 180ms ease, box-shadow 180ms ease',
                   '&:hover': {
