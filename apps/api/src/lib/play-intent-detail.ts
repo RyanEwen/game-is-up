@@ -262,18 +262,14 @@ function buildAudienceSummary(options: {
   targetFriends: Array<{ friendUser: { displayName: string } }>;
 }) {
   if (options.scope === PlayIntentScope.SPECIFIC_DISCORD_SERVER) {
-    const names = options.targetDiscordServers.map((entry) => entry.server.name)
-
-    return names.length > 0
-      ? `Only matching people from these Discord servers can receive this call: ${names.join(', ')}.`
+    return options.targetDiscordServers.length > 0
+      ? 'Only matching people from these Discord servers can receive this call.'
       : 'Only matching people from the selected Discord servers can receive this call.'
   }
 
   if (options.scope === PlayIntentScope.SPECIFIC_FRIENDS) {
-    const names = options.targetFriends.map((entry) => entry.friendUser.displayName)
-
-    if (options.isOwnIntent && names.length > 0) {
-      return `Only these specific friends can receive this call when their libraries match: ${names.join(', ')}.`
+    if (options.isOwnIntent && options.targetFriends.length > 0) {
+      return 'Only these specific friends can receive this call when their libraries match.'
     }
 
     return 'Only the specific friends chosen for this call can receive it when their libraries match.'
