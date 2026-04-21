@@ -2,7 +2,7 @@ import { Box, Button, Card, Chip, Stack, Typography } from '@mui/joy'
 import type { LibraryEntry } from '@game-is-up/shared'
 import { AvailabilityChip } from './AvailabilityChip'
 import { DashboardDeferredImage } from './DashboardDeferredImage'
-import { formatLibraryIntentLabel, topLevelGridCardSx } from './dashboardUtils'
+import { commonWideGameCoverAspectRatio, formatLibraryIntentLabel, topLevelGridCardSx } from './dashboardUtils'
 
 export function LibraryEntryCard({
   entry,
@@ -31,7 +31,7 @@ export function LibraryEntryCard({
       <Box
         sx={{
           position: 'relative',
-          aspectRatio: '16 / 9',
+          aspectRatio: commonWideGameCoverAspectRatio,
           background: 'linear-gradient(160deg, #1a4b56, #121a28 58%, #5b3807)',
           borderBottom: '1px solid #304159'
         }}

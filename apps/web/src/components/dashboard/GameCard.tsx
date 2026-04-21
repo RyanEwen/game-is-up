@@ -3,7 +3,7 @@ import type { DiscoveryGame, DiscoveryGamePlayer } from '@game-is-up/shared'
 import { DashboardDeferredImage } from './DashboardDeferredImage'
 import { FriendActionPopover } from './FriendActionPopover'
 import { GameActionPopover } from './GameActionPopover'
-import { formatLibraryIntentLabel, nestedInsetSurfaceSx, topLevelGridCardSx } from './dashboardUtils'
+import { commonWideGameCoverAspectRatio, formatLibraryIntentLabel, nestedInsetSurfaceSx, topLevelGridCardSx } from './dashboardUtils'
 import type { DashboardLibraryQuickAddGame, FriendTarget } from './types'
 
 type CompactCardBadge = {
@@ -182,7 +182,7 @@ export function GameCard({
         <Box
           sx={{
             width: '100%',
-            height: compact ? 196 : { xs: 160, md: 160 },
+            aspectRatio: commonWideGameCoverAspectRatio,
             borderRadius: 'md',
             overflow: 'hidden',
             backgroundColor: 'rgba(255,255,255,0.06)',
@@ -369,7 +369,7 @@ export function GameCardSkeleton({ compact = false }: { compact?: boolean }) {
       <Stack spacing={compact ? 1.5 : 2} sx={{ height: '100%' }}>
         <Skeleton
           variant="rectangular"
-          sx={{ width: '100%', height: compact ? 196 : 160, borderRadius: 'md', flexShrink: 0 }}
+          sx={{ width: '100%', aspectRatio: commonWideGameCoverAspectRatio, borderRadius: 'md', flexShrink: 0 }}
         />
         <Skeleton variant="text" level="title-md" width="70%" />
         <Skeleton variant="text" level="body-sm" width="45%" />

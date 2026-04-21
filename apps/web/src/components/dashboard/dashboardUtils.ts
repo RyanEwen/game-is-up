@@ -49,6 +49,8 @@ export const memberGameGridSx = {
   gap: '12px'
 } as const
 
+export const commonWideGameCoverAspectRatio = '460 / 215' as const
+
 export const topLevelCardSx = {
   borderColor: 'var(--joy-palette-neutral-700)',
   boxShadow: 'none'
