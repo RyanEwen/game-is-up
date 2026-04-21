@@ -25,6 +25,7 @@ import {
   deleteDiscordDirectMessage,
   editDiscordDirectMessage,
   sendDiscordDirectMessages,
+  type DiscordDirectMessagePayload,
   supportsDiscordInteractiveMessages
 } from './discord-bot-runtime.js'
 import { publishPlayIntentInvalidation } from './dashboard-events.js'
@@ -2038,6 +2039,57 @@ function isMissingDiscordMessageError(error: string | null | undefined) {
   return /Unknown Message/i.test(error ?? '')
 }
 
+function buildTrackedDirectMessageReplyReference(
+  channelId: string | null | undefined,
+  messageId: string | null | undefined
+): DiscordDirectMessagePayload['replyTo'] {
+  if (!channelId || !messageId) {
+    return undefined
+  }
+
+  return {
+    channelId,
+    messageId
+  }
+}
+
+async function getCreatorPlayIntentSummaryReplyReference(playIntentId: string) {
+  const playIntent = await prisma.playIntent.findUnique({
+    where: {
+      id: playIntentId
+    },
+    select: {
+      creatorDiscordDmChannelId: true,
+      creatorDiscordDmMessageId: true
+    }
+  })
+
+  return buildTrackedDirectMessageReplyReference(
+    playIntent?.creatorDiscordDmChannelId,
+    playIntent?.creatorDiscordDmMessageId
+  )
+}
+
+async function sendCreatorPlayIntentSummaryReply(options: {
+  playIntentId: string;
+  discordUserId: string;
+  content: string;
+  components?: MessageCreateOptions['components'];
+  embeds?: MessageCreateOptions['embeds'];
+}) {
+  const replyTo = await getCreatorPlayIntentSummaryReplyReference(options.playIntentId)
+
+  return (await sendDiscordDirectMessages([
+    {
+      discordUserId: options.discordUserId,
+      content: options.content,
+      embeds: options.embeds,
+      components: options.components,
+      replyTo
+    }
+  ]))[0]
+}
+
 async function syncRecipientResponseFollowUpDirectMessage(options: {
   notificationId: string;
   discordUserId: string;
@@ -2328,16 +2380,15 @@ async function applyRecipientResponseToPlayIntentNotification(options: {
     })
 
     if (shouldCreateCreatorPassNotification && creatorDiscordUserId) {
-      const dmResult = (await sendDiscordDirectMessages([
-        {
+        const dmResult = await sendCreatorPlayIntentSummaryReply({
+          playIntentId: playIntent.id,
           discordUserId: creatorDiscordUserId,
           content: buildDiscordPlainMessage(
             buildDiscordMessageHeading(passResult.title),
             [creatorNotificationCopy.discordBody]
           ),
           components: []
-        }
-      ]))[0]
+        })
 
       if (dmResult?.status === 'sent' && !dmResult.emulated) {
         await prisma.notification.update({
@@ -2430,16 +2481,15 @@ async function applyRecipientResponseToPlayIntentNotification(options: {
   })
 
   if (previousChoice !== NotificationResponseChoice.JOIN && creatorDiscordUserId) {
-    const dmResult = (await sendDiscordDirectMessages([
-      {
-        discordUserId: creatorDiscordUserId,
-        content: buildDiscordPlainMessage(
-          buildDiscordMessageHeading(interestedResult.title),
-          [creatorNotificationCopy.discordBody]
-        ),
-        components: []
-      }
-    ]))[0]
+    const dmResult = await sendCreatorPlayIntentSummaryReply({
+      playIntentId: playIntent.id,
+      discordUserId: creatorDiscordUserId,
+      content: buildDiscordPlainMessage(
+        buildDiscordMessageHeading(interestedResult.title),
+        [creatorNotificationCopy.discordBody]
+      ),
+      components: []
+    })
 
     if (dmResult?.status === 'sent' && !dmResult.emulated) {
       await prisma.notification.update({
@@ -2639,18 +2689,21 @@ export async function sweepScheduledPlayIntentCreatorCheckIns() {
       continue
     }
 
+    await syncCreatorPlayIntentSummaryMessages([intent.id], {
+      notifyOnActiveChange: false
+    })
+
     const promptEmbeds = buildScheduledCheckInEmbeds(buildDiscordUserLabel(intent.user.displayName, creatorIdentity.providerUserId))
 
-    const dmResult = (await sendDiscordDirectMessages([
-      {
-        discordUserId: creatorIdentity.providerUserId,
-        content: buildDiscordMessageHeading('⏰ Go-Time Check-In'),
-        embeds: promptEmbeds,
-        components: buildScheduledPlayIntentCheckInComponents(checkInNotification.id, {
-          playIntentId: intent.id
-        })
-      }
-    ]))[0]
+    const dmResult = await sendCreatorPlayIntentSummaryReply({
+      playIntentId: intent.id,
+      discordUserId: creatorIdentity.providerUserId,
+      content: buildDiscordMessageHeading('⏰ Go-Time Check-In'),
+      embeds: promptEmbeds,
+      components: buildScheduledPlayIntentCheckInComponents(checkInNotification.id, {
+        playIntentId: intent.id
+      })
+    })
 
     if (dmResult?.status === 'sent' && !dmResult.emulated) {
       await prisma.notification.update({
@@ -2664,8 +2717,6 @@ export async function sweepScheduledPlayIntentCreatorCheckIns() {
         }
       })
     }
-
-    await syncCreatorPlayIntentSummaryMessages([intent.id])
   }
 }
 
@@ -2945,8 +2996,11 @@ export async function handleScheduledPlayIntentCheckInInteraction(interaction: B
       components: preservedPrompt.components
     })
 
-    await interaction.followUp({
-      content: buildCreatorEndedMessage()
+    await sendCreatorPlayIntentSummaryReply({
+      playIntentId: notification.playIntent.id,
+      discordUserId: interaction.user.id,
+      content: buildCreatorEndedMessage(),
+      components: []
     })
     return
   }
@@ -3233,8 +3287,11 @@ export async function handleScheduledPlayIntentCheckInInteraction(interaction: B
     notifyOnActiveChange: false
   })
 
-  await interaction.followUp({
-    content: buildCreatorConfirmedMessage()
+  await sendCreatorPlayIntentSummaryReply({
+    playIntentId: playIntent.id,
+    discordUserId: interaction.user.id,
+    content: buildCreatorConfirmedMessage(),
+    components: []
   })
 }
 

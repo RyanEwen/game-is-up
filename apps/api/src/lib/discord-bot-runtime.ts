@@ -18,6 +18,11 @@ export type DiscordDirectMessagePayload = {
   content: string;
   components?: MessageCreateOptions['components'];
   embeds?: MessageCreateOptions['embeds'];
+  replyTo?: {
+    channelId?: string | null;
+    messageId: string;
+    failIfNotExists?: boolean;
+  };
 };
 
 export type DiscordDirectMessageSendResult = {
@@ -98,6 +103,25 @@ function toDiscordApiEmbeds(embeds?: MessageCreateOptions['embeds']) {
 
     return embed
   })
+}
+
+function toDiscordApiMessageReference(
+  replyTo: DiscordDirectMessagePayload['replyTo'] | undefined,
+  channelId: string
+) {
+  if (!replyTo?.messageId) {
+    return undefined
+  }
+
+  if (replyTo.channelId && replyTo.channelId !== channelId) {
+    return undefined
+  }
+
+  return {
+    message_id: replyTo.messageId,
+    channel_id: replyTo.channelId ?? channelId,
+    fail_if_not_exists: replyTo.failIfNotExists ?? false
+  }
 }
 
 async function createDiscordDirectMessageChannel(discordUserId: string) {
@@ -294,7 +318,8 @@ export async function sendDiscordDirectMessages(messages: DiscordDirectMessagePa
         body: {
           content: message.content,
           components: toDiscordApiComponents(message.components),
-          embeds: toDiscordApiEmbeds(message.embeds)
+          embeds: toDiscordApiEmbeds(message.embeds),
+          message_reference: toDiscordApiMessageReference(message.replyTo, channel.id)
         }
       })
 
