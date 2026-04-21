@@ -368,12 +368,12 @@ playIntentRouter.post('/:playIntentId/discord-space/retry', async (request, resp
     }
 
     if (!playIntent.discordSpace) {
-      response.status(404).json({ error: 'No temporary Discord channels were found for this call to play.' })
+      response.status(404).json({ error: 'No temporary Discord channel was found for this call to play.' })
       return
     }
 
     if (playIntent.discordSpace.status === PlayIntentDiscordSpaceStatus.DELETED) {
-      response.status(409).json({ error: 'These temporary Discord channels have already been deleted.' })
+      response.status(409).json({ error: 'This temporary Discord channel has already been deleted.' })
       return
     }
 
@@ -387,7 +387,7 @@ playIntentRouter.post('/:playIntentId/discord-space/retry', async (request, resp
     if (result.status === 'missing') {
       response.json(playIntentDiscordSpaceRetryResponseSchema.parse({
         status: 'missing',
-        message: 'No temporary Discord channels were found for this call to play.'
+        message: 'No temporary Discord channel was found for this call to play.'
       }))
       return
     }
@@ -398,7 +398,7 @@ playIntentRouter.post('/:playIntentId/discord-space/retry', async (request, resp
     }
 
     if (result.status === 'skipped') {
-      response.status(409).json({ error: 'These temporary Discord channels can no longer be retried.' })
+      response.status(409).json({ error: 'This temporary Discord channel can no longer be retried.' })
       return
     }
 
@@ -458,22 +458,22 @@ playIntentRouter.delete('/:playIntentId/discord-space', async (request, response
       || playIntent.discordSpace.status === PlayIntentDiscordSpaceStatus.PROVISIONING
       || playIntent.discordSpace.status === PlayIntentDiscordSpaceStatus.DELETED
     ) {
-      response.status(409).json({ error: 'No temporary Discord channels are available to delete.' })
+      response.status(409).json({ error: 'No temporary Discord channel is available to delete.' })
       return
     }
 
     const result = await deletePlayIntentDiscordSpaceByPlayIntentId(playIntent.id)
 
     if (result.status === 'failed') {
-      response.status(502).json({ error: 'Unable to delete the temporary Discord channels right now.' })
+      response.status(502).json({ error: 'Unable to delete the temporary Discord channel right now.' })
       return
     }
 
     response.json(playIntentDiscordSpaceDeleteResponseSchema.parse({
       status: result.status === 'missing' ? 'missing' : 'deleted',
       message: result.status === 'missing'
-        ? 'No temporary Discord channels were found for this call to play.'
-        : 'Temporary Discord channels are being removed for this ended call to play.'
+        ? 'No temporary Discord channel was found for this call to play.'
+        : 'The temporary Discord channel is being removed for this ended call to play.'
     }))
   } catch (error) {
     next(error)

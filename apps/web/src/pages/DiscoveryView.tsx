@@ -1,4 +1,4 @@
-import { Box, Button, Card, Option, Select, Stack, Typography } from '@mui/joy'
+import { Box, Card, Option, Select, Stack, Typography } from '@mui/joy'
 import { useEffect, useState } from 'react'
 import type { DiscordServerPreference, DiscoveryGame, DiscoveryPerson, LibraryTrendingGame } from '@game-is-up/shared'
 import { DiscordServerPicker } from '../components/dashboard/DiscordServerPicker'
@@ -185,6 +185,7 @@ function DiscoveryViewContent({
         value={memberServerFilterId}
         placeholder="All selected servers"
         onChange={setMemberServerFilterId}
+        emptyOptionLabel="All selected servers"
         getOptionDescription={(option) =>
           option.knownUserCount > 0
             ? `${option.knownUserCount} network member${option.knownUserCount === 1 ? '' : 's'} visible`
@@ -197,11 +198,6 @@ function DiscoveryViewContent({
   const memberControls = networkPeople.length > 0 || selectedDiscoveryServers.length > 1 ? (
     <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ width: { xs: '100%', sm: 'auto' }, alignItems: { xs: 'stretch', sm: 'center' } }}>
       {memberFilterControl}
-      {memberServerFilterId ? (
-        <Button size="sm" variant="soft" color="neutral" onClick={() => setMemberServerFilterId('')}>
-          Clear
-        </Button>
-      ) : null}
       {memberSortControl}
     </Stack>
   ) : undefined

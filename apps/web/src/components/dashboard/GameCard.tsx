@@ -312,8 +312,8 @@ export function GameCard({
             sx={{
               display: 'grid',
               gridTemplateColumns: compact
-                ? 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))'
-                : 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))',
+                ? 'repeat(auto-fill, minmax(min(100%, 220px), 1fr))'
+                : 'repeat(auto-fill, minmax(min(100%, 260px), 1fr))',
               gap: 1.25
             }}
           >

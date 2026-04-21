@@ -123,35 +123,35 @@ function buildDebugDmTemplateDefinitions(now: Date): DebugDmTemplateGroupDefinit
   const templateDiscordSpaceForServerMembers = {
     status: 'active' as const,
     recipientInServer: true,
-    textChannelName: 'motorfest-staging',
-    textChannelUrl: 'https://discord.com/channels/987654321098765432/555555555555555555',
-    voiceChannelName: 'Motorfest pit lane',
+    textChannelName: null,
+    textChannelUrl: null,
+    voiceChannelName: 'ctp-avery-the-crew-motorfest-a1b2c3',
     voiceChannelUrl: 'https://discord.com/channels/987654321098765432/666666666666666666',
     inviteUrl: 'https://discord.gg/gamesup-motorfest'
   }
   const templateDiscordSpaceForInvitedRecipients = {
     status: 'active' as const,
     recipientInServer: false,
-    textChannelName: 'motorfest-staging',
+    textChannelName: null,
     textChannelUrl: null,
-    voiceChannelName: 'Motorfest pit lane',
+    voiceChannelName: 'ctp-avery-the-crew-motorfest-a1b2c3',
     voiceChannelUrl: null,
     inviteUrl: 'https://discord.gg/gamesup-motorfest'
   }
   const templateCreatorDiscordSpace = {
     status: 'ACTIVE' as const,
-    textChannelName: 'motorfest-staging',
-    textChannelUrl: 'https://discord.com/channels/987654321098765432/555555555555555555',
-    voiceChannelName: 'Motorfest pit lane',
+    textChannelName: null,
+    textChannelUrl: null,
+    voiceChannelName: 'ctp-avery-the-crew-motorfest-a1b2c3',
     voiceChannelUrl: 'https://discord.com/channels/987654321098765432/666666666666666666',
     inviteUrl: 'https://discord.gg/gamesup-motorfest',
     deleteAfter: new Date(now.getTime() + 24 * 60 * 60 * 1000)
   }
   const templateEndedCreatorDiscordSpace = {
     status: 'RETAINED' as const,
-    textChannelName: 'motorfest-staging',
-    textChannelUrl: 'https://discord.com/channels/987654321098765432/555555555555555555',
-    voiceChannelName: 'Motorfest pit lane',
+    textChannelName: null,
+    textChannelUrl: null,
+    voiceChannelName: 'ctp-avery-the-crew-motorfest-a1b2c3',
     voiceChannelUrl: 'https://discord.com/channels/987654321098765432/666666666666666666',
     inviteUrl: 'https://discord.gg/gamesup-motorfest',
     deleteAfter: new Date(now.getTime() + 12 * 60 * 60 * 1000)

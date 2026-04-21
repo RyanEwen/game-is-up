@@ -11,7 +11,7 @@ import { getInterestedUsersByPlayIntentId } from './play-intent-interested-users
 import { prisma } from './prisma.js'
 import { getViewer } from './demo-viewer.js'
 
-const recentEndedIntentWindowMs = 24 * 60 * 60 * 1000
+const recentEndedIntentWindowMs = 30 * 24 * 60 * 60 * 1000
 
 function toSelectionMode(selectionMode: PlayIntentSelectionMode): 'library' | 'subset' {
   return selectionMode === PlayIntentSelectionMode.ENTIRE_LIBRARY ? 'library' : 'subset'

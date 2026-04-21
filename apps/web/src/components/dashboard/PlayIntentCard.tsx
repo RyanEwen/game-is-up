@@ -7,7 +7,7 @@ import type { DashboardLibraryQuickAddGame } from './types'
 
 const selectedGameGridSx = {
   display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))',
+  gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 260px), 1fr))',
   gap: 1.25
 } as const
 

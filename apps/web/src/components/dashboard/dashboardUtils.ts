@@ -39,13 +39,13 @@ export const dashboardTabSx = {
 
 export const discoveryGameGridSx = {
   display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))',
+  gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 260px), 1fr))',
   gap: '16px'
 } as const
 
 export const memberGameGridSx = {
   display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))',
+  gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 260px), 1fr))',
   gap: '12px'
 } as const
 

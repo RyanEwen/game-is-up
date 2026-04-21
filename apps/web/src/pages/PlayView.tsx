@@ -32,6 +32,19 @@ import type {
 } from '../components/dashboard/types'
 
 type PlayIntentAudienceFilter = 'applicable' | 'all'
+type EndedPlayIntentWindowFilter = '1d' | '1w' | '1m'
+
+const endedPlayIntentWindowDurationsMs: Record<EndedPlayIntentWindowFilter, number> = {
+  '1d': 24 * 60 * 60 * 1000,
+  '1w': 7 * 24 * 60 * 60 * 1000,
+  '1m': 30 * 24 * 60 * 60 * 1000
+}
+
+const endedPlayIntentWindowLabels: Record<EndedPlayIntentWindowFilter, string> = {
+  '1d': '1 day',
+  '1w': '1 week',
+  '1m': '1 month'
+}
 
 function sortPlayIntentPreviews(intents: PlayIntentPreview[], status: PlayIntentPreview['status']) {
   return [...intents].sort((left, right) => {
@@ -76,6 +89,36 @@ function PlayIntentFilterControl({
       >
         <Option value="applicable">Only for you</Option>
         <Option value="all">All</Option>
+      </Select>
+    </Box>
+  )
+}
+
+function EndedPlayIntentWindowFilterControl({
+  value,
+  onChange
+}: {
+  value: EndedPlayIntentWindowFilter;
+  onChange: (value: EndedPlayIntentWindowFilter) => void;
+}) {
+  return (
+    <Box sx={headerFilterControlSx}>
+      <Typography level="body-sm" sx={{ color: 'neutral.400', whiteSpace: 'nowrap' }}>
+        Window
+      </Typography>
+      <Select
+        size="sm"
+        value={value}
+        onChange={(_event, nextValue) => {
+          if (nextValue) {
+            onChange(nextValue)
+          }
+        }}
+        sx={buildHeaderFilterSelectSx(150)}
+      >
+        <Option value="1d">1 day</Option>
+        <Option value="1w">1 week</Option>
+        <Option value="1m">1 month</Option>
       </Select>
     </Box>
   )
@@ -233,6 +276,7 @@ function PlayViewContent({
 }) {
   const [activeAudienceFilter, setActiveAudienceFilter] = useState<PlayIntentAudienceFilter>('applicable')
   const [endedAudienceFilter, setEndedAudienceFilter] = useState<PlayIntentAudienceFilter>('applicable')
+  const [endedWindowFilter, setEndedWindowFilter] = useState<EndedPlayIntentWindowFilter>('1d')
 
   if (!isSignedIn) {
     return (
@@ -254,8 +298,12 @@ function PlayViewContent({
     playIntentPreviews.filter((intent) => intent.status === 'ended'),
     'ended'
   )
+  const endedWindowCutoff = Date.now() - endedPlayIntentWindowDurationsMs[endedWindowFilter]
+  const windowedEndedPlayIntentPreviews = endedPlayIntentPreviews.filter(
+    (intent) => new Date(intent.availabilityWindow.endsAt).getTime() >= endedWindowCutoff
+  )
   const filteredActivePlayIntentPreviews = activePlayIntentPreviews.filter((intent) => activeAudienceFilter === 'all' || intent.appliesToViewer)
-  const filteredEndedPlayIntentPreviews = endedPlayIntentPreviews.filter((intent) => endedAudienceFilter === 'all' || intent.appliesToViewer)
+  const filteredEndedPlayIntentPreviews = windowedEndedPlayIntentPreviews.filter((intent) => endedAudienceFilter === 'all' || intent.appliesToViewer)
   const activeHeaderControls = isSignedIn ? (
     <Stack spacing={1} alignItems="stretch" sx={headerActionFilterStackSx}>
       <Button color="primary" onClick={openPlayIntentComposer} sx={headerActionFilterButtonSx}>
@@ -281,7 +329,7 @@ function PlayViewContent({
       mobileLabel: 'Ended',
       desktopLabel: 'Ended Calls',
       ariaLabel: 'Ended calls to play',
-      count: endedPlayIntentPreviews.length
+      count: windowedEndedPlayIntentPreviews.length
     },
     ...(isSignedIn ? [{ id: 'play-settings', label: 'Settings', ariaLabel: 'Play settings' }] : [])
   ]
@@ -402,10 +450,13 @@ function PlayViewContent({
           <Box>
             <Typography level="h3">Ended calls to play</Typography>
             <Typography level="body-sm" sx={{ color: 'neutral.400', mt: 0.5 }}>
-              Recently ended calls from people in your network.
+              Ended calls from the last {endedPlayIntentWindowLabels[endedWindowFilter].toLowerCase()} from people in your network.
             </Typography>
           </Box>
-          <PlayIntentFilterControl value={endedAudienceFilter} onChange={setEndedAudienceFilter} />
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ width: { xs: '100%', sm: 'auto' }, alignItems: { xs: 'stretch', sm: 'center' } }}>
+            <EndedPlayIntentWindowFilterControl value={endedWindowFilter} onChange={setEndedWindowFilter} />
+            <PlayIntentFilterControl value={endedAudienceFilter} onChange={setEndedAudienceFilter} />
+          </Stack>
         </Stack>
 
         {filteredEndedPlayIntentPreviews.length > 0 ? (
@@ -423,15 +474,15 @@ function PlayViewContent({
             title={
               isSignedIn
                 ? endedAudienceFilter === 'all'
-                  ? 'No recently ended calls to play'
-                  : 'No recently ended matching calls to play'
+                  ? `No ended calls to play from the last ${endedPlayIntentWindowLabels[endedWindowFilter].toLowerCase()}`
+                  : `No ended matching calls to play from the last ${endedPlayIntentWindowLabels[endedWindowFilter].toLowerCase()}`
                 : 'Ended calls to play will appear here'
             }
             body={
               isSignedIn
                 ? endedAudienceFilter === 'all'
-                  ? 'Recently ended calls from people in your network will show up here.'
-                  : 'Recently ended calls that matched your library will show up here.'
+                  ? `Ended calls from the last ${endedPlayIntentWindowLabels[endedWindowFilter].toLowerCase()} from people in your network will show up here.`
+                  : `Ended calls from the last ${endedPlayIntentWindowLabels[endedWindowFilter].toLowerCase()} that matched your library will show up here.`
                 : 'Once the API responds, this section shows recently ended calls to play from people in your friends list or network.'
             }
           />

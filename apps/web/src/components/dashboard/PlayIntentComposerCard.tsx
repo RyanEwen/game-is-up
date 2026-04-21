@@ -22,7 +22,7 @@ import {
   minimumPlayIntentDurationMinutes,
   playIntentPresetDurations
 } from './dashboardUtils'
-import { formatClockTime, formatMonthDayTime } from '../../lib/dateTime'
+import { formatMonthDayTime } from '../../lib/dateTime'
 import { DashboardModalActionBar } from './DashboardModalActionBar'
 import type { PlayIntentStartMode, PlayIntentTimingMode, PlayIntentVoiceMode } from './types'
 import dayjs, { type Dayjs } from 'dayjs'
@@ -467,7 +467,6 @@ export function PlayIntentComposerCard({
       })
       return groups
     }, [])
-  const activeTargetServers = composerPlayIntent?.targetServers ?? []
   const selectedGameTitles = libraryEntries
     .filter((entry) => selectedPlayIntentGameIds.includes(entry.gameId))
     .map((entry) => entry.title)
@@ -1026,74 +1025,6 @@ export function PlayIntentComposerCard({
         <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
           Let others with matching games know you want to play, whether that is now or later.
         </Typography>
-
-        {composerPlayIntent ? (
-          <Card color="success" variant="soft" sx={{ p: 2 }}>
-            <Stack spacing={1}>
-              <Typography level="title-md">{composerPlayIntent.title}</Typography>
-              <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-                {isScheduledIntent ? (
-                  <>
-                    <Chip size="sm" color="warning" variant="soft">
-                      Scheduled for {formatMonthDayTime(composerPlayIntent.windowStartsAt)}
-                    </Chip>
-                    <Chip size="sm" color="success" variant="soft">
-                      Ends {formatMonthDayTime(composerPlayIntent.windowEndsAt)}
-                    </Chip>
-                  </>
-                ) : (
-                  <Chip size="sm" color="success" variant="soft">
-                    Live until {formatClockTime(composerPlayIntent.windowEndsAt)}
-                  </Chip>
-                )}
-                <Chip size="sm" color="primary" variant="outlined">
-                  {formatNotifyScopeLabel(composerPlayIntent.notifyScope)}
-                </Chip>
-                <Chip size="sm" color="neutral" variant="outlined">
-                  {formatPlayIntentSelectionModeLabel(composerPlayIntent.selectionMode)}
-                </Chip>
-              </Stack>
-              <Typography level="body-xs" sx={{ color: 'neutral.300' }}>
-                {formatNotifyScopeDescription(composerPlayIntent.notifyScope)}
-              </Typography>
-              {composerPlayIntent.notifyScope === 'specific-discord-server' && activeTargetServers.length > 0 ? (
-                <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-                  {activeTargetServers.map((server) => (
-                    <Chip
-                      key={server.id}
-                      size="sm"
-                      variant="outlined"
-                      color="neutral"
-                      startDecorator={<Avatar src={server.iconUrl ?? undefined} alt={server.name} size="sm" variant="soft" />}
-                    >
-                      {server.name}
-                    </Chip>
-                  ))}
-                </Stack>
-              ) : null}
-              {composerPlayIntent.notifyScope === 'specific-friends' && composerPlayIntent.targetedFriends.length > 0 ? (
-                <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-                  {composerPlayIntent.targetedFriends.map((friend) => (
-                    <Chip
-                      key={friend.id}
-                      size="sm"
-                      variant="outlined"
-                      color="neutral"
-                      startDecorator={<Avatar src={friend.avatarUrl ?? undefined} alt={friend.displayName} size="sm" variant="soft" />}
-                    >
-                      {friend.displayName}
-                    </Chip>
-                  ))}
-                </Stack>
-              ) : null}
-              {composerPlayIntent.note ? (
-                <Typography level="body-sm" sx={{ color: 'neutral.100' }}>
-                  {composerPlayIntent.note}
-                </Typography>
-              ) : null}
-            </Stack>
-          </Card>
-        ) : null}
 
         <Stepper
           sx={{

@@ -1421,7 +1421,7 @@ export async function upsertCurrentPlayIntent(
   }
 
   if (payload.createDiscordSpace && !env.DISCORD_SERVER_ID) {
-    throw new PlayIntentValidationError('Temporary Discord channels are not configured yet.')
+    throw new PlayIntentValidationError('Temporary Discord channel support is not configured yet.')
   }
 
   if (payload.createDiscordSpace && (payload.voiceChannelId || payload.voiceChannelName)) {

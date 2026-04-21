@@ -25,7 +25,7 @@ const complementarySpaceActiveStatuses: PlayIntentDiscordSpaceStatus[] = [
 ]
 const complementarySpaceRetentionMs = 7 * 24 * 60 * 60 * 1000
 const discordSpaceGrantFailureMessage = 'Some Discord channel access grants could not be applied. Check that the Game\'s Up bot can manage roles in the Discord server.'
-const discordSpaceCreatorMissingIdentityMessage = 'The call-to-play creator no longer has a linked Discord account, so the temporary Discord channels could not be granted.'
+const discordSpaceCreatorMissingIdentityMessage = 'The call-to-play creator no longer has a linked Discord account, so the temporary Discord channel access could not be granted.'
 const discordSpaceCreatorJoinServerMessage = 'The call-to-play creator is not currently in the Game\'s Up Discord server. Join the server to reveal the temporary channels.'
 const discordSpaceCreatorGrantFailureMessage = 'The call-to-play creator could not be granted the temporary Discord channel role. Check that the Game\'s Up bot can manage roles in the Discord server.'
 
@@ -47,9 +47,7 @@ function buildComplementarySpaceNames(playIntent: { id: string; headline: string
 
   return {
     roleName: `ctp-${base}`.slice(0, 100),
-    categoryName: `${creatorSegment}-${base}`.slice(0, 100),
-    textChannelName: `chat-${shortId}`,
-    voiceChannelName: `voice-${shortId}`
+    voiceChannelName: `ctp-${creatorSegment}-${base}`.slice(0, 100)
   }
 }
 
@@ -59,52 +57,19 @@ function isUnknownDiscordResourceError(error: unknown) {
   return /Unknown (Channel|Role|Invite|Member)/i.test(message)
 }
 
-function buildBasePermissionOverwrites(roleId: string) {
-  return [
-    {
-      id: env.DISCORD_SERVER_ID ?? '',
-      type: OverwriteType.Role,
-      deny: PermissionFlagsBits.ViewChannel.toString(),
-      allow: '0'
-    },
-    {
-      id: roleId,
-      type: OverwriteType.Role,
-      allow: PermissionFlagsBits.ViewChannel.toString(),
-      deny: '0'
-    }
-  ]
-}
-
-function buildTextPermissionOverwrites(roleId: string) {
-  return [
-    {
-      id: env.DISCORD_SERVER_ID ?? '',
-      type: OverwriteType.Role,
-      deny: PermissionFlagsBits.ViewChannel.toString(),
-      allow: '0'
-    },
-    {
-      id: roleId,
-      type: OverwriteType.Role,
-      allow: (
-        PermissionFlagsBits.ViewChannel
-        | PermissionFlagsBits.SendMessages
-        | PermissionFlagsBits.ReadMessageHistory
-        | PermissionFlagsBits.AttachFiles
-        | PermissionFlagsBits.EmbedLinks
-      ).toString(),
-      deny: '0'
-    }
-  ]
-}
-
 function buildVoicePermissionOverwrites(roleId: string) {
   return [
     {
       id: env.DISCORD_SERVER_ID ?? '',
       type: OverwriteType.Role,
-      deny: (PermissionFlagsBits.ViewChannel | PermissionFlagsBits.Connect).toString(),
+      deny: (
+        PermissionFlagsBits.ViewChannel
+        | PermissionFlagsBits.Connect
+        | PermissionFlagsBits.SendMessages
+        | PermissionFlagsBits.ReadMessageHistory
+        | PermissionFlagsBits.AttachFiles
+        | PermissionFlagsBits.EmbedLinks
+      ).toString(),
       allow: '0'
     },
     {
@@ -116,6 +81,10 @@ function buildVoicePermissionOverwrites(roleId: string) {
         | PermissionFlagsBits.Speak
         | PermissionFlagsBits.Stream
         | PermissionFlagsBits.UseVAD
+        | PermissionFlagsBits.SendMessages
+        | PermissionFlagsBits.ReadMessageHistory
+        | PermissionFlagsBits.AttachFiles
+        | PermissionFlagsBits.EmbedLinks
       ).toString(),
       deny: '0'
     }
@@ -275,6 +244,39 @@ async function deleteChannel(channelId: string | null | undefined) {
 
     throw error
   }
+}
+
+async function resetLegacyProvisioningChannels(space: NonNullable<ProvisionableSpace>) {
+  const shouldReset = (
+    (space.status === PlayIntentDiscordSpaceStatus.REQUESTED || space.status === PlayIntentDiscordSpaceStatus.PROVISION_FAILED)
+    && Boolean(space.categoryChannelId || space.textChannelId)
+  )
+
+  if (!shouldReset) {
+    return false
+  }
+
+  await deleteInvite(space.inviteCode)
+  await deleteChannel(space.textChannelId)
+  await deleteChannel(space.voiceChannelId)
+  await deleteChannel(space.categoryChannelId)
+
+  await prisma.playIntentDiscordSpace.update({
+    where: { id: space.id },
+    data: {
+      categoryChannelId: null,
+      categoryChannelName: null,
+      textChannelId: null,
+      textChannelName: null,
+      voiceChannelId: null,
+      voiceChannelName: null,
+      inviteCode: null,
+      inviteUrl: null,
+      inviteUseCount: 0
+    }
+  })
+
+  return true
 }
 
 async function createInvite(channelId: string) {
@@ -827,6 +829,7 @@ export async function provisionPlayIntentDiscordSpace(spaceId: string) {
 
   try {
     const names = buildComplementarySpaceNames(space.playIntent)
+    const resetLegacyChannels = await resetLegacyProvisioningChannels(space)
     const role = space.roleId
       ? { id: space.roleId, name: space.roleName ?? names.roleName }
       : await createRole(space.serverId, names.roleName)
@@ -839,48 +842,14 @@ export async function provisionPlayIntentDiscordSpace(spaceId: string) {
         }
       })
     }
-    const category = space.categoryChannelId
-      ? { id: space.categoryChannelId, name: space.categoryChannelName ?? names.categoryName }
-      : await createChannel(space.serverId, {
-          name: names.categoryName,
-          type: ChannelType.GuildCategory,
-          permissionOverwrites: buildBasePermissionOverwrites(role.id)
-        })
-    if (!space.categoryChannelId) {
-      await prisma.playIntentDiscordSpace.update({
-        where: { id: space.id },
-        data: {
-          categoryChannelId: category.id,
-          categoryChannelName: category.name
-        }
-      })
-    }
-    const textChannel = space.textChannelId
-      ? { id: space.textChannelId, name: space.textChannelName ?? names.textChannelName }
-      : await createChannel(space.serverId, {
-          name: names.textChannelName,
-          type: ChannelType.GuildText,
-          parentId: category.id,
-          permissionOverwrites: buildTextPermissionOverwrites(role.id)
-        })
-    if (!space.textChannelId) {
-      await prisma.playIntentDiscordSpace.update({
-        where: { id: space.id },
-        data: {
-          textChannelId: textChannel.id,
-          textChannelName: textChannel.name
-        }
-      })
-    }
-    const voiceChannel = space.voiceChannelId
+    const voiceChannel = !resetLegacyChannels && space.voiceChannelId
       ? { id: space.voiceChannelId, name: space.voiceChannelName ?? names.voiceChannelName }
       : await createChannel(space.serverId, {
           name: names.voiceChannelName,
           type: ChannelType.GuildVoice,
-          parentId: category.id,
           permissionOverwrites: buildVoicePermissionOverwrites(role.id)
         })
-    if (!space.voiceChannelId) {
+    if (resetLegacyChannels || !space.voiceChannelId) {
       await prisma.playIntentDiscordSpace.update({
         where: { id: space.id },
         data: {
@@ -889,10 +858,10 @@ export async function provisionPlayIntentDiscordSpace(spaceId: string) {
         }
       })
     }
-    const invite = space.inviteCode
+    const invite = !resetLegacyChannels && space.inviteCode
       ? { code: space.inviteCode, url: space.inviteUrl ?? `https://discord.gg/${space.inviteCode}`, uses: space.inviteUseCount }
-      : await createInvite(textChannel.id)
-    if (!space.inviteCode) {
+      : await createInvite(voiceChannel.id)
+    if (resetLegacyChannels || !space.inviteCode) {
       await prisma.playIntentDiscordSpace.update({
         where: { id: space.id },
         data: {
@@ -909,10 +878,6 @@ export async function provisionPlayIntentDiscordSpace(spaceId: string) {
         status: PlayIntentDiscordSpaceStatus.ACTIVE,
         roleId: role.id,
         roleName: role.name,
-        categoryChannelId: category.id,
-        categoryChannelName: category.name,
-        textChannelId: textChannel.id,
-        textChannelName: textChannel.name,
         voiceChannelId: voiceChannel.id,
         voiceChannelName: voiceChannel.name,
         inviteCode: invite.code,

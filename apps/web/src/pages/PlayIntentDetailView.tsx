@@ -472,8 +472,8 @@ export function PlayIntentDetailView() {
                   onClick={() => void playViewProps.onDeletePlayIntentDiscordSpace(intent.id)}
                 >
                   {playViewProps.playIntentDiscordSpaceDeletePendingIntentId === intent.id
-                    ? 'Removing Discord channels...'
-                    : 'Remove Discord channels'}
+                    ? 'Removing Discord channel...'
+                    : 'Remove Discord channel'}
                 </Button>
               ) : null}
             </Stack>
@@ -731,12 +731,12 @@ export function PlayIntentDetailView() {
                     <Stack spacing={1.25}>
                       {intent.discordSpace?.status === 'deleted' ? (
                         <Typography level="body-xs" sx={{ color: 'neutral.300' }}>
-                          These Discord channels have been deleted.
+                          This temporary Discord channel has been deleted.
                         </Typography>
                       ) : null}
 
                       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }}>
-                        <Typography level="title-sm">Discord channels</Typography>
+                        <Typography level="title-sm">Discord access</Typography>
                         {intent.discordSpace ? (
                           <Chip size="sm" color="primary" variant="soft">
                             {formatDiscordSpaceStatusLabel(intent.discordSpace.status)}

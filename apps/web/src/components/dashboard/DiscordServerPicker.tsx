@@ -11,19 +11,21 @@ export function DiscordServerPicker<OptionType extends DiscordServerPickerOption
   value,
   placeholder,
   onChange,
-  getOptionDescription
+  getOptionDescription,
+  emptyOptionLabel
 }: {
   options: OptionType[];
   value: string;
   placeholder: string;
   onChange: (serverId: string) => void;
   getOptionDescription?: (option: OptionType) => string | null;
+  emptyOptionLabel?: string;
 }) {
   const selectedServer = options.find((option) => option.id === value) ?? null
 
   return (
     <Select
-      value={value || null}
+      value={emptyOptionLabel ? value : value || null}
       placeholder={placeholder}
       renderValue={() =>
         selectedServer ? (
@@ -45,10 +47,15 @@ export function DiscordServerPicker<OptionType extends DiscordServerPickerOption
               {selectedServer.name}
             </Typography>
           </Stack>
+        ) : emptyOptionLabel && value === '' ? (
+          <Typography level="body-sm" sx={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {emptyOptionLabel}
+          </Typography>
         ) : null
       }
       onChange={(_event, nextValue) => onChange(nextValue ?? '')}
     >
+      {emptyOptionLabel ? <Option value="">{emptyOptionLabel}</Option> : null}
       {options.map((option) => {
         const description = getOptionDescription?.(option) ?? null
 
