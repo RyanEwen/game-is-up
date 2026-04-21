@@ -248,7 +248,7 @@ export function formatDiscordActivityTypeLabel(
     return isActive ? 'Competing in' : 'Last competed in'
   }
 
-  return isActive ? 'Playing on Discord' : 'Last played on Discord'
+  return isActive ? 'Playing' : 'Last played:'
 }
 
 export function formatRelativeTimeShort(dateInput: string | Date, baseDate = new Date()): string {
