@@ -2,6 +2,8 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
+const pwaIconVersion = '20260421'
+
 export default defineConfig({
   cacheDir: '.vite',
   plugins: [
@@ -41,17 +43,17 @@ export default defineConfig({
         start_url: '/',
         icons: [
           {
-            src: '/icon-gamepad-voice-green-bubble.svg',
+            src: `/icon-gamepad-voice-green-bubble.svg?v=${pwaIconVersion}`,
             sizes: 'any',
             type: 'image/svg+xml'
           },
           {
-            src: '/icon-gamepad-voice-green-bubble-192.png',
+            src: `/icon-gamepad-voice-green-bubble-192.png?v=${pwaIconVersion}`,
             sizes: '192x192',
             type: 'image/png'
           },
           {
-            src: '/icon-gamepad-voice-green-bubble-512.png',
+            src: `/icon-gamepad-voice-green-bubble-512.png?v=${pwaIconVersion}`,
             sizes: '512x512',
             type: 'image/png'
           }

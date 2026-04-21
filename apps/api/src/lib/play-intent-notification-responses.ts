@@ -1912,7 +1912,7 @@ function buildInterestedAcceptedMessage(
       : discordSpace.inviteUrl
         ? [
             `Join the Game's Up Discord server: ${discordSpace.inviteUrl}`,
-            'Your hidden text and voice channels will appear automatically after you join.'
+            'Your temporary Discord channel will appear automatically after you join.'
           ]
         : []
     : []

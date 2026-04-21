@@ -699,7 +699,7 @@ export function PlayIntentComposerCard({
             <Stack spacing={1}>
               <Typography level="title-sm">Who do you want to target?</Typography>
               <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-                {(['network', 'friends-only', 'specific-friends', 'specific-discord-server'] as const).map((scope) => (
+                {(['network', 'specific-discord-server', 'friends-only', 'specific-friends'] as const).map((scope) => (
                   <Button
                     key={scope}
                     size="sm"
@@ -994,7 +994,7 @@ export function PlayIntentComposerCard({
 
               {playIntentVoiceMode === 'temporary' ? (
                 <Typography level="body-xs" sx={{ color: 'neutral.300' }}>
-                  Create temporary hidden text and voice channels in the Game's Up Discord server. People already in that server will get links immediately, and others can join from the invite when needed.
+                  Create a temporary private Discord voice channel in the Game's Up Discord server. People already in that server will get access immediately, and others can join from the invite when needed.
                 </Typography>
               ) : null}
 

@@ -26,7 +26,7 @@ const complementarySpaceActiveStatuses: PlayIntentDiscordSpaceStatus[] = [
 const complementarySpaceRetentionMs = 7 * 24 * 60 * 60 * 1000
 const discordSpaceGrantFailureMessage = 'Some Discord channel access grants could not be applied. Check that the Game\'s Up bot can manage roles in the Discord server.'
 const discordSpaceCreatorMissingIdentityMessage = 'The call-to-play creator no longer has a linked Discord account, so the temporary Discord channel access could not be granted.'
-const discordSpaceCreatorJoinServerMessage = 'The call-to-play creator is not currently in the Game\'s Up Discord server. Join the server to reveal the temporary channels.'
+const discordSpaceCreatorJoinServerMessage = 'The call-to-play creator is not currently in the Game\'s Up Discord server. Join the server to reveal the temporary Discord channel.'
 const discordSpaceCreatorGrantFailureMessage = 'The call-to-play creator could not be granted the temporary Discord channel role. Check that the Game\'s Up bot can manage roles in the Discord server.'
 
 function normalizeNameSegment(value: string, fallback: string) {
