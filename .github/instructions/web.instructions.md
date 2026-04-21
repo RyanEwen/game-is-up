@@ -10,5 +10,6 @@ description: "Use when working in the Vite web app, Joy UI components, PWA shell
 - Use shared schemas to validate server responses where practical so the frontend fails loudly when contracts drift.
 - Prefer browser-first flows and platform standards over custom client-specific behavior.
 - For branded SVG assets in `apps/web/public`, keep the SVG as the source of truth. If a PNG export is needed for Discord or similar platforms, render it from the browser by capturing the SVG element itself rather than the full page or a generic CLI SVG rasterizer, then normalize the file to the requested square output size.
+- When changing the Game's Up PWA icon assets or icon references, keep `apps/web/vite.config.ts` and `apps/web/index.html` aligned and bump the shared icon version query string so installed clients are forced to fetch the updated icon URLs.
 - Keep the admin DM template library and DM emulator aligned with live Discord output. If the API adds or changes DM copy, embeds, buttons, or preview fields, update the web debug surfaces in the same change so they continue to render every supported message state.
 - Only show the PWA install CTA when the browser can actually install the app: wait for `beforeinstallprompt` on Chromium, use the manual fallback only on iOS Safari, and avoid generic install buttons in unsupported or already-installed browsers.
