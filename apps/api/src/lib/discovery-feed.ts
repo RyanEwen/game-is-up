@@ -184,6 +184,15 @@ export async function buildDiscoveryFeed(viewerId?: string | null): Promise<Disc
       OR: candidateFilters
     },
     include: {
+      identities: {
+        where: {
+          provider: 'DISCORD'
+        },
+        select: {
+          providerUserId: true
+        },
+        take: 1
+      },
       gameInterests: {
         where: {
           intentType: {
@@ -243,6 +252,7 @@ export async function buildDiscoveryFeed(viewerId?: string | null): Promise<Disc
         handle: candidate.handle,
         displayName: candidate.displayName,
         avatarUrl: toClientAvatarUrl(candidate.avatarUrl),
+        discordUserId: candidate.identities[0]?.providerUserId ?? null,
         bio: candidate.bio,
         timezoneId: candidate.timezoneId,
         timezoneLabel: formatTimezoneLabel(candidate.timezoneId),
@@ -283,6 +293,7 @@ export async function buildDiscoveryFeed(viewerId?: string | null): Promise<Disc
         handle: person.handle,
         displayName: person.displayName,
         avatarUrl: toClientAvatarUrl(person.avatarUrl),
+        discordUserId: person.discordUserId,
         platformLabels: game.platformLabels,
         intent: game.intent,
         availability: game.availability,

@@ -28,6 +28,10 @@ const interactiveTriggerSx = {
   }
 } as const
 
+function buildDiscordUserLink(discordUserId: string) {
+  return `https://discord.com/users/${discordUserId}`
+}
+
 export function FriendActionPopover({
   target,
   handle,
@@ -56,6 +60,7 @@ export function FriendActionPopover({
   onUnmute?: (userId: string) => Promise<void>;
 }) {
   const visibleDetailLines = detailLines.map((line) => line.trim()).filter(Boolean)
+  const discordUserLink = target.discordUserId ? buildDiscordUserLink(target.discordUserId) : null
 
   return (
     <Dropdown>
@@ -126,6 +131,17 @@ export function FriendActionPopover({
               : isMuted
                 ? 'Unmute this player\'s CTPs'
                 : 'Mute this player\'s CTPs'}
+          </MenuItem>
+        ) : null}
+
+        {discordUserLink ? (
+          <MenuItem
+            component="a"
+            href={discordUserLink}
+            target="_blank"
+            rel="noreferrer"
+          >
+            Message on Discord
           </MenuItem>
         ) : null}
       </Menu>

@@ -12,6 +12,7 @@ export type FriendTarget = {
   id: string;
   displayName: string;
   avatarUrl?: string | null;
+  discordUserId?: string | null;
   friendEligible: boolean;
 };
 

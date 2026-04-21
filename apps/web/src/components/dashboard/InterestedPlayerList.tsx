@@ -61,6 +61,7 @@ export function PlayIntentResponseUserList({
                   id: person.id,
                   displayName: person.displayName,
                   avatarUrl: person.avatarUrl,
+                  discordUserId: person.discordUserId,
                   friendEligible: person.friendEligible
                 }}
                 handle={person.handle}
