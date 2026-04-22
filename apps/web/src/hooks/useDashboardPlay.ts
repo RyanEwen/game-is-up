@@ -141,6 +141,8 @@ export type DashboardPlayViewProps = {
   playIntentSaving: boolean;
   onSavePlayIntent: () => Promise<void>;
   onClearPlayIntent: () => Promise<void>;
+  playIntentStartNowPendingIntentId: string | null;
+  onStartPlayIntentNow: (playIntentId: string) => Promise<boolean>;
   playIntentDeletePendingIntentId: string | null;
   onDeletePlayIntent: (playIntentId: string) => Promise<boolean>;
   playIntentPreviews: PlayIntentPreview[];
@@ -207,6 +209,7 @@ export function useDashboardPlay({
   const [playIntentResponsePendingIntentId, setPlayIntentResponsePendingIntentId] = useState<string | null>(null)
   const [playIntentDiscordSpaceRetryPendingIntentId, setPlayIntentDiscordSpaceRetryPendingIntentId] = useState<string | null>(null)
   const [playIntentDiscordSpaceDeletePendingIntentId, setPlayIntentDiscordSpaceDeletePendingIntentId] = useState<string | null>(null)
+  const [playIntentStartNowPendingIntentId, setPlayIntentStartNowPendingIntentId] = useState<string | null>(null)
   const [playIntentDeletePendingIntentId, setPlayIntentDeletePendingIntentId] = useState<string | null>(null)
   const [playIntentSaving, setPlayIntentSaving] = useState(false)
   const [isPlayIntentComposerOpen, setIsPlayIntentComposerOpen] = useState(false)
@@ -767,6 +770,42 @@ export function useDashboardPlay({
     }
   }, [buildApiUrl, isAdmin, loadDashboard, setPlayIntentNotice])
 
+  const handleStartPlayIntentNow = useCallback(async (playIntentId: string) => {
+    setPlayIntentStartNowPendingIntentId(playIntentId)
+    setPlayIntentNotice(null)
+
+    try {
+      const response = await fetch(buildApiUrl(`/api/play-intents/${playIntentId}/start-now`), {
+        method: 'POST',
+        credentials: 'include'
+      })
+
+      if (!response.ok) {
+        const responseBody = await response.json() as { error?: string }
+        setPlayIntentNotice({
+          tone: 'danger',
+          message: responseBody.error ?? 'Unable to start this call to play right now.'
+        })
+        return false
+      }
+
+      setPlayIntentNotice({
+        tone: 'success',
+        message: 'Your scheduled call to play is now live.'
+      })
+      await loadDashboard()
+      return true
+    } catch (error) {
+      setPlayIntentNotice({
+        tone: 'danger',
+        message: error instanceof Error ? error.message : 'Unable to start this call to play right now.'
+      })
+      return false
+    } finally {
+      setPlayIntentStartNowPendingIntentId(null)
+    }
+  }, [buildApiUrl, loadDashboard, setPlayIntentNotice])
+
   const handlePlayIntentNotifyScopeChange = useCallback((scope: PlayIntentNotifyScope) => {
     setPlayIntentNotifyScope(scope)
     setPlayIntentNotice(null)
@@ -1148,6 +1187,8 @@ export function useDashboardPlay({
     playIntentSaving,
     onSavePlayIntent: handleSavePlayIntent,
     onClearPlayIntent: handleClearPlayIntent,
+    playIntentStartNowPendingIntentId,
+    onStartPlayIntentNow: handleStartPlayIntentNow,
     playIntentDeletePendingIntentId,
     onDeletePlayIntent: handleDeletePlayIntent,
     playIntentPreviews,

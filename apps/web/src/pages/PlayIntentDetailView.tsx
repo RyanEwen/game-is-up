@@ -382,6 +382,7 @@ export function PlayIntentDetailView() {
   const isMuted = playViewProps.mutedPlayIntentUserIds.has(intent.user.id)
   const isEditingCurrentIntent = isOwnIntent && intent.status === 'active'
   const isScheduledIntent = intent.status === 'active' && new Date(intent.availabilityWindow.startsAt).getTime() > Date.now() + 60 * 1000
+  const canStartNow = isOwnIntent && isScheduledIntent
   const libraryWideScope = intent.selectionMode === 'library' ? intent.expandedGameScope : null
   const libraryWideScopeHeading = libraryWideScope?.kind === 'creator-library'
       ? 'Games covered by this call'
@@ -463,6 +464,19 @@ export function PlayIntentDetailView() {
                     }}
                   >
                     Edit call to play
+                  </Button>
+                ) : null}
+                {canStartNow ? (
+                  <Button
+                    variant="soft"
+                    color="success"
+                    sx={{ width: { xs: '100%', sm: 'auto' } }}
+                    disabled={playViewProps.playIntentStartNowPendingIntentId === intent.id}
+                    onClick={() => void playViewProps.onStartPlayIntentNow(intent.id)}
+                  >
+                    {playViewProps.playIntentStartNowPendingIntentId === intent.id
+                      ? 'Starting now...'
+                      : 'Start now'}
                   </Button>
                 ) : null}
                 {canRespond ? (

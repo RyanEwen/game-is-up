@@ -25,7 +25,12 @@ import {
   PlayIntentValidationError,
   upsertCurrentPlayIntent
 } from '../lib/play-intents.js'
-import { PlayIntentNotificationResponseError, respondToPlayIntentFromWeb } from '../lib/play-intent-notification-responses.js'
+import {
+  PlayIntentNotificationResponseError,
+  ScheduledPlayIntentStartError,
+  respondToPlayIntentFromWeb,
+  startScheduledPlayIntentNow
+} from '../lib/play-intent-notification-responses.js'
 import { prisma } from '../lib/prisma.js'
 import { getAuthSession } from '../lib/session.js'
 
@@ -171,6 +176,36 @@ playIntentRouter.delete('/:playIntentId', async (request, response, next) => {
 
     response.status(204).send()
   } catch (error) {
+    next(error)
+  }
+})
+
+playIntentRouter.post('/:playIntentId/start-now', async (request, response, next) => {
+  const userId = requireSignedInUserId(request, response)
+
+  if (!userId) {
+    return
+  }
+
+  const paramsParse = playIntentParamSchema.safeParse(request.params)
+
+  if (!paramsParse.success) {
+    response.status(400).json({ error: 'Invalid play intent ID.' })
+    return
+  }
+
+  try {
+    await startScheduledPlayIntentNow(paramsParse.data.playIntentId, userId)
+
+    response.status(204).send()
+  } catch (error) {
+    if (error instanceof ScheduledPlayIntentStartError) {
+      response.status(400).json({
+        error: error.message
+      })
+      return
+    }
+
     next(error)
   }
 })
