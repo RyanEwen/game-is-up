@@ -40,6 +40,37 @@ type ArchivedCreatorCandidate = ArchivedDirectMessageCandidate & {
 
 type ArchivedNotificationCandidate = ArchivedDirectMessageCandidate & {
   notificationId: string;
+  reference: 'notification' | 'response';
+}
+
+type NotificationDmReferenceUpdate = {
+  discordDmChannelId: string | null;
+  discordDmMessageId: string | null;
+  recipientResponseDiscordDmChannelId: string | null;
+  recipientResponseDiscordDmMessageId: string | null;
+}
+
+function createNotificationDmReferenceUpdate(): NotificationDmReferenceUpdate {
+  return {
+    discordDmChannelId: null,
+    discordDmMessageId: null,
+    recipientResponseDiscordDmChannelId: null,
+    recipientResponseDiscordDmMessageId: null
+  }
+}
+
+function preserveArchivedNotificationCandidateReference(
+  update: NotificationDmReferenceUpdate,
+  candidate: ArchivedNotificationCandidate
+) {
+  if (candidate.reference === 'notification') {
+    update.discordDmChannelId = candidate.channelId
+    update.discordDmMessageId = candidate.messageId
+    return
+  }
+
+  update.recipientResponseDiscordDmChannelId = candidate.channelId
+  update.recipientResponseDiscordDmMessageId = candidate.messageId
 }
 
 type TrackedDirectMessageEntry = {
@@ -1380,6 +1411,19 @@ export async function archivePlayIntentDirectMessages(options: {
 
   const notificationIdsToClear = new Set<string>()
   const playIntentIdsToClear = new Set<string>()
+  const notificationReferenceUpdates = new Map<string, NotificationDmReferenceUpdate>()
+
+  const getNotificationReferenceUpdate = (notificationId: string) => {
+    const existingUpdate = notificationReferenceUpdates.get(notificationId)
+
+    if (existingUpdate) {
+      return existingUpdate
+    }
+
+    const nextUpdate = createNotificationDmReferenceUpdate()
+    notificationReferenceUpdates.set(notificationId, nextUpdate)
+    return nextUpdate
+  }
 
   for (const playIntent of playIntents) {
     const mutedRecipientUserIds = new Set((await prisma.playIntentMute.findMany({
@@ -1485,6 +1529,7 @@ export async function archivePlayIntentDirectMessages(options: {
               channelId: notification.discordDmChannelId,
               messageId: notification.discordDmMessageId,
               notificationId: notification.id,
+              reference: 'notification',
               priority: getNotificationArchivePriority(notification.type)
             })
           }
@@ -1494,6 +1539,7 @@ export async function archivePlayIntentDirectMessages(options: {
               channelId: notification.recipientResponseDiscordDmChannelId,
               messageId: notification.recipientResponseDiscordDmMessageId,
               notificationId: notification.id,
+              reference: 'response',
               priority: getNotificationArchivePriority(notification.type) + 100
             })
           }
@@ -1524,6 +1570,17 @@ export async function archivePlayIntentDirectMessages(options: {
 
         const keptCandidate = candidates.find((candidate) => candidate.messageId === keptMessageId) ?? null
 
+        for (const candidate of candidates) {
+          getNotificationReferenceUpdate(candidate.notificationId)
+        }
+
+        if (keptCandidate) {
+          preserveArchivedNotificationCandidateReference(
+            getNotificationReferenceUpdate(keptCandidate.notificationId),
+            keptCandidate
+          )
+        }
+
         if (recipientDiscordUserId && keptCandidate?.notificationId) {
           const dmResult = (await sendDiscordDirectMessages([
             {
@@ -1547,6 +1604,10 @@ export async function archivePlayIntentDirectMessages(options: {
                 recipientResponseDiscordDmMessageId: dmResult.messageId
               }
             })
+
+            const keptUpdate = getNotificationReferenceUpdate(keptCandidate.notificationId)
+            keptUpdate.recipientResponseDiscordDmChannelId = dmResult.channelId
+            keptUpdate.recipientResponseDiscordDmMessageId = dmResult.messageId
           }
         }
 
@@ -1579,20 +1640,35 @@ export async function archivePlayIntentDirectMessages(options: {
       }
 
       for (const candidate of candidates) {
+        getNotificationReferenceUpdate(candidate.notificationId)
+      }
+
+      for (const candidate of candidates) {
         if (candidate.messageId === keptMessageId) {
-          notificationIdsToClear.add(candidate.notificationId)
+          preserveArchivedNotificationCandidateReference(
+            getNotificationReferenceUpdate(candidate.notificationId),
+            candidate
+          )
           continue
         }
 
         if (await tryDeleteDirectMessage(candidate.channelId, candidate.messageId)) {
-          notificationIdsToClear.add(candidate.notificationId)
+          getNotificationReferenceUpdate(candidate.notificationId)
         }
       }
     }
   }
 
   await Promise.all([
-    clearNotificationDmReferences([...notificationIdsToClear]),
+    clearNotificationDmReferences([...notificationIdsToClear].filter((notificationId) => !notificationReferenceUpdates.has(notificationId))),
+    Promise.all(
+      [...notificationReferenceUpdates.entries()].map(([notificationId, update]) => prisma.notification.update({
+        where: {
+          id: notificationId
+        },
+        data: update
+      }))
+    ),
     clearCreatorSummaryDmReferences([...playIntentIdsToClear])
   ])
 }
