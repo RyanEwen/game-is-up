@@ -331,23 +331,45 @@ export function DiscoveryServersSection({
   discordBotInstallUrl,
   availableDiscoveryServers,
   hasSyncedServers,
+  discordServerRefreshPending,
   serverPreferencePendingId,
+  onRefreshDiscordServers,
   onToggleDiscordServer,
   onOpenInviteServer
 }: {
   discordBotInstallUrl: string | null;
   availableDiscoveryServers: DiscoveryServer[];
   hasSyncedServers: boolean;
+  discordServerRefreshPending: boolean;
   serverPreferencePendingId: string | null;
+  onRefreshDiscordServers: () => Promise<void>;
   onToggleDiscordServer: (serverId: string, nextSelected: boolean) => Promise<void>;
   onOpenInviteServer: (serverId: string) => void;
 }) {
   return (
     <Stack spacing={2}>
-      <Typography level="h2">Your network</Typography>
-      <Typography level="body-md" sx={{ color: 'neutral.300' }}>
-        Select the Discord servers where your friends and other players are active to form your network.
-      </Typography>
+      <Stack
+        direction={{ xs: 'column', sm: 'row' }}
+        spacing={1.5}
+        justifyContent="space-between"
+        alignItems={{ xs: 'stretch', sm: 'flex-start' }}
+      >
+        <Stack spacing={0.75} sx={{ minWidth: 0, flex: 1 }}>
+          <Typography level="h2">Your network</Typography>
+          <Typography level="body-md" sx={{ color: 'neutral.300' }}>
+            Select the Discord servers where your friends and other players are active to form your network.
+          </Typography>
+        </Stack>
+        <Button
+          variant="soft"
+          color="neutral"
+          loading={discordServerRefreshPending}
+          onClick={() => void onRefreshDiscordServers()}
+          sx={{ width: { xs: '100%', sm: 'auto' }, flexShrink: 0 }}
+        >
+          Refresh Discord servers
+        </Button>
+      </Stack>
       {availableDiscoveryServers.length > 0 ? (
         <Stack spacing={1.5}>
           {availableDiscoveryServers.map((server) => {

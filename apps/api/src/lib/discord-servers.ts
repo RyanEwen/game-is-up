@@ -1,7 +1,14 @@
 import type { DiscordServerMembersResponse, DiscordServerPreferencesResponse } from '@game-is-up/shared'
 import { AuthProvider as PrismaAuthProvider } from '@prisma/client'
 import { prisma } from './prisma.js'
-import type { DiscordGuildSummary } from './discord-auth.js'
+import {
+  DiscordOauthRequestError,
+  fetchDiscordGuilds,
+  markDiscordGuildSync,
+  refreshDiscordAccessToken,
+  storeDiscordOauthTokens,
+  type DiscordGuildSummary
+} from './discord-auth.js'
 import { getDiscordBotPresentServerIds, isDiscordBotPresentInGuild, listDiscordGuildMembers, listDiscordGuildVoiceChannels, sendDiscordGuildInvites } from './discord-presence-bot.js'
 import { env } from './env.js'
 import { toClientAvatarUrl } from './game-media.js'
@@ -175,6 +182,58 @@ export async function updateDiscordServerPreference(userId: string, serverId: st
   })
 
   return 'updated'
+}
+
+export async function refreshDiscordServerPreferences(userId: string): Promise<
+  | { status: 'refreshed'; response: DiscordServerPreferencesResponse }
+  | { status: 'not-linked' }
+  | { status: 'missing-scope' }
+  | { status: 'reauth-required' }
+> {
+  const identity = await prisma.userIdentity.findFirst({
+    where: {
+      userId,
+      provider: PrismaAuthProvider.DISCORD
+    },
+    select: {
+      grantedScopes: true,
+      discordRefreshToken: true
+    }
+  })
+
+  if (!identity) {
+    return { status: 'not-linked' }
+  }
+
+  if (!identity.grantedScopes.includes('guilds')) {
+    return { status: 'missing-scope' }
+  }
+
+  if (!identity.discordRefreshToken) {
+    return { status: 'reauth-required' }
+  }
+
+  try {
+    const tokenResponse = await refreshDiscordAccessToken(identity.discordRefreshToken)
+    const guilds = await fetchDiscordGuilds(tokenResponse.access_token)
+
+    await storeDiscordOauthTokens(userId, tokenResponse, {
+      fallbackRefreshToken: identity.discordRefreshToken
+    })
+    await syncDiscordServersForUser(userId, guilds)
+    await markDiscordGuildSync(userId)
+
+    return {
+      status: 'refreshed',
+      response: await buildDiscordServerPreferences(userId)
+    }
+  } catch (error) {
+    if (error instanceof DiscordOauthRequestError && (error.status === 400 || error.status === 401)) {
+      return { status: 'reauth-required' }
+    }
+
+    throw error
+  }
 }
 
 export async function buildDiscordServerMembers(

@@ -13,6 +13,7 @@ import {
   buildDiscordServerMembers,
   buildSelectedDiscordVoiceChannels,
   buildDiscordServerPreferences,
+  refreshDiscordServerPreferences,
   sendDiscordServerInvites,
   updateDiscordServerPreference
 } from '../lib/discord-servers.js'
@@ -46,6 +47,47 @@ discordServersRouter.get('/me', async (request, response, next) => {
 
   try {
     response.json(discordServerPreferencesResponseSchema.parse(await buildDiscordServerPreferences(userId)))
+  } catch (error) {
+    next(error)
+  }
+})
+
+discordServersRouter.post('/me/refresh', async (request, response, next) => {
+  const userId = requireSignedInUserId(request, response)
+
+  if (!userId) {
+    return
+  }
+
+  try {
+    const result = await refreshDiscordServerPreferences(userId)
+
+    if (result.status === 'not-linked') {
+      response.status(404).json({
+        error: 'Discord identity not found for this user.'
+      })
+      return
+    }
+
+    if (result.status === 'missing-scope') {
+      response.status(403).json({
+        error: 'Reconnect Discord with server access enabled before refreshing your server list.'
+      })
+      return
+    }
+
+    if (result.status === 'reauth-required') {
+      response.status(409).json({
+        error: 'Discord server refresh needs you to reconnect your Discord account.'
+      })
+      return
+    }
+
+    publishDashboardInvalidation({
+      domains: ['network', 'discovery', 'play-intents']
+    })
+
+    response.json(discordServerPreferencesResponseSchema.parse(result.response))
   } catch (error) {
     next(error)
   }

@@ -57,6 +57,16 @@ export type UpsertDiscordUserResult = {
   isNewDiscordIdentity: boolean;
 };
 
+export class DiscordOauthRequestError extends Error {
+  readonly status: number
+
+  constructor(message: string, status: number) {
+    super(message)
+    this.name = 'DiscordOauthRequestError'
+    this.status = status
+  }
+}
+
 function normalizeGrantedScopes(scope: string): string[] {
   return [...new Set(scope.split(/\s+/u).map((entry) => entry.trim()).filter(Boolean))].sort((left, right) => left.localeCompare(right))
 }
@@ -117,6 +127,33 @@ export function buildDiscordBotInstallUrl(): string | null {
   return url.toString()
 }
 
+async function parseDiscordError(response: Response, action: string): Promise<never> {
+  const responseText = await response.text()
+  const normalizedText = responseText.trim()
+  const detail = normalizedText ? ` - ${normalizedText}` : ''
+
+  throw new DiscordOauthRequestError(
+    `Discord ${action} failed: ${response.status} ${response.statusText}${detail}`,
+    response.status
+  )
+}
+
+async function requestDiscordToken(body: URLSearchParams): Promise<DiscordTokenResponse> {
+  const response = await fetch(DISCORD_TOKEN_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded'
+    },
+    body
+  })
+
+  if (!response.ok) {
+    await parseDiscordError(response, 'token exchange')
+  }
+
+  return response.json() as Promise<DiscordTokenResponse>
+}
+
 export async function exchangeDiscordCode(code: string, options?: { redirectUri?: string | null }): Promise<DiscordTokenResponse> {
   const body = new URLSearchParams({
     client_id: env.DISCORD_CLIENT_ID ?? '',
@@ -131,19 +168,24 @@ export async function exchangeDiscordCode(code: string, options?: { redirectUri?
     body.set('redirect_uri', redirectUri)
   }
 
-  const response = await fetch(DISCORD_TOKEN_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded'
-    },
-    body
+  return requestDiscordToken(body)
+}
+
+export async function refreshDiscordAccessToken(refreshToken: string): Promise<DiscordTokenResponse> {
+  const body = new URLSearchParams({
+    client_id: env.DISCORD_CLIENT_ID ?? '',
+    client_secret: env.DISCORD_CLIENT_SECRET ?? '',
+    grant_type: 'refresh_token',
+    refresh_token: refreshToken
   })
 
-  if (!response.ok) {
-    throw new Error(`Discord token exchange failed: ${response.status} ${response.statusText}`)
+  const redirectUri = env.DISCORD_CALLBACK_URL ?? ''
+
+  if (redirectUri) {
+    body.set('redirect_uri', redirectUri)
   }
 
-  return response.json() as Promise<DiscordTokenResponse>
+  return requestDiscordToken(body)
 }
 
 export async function fetchDiscordUser(accessToken: string): Promise<DiscordUserProfile> {
@@ -154,7 +196,7 @@ export async function fetchDiscordUser(accessToken: string): Promise<DiscordUser
   })
 
   if (!response.ok) {
-    throw new Error(`Discord profile fetch failed: ${response.status} ${response.statusText}`)
+    await parseDiscordError(response, 'profile fetch')
   }
 
   return response.json() as Promise<DiscordUserProfile>
@@ -171,10 +213,28 @@ export async function fetchDiscordGuilds(accessToken: string): Promise<DiscordGu
   })
 
   if (!response.ok) {
-    throw new Error(`Discord guild fetch failed: ${response.status} ${response.statusText}`)
+    await parseDiscordError(response, 'guild fetch')
   }
 
   return response.json() as Promise<DiscordGuildSummary[]>
+}
+
+export async function storeDiscordOauthTokens(
+  userId: string,
+  tokenResponse: DiscordTokenResponse,
+  options?: { fallbackRefreshToken?: string | null }
+) {
+  await prisma.userIdentity.updateMany({
+    where: {
+      userId,
+      provider: PrismaAuthProvider.DISCORD
+    },
+    data: {
+      discordAccessToken: tokenResponse.access_token,
+      discordRefreshToken: tokenResponse.refresh_token ?? options?.fallbackRefreshToken ?? null,
+      discordAccessTokenExpiresAt: new Date(Date.now() + tokenResponse.expires_in * 1000)
+    }
+  })
 }
 
 export async function upsertDiscordUser(

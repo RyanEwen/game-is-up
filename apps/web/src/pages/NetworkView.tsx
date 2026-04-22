@@ -15,8 +15,10 @@ export function NetworkView() {
     discordBotInstallUrl,
     availableDiscoveryServers,
     hasSyncedDiscordServers,
+    discordServerRefreshPending,
     serverPreferencePendingId,
     onDiscordLogin,
+    onRefreshDiscordServers,
     onToggleDiscordServer,
     inviteUrl,
     selectedDiscoveryServers,
@@ -54,7 +56,9 @@ export function NetworkView() {
             discordBotInstallUrl={discordBotInstallUrl}
             availableDiscoveryServers={availableDiscoveryServers}
             hasSyncedServers={hasSyncedDiscordServers}
+            discordServerRefreshPending={discordServerRefreshPending}
             serverPreferencePendingId={serverPreferencePendingId}
+            onRefreshDiscordServers={onRefreshDiscordServers}
             onToggleDiscordServer={onToggleDiscordServer}
             onOpenInviteServer={handleOpenInviteServer}
           />

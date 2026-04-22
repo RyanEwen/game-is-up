@@ -18,6 +18,7 @@ import {
   fetchDiscordUser,
   isDiscordAuthConfigured,
   markDiscordGuildSync,
+  storeDiscordOauthTokens,
   upsertDiscordUser
 } from '../lib/discord-auth.js'
 import { getDiscordPresenceBotState } from '../lib/discord-bot-runtime.js'
@@ -294,6 +295,7 @@ authRouter.get('/discord/callback', async (request, response) => {
     const tokenResponse = await exchangeDiscordCode(code)
     const profile = await fetchDiscordUser(tokenResponse.access_token)
     const userResult = await upsertDiscordUser(profile, tokenResponse.scope)
+    await storeDiscordOauthTokens(userResult.user.id, tokenResponse)
     const guilds = await fetchDiscordGuilds(tokenResponse.access_token)
 
     await syncDiscordServersForUser(userResult.user.id, guilds)

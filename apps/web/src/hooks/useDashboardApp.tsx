@@ -191,6 +191,7 @@ export function useDashboardApp() {
   const [installPromptPending, setInstallPromptPending] = useState(false)
   const [friendPendingId, setFriendPendingId] = useState<string | null>(null)
   const [addingLibraryGameId, setAddingLibraryGameId] = useState<string | null>(null)
+  const [discordServerRefreshPending, setDiscordServerRefreshPending] = useState(false)
   const [serverPreferencePendingId, setServerPreferencePendingId] = useState<string | null>(null)
   const [gameDetailsTarget, setGameDetailsTarget] = useState<DashboardGameDetailsTarget | null>(null)
   const [gameDetailsByKey, setGameDetailsByKey] = useState<Record<string, GameDetails | null>>({})
@@ -1081,6 +1082,49 @@ export function useDashboardApp() {
     }
   }, [loadDashboard])
 
+  const handleRefreshDiscordServers = useCallback(async () => {
+    if (discordServerRefreshPending) {
+      return
+    }
+
+    setDiscordServerRefreshPending(true)
+    setActionNotice(null)
+
+    try {
+      const response = await fetch(buildApiUrl('/api/discord-servers/me/refresh'), {
+        method: 'POST',
+        credentials: 'include'
+      })
+
+      const responseBody = (await response.json()) as DiscordServerPreferencesResponse | { error?: string }
+
+      if (!response.ok) {
+        setActionNotice({
+          tone: 'danger',
+          message:
+            typeof responseBody === 'object' && responseBody && 'error' in responseBody && typeof responseBody.error === 'string'
+              ? responseBody.error
+              : 'Unable to refresh your Discord server list right now.'
+        })
+        return
+      }
+
+      discordServerPreferencesResponseSchema.parse(responseBody)
+      setActionNotice({
+        tone: 'success',
+        message: 'Discord servers refreshed from Discord.'
+      })
+      await loadDashboard()
+    } catch (error) {
+      setActionNotice({
+        tone: 'danger',
+        message: error instanceof Error ? error.message : 'Unable to refresh your Discord server list right now.'
+      })
+    } finally {
+      setDiscordServerRefreshPending(false)
+    }
+  }, [discordServerRefreshPending, loadDashboard])
+
   useEffect(() => {
     void loadDashboard()
   }, [loadDashboard])
@@ -1172,9 +1216,11 @@ export function useDashboardApp() {
       availableDiscoveryServers,
       addedFriendCount,
       hasSyncedDiscordServers: Boolean(state.discordServers?.servers.length),
+      discordServerRefreshPending,
       serverPreferencePendingId,
       onLogout: handleLogout,
       onDiscordLogin: handleDiscordLogin,
+      onRefreshDiscordServers: handleRefreshDiscordServers,
       onToggleDiscordServer: handleToggleDiscordServer,
       installPrompt: isSignedIn && installSupport
         ? {

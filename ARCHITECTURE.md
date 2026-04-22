@@ -116,6 +116,8 @@ Discord presence tracking now also maintains a lossy observed-game history keyed
 
 Discovery currently depends on explicit app follow links plus opted-in shared Discord servers. Those app links are directional, so one user can follow another without creating a mutual relationship. The Discord Activity-based friend import path has been removed.
 
+Discord-linked identities now also persist Discord OAuth access and refresh tokens. The initial guild membership sync still happens during Discord OAuth, but signed-in users can later trigger a Network-page refresh that reuses the stored refresh token to pull their latest guild memberships without forcing a sign-out or full reconnect unless Discord has revoked the grant.
+
 ## Repository guidance
 
 The repository includes shared Copilot customization files under `.github/`:
