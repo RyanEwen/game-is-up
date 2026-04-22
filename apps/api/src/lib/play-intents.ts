@@ -1,12 +1,16 @@
 import type {
   ActivePlayIntent,
   PlayIntentNotifyScope,
+  PlayIntentUpdateComparison,
   PlayIntentUpdatedField,
   PlayIntentSelectionMode,
   UpsertPlayIntentRequest,
   UpsertPlayIntentResponse
 } from '@game-is-up/shared'
-import { shouldInvalidatePlayIntentAudienceResponse } from '@game-is-up/shared'
+import {
+  resolvePlayIntentUpdatedFields,
+  shouldInvalidatePlayIntentAudienceResponse
+} from '@game-is-up/shared'
 import {
   AuthProvider,
   GameIntentType,
@@ -301,22 +305,6 @@ function normalizePlayIntentNote(note: string | null | undefined) {
   return note?.trim() ?? ''
 }
 
-function areSameStringSets(left: string[], right: string[]) {
-  if (left.length !== right.length) {
-    return false
-  }
-
-  const leftSet = new Set(left)
-
-  for (const value of right) {
-    if (!leftSet.has(value)) {
-      return false
-    }
-  }
-
-  return true
-}
-
 type RecipientActiveIntentOverlapCandidate = {
   userId: string;
   selectionMode: PrismaPlayIntentSelectionMode;
@@ -362,61 +350,24 @@ export function excludeRecipientUserIdsWithOverlappingActiveIntents(options: {
   return options.recipientUserIds.filter((recipientUserId) => !excludedUserIds.has(recipientUserId))
 }
 
-function getUpdatedPlayIntentFields(options: {
-  previousIntent: {
-    selectionMode: PrismaPlayIntentSelectionMode;
-    windowStartsAt: Date;
-    windowEndsAt: Date;
-    note: string;
-    discordSpace: { id: string } | null;
-    games: { gameId: string }[];
-  };
-  nextSelectionMode: PlayIntentSelectionMode;
-  nextStartsAt: Date;
-  nextEndsAt: Date;
-  nextNote: string;
-  nextCreateDiscordSpace: boolean;
-  previousAudienceUserIds: string[];
-  nextAudienceUserIds: string[];
-  nextSelectedGameIds: string[];
-}) {
-  const updatedFields: PlayIntentUpdatedField[] = []
-  const previousSelectionMode = toClientSelectionMode(options.previousIntent.selectionMode)
-
-  if (
-    options.previousIntent.windowStartsAt.getTime() !== options.nextStartsAt.getTime()
-    || options.previousIntent.windowEndsAt.getTime() !== options.nextEndsAt.getTime()
-  ) {
-    updatedFields.push('time')
+function buildPlayIntentUpdateComparison(options: {
+  selectionMode: PlayIntentSelectionMode;
+  startsAt: Date;
+  endsAt: Date;
+  note: string;
+  audienceUserIds: string[];
+  selectedGameIds: string[];
+  hasTemporaryDiscordChannel: boolean;
+}): PlayIntentUpdateComparison {
+  return {
+    timeKey: `${options.startsAt.toISOString()}::${options.endsAt.toISOString()}`,
+    gameSelectionKey: options.selectionMode === 'library'
+      ? ['mode:library']
+      : ['mode:subset', ...options.selectedGameIds],
+    note: normalizePlayIntentNote(options.note),
+    audienceKey: options.audienceUserIds,
+    hasTemporaryDiscordChannel: options.hasTemporaryDiscordChannel
   }
-
-  if (
-    previousSelectionMode !== options.nextSelectionMode
-    || (
-      previousSelectionMode === 'subset'
-      && options.nextSelectionMode === 'subset'
-      && !areSameStringSets(
-        options.previousIntent.games.map((entry) => entry.gameId),
-        options.nextSelectedGameIds
-      )
-    )
-  ) {
-    updatedFields.push('game selection')
-  }
-
-  if (normalizePlayIntentNote(options.previousIntent.note) !== normalizePlayIntentNote(options.nextNote)) {
-    updatedFields.push('note')
-  }
-
-  if (!areSameStringSets(options.previousAudienceUserIds, options.nextAudienceUserIds)) {
-    updatedFields.push('audience')
-  }
-
-  if (Boolean(options.previousIntent.discordSpace) !== options.nextCreateDiscordSpace) {
-    updatedFields.push('temporary Discord channel')
-  }
-
-  return updatedFields
 }
 
 function shouldRenotifyPriorDecliner(options: {
@@ -1830,17 +1781,26 @@ export async function upsertCurrentPlayIntent(
     .filter((status) => status.responseChoice === NotificationResponseChoice.JOIN)
     .map((status) => status.interestedUserLabel)
   const updatedFields = latestSupersededIntent
-    ? getUpdatedPlayIntentFields({
-      previousIntent: latestSupersededIntent,
-      nextSelectionMode: payload.selectionMode,
-      nextStartsAt: startsAt,
-      nextEndsAt: endsAt,
-      nextNote: note,
-      nextCreateDiscordSpace: payload.createDiscordSpace,
-      previousAudienceUserIds: [...priorNotifiedRecipientUserIds],
-      nextAudienceUserIds: recipientUserIds,
-      nextSelectedGameIds: selectedGameIds
-    })
+    ? resolvePlayIntentUpdatedFields(
+      buildPlayIntentUpdateComparison({
+        selectionMode: toClientSelectionMode(latestSupersededIntent.selectionMode),
+        startsAt: latestSupersededIntent.windowStartsAt,
+        endsAt: latestSupersededIntent.windowEndsAt,
+        note: latestSupersededIntent.note,
+        audienceUserIds: [...priorNotifiedRecipientUserIds],
+        selectedGameIds: latestSupersededIntent.games.map((entry) => entry.gameId),
+        hasTemporaryDiscordChannel: Boolean(latestSupersededIntent.discordSpace)
+      }),
+      buildPlayIntentUpdateComparison({
+        selectionMode: payload.selectionMode,
+        startsAt,
+        endsAt,
+        note,
+        audienceUserIds: recipientUserIds,
+        selectedGameIds,
+        hasTemporaryDiscordChannel: payload.createDiscordSpace
+      })
+    )
     : []
   const shouldInvalidateAudienceResponse = shouldInvalidatePlayIntentAudienceResponse(updatedFields)
   const isMeaningfulUpdate = updatedFields.length > 0 && priorNotifiedRecipientUserIds.size > 0

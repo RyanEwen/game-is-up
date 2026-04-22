@@ -17,7 +17,6 @@ import { DashboardApiIssueCard } from '../components/dashboard/DashboardApiIssue
 import type {
   DebugAdminResponse,
   DebugAutoPlayPrompt,
-  DebugDmActionResponse,
   DebugDmPreview,
   DebugErrorLog,
   DebugNotificationDelivery,
@@ -30,7 +29,7 @@ import { SectionNav } from '../components/dashboard/SectionNav'
 import { sectionScrollMarginTop } from '../components/dashboard/SectionNav.constants'
 import { useDashboardContext } from '../contexts/useDashboardContext'
 import { formatMonthDayYearTimeZone } from '../lib/dateTime'
-import { CtpDmInboxDialog, DmLifecycleSimulatorDialog, DmPreviewDialog } from './DebugDmSurface'
+import { DmLifecycleSimulatorDialog, DmPreviewDialog } from './DebugDmSurface'
 
 type SortDirection = 'asc' | 'desc'
 type CtpSortKey = 'createdAt' | 'windowStartsAt' | 'creator' | 'status' | 'notificationCount' | 'errorCount'
@@ -308,15 +307,13 @@ function CtpLifecycleDialog({
   onClose,
   ctp,
   events,
-  formatDateTime,
-  onOpenDmInbox
+  formatDateTime
 }: {
   open: boolean;
   onClose: () => void;
   ctp: DebugPlayIntentSummary | null;
   events: DebugPlayIntentLifecycleEvent[];
   formatDateTime: (value: string | null) => string;
-  onOpenDmInbox: (ctp: DebugPlayIntentSummary) => void;
 }) {
   if (!ctp) {
     return null
@@ -336,12 +333,7 @@ function CtpLifecycleDialog({
 
         <Card variant="outlined" sx={{ p: 2 }}>
           <Stack spacing={0.75}>
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }}>
-              <Typography level="title-sm">Session window</Typography>
-              <Button size="sm" variant="outlined" color="neutral" disabled={ctp.dmInboxParticipants.length === 0} onClick={() => onOpenDmInbox(ctp)}>
-                Open DM emulator
-              </Button>
-            </Stack>
+            <Typography level="title-sm">Session window</Typography>
             <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
               Created {formatDateTime(ctp.createdAt)}
             </Typography>
@@ -1236,21 +1228,16 @@ function DebugViewContent({
   isSignedIn,
   debugAdmin,
   debugLoading,
-  onRefreshDebug,
-  buildApiUrl,
-  parseDebugDmActionResponse
+  onRefreshDebug
 }: {
   error: string | null;
   isSignedIn: boolean;
   debugAdmin: DebugAdminResponse | null;
   debugLoading: boolean;
   onRefreshDebug: () => Promise<void>;
-  buildApiUrl: (path: string) => string;
-  parseDebugDmActionResponse: (value: unknown) => DebugDmActionResponse;
 }) {
   const { timeZone, formatDateTime } = useLocalDateFormatter()
   const [selectedPlayIntentId, setSelectedPlayIntentId] = useState<string | null>(null)
-  const [selectedMailboxPlayIntentId, setSelectedMailboxPlayIntentId] = useState<string | null>(null)
   const [isSimulatorOpen, setIsSimulatorOpen] = useState(false)
   const [selectedDmPreview, setSelectedDmPreview] = useState<{
     title: string;
@@ -1273,7 +1260,6 @@ function DebugViewContent({
   }
 
   const selectedPlayIntent = debugAdmin?.recentPlayIntents.find((intent) => intent.id === selectedPlayIntentId) ?? null
-  const selectedMailboxPlayIntent = debugAdmin?.recentPlayIntents.find((intent) => intent.id === selectedMailboxPlayIntentId) ?? null
   const selectedLifecycleEvents = debugAdmin?.playIntentLifecycleEvents
     .filter((eventEntry) => eventEntry.playIntentId === selectedPlayIntentId)
     .sort((left, right) => new Date(left.occurredAt).getTime() - new Date(right.occurredAt).getTime()) ?? []
@@ -1380,17 +1366,6 @@ function DebugViewContent({
         ctp={selectedPlayIntent}
         events={selectedLifecycleEvents}
         formatDateTime={formatDateTime}
-        onOpenDmInbox={(ctp) => setSelectedMailboxPlayIntentId(ctp.id)}
-      />
-
-      <CtpDmInboxDialog
-        open={selectedMailboxPlayIntent != null}
-        onClose={() => setSelectedMailboxPlayIntentId(null)}
-        ctp={selectedMailboxPlayIntent}
-        formatDateTime={formatDateTime}
-        buildApiUrl={buildApiUrl}
-        onRefreshDebug={onRefreshDebug}
-        parseDebugDmActionResponse={parseDebugDmActionResponse}
       />
 
       <DmLifecycleSimulatorDialog

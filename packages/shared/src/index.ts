@@ -81,6 +81,8 @@ export const steamLibraryImportAccountSchema = z.object({
 })
 
 export * from './play-intent-update-effects.js'
+export * from './debug-dm-simulator-state.js'
+export * from './debug-dm-simulator-history.js'
 
 export const steamLibraryImportPreviewResponseSchema = z.object({
   status: steamLibraryImportStatusSchema,
@@ -693,20 +695,6 @@ export const debugDmPreviewSchema = z.object({
   buttonRows: z.array(z.array(debugDmPreviewButtonSchema))
 })
 
-export const debugDmTemplateEntrySchema = z.object({
-  id: z.string().min(1),
-  label: z.string().min(1),
-  description: z.string().nullable(),
-  preview: debugDmPreviewSchema
-})
-
-export const debugDmTemplateGroupSchema = z.object({
-  id: z.string().min(1),
-  label: z.string().min(1),
-  description: z.string().nullable(),
-  entries: z.array(debugDmTemplateEntrySchema).min(1)
-})
-
 export const debugAutoPlayPromptSchema = z.object({
   id: z.string().uuid(),
   createdAt: z.string().datetime(),
@@ -778,47 +766,6 @@ export const debugInviteAttributionSchema = z.object({
 
 export const debugPlayIntentStatusSchema = z.enum(['active', 'ended'])
 
-export const debugDmInboxRoleSchema = z.enum(['creator', 'audience'])
-
-export const debugDmInboxDeliveryStateSchema = z.enum(['emulated', 'stored-only', 'dm-delivered'])
-
-export const debugDmInboxMessageKindSchema = z.enum([
-  'creator-summary',
-  'scheduled-check-in',
-  'call-to-play',
-  'go-time-reminder',
-  'go-time-confirmed'
-])
-
-export const debugDmInboxMessageRevisionSchema = z.object({
-  id: z.string().min(1),
-  label: z.string().min(1),
-  occurredAt: z.string().datetime(),
-  preview: debugDmPreviewSchema
-})
-
-export const debugDmInboxMessageSchema = z.object({
-  id: z.string().min(1),
-  kind: debugDmInboxMessageKindSchema,
-  label: z.string().min(1),
-  sentAt: z.string().datetime(),
-  deliveryState: debugDmInboxDeliveryStateSchema,
-  preview: debugDmPreviewSchema,
-  revisions: z.array(debugDmInboxMessageRevisionSchema).min(1)
-})
-
-export const debugDmInboxParticipantSchema = z.object({
-  user: z.object({
-    id: z.string().uuid(),
-    handle: z.string().min(2).max(32),
-    displayName: z.string().min(2).max(60),
-    timezoneId: timezoneIdSchema
-  }),
-  role: debugDmInboxRoleSchema,
-  lastActivityAt: z.string().datetime().nullable(),
-  messages: z.array(debugDmInboxMessageSchema)
-})
-
 export const debugPlayIntentSummarySchema = z.object({
   id: z.string().uuid(),
   createdAt: z.string().datetime(),
@@ -842,22 +789,7 @@ export const debugPlayIntentSummarySchema = z.object({
     handle: z.string().min(2).max(32),
     displayName: z.string().min(2).max(60),
     timezoneId: timezoneIdSchema
-  }),
-  creatorDmPreview: debugDmPreviewSchema.nullable(),
-  dmInboxParticipants: z.array(debugDmInboxParticipantSchema)
-})
-
-export const debugDmActionRequestSchema = z.object({
-  actingUserId: z.string().uuid(),
-  customId: z.string().min(1)
-})
-
-export const debugDmTemplateSendRequestSchema = z.object({
-  templateId: z.string().min(1)
-})
-
-export const debugDmActionResponseSchema = z.object({
-  message: z.string().min(1)
+  })
 })
 
 export const debugPlayIntentLifecycleEventSourceSchema = z.enum(['play-intent', 'notification', 'auto-play-prompt', 'system'])
@@ -891,7 +823,6 @@ export const debugErrorLogSchema = z.object({
 export const debugAdminResponseSchema = z.object({
   generatedAt: z.string().datetime(),
   bot: debugDiscordBotStateSchema,
-  dmTemplates: z.array(debugDmTemplateGroupSchema),
   recentAutoPlayPrompts: z.array(debugAutoPlayPromptSchema),
   recentInviteAttributions: z.array(debugInviteAttributionSchema),
   recentNotifications: z.array(debugNotificationDeliverySchema),
@@ -1056,17 +987,6 @@ export type DebugAutoPlayPromptStatus = z.infer<typeof debugAutoPlayPromptStatus
 export type DebugDmPreviewButtonStyle = z.infer<typeof debugDmPreviewButtonStyleSchema>;
 export type DebugDmPreviewButton = z.infer<typeof debugDmPreviewButtonSchema>;
 export type DebugDmPreview = z.infer<typeof debugDmPreviewSchema>;
-export type DebugDmTemplateEntry = z.infer<typeof debugDmTemplateEntrySchema>;
-export type DebugDmTemplateGroup = z.infer<typeof debugDmTemplateGroupSchema>;
-export type DebugDmInboxRole = z.infer<typeof debugDmInboxRoleSchema>;
-export type DebugDmInboxDeliveryState = z.infer<typeof debugDmInboxDeliveryStateSchema>;
-export type DebugDmInboxMessageKind = z.infer<typeof debugDmInboxMessageKindSchema>;
-export type DebugDmInboxMessageRevision = z.infer<typeof debugDmInboxMessageRevisionSchema>;
-export type DebugDmInboxMessage = z.infer<typeof debugDmInboxMessageSchema>;
-export type DebugDmInboxParticipant = z.infer<typeof debugDmInboxParticipantSchema>;
-export type DebugDmActionRequest = z.infer<typeof debugDmActionRequestSchema>;
-export type DebugDmTemplateSendRequest = z.infer<typeof debugDmTemplateSendRequestSchema>;
-export type DebugDmActionResponse = z.infer<typeof debugDmActionResponseSchema>;
 export type DebugAutoPlayPrompt = z.infer<typeof debugAutoPlayPromptSchema>;
 export type DebugInviteAttribution = z.infer<typeof debugInviteAttributionSchema>;
 export type DebugNotificationDelivery = z.infer<typeof debugNotificationDeliverySchema>;

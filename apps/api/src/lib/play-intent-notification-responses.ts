@@ -61,7 +61,9 @@ import {
   type PlayIntentDiscordSpaceRecipientContext
 } from './play-intent-discord-spaces.js'
 import { resolveNotificationDirectMessageRenderState } from './play-intent-notification-render-state.js'
-import { resolveRecipientResponseTransition } from './play-intent-recipient-response-transition.js'
+import {
+  resolveRecipientResponseTransition
+} from './play-intent-recipient-response-transition.js'
 import { prisma } from './prisma.js'
 import { formatPlayIntentDateLabel, formatPlayIntentWindowLabel } from './play-intent-time-format.js'
 
@@ -2077,6 +2079,10 @@ export async function refreshTrackedPlayIntentNotificationDirectMessages(options
       ? complementarySpaceRecipientContextByPlayIntentId.get(notification.playIntentId)?.get(notification.userId) ?? null
       : null
     const passAcknowledgementMode = getPassAcknowledgementMode(playIntent?.scope)
+    const interestedUserLabels = interestedUsers.map((user) => buildDiscordUserLabel(
+      user.displayName,
+      user.identities?.[0]?.providerUserId
+    ))
     const effectiveAudienceResponseChoice = notification.playIntentId
       ? latestExplicitAudienceResponseByRecipientKey.get(`${notification.playIntentId}:${notification.userId}`) ?? null
       : null
@@ -2087,8 +2093,7 @@ export async function refreshTrackedPlayIntentNotificationDirectMessages(options
     )
       ? effectiveAudienceResponseChoice
       : notification.responseChoice
-
-    const preview = buildNotificationDirectMessagePreview({
+    const previewOptions = {
       notificationId: notification.id,
       playIntentId: notification.playIntentId ?? undefined,
       notificationType: notification.type,
@@ -2102,8 +2107,8 @@ export async function refreshTrackedPlayIntentNotificationDirectMessages(options
       playIntentIsActive: playIntent ? playIntent.expiresAt > now : false,
       voiceChannel,
       discordSpace,
-      interestedCount: interestedUsers.length > 0 ? interestedUsers.length : undefined,
-      interestedUserLabels: interestedUsers.map((user) => buildDiscordUserLabel(user.displayName, user.identities?.[0]?.providerUserId)),
+      interestedCount: interestedUserLabels.length > 0 ? interestedUserLabels.length : undefined,
+      interestedUserLabels,
       passAcknowledgementMode,
       summaryStatus: playIntent
         ? resolveAudiencePlayIntentSummaryStatus(playIntent.windowStartsAt, now)
@@ -2121,7 +2126,9 @@ export async function refreshTrackedPlayIntentNotificationDirectMessages(options
         : undefined,
       actorDisplayName: actor?.displayName ?? null,
       actorDiscordUserId: actor?.identities[0]?.providerUserId ?? null
-    })
+    }
+
+    const preview = buildNotificationDirectMessagePreview(previewOptions)
 
     const embeds = notification.type === NotificationType.FRIEND_PLAYING && playIntent
       ? [
@@ -2158,38 +2165,7 @@ export async function refreshTrackedPlayIntentNotificationDirectMessages(options
       && notification.recipientResponseDiscordDmMessageId
     ) {
       const followUpPreview = buildNotificationDirectMessagePreview({
-        notificationId: notification.id,
-        playIntentId: notification.playIntentId ?? undefined,
-        notificationType: notification.type,
-        title: notification.title,
-        body: notification.body,
-        responseChoice: previewResponseChoice,
-        creatorUserId: playIntent?.user.id ?? null,
-        creatorDiscordUserId,
-        creatorDisplayName: playIntent?.user.displayName ?? null,
-        gameTitle: notification.game?.title ?? null,
-        playIntentIsActive: playIntent ? playIntent.expiresAt > now : false,
-        voiceChannel,
-        discordSpace,
-        interestedCount: interestedUsers.length > 0 ? interestedUsers.length : undefined,
-        interestedUserLabels: interestedUsers.map((user) => buildDiscordUserLabel(user.displayName, user.identities?.[0]?.providerUserId)),
-        passAcknowledgementMode,
-        summaryStatus: playIntent
-          ? resolveAudiencePlayIntentSummaryStatus(playIntent.windowStartsAt, now)
-          : undefined,
-        intentDetails: playIntent
-          ? {
-              selectionMode: playIntent.selectionMode,
-              headline: playIntent.headline,
-              selectedGameTitles: playIntent.games.map((entry) => entry.game.title),
-              scope: playIntent.scope,
-              targetDiscordServers: playIntent.targetDiscordServers,
-              targetFriends: playIntent.targetFriends,
-              note: playIntent.note
-            }
-          : undefined,
-        actorDisplayName: actor?.displayName ?? null,
-        actorDiscordUserId: actor?.identities[0]?.providerUserId ?? null,
+        ...previewOptions,
         renderSurface: 'response'
       })
 
@@ -2272,28 +2248,33 @@ function buildInterestedAcceptedMessage(
   )
 }
 
+const passAcknowledgementCopyByMode = {
+  anonymous: {
+    bodyLine: 'Passing is anonymous.',
+    subtext: 'Passing is anonymous.'
+  },
+  'creator-notified': {
+    bodyLine: 'The creator has been notified.',
+    subtext: 'The creator can see passes for this targeted call to play.'
+  }
+} as const satisfies Record<PassAcknowledgementMode, { bodyLine: string; subtext: string }>
+
 function getPassAcknowledgementMode(scope: PlayIntentScope | null | undefined): PassAcknowledgementMode {
   return scope === PlayIntentScope.SPECIFIC_FRIENDS ? 'creator-notified' : 'anonymous'
 }
 
-function getPassAcknowledgementBodyLine(mode: PassAcknowledgementMode) {
-  return mode === 'creator-notified'
-    ? 'The creator has been notified.'
-    : 'Passing is anonymous.'
-}
-
-function getPassAcknowledgementSubtext(mode: PassAcknowledgementMode) {
-  return mode === 'creator-notified'
-    ? 'The creator can see passes for this targeted call to play.'
-    : 'Passing is anonymous.'
+function getPassAcknowledgementCopy(mode: PassAcknowledgementMode = 'anonymous') {
+  return passAcknowledgementCopyByMode[mode]
 }
 
 function buildPassAcceptedMessage(mode: PassAcknowledgementMode = 'anonymous') {
+  const acknowledgementCopy = getPassAcknowledgementCopy(mode)
+
   return buildDiscordPlainMessage(
     '👍 Passed for Now',
     [
       'You are marked as passing for now.',
-      getPassAcknowledgementBodyLine(mode)
+      acknowledgementCopy.bodyLine
     ],
     {
       trailingSubtext: 'If you change your mind you can switch to "I\'m interested" later.'
@@ -2331,48 +2312,41 @@ function buildCreatorEndedMessage() {
 }
 
 function buildCreatorCheckInAlreadyHandledMessage(responseChoice: NotificationResponseChoice | null) {
-  if (responseChoice === NotificationResponseChoice.CONFIRMED) {
-    return buildDiscordPlainMessage(
-      'ℹ️ Already Handled',
-      ['You already confirmed that this call to play is still on.']
-    )
-  }
-
-  if (responseChoice === NotificationResponseChoice.CANCELED) {
-    return buildDiscordPlainMessage(
-      'ℹ️ Already Handled',
-      ['You already ended this call to play.']
-    )
-  }
-
   return buildDiscordPlainMessage(
     'ℹ️ Already Handled',
-    ['This check-in was already handled earlier.']
+    [responseChoice === NotificationResponseChoice.CONFIRMED
+      ? 'You already confirmed that this call to play is still on.'
+      : responseChoice === NotificationResponseChoice.CANCELED
+        ? 'You already ended this call to play.'
+        : 'This check-in was already handled earlier.']
   )
 }
 
-function buildGoTimeConfirmedCopy(creatorDisplayName: string) {
+function buildGoTimeCopy(creatorDisplayName: string, message: string) {
   return {
     title: `${creatorDisplayName} confirmed the session is on`,
-    body: `Update: ${creatorDisplayName} confirmed the session is still on.\nWhen: Right now.`
+    body: `Update: ${creatorDisplayName} ${message}\nWhen: Right now.`
   }
+}
+
+function buildGoTimeConfirmedCopy(creatorDisplayName: string) {
+  return buildGoTimeCopy(creatorDisplayName, 'confirmed the session is still on.')
 }
 
 export function buildGoTimeReminderCopy(creatorDisplayName: string) {
-  return {
-    title: `${creatorDisplayName} confirmed the session is on`,
-    body: `Update: ${creatorDisplayName} confirmed this session is still on.\nWhen: Right now.`
-  }
+  return buildGoTimeCopy(creatorDisplayName, 'confirmed this session is still on.')
 }
 
 function buildPassResultMessage(message: string, mode: PassAcknowledgementMode = 'anonymous') {
+  const acknowledgementCopy = getPassAcknowledgementCopy(mode)
+
   return buildDiscordPlainMessage(
     '👍 Passed for Now',
     [
       message
     ],
     {
-      trailingSubtext: getPassAcknowledgementSubtext(mode)
+      trailingSubtext: acknowledgementCopy.subtext
     }
   )
 }

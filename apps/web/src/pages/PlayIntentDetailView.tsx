@@ -14,7 +14,6 @@ import { formatNotifyScopeLabel, formatPlayIntentTimingSummary, memberGameGridSx
 import { useDashboardContext } from '../contexts/useDashboardContext'
 import { buildApiUrl } from '../hooks/useDashboardApp'
 import { formatMonthDayTime } from '../lib/dateTime'
-import { CtpDmInboxDialog } from './DebugDmSurface'
 
 function formatDateTimeLabel(value: string) {
   return formatMonthDayTime(value)
@@ -175,12 +174,11 @@ function CallDetailRow({
 export function PlayIntentDetailView() {
   const { playIntentId } = useParams<{ playIntentId: string }>()
   const navigate = useNavigate()
-  const { overviewViewProps, playViewProps, debugViewProps } = useDashboardContext()
+  const { overviewViewProps, playViewProps } = useDashboardContext()
   const [intent, setIntent] = useState<PlayIntentDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [requiresAuth, setRequiresAuth] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
-  const [isDmEmulatorOpen, setIsDmEmulatorOpen] = useState(false)
   const [showNonOverlappingGames, setShowNonOverlappingGames] = useState(false)
   const [invalidationVersion, setInvalidationVersion] = useState(0)
 
@@ -382,7 +380,6 @@ export function PlayIntentDetailView() {
   const isMuted = playViewProps.mutedPlayIntentUserIds.has(intent.user.id)
   const isEditingCurrentIntent = isOwnIntent && intent.status === 'active'
   const isScheduledIntent = intent.status === 'active' && new Date(intent.availabilityWindow.startsAt).getTime() > Date.now() + 60 * 1000
-  const canStartNow = isOwnIntent && isScheduledIntent
   const libraryWideScope = intent.selectionMode === 'library' ? intent.expandedGameScope : null
   const libraryWideScopeHeading = libraryWideScope?.kind === 'creator-library'
       ? 'Games covered by this call'
@@ -410,9 +407,7 @@ export function PlayIntentDetailView() {
     && intent.discordSpace.status !== 'deleted'
     && intent.discordSpace.status !== 'provisioning'
   )
-  const debugMailboxIntent = debugViewProps.debugAdmin?.recentPlayIntents.find((candidate) => candidate.id === intent.id) ?? null
-  const canOpenDmEmulator = debugViewProps.debugAdmin != null && debugMailboxIntent != null
-  const hasAdminActionRow = canOpenDmEmulator || canAdminDeleteIntent
+  const hasAdminActionRow = canAdminDeleteIntent
 
   return (
     <Stack spacing={2.5}>
@@ -464,19 +459,6 @@ export function PlayIntentDetailView() {
                     }}
                   >
                     Edit call to play
-                  </Button>
-                ) : null}
-                {canStartNow ? (
-                  <Button
-                    variant="soft"
-                    color="success"
-                    sx={{ width: { xs: '100%', sm: 'auto' } }}
-                    disabled={playViewProps.playIntentStartNowPendingIntentId === intent.id}
-                    onClick={() => void playViewProps.onStartPlayIntentNow(intent.id)}
-                  >
-                    {playViewProps.playIntentStartNowPendingIntentId === intent.id
-                      ? 'Starting now...'
-                      : 'Start now'}
                   </Button>
                 ) : null}
                 {canRespond ? (
@@ -538,16 +520,6 @@ export function PlayIntentDetailView() {
 
               {hasAdminActionRow ? (
                 <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ flexWrap: 'wrap', alignItems: { xs: 'stretch', sm: 'flex-start' } }}>
-                  {canOpenDmEmulator ? (
-                    <Button
-                      variant="outlined"
-                      color="neutral"
-                      sx={{ width: { xs: '100%', sm: 'auto' } }}
-                      onClick={() => setIsDmEmulatorOpen(true)}
-                    >
-                      Open DM emulator
-                    </Button>
-                  ) : null}
                   {canAdminDeleteIntent ? (
                     <Button
                       variant="soft"
@@ -964,16 +936,6 @@ export function PlayIntentDetailView() {
           <Typography level="body-sm">{errorMessage}</Typography>
         </Card>
       ) : null}
-
-      <CtpDmInboxDialog
-        open={isDmEmulatorOpen}
-        onClose={() => setIsDmEmulatorOpen(false)}
-        ctp={debugMailboxIntent}
-        formatDateTime={(value) => value ? formatMonthDayTime(value) : 'Not available'}
-        buildApiUrl={debugViewProps.buildApiUrl}
-        onRefreshDebug={debugViewProps.onRefreshDebug}
-        parseDebugDmActionResponse={debugViewProps.parseDebugDmActionResponse}
-      />
     </Stack>
   )
 }

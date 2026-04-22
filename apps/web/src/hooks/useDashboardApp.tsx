@@ -5,7 +5,6 @@ import type {
   AuthProvidersResponse,
   AuthSessionResponse,
   DebugAdminResponse,
-  DebugDmActionResponse,
   DiscordServerPreferencesResponse,
   DiscoveryFeed,
   DiscoveryGame,
@@ -27,7 +26,6 @@ import {
   authSessionResponseSchema,
   dashboardInvalidationEventSchema,
   debugAdminResponseSchema,
-  debugDmActionResponseSchema,
   discordServerPreferencesResponseSchema,
   discoveryFeedSchema,
   gameDetailsResponseSchema,
@@ -1318,9 +1316,7 @@ export function useDashboardApp() {
       isSignedIn,
       debugAdmin: state.debugAdmin,
       debugLoading: showDebugView && isSignedIn && state.debugAdmin == null && !state.error,
-      onRefreshDebug: loadDashboard,
-      buildApiUrl,
-      parseDebugDmActionResponse: (value: unknown) => debugDmActionResponseSchema.parse(value as DebugDmActionResponse)
+      onRefreshDebug: loadDashboard
     }
   }
 }
