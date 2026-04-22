@@ -82,7 +82,7 @@ type ScheduledPlayIntentCheckInAction = {
 
 type CreatorPlayIntentSummaryAction = {
   playIntentId: string;
-  action: 'end' | 'cleanup' | 'delete-space';
+  action: 'start-now' | 'end' | 'cleanup' | 'delete-space';
 }
 
 type PlayIntentRecipientResponse = 'JOIN' | 'DECLINE'
@@ -245,6 +245,19 @@ function buildLinkRow(playIntentId?: string) {
 
 function buildCreatorSummaryActionRow(playIntentId: string) {
   return new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`${creatorPlayIntentSummaryPrefix}:${playIntentId}:end`)
+      .setLabel('End call to play')
+      .setStyle(ButtonStyle.Danger)
+  )
+}
+
+function buildCreatorSummaryScheduledActionRow(playIntentId: string) {
+  return new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`${creatorPlayIntentSummaryPrefix}:${playIntentId}:start-now`)
+      .setLabel('Start now')
+      .setStyle(ButtonStyle.Primary),
     new ButtonBuilder()
       .setCustomId(`${creatorPlayIntentSummaryPrefix}:${playIntentId}:end`)
       .setLabel('End call to play')
@@ -1172,6 +1185,7 @@ export function buildNotificationDirectMessagePreview(options: {
 function buildCreatorPlayIntentSummaryComponents(
   playIntentId: string,
   isActive: boolean,
+  isScheduled: boolean,
   hasDeletableDiscordSpace: boolean,
   options: {
     forceInteractive?: boolean;
@@ -1184,7 +1198,9 @@ function buildCreatorPlayIntentSummaryComponents(
   return appendOpenInAppButton(
     [
       isActive
-        ? buildCreatorSummaryActionRow(playIntentId)
+        ? (isScheduled
+            ? buildCreatorSummaryScheduledActionRow(playIntentId)
+            : buildCreatorSummaryActionRow(playIntentId))
         : (() => {
             const row = buildCreatorSummaryCleanupRow(playIntentId)
 
@@ -1506,6 +1522,7 @@ export function buildCreatorPlayIntentSummaryPreview(snapshot: {
     components: buildCreatorPlayIntentSummaryComponents(
       snapshot.id,
       snapshot.expiresAt > currentTime,
+      isScheduledPlayIntentWindow(snapshot.windowStartsAt, currentTime),
       hasCreatorDeletableDiscordSpace(typedSnapshot),
       {
         forceInteractive: true
@@ -1677,10 +1694,16 @@ async function sendOrEditCreatorPlayIntentSummary(
   }
 
   const isActive = snapshot.expiresAt > new Date()
+  const isScheduled = isScheduledPlayIntentWindow(snapshot.windowStartsAt, new Date())
   const startsAtLabel = formatPlayIntentDateLabel(snapshot.windowStartsAt, snapshot.user.timezoneId)
   const content = buildCreatorPlayIntentSummaryHeading(startsAtLabel)
   const embeds = buildCreatorPlayIntentSummaryEmbeds(snapshot)
-  const components = buildCreatorPlayIntentSummaryComponents(playIntentId, isActive, hasCreatorDeletableDiscordSpace(snapshot))
+  const components = buildCreatorPlayIntentSummaryComponents(
+    playIntentId,
+    isActive,
+    isScheduled,
+    hasCreatorDeletableDiscordSpace(snapshot)
+  )
 
   if (snapshot.creatorDiscordDmChannelId && snapshot.creatorDiscordDmMessageId) {
     const editResult = await editDiscordDirectMessage({
@@ -1781,6 +1804,7 @@ export async function refreshTrackedCreatorPlayIntentSummaryMessages() {
       components: buildCreatorPlayIntentSummaryComponents(
         snapshot.id,
         snapshot.expiresAt > currentTime,
+        isScheduledPlayIntentWindow(snapshot.windowStartsAt, currentTime),
         hasCreatorDeletableDiscordSpace(snapshot)
       )
     })
@@ -2196,8 +2220,7 @@ function buildInterestedAcceptedMessage(
   return buildDiscordPlainMessage(
     '✅ You\'re In',
     [
-      'You are marked as interested.',
-      `${creatorLabel} has been notified.`,
+      `You are marked as interested. ${creatorLabel} has been notified.`,
       ...complementaryLines
     ],
     {
@@ -2544,7 +2567,7 @@ function parseCreatorPlayIntentSummaryAction(customId: string): CreatorPlayInten
     return null
   }
 
-  if (parts[2] !== 'end' && parts[2] !== 'cleanup' && parts[2] !== 'delete-space') {
+  if (parts[2] !== 'start-now' && parts[2] !== 'end' && parts[2] !== 'cleanup' && parts[2] !== 'delete-space') {
     return null
   }
 
@@ -2687,7 +2710,7 @@ async function applyRecipientResponseToPlayIntentNotification(options: {
     return {
       content: previousChoice === NotificationResponseChoice.JOIN
         ? buildPassResultMessage(
-            `Understood. I marked you as passing on ${playIntent.user.displayName}'s call to play.${passAcknowledgementMode === 'creator-notified' ? ` ${playIntent.user.displayName} has been notified.` : ''}`,
+            `Understood. I marked you as passing.${passAcknowledgementMode === 'creator-notified' ? ` ${playIntent.user.displayName} has been notified.` : ''}`,
             passAcknowledgementMode
           )
         : previousChoice === NotificationResponseChoice.DECLINE
@@ -2695,7 +2718,7 @@ async function applyRecipientResponseToPlayIntentNotification(options: {
           : buildPassAcceptedMessage(passAcknowledgementMode),
       discordContent: previousChoice === NotificationResponseChoice.JOIN
         ? buildPassResultMessage(
-            `Understood. I marked you as passing on ${creatorDiscordLabel}'s call to play.${passAcknowledgementMode === 'creator-notified' ? ` ${creatorDiscordLabel} has been notified.` : ''}`,
+            `Understood. I marked you as passing.${passAcknowledgementMode === 'creator-notified' ? ` ${creatorDiscordLabel} has been notified.` : ''}`,
             passAcknowledgementMode
           )
         : previousChoice === NotificationResponseChoice.DECLINE
@@ -2895,6 +2918,107 @@ export function isScheduledPlayIntentCheckInCustomId(customId: string) {
 
 export function isCreatorPlayIntentSummaryCustomId(customId: string) {
   return customId.startsWith(`${creatorPlayIntentSummaryPrefix}:`)
+}
+
+function isScheduledPlayIntentWindow(windowStartsAt: Date, now: Date) {
+  return windowStartsAt.getTime() > now.getTime() + 60 * 1000
+}
+
+export class ScheduledPlayIntentStartError extends Error {}
+
+export async function startScheduledPlayIntentNow(playIntentId: string, creatorUserId: string) {
+  const now = new Date()
+
+  const startedIntent = await prisma.$transaction(async (transaction) => {
+    const playIntent = await transaction.playIntent.findUnique({
+      where: {
+        id: playIntentId
+      },
+      select: {
+        id: true,
+        userId: true,
+        deletedAt: true,
+        windowStartsAt: true,
+        windowEndsAt: true,
+        expiresAt: true
+      }
+    })
+
+    if (!playIntent || playIntent.deletedAt || playIntent.userId !== creatorUserId) {
+      throw new ScheduledPlayIntentStartError('Call to play not found.')
+    }
+
+    if (playIntent.expiresAt <= now || playIntent.windowEndsAt <= now) {
+      throw new ScheduledPlayIntentStartError('This call to play is no longer active.')
+    }
+
+    if (!isScheduledPlayIntentWindow(playIntent.windowStartsAt, now)) {
+      throw new ScheduledPlayIntentStartError('This call to play has already started.')
+    }
+
+    await transaction.playIntent.update({
+      where: {
+        id: playIntent.id
+      },
+      data: {
+        windowStartsAt: now
+      }
+    })
+
+    const latestCheckIn = await transaction.notification.findFirst({
+      where: {
+        playIntentId: playIntent.id,
+        userId: creatorUserId,
+        type: NotificationType.SCHEDULED_PLAY_INTENT_CHECK_IN
+      },
+      select: {
+        id: true,
+        respondedAt: true
+      },
+      orderBy: {
+        createdAt: 'desc'
+      }
+    })
+
+    if (!latestCheckIn) {
+      await transaction.notification.create({
+        data: {
+          userId: creatorUserId,
+          triggeredByUserId: creatorUserId,
+          playIntentId: playIntent.id,
+          type: NotificationType.SCHEDULED_PLAY_INTENT_CHECK_IN,
+          title: 'Is your scheduled call to play still on?',
+          body: 'Your scheduled call to play is starting now. Confirm if it is still on.',
+          respondedAt: now,
+          responseChoice: NotificationResponseChoice.CONFIRMED
+        }
+      })
+    } else if (!latestCheckIn.respondedAt) {
+      await transaction.notification.update({
+        where: {
+          id: latestCheckIn.id
+        },
+        data: {
+          respondedAt: now,
+          responseChoice: NotificationResponseChoice.CONFIRMED
+        }
+      })
+    }
+
+    return {
+      id: playIntent.id
+    }
+  })
+
+  await refreshTrackedPlayIntentNotificationDirectMessages({
+    playIntentIds: [startedIntent.id]
+  })
+
+  await syncCreatorPlayIntentSummaryMessages([startedIntent.id], {
+    notifyOnActiveChange: false
+  })
+
+  publishPlayIntentInvalidation()
 }
 
 export async function sweepScheduledPlayIntentCreatorCheckIns() {
@@ -3862,7 +3986,8 @@ export async function handlePlayIntentNotificationInteraction(interaction: Butto
   const interestedUserLabels = (interestedUsers.get(playIntent.id) ?? []).map((user) => buildDiscordUserLabel(user.displayName, null))
   const discordSpace = (await getPlayIntentDiscordSpaceRecipientContexts(playIntent.id, [notification.userId]))
     .get(notification.userId) ?? null
-  const preservedPrompt = buildPlayIntentNotificationPromptPreview({
+  const passAcknowledgementMode = getPassAcknowledgementMode(playIntent.scope)
+  const preservedPrompt = buildNotificationDirectMessagePreview({
     notificationId: notification.id,
     playIntentId: playIntent.id,
     notificationType: notification.type,
@@ -3872,6 +3997,8 @@ export async function handlePlayIntentNotificationInteraction(interaction: Butto
     creatorUserId: playIntent.user.id,
     creatorDiscordUserId: playIntent.user.identities[0]?.providerUserId ?? null,
     creatorDisplayName: playIntent.user.displayName,
+    gameTitle: notification.game?.title ?? null,
+    playIntentIsActive: playIntent.expiresAt > new Date(),
     voiceChannel: playIntent.voiceChannelId || playIntent.voiceChannelName
       ? {
           channelId: playIntent.voiceChannelId,
@@ -3881,7 +4008,8 @@ export async function handlePlayIntentNotificationInteraction(interaction: Butto
       : null,
     discordSpace,
     interestedCount: interestedUserLabels.length,
-    interestedUserLabels
+    interestedUserLabels,
+    passAcknowledgementMode
   })
 
   await interaction.update({
@@ -4069,6 +4197,22 @@ export async function handleCreatorPlayIntentSummaryInteraction(interaction: But
     return
   }
 
+  if (action.action === 'start-now') {
+    try {
+      await startScheduledPlayIntentNow(playIntent.id, identity.userId)
+    } catch (error) {
+      if (error instanceof ScheduledPlayIntentStartError) {
+        await interaction.update({
+          content: error.message,
+          components: [buildLinkRow(playIntent.id)]
+        })
+        return
+      }
+
+      throw error
+    }
+  }
+
   if (action.action === 'end' && playIntent.expiresAt > new Date()) {
     const now = new Date()
 
@@ -4099,6 +4243,7 @@ export async function handleCreatorPlayIntentSummaryInteraction(interaction: But
       ? buildCreatorPlayIntentSummaryComponents(
           refreshedSnapshot.id,
           refreshedSnapshot.expiresAt > currentTime,
+          isScheduledPlayIntentWindow(refreshedSnapshot.windowStartsAt, currentTime),
           hasCreatorDeletableDiscordSpace(refreshedSnapshot)
         )
       : [buildLinkRow()]
