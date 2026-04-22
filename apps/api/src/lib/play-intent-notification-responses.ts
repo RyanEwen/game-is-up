@@ -11,7 +11,8 @@ import {
   AuthProvider,
   NotificationResponseChoice,
   NotificationType,
-  PlayIntentScope
+  PlayIntentScope,
+  type Prisma
 } from '@prisma/client'
 import {
   archivePlayIntentDirectMessages,
@@ -21,6 +22,7 @@ import {
   deleteUserPlayIntentDirectMessages
 } from './discord-dm-cleanup.js'
 import {
+  deleteDiscordDirectMessage,
   editDiscordDirectMessage,
   sendDiscordDirectMessages,
   type DiscordDirectMessagePayload,
@@ -1146,11 +1148,11 @@ export function buildNotificationDirectMessagePreview(options: {
     if (renderState.variant === 'expired') {
       return {
         content: buildExpiredMessage(buildSessionEndedReason(creatorLabel, options.gameTitle ?? null)),
-        components: [buildLinkRow(options.playIntentId)]
+        components: options.renderSurface === 'response' ? [] : [buildLinkRow(options.playIntentId)]
       }
     }
 
-    return buildPlayIntentNotificationPromptPreview({
+    const promptPreview = buildPlayIntentNotificationPromptPreview({
       notificationId: options.notificationId,
       playIntentId: options.playIntentId,
       notificationType: options.notificationType,
@@ -1167,6 +1169,13 @@ export function buildNotificationDirectMessagePreview(options: {
       intentDetails: options.intentDetails,
       summaryStatus: options.summaryStatus
     })
+
+    return options.renderSurface === 'response'
+      ? {
+          ...promptPreview,
+          components: []
+        }
+      : promptPreview
   }
 
   if (systemNotificationDefinition?.key === callToPlayEndedSystemNotification.key) {
@@ -2402,6 +2411,150 @@ async function sendCreatorPlayIntentSummaryReply(options: {
   ]))[0]
 }
 
+async function upsertCreatorResponseSystemNotification(
+  transaction: Prisma.TransactionClient,
+  options: {
+    playIntentId: string;
+    creatorUserId: string;
+    recipientUserId: string;
+    gameId: string | null;
+    title: string;
+    body: string;
+  }
+) {
+  const existingNotification = await transaction.notification.findFirst({
+    where: {
+      playIntentId: options.playIntentId,
+      userId: options.creatorUserId,
+      triggeredByUserId: options.recipientUserId,
+      type: NotificationType.SYSTEM
+    },
+    orderBy: {
+      createdAt: 'desc'
+    },
+    select: {
+      id: true,
+      discordDmChannelId: true,
+      discordDmMessageId: true
+    }
+  })
+
+  if (existingNotification) {
+    return transaction.notification.update({
+      where: {
+        id: existingNotification.id
+      },
+      data: {
+        title: options.title,
+        body: options.body
+      },
+      select: {
+        id: true,
+        discordDmChannelId: true,
+        discordDmMessageId: true
+      }
+    })
+  }
+
+  return transaction.notification.create({
+    data: {
+      userId: options.creatorUserId,
+      triggeredByUserId: options.recipientUserId,
+      playIntentId: options.playIntentId,
+      gameId: options.gameId,
+      type: NotificationType.SYSTEM,
+      title: options.title,
+      body: options.body
+    },
+    select: {
+      id: true,
+      discordDmChannelId: true,
+      discordDmMessageId: true
+    }
+  })
+}
+
+async function syncCreatorResponseSystemDirectMessage(options: {
+  notificationId: string;
+  playIntentId: string;
+  discordUserId: string;
+  content: string;
+  channelId?: string | null;
+  messageId?: string | null;
+  replaceExisting?: boolean;
+}) {
+  const replyTo = await getCreatorPlayIntentSummaryReplyReference(options.playIntentId)
+  const trackedChannelId = options.channelId ?? null
+  const trackedMessageId = options.messageId ?? null
+
+  if (options.replaceExisting && trackedChannelId && trackedMessageId) {
+    const resendResult = (await sendDiscordDirectMessages([
+      {
+        discordUserId: options.discordUserId,
+        content: options.content,
+        components: [],
+        replyTo
+      }
+    ]))[0]
+
+    if (resendResult?.status === 'sent' && !resendResult.emulated && resendResult.channelId && resendResult.messageId) {
+      await prisma.notification.update({
+        where: {
+          id: options.notificationId
+        },
+        data: {
+          deliveredAt: new Date(),
+          discordDmChannelId: resendResult.channelId,
+          discordDmMessageId: resendResult.messageId
+        }
+      })
+
+      if (resendResult.channelId !== trackedChannelId || resendResult.messageId !== trackedMessageId) {
+        await deleteDiscordDirectMessage({
+          channelId: trackedChannelId,
+          messageId: trackedMessageId
+        })
+      }
+
+      return
+    }
+  }
+
+  await syncTrackedDiscordDirectMessage({
+    tracked: {
+      channelId: trackedChannelId,
+      messageId: trackedMessageId
+    },
+    discordUserId: options.discordUserId,
+    content: options.content,
+    components: [],
+    replyTo,
+    onMissingTrackedMessage: async () => {
+      await prisma.notification.update({
+        where: {
+          id: options.notificationId
+        },
+        data: {
+          discordDmChannelId: null,
+          discordDmMessageId: null
+        }
+      })
+    },
+    onSent: async (result) => {
+      await prisma.notification.update({
+        where: {
+          id: options.notificationId
+        },
+        data: {
+          deliveredAt: new Date(),
+          discordDmChannelId: result.channelId,
+          discordDmMessageId: result.messageId
+        }
+      })
+    }
+  })
+}
+
 async function syncRecipientResponseFollowUpDirectMessage(options: {
   notificationId: string;
   discordUserId: string;
@@ -2630,7 +2783,7 @@ async function applyRecipientResponseToPlayIntentNotification(options: {
     })
     const shouldCreateCreatorPassNotification = responseTransition.shouldCreateCreatorSystemNotification
 
-    const passResult = shouldCreateCreatorPassNotification
+    const creatorStatusNotification = shouldCreateCreatorPassNotification
       ? await prisma.$transaction(async (transaction) => {
           await transaction.notification.update({
             where: {
@@ -2642,21 +2795,13 @@ async function applyRecipientResponseToPlayIntentNotification(options: {
             }
           })
 
-          return transaction.notification.create({
-            data: {
-              userId: playIntent.user.id,
-              triggeredByUserId: notification.userId,
-              playIntentId: playIntent.id,
-              gameId: notification.gameId,
-              type: NotificationType.SYSTEM,
-              title: creatorNotificationCopy.title,
-              body: creatorNotificationCopy.body
-            },
-            select: {
-              id: true,
-              title: true,
-              body: true
-            }
+          return upsertCreatorResponseSystemNotification(transaction, {
+            playIntentId: playIntent.id,
+            creatorUserId: playIntent.user.id,
+            recipientUserId: notification.userId,
+            gameId: notification.gameId,
+            title: creatorNotificationCopy.title,
+            body: creatorNotificationCopy.body
           })
         })
       : await prisma.notification.update({
@@ -2669,8 +2814,7 @@ async function applyRecipientResponseToPlayIntentNotification(options: {
           },
           select: {
             id: true,
-            title: true,
-            body: true
+            respondedAt: true
           }
         })
 
@@ -2678,29 +2822,19 @@ async function applyRecipientResponseToPlayIntentNotification(options: {
       notifyOnActiveChange: false
     })
 
-    if (shouldCreateCreatorPassNotification && creatorDiscordUserId) {
-        const dmResult = await sendCreatorPlayIntentSummaryReply({
-          playIntentId: playIntent.id,
-          discordUserId: creatorDiscordUserId,
-          content: buildDiscordPlainMessage(
-            buildDiscordMessageHeading(passResult.title),
-            [creatorNotificationCopy.discordBody]
-          ),
-          components: []
-        })
-
-      if (dmResult?.status === 'sent' && !dmResult.emulated) {
-        await prisma.notification.update({
-          where: {
-            id: passResult.id
-          },
-          data: {
-            deliveredAt: new Date(),
-            discordDmChannelId: dmResult.channelId,
-            discordDmMessageId: dmResult.messageId
-          }
-        })
-      }
+    if (shouldCreateCreatorPassNotification && creatorDiscordUserId && 'discordDmChannelId' in creatorStatusNotification) {
+      await syncCreatorResponseSystemDirectMessage({
+        notificationId: creatorStatusNotification.id,
+        playIntentId: playIntent.id,
+        discordUserId: creatorDiscordUserId,
+        content: buildDiscordPlainMessage(
+          buildDiscordMessageHeading(creatorNotificationCopy.title),
+          [creatorNotificationCopy.discordBody]
+        ),
+        channelId: creatorStatusNotification.discordDmChannelId,
+        messageId: creatorStatusNotification.discordDmMessageId,
+        replaceExisting: responseTransition.shouldReplaceCreatorSystemNotification
+      })
     }
 
     publishPlayIntentInvalidation()
@@ -2731,7 +2865,7 @@ async function applyRecipientResponseToPlayIntentNotification(options: {
     gameTitle: notification.game?.title ?? null
   })
 
-  const interestedResult = responseTransition.shouldCreateCreatorSystemNotification
+  const creatorStatusNotification = responseTransition.shouldCreateCreatorSystemNotification
     ? await prisma.$transaction(async (transaction) => {
         await transaction.notification.update({
           where: {
@@ -2743,21 +2877,13 @@ async function applyRecipientResponseToPlayIntentNotification(options: {
           }
         })
 
-        return transaction.notification.create({
-          data: {
-            userId: playIntent.user.id,
-            triggeredByUserId: notification.userId,
-            playIntentId: playIntent.id,
-            gameId: notification.gameId,
-            type: NotificationType.SYSTEM,
-            title: creatorNotificationCopy.title,
-            body: creatorNotificationCopy.body
-          },
-          select: {
-            id: true,
-            title: true,
-            body: true
-          }
+        return upsertCreatorResponseSystemNotification(transaction, {
+          playIntentId: playIntent.id,
+          creatorUserId: playIntent.user.id,
+          recipientUserId: notification.userId,
+          gameId: notification.gameId,
+          title: creatorNotificationCopy.title,
+          body: creatorNotificationCopy.body
         })
       })
     : await prisma.notification.update({
@@ -2770,8 +2896,7 @@ async function applyRecipientResponseToPlayIntentNotification(options: {
         },
         select: {
           id: true,
-          title: true,
-          body: true
+          respondedAt: true
         }
       })
 
@@ -2779,29 +2904,19 @@ async function applyRecipientResponseToPlayIntentNotification(options: {
     notifyOnActiveChange: false
   })
 
-  if (responseTransition.shouldCreateCreatorSystemNotification && creatorDiscordUserId) {
-    const dmResult = await sendCreatorPlayIntentSummaryReply({
+  if (responseTransition.shouldCreateCreatorSystemNotification && creatorDiscordUserId && 'discordDmChannelId' in creatorStatusNotification) {
+    await syncCreatorResponseSystemDirectMessage({
+      notificationId: creatorStatusNotification.id,
       playIntentId: playIntent.id,
       discordUserId: creatorDiscordUserId,
       content: buildDiscordPlainMessage(
-        buildDiscordMessageHeading(interestedResult.title),
+        buildDiscordMessageHeading(creatorNotificationCopy.title),
         [creatorNotificationCopy.discordBody]
       ),
-      components: []
+      channelId: creatorStatusNotification.discordDmChannelId,
+      messageId: creatorStatusNotification.discordDmMessageId,
+      replaceExisting: responseTransition.shouldReplaceCreatorSystemNotification
     })
-
-    if (dmResult?.status === 'sent' && !dmResult.emulated) {
-      await prisma.notification.update({
-        where: {
-          id: interestedResult.id
-        },
-        data: {
-          deliveredAt: new Date(),
-          discordDmChannelId: dmResult.channelId,
-          discordDmMessageId: dmResult.messageId
-        }
-      })
-    }
   }
 
   if (discordSpace?.inviteUrl && !discordSpace.recipientInServer) {
@@ -3435,13 +3550,6 @@ export async function handleScheduledPlayIntentCheckInInteraction(interaction: B
       embeds: preservedPrompt.embeds,
       components: preservedPrompt.components
     })
-
-    await sendCreatorPlayIntentSummaryReply({
-      playIntentId: notification.playIntent.id,
-      discordUserId: interaction.user.id,
-      content: buildCreatorEndedMessage(),
-      components: []
-    })
     return
   }
 
@@ -3825,13 +3933,6 @@ export async function handleScheduledPlayIntentCheckInInteraction(interaction: B
 
   await syncCreatorPlayIntentSummaryMessages([playIntent.id], {
     notifyOnActiveChange: false
-  })
-
-  await sendCreatorPlayIntentSummaryReply({
-    playIntentId: playIntent.id,
-    discordUserId: interaction.user.id,
-    content: buildCreatorConfirmedMessage(),
-    components: []
   })
 }
 

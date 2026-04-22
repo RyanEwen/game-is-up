@@ -1,10 +1,12 @@
 import type {
   ActivePlayIntent,
   PlayIntentNotifyScope,
+  PlayIntentUpdatedField,
   PlayIntentSelectionMode,
   UpsertPlayIntentRequest,
   UpsertPlayIntentResponse
 } from '@game-is-up/shared'
+import { shouldInvalidatePlayIntentAudienceResponse } from '@game-is-up/shared'
 import {
   AuthProvider,
   GameIntentType,
@@ -333,7 +335,7 @@ function getUpdatedPlayIntentFields(options: {
   nextAudienceUserIds: string[];
   nextSelectedGameIds: string[];
 }) {
-  const updatedFields: string[] = []
+  const updatedFields: PlayIntentUpdatedField[] = []
   const previousSelectionMode = toClientSelectionMode(options.previousIntent.selectionMode)
 
   if (
@@ -373,7 +375,7 @@ function getUpdatedPlayIntentFields(options: {
 }
 
 function shouldRenotifyPriorDecliner(options: {
-  updatedFields: string[];
+  updatedFields: PlayIntentUpdatedField[];
   notifyScope: PlayIntentNotifyScope;
   targetedFriendUserIds: string[];
   recipientUserId: string;
@@ -1748,6 +1750,7 @@ export async function upsertCurrentPlayIntent(
       nextSelectedGameIds: selectedGameIds
     })
     : []
+  const shouldInvalidateAudienceResponse = shouldInvalidatePlayIntentAudienceResponse(updatedFields)
   const isMeaningfulUpdate = updatedFields.length > 0 && priorNotifiedRecipientUserIds.size > 0
   const reusedRecipientUserIds = recipientUserIds.filter((recipientUserId) => priorNotifiedRecipientUserIds.has(recipientUserId))
   const newRecipientUserIds = recipientUserIds.filter((recipientUserId) => !priorNotifiedRecipientUserIds.has(recipientUserId))
@@ -1785,6 +1788,7 @@ export async function upsertCurrentPlayIntent(
   const recipientTimezoneByUserId = new Map(recipientProfiles.map((profile) => [profile.id, profile.timezoneId]))
   const discordSpaceAudienceGrantUserIds = [...new Set(recipientUserIds.filter((recipientUserId) => recipientUserId !== userId))]
   const discordSpaceAccessGrantCreates = buildDiscordSpaceAccessGrantCreates(userId, discordSpaceAudienceGrantUserIds)
+  const visibleInterestedUserLabels = shouldInvalidateAudienceResponse ? [] : priorInterestedUserLabels
 
   let activeIntent: ActivePlayIntent | null = null
   let activeIntentId: string | null = null
@@ -1793,6 +1797,7 @@ export async function upsertCurrentPlayIntent(
     userId: string;
     title: string;
     body: string;
+    responseChoice: NotificationResponseChoice | null;
     discordDmChannelId: string | null;
     discordDmMessageId: string | null;
     recipientResponseDiscordDmChannelId: string | null;
@@ -1890,23 +1895,28 @@ export async function upsertCurrentPlayIntent(
             where: {
               id: priorStatus.notificationId
             },
-            data: {
-              triggeredByUserId: userId,
-              playIntentId: createdIntent.id,
-              gameId: payload.selectionMode === 'subset' ? selectedGameIds[0] : null,
-              type: NotificationType.FRIEND_PLAYING,
-              title: notificationCopy.title,
-              body: notificationCopy.body,
-              respondedAt: shouldSendUpdateReply ? null : priorStatus.respondedAt,
-              responseChoice: shouldSendUpdateReply ? null : priorStatus.responseChoice,
-              recipientResponseDiscordDmChannelId: shouldSendUpdateReply ? null : priorStatus.recipientResponseDiscordDmChannelId,
-              recipientResponseDiscordDmMessageId: shouldSendUpdateReply ? null : priorStatus.recipientResponseDiscordDmMessageId
-            },
+            data: (() => {
+              const shouldResetAudienceResponse = shouldSendUpdateReply && shouldInvalidateAudienceResponse
+
+              return {
+                triggeredByUserId: userId,
+                playIntentId: createdIntent.id,
+                gameId: payload.selectionMode === 'subset' ? selectedGameIds[0] : null,
+                type: NotificationType.FRIEND_PLAYING,
+                title: notificationCopy.title,
+                body: notificationCopy.body,
+                respondedAt: shouldResetAudienceResponse ? null : priorStatus.respondedAt,
+                responseChoice: shouldResetAudienceResponse ? null : priorStatus.responseChoice,
+                recipientResponseDiscordDmChannelId: shouldSendUpdateReply ? null : priorStatus.recipientResponseDiscordDmChannelId,
+                recipientResponseDiscordDmMessageId: shouldSendUpdateReply ? null : priorStatus.recipientResponseDiscordDmMessageId
+              }
+            })(),
             select: {
               id: true,
               userId: true,
               title: true,
               body: true,
+              responseChoice: true,
               discordDmChannelId: true,
               discordDmMessageId: true,
               recipientResponseDiscordDmChannelId: true,
@@ -1951,6 +1961,7 @@ export async function upsertCurrentPlayIntent(
               userId: true,
               title: true,
               body: true,
+              responseChoice: true,
               discordDmChannelId: true,
               discordDmMessageId: true,
               recipientResponseDiscordDmChannelId: true,
@@ -2054,8 +2065,8 @@ export async function upsertCurrentPlayIntent(
               creatorDiscordUserId,
               sender.displayName,
               voiceChannel,
-              priorInterestedUserLabels.length > 0 ? priorInterestedUserLabels.length : undefined,
-              priorInterestedUserLabels,
+              visibleInterestedUserLabels.length > 0 ? visibleInterestedUserLabels.length : undefined,
+              visibleInterestedUserLabels,
               discordSpace,
               {
                 intentDetails: {
@@ -2080,7 +2091,7 @@ export async function upsertCurrentPlayIntent(
             notification.id,
             userId,
             sender.displayName,
-            null,
+            notification.responseChoice,
             NotificationType.FRIEND_PLAYING,
             {
               playIntentId: activeIntentId ?? undefined

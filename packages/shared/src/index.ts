@@ -80,6 +80,8 @@ export const steamLibraryImportAccountSchema = z.object({
   profileUrl: z.string().url().nullable()
 })
 
+export * from './play-intent-update-effects.js'
+
 export const steamLibraryImportPreviewResponseSchema = z.object({
   status: steamLibraryImportStatusSchema,
   note: z.string().nullable(),
@@ -1087,4 +1089,5 @@ export type UpsertUserGameAliasRequest = z.infer<typeof upsertUserGameAliasReque
 export type PlayIntentMute = z.infer<typeof playIntentMuteSchema>;
 export type PlayIntentMutesResponse = z.infer<typeof playIntentMutesResponseSchema>;
 
+export * from './debug-dm-simulator'
 export * from './dateTime'

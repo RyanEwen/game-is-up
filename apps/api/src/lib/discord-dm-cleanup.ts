@@ -28,6 +28,7 @@ const playIntentNotificationPrefix = 'play-intent-response'
 const creatorPlayIntentSummaryPrefix = 'creator-play-intent-summary'
 const archivedPlayIntentNotificationTypes = [
   NotificationType.FRIEND_PLAYING,
+  NotificationType.SYSTEM,
   NotificationType.SCHEDULED_PLAY_INTENT_REMINDER,
   NotificationType.SCHEDULED_PLAY_INTENT_CHECK_IN,
   NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED
@@ -1692,9 +1693,9 @@ export async function archivePlayIntentDirectMessages(options: {
       const candidateNotificationIds = new Map(candidates.map((candidate) => [candidate.messageId, candidate.notificationId]))
 
       // Quiet expiry/archive edits the existing tracked DM in place.
-      // Manual end paths reply off the retained invite for recipients who explicitly joined.
-      // Unanswered recipients stay on the quieter edit-in-place archival path.
-      if (options.replaceRecipientMessages && recipientInterested && !recipientPassed && !recipientMutedCreator) {
+      // Manual end paths only send a separate ended reply when the recipient never answered.
+      // Recipients who already joined or passed only see the retained invite update in place.
+      if (options.replaceRecipientMessages && !recipientInterested && !recipientPassed && !recipientMutedCreator) {
         const recipientDiscordUserId = notifications[0]?.user.identities[0]?.providerUserId
         if (candidates.length === 0) {
           continue

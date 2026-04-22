@@ -11,6 +11,7 @@ export type RecipientResponseAcknowledgementKind =
 export type RecipientResponseTransition = {
   nextChoice: NotificationResponseChoice;
   shouldCreateCreatorSystemNotification: boolean;
+  shouldReplaceCreatorSystemNotification: boolean;
   acknowledgementKind: RecipientResponseAcknowledgementKind;
 }
 
@@ -20,10 +21,14 @@ export function resolveRecipientResponseTransition(options: {
   scope: PlayIntentScope | null | undefined;
 }): RecipientResponseTransition {
   if (options.response === NotificationResponseChoice.DECLINE) {
+    const shouldCreateCreatorSystemNotification = options.previousChoice !== NotificationResponseChoice.DECLINE
+      && (options.scope === PlayIntentScope.SPECIFIC_FRIENDS || options.previousChoice === NotificationResponseChoice.JOIN)
+
     return {
       nextChoice: NotificationResponseChoice.DECLINE,
-      shouldCreateCreatorSystemNotification: options.previousChoice !== NotificationResponseChoice.DECLINE
-        && (options.scope === PlayIntentScope.SPECIFIC_FRIENDS || options.previousChoice === NotificationResponseChoice.JOIN),
+      shouldCreateCreatorSystemNotification,
+      shouldReplaceCreatorSystemNotification: shouldCreateCreatorSystemNotification
+        && options.previousChoice === NotificationResponseChoice.JOIN,
       acknowledgementKind: options.previousChoice === NotificationResponseChoice.JOIN
         ? 'pass-from-join'
         : options.previousChoice === NotificationResponseChoice.DECLINE
@@ -35,6 +40,7 @@ export function resolveRecipientResponseTransition(options: {
   return {
     nextChoice: NotificationResponseChoice.JOIN,
     shouldCreateCreatorSystemNotification: options.previousChoice !== NotificationResponseChoice.JOIN,
+    shouldReplaceCreatorSystemNotification: options.previousChoice === NotificationResponseChoice.DECLINE,
     acknowledgementKind: 'interested'
   }
 }

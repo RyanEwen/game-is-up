@@ -85,3 +85,17 @@ test('audience response surface still resolves to joined after interest while ac
     variant: 'joined'
   })
 })
+
+test('inactive audience response surface resolves to expired even after interest', () => {
+  const state = resolveNotificationDirectMessageRenderState({
+    notificationType: NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED,
+    responseChoice: NotificationResponseChoice.JOIN,
+    playIntentIsActive: false,
+    renderSurface: 'response'
+  })
+
+  assert.deepEqual(state, {
+    kind: 'audience-play-intent',
+    variant: 'expired'
+  })
+})

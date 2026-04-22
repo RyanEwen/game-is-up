@@ -40,16 +40,16 @@ export function resolveNotificationDirectMessageRenderState(options: {
       return { kind: 'audience-play-intent', variant: 'prompt' }
     }
 
+    if (options.responseChoice === NotificationResponseChoice.EXPIRED || options.playIntentIsActive === false) {
+      return { kind: 'audience-play-intent', variant: 'expired' }
+    }
+
     if (options.responseChoice === NotificationResponseChoice.JOIN) {
       return { kind: 'audience-play-intent', variant: 'joined' }
     }
 
     if (options.responseChoice === NotificationResponseChoice.DECLINE) {
       return { kind: 'audience-play-intent', variant: 'declined' }
-    }
-
-    if (options.responseChoice === NotificationResponseChoice.EXPIRED || options.playIntentIsActive === false) {
-      return { kind: 'audience-play-intent', variant: 'expired' }
     }
 
     return { kind: 'audience-play-intent', variant: 'prompt' }

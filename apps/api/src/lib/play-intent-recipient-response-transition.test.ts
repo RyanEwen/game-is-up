@@ -15,6 +15,7 @@ test('initial targeted pass notifies the creator', () => {
   assert.deepEqual(transition, {
     nextChoice: NotificationResponseChoice.DECLINE,
     shouldCreateCreatorSystemNotification: true,
+    shouldReplaceCreatorSystemNotification: false,
     acknowledgementKind: 'pass-initial'
   })
 })
@@ -29,6 +30,7 @@ test('pass after join notifies the creator even outside targeted scope', () => {
   assert.deepEqual(transition, {
     nextChoice: NotificationResponseChoice.DECLINE,
     shouldCreateCreatorSystemNotification: true,
+    shouldReplaceCreatorSystemNotification: true,
     acknowledgementKind: 'pass-from-join'
   })
 })
@@ -43,6 +45,7 @@ test('repeat pass stays quiet and keeps the repeat acknowledgement', () => {
   assert.deepEqual(transition, {
     nextChoice: NotificationResponseChoice.DECLINE,
     shouldCreateCreatorSystemNotification: false,
+    shouldReplaceCreatorSystemNotification: false,
     acknowledgementKind: 'pass-repeat'
   })
 })
@@ -57,6 +60,22 @@ test('initial join notifies the creator', () => {
   assert.deepEqual(transition, {
     nextChoice: NotificationResponseChoice.JOIN,
     shouldCreateCreatorSystemNotification: true,
+    shouldReplaceCreatorSystemNotification: false,
+    acknowledgementKind: 'interested'
+  })
+})
+
+test('join after pass notifies the creator with a fresh DM', () => {
+  const transition = resolveRecipientResponseTransition({
+    previousChoice: NotificationResponseChoice.DECLINE,
+    response: 'JOIN',
+    scope: PlayIntentScope.FRIENDS_ONLY
+  })
+
+  assert.deepEqual(transition, {
+    nextChoice: NotificationResponseChoice.JOIN,
+    shouldCreateCreatorSystemNotification: true,
+    shouldReplaceCreatorSystemNotification: true,
     acknowledgementKind: 'interested'
   })
 })
@@ -71,6 +90,7 @@ test('repeat join does not notify the creator again', () => {
   assert.deepEqual(transition, {
     nextChoice: NotificationResponseChoice.JOIN,
     shouldCreateCreatorSystemNotification: false,
+    shouldReplaceCreatorSystemNotification: false,
     acknowledgementKind: 'interested'
   })
 })
