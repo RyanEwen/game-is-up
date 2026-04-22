@@ -130,6 +130,57 @@ type ResolvablePlayIntentNotification = {
   } | null;
 }
 
+type ScheduledGoTimePlayIntentSnapshot = {
+  id: string;
+  userId: string;
+  scope: PlayIntentScope;
+  headline: string;
+  selectionMode: 'ENTIRE_LIBRARY' | 'SELECTED_GAMES';
+  note: string;
+  voiceChannelId: string | null;
+  voiceChannelName: string | null;
+  user: {
+    displayName: string;
+    identities: Array<{
+      providerUserId: string;
+    }>;
+  };
+  targetDiscordServers: {
+    server: {
+      name: string;
+    };
+  }[];
+  targetFriends: {
+    friendUser: {
+      displayName: string;
+      identities: Array<{
+        providerUserId: string;
+      }>;
+    };
+  }[];
+  games: {
+    game: {
+      title: string;
+    };
+  }[];
+}
+
+type CreatedScheduledGoTimeNotification = {
+  id: string;
+  userId: string;
+  title: string;
+  body: string;
+  type: NotificationType;
+  replyToInviteChannelId: string | null;
+  replyToInviteMessageId: string | null;
+}
+
+type ScheduledGoTimeAudienceNotificationResult = {
+  createdNotifications: CreatedScheduledGoTimeNotification[];
+  priorAcceptedCount: number;
+  acceptedUserIds: string[];
+}
+
 function notificationUsesInviteOwnedAudienceResponseThread(notificationType: NotificationType) {
   return notificationType === NotificationType.SCHEDULED_PLAY_INTENT_REMINDER
     || notificationType === NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED
@@ -256,6 +307,304 @@ function buildLinkRow(playIntentId?: string) {
   return new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
     buildOpenInAppButton(buildPlayAppUrl(playIntentId), playIntentId ? 'Open in App' : 'Open App')
   )
+}
+
+async function createScheduledGoTimeAudienceNotifications(
+  transaction: Prisma.TransactionClient,
+  playIntent: Pick<ScheduledGoTimePlayIntentSnapshot, 'id' | 'userId' | 'user'>
+): Promise<ScheduledGoTimeAudienceNotificationResult> {
+  const goTimeConfirmedCopy = buildGoTimeConfirmedCopy(playIntent.user.displayName)
+  const goTimeReminderCopy = buildGoTimeReminderCopy(playIntent.user.displayName)
+  const recipientNotifications = await transaction.notification.findMany({
+    where: {
+      playIntentId: playIntent.id,
+      type: {
+        in: [
+          NotificationType.FRIEND_PLAYING,
+          NotificationType.SCHEDULED_PLAY_INTENT_REMINDER,
+          NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED
+        ]
+      },
+      userId: {
+        not: playIntent.userId
+      }
+    },
+    select: {
+      userId: true,
+      type: true,
+      responseChoice: true,
+      respondedAt: true,
+      discordDmChannelId: true,
+      discordDmMessageId: true
+    },
+    orderBy: {
+      createdAt: 'desc'
+    }
+  })
+
+  const latestRecipientStatusByUserId = new Map<string, { respondedAt: Date | null; responseChoice: NotificationResponseChoice | null }>()
+  const latestInviteMessageByUserId = new Map<string, { channelId: string; messageId: string }>()
+
+  for (const recipientNotification of recipientNotifications) {
+    if (!latestRecipientStatusByUserId.has(recipientNotification.userId)) {
+      latestRecipientStatusByUserId.set(recipientNotification.userId, {
+        respondedAt: recipientNotification.respondedAt,
+        responseChoice: recipientNotification.responseChoice
+      })
+    }
+
+    if (
+      recipientNotification.type === NotificationType.FRIEND_PLAYING
+      && recipientNotification.discordDmChannelId
+      && recipientNotification.discordDmMessageId
+      && !latestInviteMessageByUserId.has(recipientNotification.userId)
+    ) {
+      latestInviteMessageByUserId.set(recipientNotification.userId, {
+        channelId: recipientNotification.discordDmChannelId,
+        messageId: recipientNotification.discordDmMessageId
+      })
+    }
+  }
+
+  const mutedRecipientUserIds = new Set((await transaction.playIntentMute.findMany({
+    where: {
+      mutedUserId: playIntent.userId,
+      userId: {
+        in: [...latestRecipientStatusByUserId.keys()]
+      }
+    },
+    select: {
+      userId: true
+    }
+  })).map((mute) => mute.userId))
+
+  const acceptedUserIds: string[] = []
+  const unansweredUserIds: string[] = []
+
+  for (const [recipientUserId, status] of latestRecipientStatusByUserId.entries()) {
+    if (status.responseChoice === NotificationResponseChoice.DECLINE || mutedRecipientUserIds.has(recipientUserId)) {
+      continue
+    }
+
+    if (status.responseChoice === NotificationResponseChoice.JOIN) {
+      acceptedUserIds.push(recipientUserId)
+      continue
+    }
+
+    if (!status.respondedAt) {
+      unansweredUserIds.push(recipientUserId)
+    }
+  }
+
+  const confirmedNotifications = acceptedUserIds.length > 0
+    ? (await Promise.all(acceptedUserIds.map((recipientUserId) => transaction.notification.create({
+      data: {
+        userId: recipientUserId,
+        triggeredByUserId: playIntent.userId,
+        playIntentId: playIntent.id,
+        type: NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED,
+        title: goTimeConfirmedCopy.title,
+        body: goTimeConfirmedCopy.body
+      },
+      select: {
+        id: true,
+        userId: true,
+        title: true,
+        body: true,
+        type: true
+      }
+    })))).map((notification) => ({
+      ...notification,
+      replyToInviteChannelId: latestInviteMessageByUserId.get(notification.userId)?.channelId ?? null,
+      replyToInviteMessageId: latestInviteMessageByUserId.get(notification.userId)?.messageId ?? null
+    }))
+    : []
+
+  const reminderNotifications = unansweredUserIds.length > 0
+    ? (await Promise.all(unansweredUserIds.map((recipientUserId) => transaction.notification.create({
+      data: {
+        userId: recipientUserId,
+        triggeredByUserId: playIntent.userId,
+        playIntentId: playIntent.id,
+        type: NotificationType.SCHEDULED_PLAY_INTENT_REMINDER,
+        title: goTimeReminderCopy.title,
+        body: goTimeReminderCopy.body
+      },
+      select: {
+        id: true,
+        userId: true,
+        title: true,
+        body: true,
+        type: true
+      }
+    })))).map((notification) => ({
+      ...notification,
+      replyToInviteChannelId: latestInviteMessageByUserId.get(notification.userId)?.channelId ?? null,
+      replyToInviteMessageId: latestInviteMessageByUserId.get(notification.userId)?.messageId ?? null
+    }))
+    : []
+
+  return {
+    createdNotifications: [...confirmedNotifications, ...reminderNotifications],
+    priorAcceptedCount: acceptedUserIds.length,
+    acceptedUserIds
+  }
+}
+
+async function deliverScheduledGoTimeAudienceNotifications(options: {
+  playIntent: ScheduledGoTimePlayIntentSnapshot;
+  result: ScheduledGoTimeAudienceNotificationResult;
+}) {
+  const { playIntent, result } = options
+
+  if (result.createdNotifications.length === 0) {
+    return
+  }
+
+  const [recipientIdentities, creatorIdentity, creatorMemberships] = await Promise.all([
+    prisma.userIdentity.findMany({
+      where: {
+        provider: AuthProvider.DISCORD,
+        userId: {
+          in: result.createdNotifications.map((createdNotification) => createdNotification.userId)
+        }
+      },
+      select: {
+        userId: true,
+        providerUserId: true
+      }
+    }),
+    prisma.userIdentity.findFirst({
+      where: {
+        provider: AuthProvider.DISCORD,
+        userId: playIntent.userId
+      },
+      select: {
+        providerUserId: true
+      }
+    }),
+    playIntent.voiceChannelId
+      ? prisma.discordServerMembership.findMany({
+          where: {
+            userId: playIntent.userId
+          },
+          select: {
+            serverId: true
+          }
+        })
+      : Promise.resolve([] as Array<{ serverId: string }>)
+  ])
+
+  const creatorDiscordUserId = creatorIdentity?.providerUserId ?? null
+  const discordUserIdByUserId = new Map(recipientIdentities.map((identityEntry) => [identityEntry.userId, identityEntry.providerUserId]))
+  const creatorServerIds = creatorMemberships.map((membership) => membership.serverId)
+  const discordSpaceRecipientContexts = await getPlayIntentDiscordSpaceRecipientContexts(
+    playIntent.id,
+    result.createdNotifications.map((createdNotification) => createdNotification.userId)
+  )
+  const recipientServerMemberships = playIntent.voiceChannelId && creatorServerIds.length > 0
+    ? await prisma.discordServerMembership.findMany({
+        where: {
+          userId: {
+            in: result.createdNotifications.map((createdNotification) => createdNotification.userId)
+          },
+          serverId: {
+            in: creatorServerIds
+          }
+        },
+        select: {
+          userId: true
+        }
+      })
+    : []
+  const recipientUserIdsWithSharedServer = new Set(recipientServerMemberships.map((membership) => membership.userId))
+
+  const dmTargets = result.createdNotifications
+    .flatMap((createdNotification) => {
+      const discordUserId = discordUserIdByUserId.get(createdNotification.userId)
+
+      if (!discordUserId) {
+        return []
+      }
+
+      const voiceChannel = playIntent.voiceChannelId || playIntent.voiceChannelName
+        ? {
+            channelId: playIntent.voiceChannelId ?? null,
+            channelName: playIntent.voiceChannelName ?? null,
+            recipientSharesServer: recipientUserIdsWithSharedServer.has(createdNotification.userId)
+          }
+        : null
+
+      return [{
+        notificationId: createdNotification.id,
+        discordUserId,
+        content: createdNotification.type === NotificationType.SCHEDULED_PLAY_INTENT_REMINDER
+          ? buildGoTimeReminderReplyMessage({
+              creatorDiscordUserId,
+              creatorDisplayName: playIntent.user.displayName
+            })
+          : buildGoTimeConfirmedReplyMessage({
+              creatorDiscordUserId,
+              creatorDisplayName: playIntent.user.displayName,
+              voiceChannel,
+              discordSpace: discordSpaceRecipientContexts.get(createdNotification.userId) ?? null
+            }),
+        embeds: undefined,
+        components: buildPlayIntentNotificationComponents(
+          createdNotification.id,
+          playIntent.userId,
+          playIntent.user.displayName,
+          null,
+          createdNotification.type,
+          {
+            playIntentId: playIntent.id
+          }
+        ),
+        replyTo: createdNotification.replyToInviteMessageId
+          ? {
+              channelId: createdNotification.replyToInviteChannelId,
+              messageId: createdNotification.replyToInviteMessageId
+            }
+          : undefined
+      }]
+    })
+
+  if (dmTargets.length > 0) {
+    const dmResults = await sendDiscordDirectMessages(
+      dmTargets.map((target) => ({
+        discordUserId: target.discordUserId,
+        content: target.content,
+        embeds: target.embeds,
+        components: target.components,
+        replyTo: target.replyTo
+      }))
+    )
+
+    const deliveredTargets = dmTargets
+      .map((target) => {
+        const sentResult = dmResults.find((candidate) => candidate.discordUserId === target.discordUserId && candidate.status === 'sent')
+
+        return sentResult && !sentResult.emulated
+          ? {
+              notificationId: target.notificationId,
+              channelId: sentResult.channelId,
+              messageId: sentResult.messageId
+            }
+          : null
+      })
+      .filter((target): target is { notificationId: string; channelId: string | null; messageId: string | null } => target != null)
+
+    await Promise.all(deliveredTargets.map((target) => prisma.notification.update({
+      where: {
+        id: target.notificationId
+      },
+      data: {
+        deliveredAt: new Date(),
+        discordDmChannelId: target.channelId,
+        discordDmMessageId: target.messageId
+      }
+    })))
+  }
 }
 
 function buildCreatorSummaryActionRow(playIntentId: string) {
@@ -3042,9 +3391,63 @@ export async function startScheduledPlayIntentNow(playIntentId: string, creatorU
         id: true,
         userId: true,
         deletedAt: true,
+        scope: true,
+        headline: true,
+        selectionMode: true,
+        note: true,
         windowStartsAt: true,
         windowEndsAt: true,
-        expiresAt: true
+        expiresAt: true,
+        voiceChannelId: true,
+        voiceChannelName: true,
+        targetDiscordServers: {
+          select: {
+            server: {
+              select: {
+                name: true
+              }
+            }
+          }
+        },
+        targetFriends: {
+          select: {
+            friendUser: {
+              select: {
+                displayName: true,
+                identities: {
+                  where: {
+                    provider: AuthProvider.DISCORD
+                  },
+                  select: {
+                    providerUserId: true
+                  }
+                }
+              }
+            }
+          }
+        },
+        games: {
+          select: {
+            game: {
+              select: {
+                title: true
+              }
+            }
+          }
+        },
+        user: {
+          select: {
+            displayName: true,
+            identities: {
+              where: {
+                provider: AuthProvider.DISCORD
+              },
+              select: {
+                providerUserId: true
+              }
+            }
+          }
+        }
       }
     })
 
@@ -3110,8 +3513,15 @@ export async function startScheduledPlayIntentNow(playIntentId: string, creatorU
     }
 
     return {
-      id: playIntent.id
+      id: playIntent.id,
+      playIntent,
+      result: await createScheduledGoTimeAudienceNotifications(transaction, playIntent)
     }
+  })
+
+  await deliverScheduledGoTimeAudienceNotifications({
+    playIntent: startedIntent.playIntent,
+    result: startedIntent.result
   })
 
   await refreshTrackedPlayIntentNotificationDirectMessages({
@@ -3545,8 +3955,6 @@ export async function handleScheduledPlayIntentCheckInInteraction(interaction: B
   }
 
   const playIntent = notification.playIntent
-  const goTimeConfirmedCopy = buildGoTimeConfirmedCopy(playIntent.user.displayName)
-  const goTimeReminderCopy = buildGoTimeReminderCopy(playIntent.user.displayName)
 
   const result = await prisma.$transaction(async (transaction) => {
     const updateResult = await transaction.notification.updateMany({
@@ -3564,143 +3972,7 @@ export async function handleScheduledPlayIntentCheckInInteraction(interaction: B
       return null
     }
 
-    const recipientNotifications = await transaction.notification.findMany({
-      where: {
-        playIntentId: playIntent.id,
-        type: {
-          in: [
-            NotificationType.FRIEND_PLAYING,
-            NotificationType.SCHEDULED_PLAY_INTENT_REMINDER,
-            NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED
-          ]
-        },
-        userId: {
-          not: playIntent.userId
-        }
-      },
-      select: {
-        userId: true,
-        type: true,
-        responseChoice: true,
-        respondedAt: true,
-        discordDmChannelId: true,
-        discordDmMessageId: true
-      },
-      orderBy: {
-        createdAt: 'desc'
-      }
-    })
-
-    const latestRecipientStatusByUserId = new Map<string, { respondedAt: Date | null; responseChoice: NotificationResponseChoice | null }>()
-    const latestInviteMessageByUserId = new Map<string, { channelId: string; messageId: string }>()
-    for (const recipientNotification of recipientNotifications) {
-      if (!latestRecipientStatusByUserId.has(recipientNotification.userId)) {
-        latestRecipientStatusByUserId.set(recipientNotification.userId, {
-          respondedAt: recipientNotification.respondedAt,
-          responseChoice: recipientNotification.responseChoice
-        })
-      }
-
-      if (
-        recipientNotification.type === NotificationType.FRIEND_PLAYING
-        && recipientNotification.discordDmChannelId
-        && recipientNotification.discordDmMessageId
-        && !latestInviteMessageByUserId.has(recipientNotification.userId)
-      ) {
-        latestInviteMessageByUserId.set(recipientNotification.userId, {
-          channelId: recipientNotification.discordDmChannelId,
-          messageId: recipientNotification.discordDmMessageId
-        })
-      }
-    }
-
-    const mutedRecipientUserIds = new Set((await transaction.playIntentMute.findMany({
-      where: {
-        mutedUserId: playIntent.userId,
-        userId: {
-          in: [...latestRecipientStatusByUserId.keys()]
-        }
-      },
-      select: {
-        userId: true
-      }
-    })).map((mute) => mute.userId))
-
-    const acceptedUserIds: string[] = []
-    const unansweredUserIds: string[] = []
-
-    for (const [recipientUserId, status] of latestRecipientStatusByUserId.entries()) {
-      if (status.responseChoice === NotificationResponseChoice.DECLINE || mutedRecipientUserIds.has(recipientUserId)) {
-        continue
-      }
-
-      if (status.responseChoice === NotificationResponseChoice.JOIN) {
-        acceptedUserIds.push(recipientUserId)
-        continue
-      }
-
-      if (!status.respondedAt) {
-        unansweredUserIds.push(recipientUserId)
-      }
-    }
-
-    const confirmedNotifications = acceptedUserIds.length > 0
-      ? (await Promise.all(acceptedUserIds.map((recipientUserId) => transaction.notification.create({
-        data: {
-          userId: recipientUserId,
-          triggeredByUserId: playIntent.userId,
-          playIntentId: playIntent.id,
-          type: NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED,
-          title: goTimeConfirmedCopy.title,
-          body: goTimeConfirmedCopy.body
-        },
-        select: {
-          id: true,
-          userId: true,
-          title: true,
-          body: true,
-          type: true
-        }
-      })))).map((notification) => ({
-        ...notification,
-        replyToInviteChannelId: latestInviteMessageByUserId.get(notification.userId)?.channelId ?? null,
-        replyToInviteMessageId: latestInviteMessageByUserId.get(notification.userId)?.messageId ?? null
-      }))
-      : []
-
-    const reminderNotifications = unansweredUserIds.length > 0
-      ? (await Promise.all(unansweredUserIds.map((recipientUserId) => transaction.notification.create({
-        data: {
-          userId: recipientUserId,
-          triggeredByUserId: playIntent.userId,
-          playIntentId: playIntent.id,
-          type: NotificationType.SCHEDULED_PLAY_INTENT_REMINDER,
-          title: goTimeReminderCopy.title,
-          body: goTimeReminderCopy.body
-        },
-        select: {
-          id: true,
-          userId: true,
-          title: true,
-          body: true,
-          type: true
-        }
-      })))).map((notification) => {
-        const replyToInvite = latestInviteMessageByUserId.get(notification.userId)
-
-        return {
-          ...notification,
-          replyToInviteChannelId: replyToInvite?.channelId ?? null,
-          replyToInviteMessageId: replyToInvite?.messageId ?? null
-        }
-      })
-      : []
-
-    return {
-      createdNotifications: [...confirmedNotifications, ...reminderNotifications],
-      priorAcceptedCount: acceptedUserIds.length,
-      acceptedUserIds
-    }
+    return createScheduledGoTimeAudienceNotifications(transaction, playIntent)
   })
 
   if (!result) {
@@ -3711,198 +3983,10 @@ export async function handleScheduledPlayIntentCheckInInteraction(interaction: B
     return
   }
 
-  const [recipientIdentities, creatorIdentity, acceptedUsers, creatorMemberships] = await Promise.all([
-    prisma.userIdentity.findMany({
-      where: {
-        provider: AuthProvider.DISCORD,
-        userId: {
-          in: result.createdNotifications.map((createdNotification) => createdNotification.userId)
-        }
-      },
-      select: {
-        userId: true,
-        providerUserId: true
-      }
-    }),
-    prisma.userIdentity.findFirst({
-      where: {
-        provider: AuthProvider.DISCORD,
-        userId: playIntent.userId
-      },
-      select: {
-        providerUserId: true
-      }
-    }),
-    prisma.user.findMany({
-      where: {
-        id: {
-          in: result.acceptedUserIds
-        }
-      },
-      select: {
-        id: true,
-        displayName: true,
-        identities: {
-          where: {
-            provider: AuthProvider.DISCORD
-          },
-          select: {
-            providerUserId: true
-          }
-        }
-      }
-    }),
-    playIntent.voiceChannelId
-      ? prisma.discordServerMembership.findMany({
-          where: {
-            userId: playIntent.userId
-          },
-          select: {
-            serverId: true
-          }
-        })
-      : Promise.resolve([] as Array<{ serverId: string }>)
-  ])
-  const creatorDiscordUserId = creatorIdentity?.providerUserId ?? null
-  const discordUserIdByUserId = new Map(recipientIdentities.map((identityEntry) => [identityEntry.userId, identityEntry.providerUserId]))
-  const acceptedUserLabels = acceptedUsers.map((user) => buildDiscordUserLabel(user.displayName, user.identities[0]?.providerUserId))
-  const creatorServerIds = creatorMemberships.map((membership) => membership.serverId)
-  const discordSpaceRecipientContexts = await getPlayIntentDiscordSpaceRecipientContexts(
-    playIntent.id,
-    result.createdNotifications.map((createdNotification) => createdNotification.userId)
-  )
-  const recipientServerMemberships = playIntent.voiceChannelId && creatorServerIds.length > 0
-    ? await prisma.discordServerMembership.findMany({
-        where: {
-          userId: {
-            in: result.createdNotifications.map((createdNotification) => createdNotification.userId)
-          },
-          serverId: {
-            in: creatorServerIds
-          }
-        },
-        select: {
-          userId: true
-        }
-      })
-    : []
-  const recipientUserIdsWithSharedServer = new Set(recipientServerMemberships.map((membership) => membership.userId))
-
-  const dmTargets = result.createdNotifications
-    .flatMap((createdNotification) => {
-      const discordUserId = discordUserIdByUserId.get(createdNotification.userId)
-
-      if (!discordUserId) {
-        return []
-      }
-
-      const voiceChannel = playIntent.voiceChannelId || playIntent.voiceChannelName
-        ? {
-            channelId: playIntent.voiceChannelId ?? null,
-            channelName: playIntent.voiceChannelName ?? null,
-            recipientSharesServer: recipientUserIdsWithSharedServer.has(createdNotification.userId)
-          }
-        : null
-
-      return [{
-        notificationId: createdNotification.id,
-        discordUserId,
-        content: createdNotification.type === NotificationType.SCHEDULED_PLAY_INTENT_REMINDER
-          ? buildGoTimeReminderReplyMessage({
-              creatorDiscordUserId,
-              creatorDisplayName: playIntent.user.displayName
-            })
-          : createdNotification.type === NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED
-            ? buildGoTimeConfirmedReplyMessage({
-                creatorDiscordUserId,
-                creatorDisplayName: playIntent.user.displayName,
-                voiceChannel,
-                discordSpace: discordSpaceRecipientContexts.get(createdNotification.userId) ?? null
-              })
-            : buildPlayIntentDirectMessageHeading(createdNotification.title),
-        embeds: createdNotification.type === NotificationType.SCHEDULED_PLAY_INTENT_REMINDER
-          || createdNotification.type === NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED
-          ? undefined
-          : buildPlayIntentDirectMessageEmbeds(
-              createdNotification.title,
-              createdNotification.body,
-              creatorDiscordUserId,
-              playIntent.user.displayName,
-              voiceChannel,
-              result.priorAcceptedCount,
-              acceptedUserLabels,
-              discordSpaceRecipientContexts.get(createdNotification.userId) ?? null,
-              {
-                intentDetails: {
-                  selectionMode: playIntent.selectionMode,
-                  headline: playIntent.headline,
-                  selectedGameTitles: playIntent.games.map((entry) => entry.game.title),
-                  scope: playIntent.scope,
-                  targetDiscordServers: playIntent.targetDiscordServers,
-                  targetFriends: playIntent.targetFriends,
-                  note: playIntent.note
-                },
-                includeUpdateDescription: true
-              }
-            ),
-        components: buildPlayIntentNotificationComponents(
-          createdNotification.id,
-          playIntent.userId,
-          playIntent.user.displayName,
-          null,
-          createdNotification.type,
-          {
-            playIntentId: playIntent.id
-          }
-        ),
-        replyTo: (
-          createdNotification.type === NotificationType.SCHEDULED_PLAY_INTENT_REMINDER
-          || createdNotification.type === NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED
-        ) && createdNotification.replyToInviteMessageId
-          ? {
-              channelId: createdNotification.replyToInviteChannelId,
-              messageId: createdNotification.replyToInviteMessageId
-            }
-          : undefined
-      }]
-    })
-
-  if (dmTargets.length > 0) {
-    const dmResults = await sendDiscordDirectMessages(
-      dmTargets.map((target) => ({
-        discordUserId: target.discordUserId,
-        content: target.content,
-        embeds: target.embeds,
-        components: target.components,
-        replyTo: target.replyTo
-      }))
-    )
-
-    const deliveredTargets = dmTargets
-      .map((target) => {
-        const sentResult = dmResults.find((candidate) => candidate.discordUserId === target.discordUserId && candidate.status === 'sent')
-
-        return sentResult && !sentResult.emulated
-          ? {
-              notificationId: target.notificationId,
-              channelId: sentResult.channelId,
-              messageId: sentResult.messageId
-            }
-          : null
-      })
-      .filter((target): target is { notificationId: string; channelId: string | null; messageId: string | null } => target != null)
-
-    await Promise.all(deliveredTargets.map((target) => prisma.notification.update({
-      where: {
-        id: target.notificationId
-      },
-      data: {
-        deliveredAt: new Date(),
-        discordDmChannelId: target.channelId,
-        discordDmMessageId: target.messageId
-      }
-    })))
-  }
+  await deliverScheduledGoTimeAudienceNotifications({
+    playIntent,
+    result
+  })
 
   const preservedPrompt = buildScheduledCheckInPromptPreview({
     notificationId: notification.id,
