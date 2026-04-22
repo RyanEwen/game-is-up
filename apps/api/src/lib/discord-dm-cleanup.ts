@@ -34,6 +34,10 @@ const archivedPlayIntentNotificationTypes = [
   NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED
 ] as const
 
+const archivedCreatorSystemNotificationTypes = [
+  NotificationType.SYSTEM
+] as const
+
 type ArchivedDirectMessageCandidate = {
   channelId: string;
   messageId: string;
@@ -1395,6 +1399,28 @@ export async function archivePlayIntentDirectMessages(options: {
                     }
                   }
                 }
+              },
+              {
+                notifications: {
+                  some: {
+                    type: {
+                      in: [...archivedCreatorSystemNotificationTypes]
+                    },
+                    ...(options.deliveredBefore
+                      ? {
+                          deliveredAt: {
+                            lte: options.deliveredBefore
+                          }
+                        }
+                      : {}),
+                    discordDmChannelId: {
+                      not: null
+                    },
+                    discordDmMessageId: {
+                      not: null
+                    }
+                  }
+                }
               }
             ]
           })
@@ -1437,38 +1463,60 @@ export async function archivePlayIntentDirectMessages(options: {
       },
       notifications: {
         where: {
-          type: {
-            in: [...archivedPlayIntentNotificationTypes]
-          },
-          ...(options.deliveredBefore
-            ? {
-                deliveredAt: {
-                  lte: options.deliveredBefore
-                }
-              }
-            : {}),
-          ...(options.replaceRecipientMessages
-            ? {}
-            : {
-                OR: [
-                  {
-                    discordDmChannelId: {
-                      not: null
-                    },
-                    discordDmMessageId: {
-                      not: null
-                    }
-                  },
-                  {
-                    recipientResponseDiscordDmChannelId: {
-                      not: null
-                    },
-                    recipientResponseDiscordDmMessageId: {
-                      not: null
+          OR: [
+            {
+              type: {
+                in: [...archivedPlayIntentNotificationTypes]
+              },
+              ...(options.deliveredBefore
+                ? {
+                    deliveredAt: {
+                      lte: options.deliveredBefore
                     }
                   }
-                ]
-              })
+                : {}),
+              ...(options.replaceRecipientMessages
+                ? {}
+                : {
+                    OR: [
+                      {
+                        discordDmChannelId: {
+                          not: null
+                        },
+                        discordDmMessageId: {
+                          not: null
+                        }
+                      },
+                      {
+                        recipientResponseDiscordDmChannelId: {
+                          not: null
+                        },
+                        recipientResponseDiscordDmMessageId: {
+                          not: null
+                        }
+                      }
+                    ]
+                  })
+            },
+            {
+              type: {
+                in: [...archivedCreatorSystemNotificationTypes]
+              },
+              ...(options.deliveredBefore
+                ? {
+                    deliveredAt: {
+                      lte: options.deliveredBefore
+                    }
+                  }
+                : {}),
+              discordDmChannelId: {
+                not: null
+              },
+              discordDmMessageId: {
+                not: null
+              }
+            }
+          ]
         },
         orderBy: [
           {
@@ -1545,12 +1593,6 @@ export async function archivePlayIntentDirectMessages(options: {
     for (const notification of playIntent.notifications) {
       const existingNotifications = notificationsByUserId.get(notification.userId)
 
-      if (existingNotifications) {
-        existingNotifications.push(notification)
-      } else {
-        notificationsByUserId.set(notification.userId, [notification])
-      }
-
       if (notification.userId === playIntent.user.id && notification.discordDmChannelId && notification.discordDmMessageId) {
         creatorCandidates.push({
           channelId: notification.discordDmChannelId,
@@ -1558,6 +1600,16 @@ export async function archivePlayIntentDirectMessages(options: {
           notificationId: notification.id,
           priority: getNotificationArchivePriority(notification.type)
         })
+      }
+
+      if (notification.type === NotificationType.SYSTEM) {
+        continue
+      }
+
+      if (existingNotifications) {
+        existingNotifications.push(notification)
+      } else {
+        notificationsByUserId.set(notification.userId, [notification])
       }
     }
 
