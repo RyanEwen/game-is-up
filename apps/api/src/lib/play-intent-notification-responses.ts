@@ -2005,6 +2005,28 @@ export async function refreshTrackedPlayIntentNotificationDirectMessages(options
     recipientServerIdsByUserId.set(membership.userId, serverIds)
   }
 
+  const latestExplicitAudienceResponseByRecipientKey = new Map<string, NotificationResponseChoice>()
+
+  for (const notification of notifications) {
+    if (
+      !notification.playIntentId
+      || (
+        notification.type !== NotificationType.FRIEND_PLAYING
+        && notification.type !== NotificationType.SCHEDULED_PLAY_INTENT_REMINDER
+        && notification.type !== NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED
+      )
+      || !notification.responseChoice
+      || notification.responseChoice === NotificationResponseChoice.EXPIRED
+    ) {
+      continue
+    }
+
+    latestExplicitAudienceResponseByRecipientKey.set(
+      `${notification.playIntentId}:${notification.userId}`,
+      notification.responseChoice
+    )
+  }
+
   for (const notification of notifications) {
     if (!notification.discordDmChannelId || !notification.discordDmMessageId) {
       continue
@@ -2032,6 +2054,16 @@ export async function refreshTrackedPlayIntentNotificationDirectMessages(options
       ? complementarySpaceRecipientContextByPlayIntentId.get(notification.playIntentId)?.get(notification.userId) ?? null
       : null
     const passAcknowledgementMode = getPassAcknowledgementMode(playIntent?.scope)
+    const effectiveAudienceResponseChoice = notification.playIntentId
+      ? latestExplicitAudienceResponseByRecipientKey.get(`${notification.playIntentId}:${notification.userId}`) ?? null
+      : null
+    const previewResponseChoice = (
+      notification.type === NotificationType.FRIEND_PLAYING
+      || notification.type === NotificationType.SCHEDULED_PLAY_INTENT_REMINDER
+      || notification.type === NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED
+    )
+      ? effectiveAudienceResponseChoice
+      : notification.responseChoice
 
     const preview = buildNotificationDirectMessagePreview({
       notificationId: notification.id,
@@ -2039,7 +2071,7 @@ export async function refreshTrackedPlayIntentNotificationDirectMessages(options
       notificationType: notification.type,
       title: notification.title,
       body: notification.body,
-      responseChoice: notification.responseChoice,
+      responseChoice: previewResponseChoice,
       creatorUserId: playIntent?.user.id ?? null,
       creatorDiscordUserId,
       creatorDisplayName: playIntent?.user.displayName ?? null,
@@ -2096,8 +2128,8 @@ export async function refreshTrackedPlayIntentNotificationDirectMessages(options
     }
 
     if (
-      notification.responseChoice
-      && notification.responseChoice !== NotificationResponseChoice.EXPIRED
+      previewResponseChoice
+      && previewResponseChoice !== NotificationResponseChoice.EXPIRED
       && notification.type !== NotificationType.SCHEDULED_PLAY_INTENT_CHECK_IN
       && notification.recipientResponseDiscordDmChannelId
       && notification.recipientResponseDiscordDmMessageId
@@ -2108,7 +2140,7 @@ export async function refreshTrackedPlayIntentNotificationDirectMessages(options
         notificationType: notification.type,
         title: notification.title,
         body: notification.body,
-        responseChoice: notification.responseChoice,
+        responseChoice: previewResponseChoice,
         creatorUserId: playIntent?.user.id ?? null,
         creatorDiscordUserId,
         creatorDisplayName: playIntent?.user.displayName ?? null,
@@ -3952,7 +3984,10 @@ export async function handlePlayIntentNotificationInteraction(interaction: Butto
     response: action.response
   })
   const interestedUsers = await getInterestedUsersByPlayIntentId([playIntent.id])
-  const interestedUserLabels = (interestedUsers.get(playIntent.id) ?? []).map((user) => buildDiscordUserLabel(user.displayName, null))
+  const interestedUserLabels = (interestedUsers.get(playIntent.id) ?? []).map((user) => buildDiscordUserLabel(
+    user.displayName,
+    user.identities?.[0]?.providerUserId ?? null
+  ))
   const discordSpace = (await getPlayIntentDiscordSpaceRecipientContexts(playIntent.id, [notification.userId]))
     .get(notification.userId) ?? null
   const passAcknowledgementMode = getPassAcknowledgementMode(playIntent.scope)
