@@ -689,17 +689,14 @@ export function buildGoTimeConfirmedReplyMessage(options: {
   const creatorLabel = options.creatorDisplayName
     ? buildDiscordUserLabel(options.creatorDisplayName, options.creatorDiscordUserId)
     : 'The creator'
-  const voiceChannelValue = buildRecipientVoiceChannelValue(options.voiceChannel, options.discordSpace)
 
   return buildDiscordPlainMessage(
     buildDiscordMessageHeading('🎮 Go Time'),
     [
       `${creatorLabel} confirmed the session is starting now.`,
-      voiceChannelValue ? `Voice channel: ${voiceChannelValue}` : 'Jump in when you are ready.'
+      'The original invite above has the full details.'
     ],
-    {
-      trailingSubtext: 'The original invite above has the full details.'
-    }
+    {}
   )
 }
 
