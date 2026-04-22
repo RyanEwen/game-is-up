@@ -26,6 +26,10 @@ import {
   type DiscordDirectMessagePayload,
   supportsDiscordInteractiveMessages
 } from './discord-bot-runtime.js'
+import {
+  isMissingDiscordMessageError,
+  syncTrackedDiscordDirectMessage
+} from './discord-tracked-direct-message.js'
 import { publishPlayIntentInvalidation } from './dashboard-events.js'
 import {
   appendOpenInAppButton,
@@ -54,6 +58,8 @@ import {
   markPlayIntentDiscordSpacesRetained,
   type PlayIntentDiscordSpaceRecipientContext
 } from './play-intent-discord-spaces.js'
+import { resolveNotificationDirectMessageRenderState } from './play-intent-notification-render-state.js'
+import { resolveRecipientResponseTransition } from './play-intent-recipient-response-transition.js'
 import { prisma } from './prisma.js'
 import { formatPlayIntentDateLabel, formatPlayIntentWindowLabel } from './play-intent-time-format.js'
 
@@ -1083,27 +1089,32 @@ export function buildNotificationDirectMessagePreview(options: {
   const systemNotificationDefinition = options.notificationType === NotificationType.SYSTEM
     ? getPlayIntentSystemNotificationDefinitionByTitle(options.title)
     : null
+  const renderState = resolveNotificationDirectMessageRenderState({
+    notificationType: options.notificationType,
+    responseChoice: options.responseChoice,
+    playIntentIsActive: options.playIntentIsActive
+  })
 
   const previewBody = options.actorDisplayName
     ? replaceDisplayNameWithMention(options.body, options.actorDisplayName, options.actorDiscordUserId)
     : options.body
 
-  if (options.notificationType === NotificationType.SCHEDULED_PLAY_INTENT_CHECK_IN) {
-    if (options.responseChoice === NotificationResponseChoice.CANCELED) {
+  if (renderState.kind === 'scheduled-check-in') {
+    if (renderState.variant === 'canceled') {
       return {
         content: buildCreatorEndedMessage(),
         components: []
       }
     }
 
-    if (options.responseChoice === NotificationResponseChoice.CONFIRMED) {
+    if (renderState.variant === 'confirmed') {
       return {
         content: buildCreatorConfirmedMessage(),
         components: []
       }
     }
 
-    if (options.responseChoice === NotificationResponseChoice.EXPIRED || options.playIntentIsActive === false) {
+    if (renderState.variant === 'expired') {
       return {
         content: buildExpiredMessage('This call to play expired before you confirmed.'),
         components: []
@@ -1118,26 +1129,22 @@ export function buildNotificationDirectMessagePreview(options: {
     })
   }
 
-  if (
-    options.notificationType === NotificationType.FRIEND_PLAYING
-    || options.notificationType === NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED
-    || options.notificationType === NotificationType.SCHEDULED_PLAY_INTENT_REMINDER
-  ) {
-    if (options.responseChoice === NotificationResponseChoice.JOIN) {
+  if (renderState.kind === 'audience-play-intent') {
+    if (renderState.variant === 'joined') {
       return {
         content: buildInterestedAcceptedMessage(creatorLabel, options.discordSpace),
         components: []
       }
     }
 
-    if (options.responseChoice === NotificationResponseChoice.DECLINE) {
+    if (renderState.variant === 'declined') {
       return {
         content: buildPassAcceptedMessage(options.passAcknowledgementMode),
         components: []
       }
     }
 
-    if (options.responseChoice === NotificationResponseChoice.EXPIRED || options.playIntentIsActive === false) {
+    if (renderState.variant === 'expired') {
       return {
         content: buildExpiredMessage(buildSessionEndedReason(creatorLabel, options.gameTitle ?? null)),
         components: [buildLinkRow(options.playIntentId)]
@@ -1705,58 +1712,36 @@ async function sendOrEditCreatorPlayIntentSummary(
     hasCreatorDeletableDiscordSpace(snapshot)
   )
 
-  if (snapshot.creatorDiscordDmChannelId && snapshot.creatorDiscordDmMessageId) {
-    const editResult = await editDiscordDirectMessage({
+  await syncTrackedDiscordDirectMessage({
+    tracked: {
       channelId: snapshot.creatorDiscordDmChannelId,
-      messageId: snapshot.creatorDiscordDmMessageId,
-      content,
-      embeds,
-      components
-    })
-
-    if (editResult.status === 'edited') {
-      return
-    }
-
-    if (!isMissingDiscordMessageError(editResult.error)) {
-      return
-    }
-
-    await prisma.playIntent.update({
-      where: {
-        id: playIntentId
-      },
-      data: {
-        creatorDiscordDmChannelId: null,
-        creatorDiscordDmMessageId: null
-      }
-    })
-  }
-
-  const dmResult = (await sendDiscordDirectMessages([
-    {
-      discordUserId: creatorDiscordUserId,
-      content,
-      embeds,
-      components
-    }
-  ]))[0]
-
-  if (dmResult?.status !== 'sent') {
-    return
-  }
-
-  if (dmResult.emulated) {
-    return
-  }
-
-  await prisma.playIntent.update({
-    where: {
-      id: playIntentId
+      messageId: snapshot.creatorDiscordDmMessageId
     },
-    data: {
-      creatorDiscordDmChannelId: dmResult.channelId,
-      creatorDiscordDmMessageId: dmResult.messageId
+    discordUserId: creatorDiscordUserId,
+    content,
+    embeds,
+    components,
+    onMissingTrackedMessage: async () => {
+      await prisma.playIntent.update({
+        where: {
+          id: playIntentId
+        },
+        data: {
+          creatorDiscordDmChannelId: null,
+          creatorDiscordDmMessageId: null
+        }
+      })
+    },
+    onSent: async (result) => {
+      await prisma.playIntent.update({
+        where: {
+          id: playIntentId
+        },
+        data: {
+          creatorDiscordDmChannelId: result.channelId,
+          creatorDiscordDmMessageId: result.messageId
+        }
+      })
     }
   })
 }
@@ -2334,10 +2319,6 @@ function buildPassResultMessage(message: string, mode: PassAcknowledgementMode =
   )
 }
 
-function isMissingDiscordMessageError(error: string | null | undefined) {
-  return /Unknown Message/i.test(error ?? '')
-}
-
 function buildTrackedDirectMessageReplyReference(
   channelId: string | null | undefined,
   messageId: string | null | undefined
@@ -2397,57 +2378,38 @@ async function syncRecipientResponseFollowUpDirectMessage(options: {
   messageId?: string | null;
   replyTo?: DiscordDirectMessagePayload['replyTo'];
 }) {
-  const sendNewFollowUp = async () => {
-    const dmResult = (await sendDiscordDirectMessages([
-      {
-        discordUserId: options.discordUserId,
-        content: options.content,
-        components: [],
-        replyTo: options.replyTo
-      }
-    ]))[0]
-
-    if (dmResult?.status === 'sent' && !dmResult.emulated) {
+  await syncTrackedDiscordDirectMessage({
+    tracked: {
+      channelId: options.channelId,
+      messageId: options.messageId
+    },
+    discordUserId: options.discordUserId,
+    content: options.content,
+    components: [],
+    replyTo: options.replyTo,
+    onMissingTrackedMessage: async () => {
       await prisma.notification.update({
         where: {
           id: options.notificationId
         },
         data: {
-          recipientResponseDiscordDmChannelId: dmResult.channelId,
-          recipientResponseDiscordDmMessageId: dmResult.messageId
+          recipientResponseDiscordDmChannelId: null,
+          recipientResponseDiscordDmMessageId: null
+        }
+      })
+    },
+    onSent: async (result) => {
+      await prisma.notification.update({
+        where: {
+          id: options.notificationId
+        },
+        data: {
+          recipientResponseDiscordDmChannelId: result.channelId,
+          recipientResponseDiscordDmMessageId: result.messageId
         }
       })
     }
-  }
-
-  if (options.channelId && options.messageId) {
-    const editResult = await editDiscordDirectMessage({
-      channelId: options.channelId,
-      messageId: options.messageId,
-      content: options.content,
-      components: []
-    })
-
-    if (editResult.status === 'edited') {
-      return
-    }
-
-    if (!isMissingDiscordMessageError(editResult.error)) {
-      return
-    }
-
-    await prisma.notification.update({
-      where: {
-        id: options.notificationId
-      },
-      data: {
-        recipientResponseDiscordDmChannelId: null,
-        recipientResponseDiscordDmMessageId: null
-      }
-    })
-  }
-
-  await sendNewFollowUp()
+  })
 }
 
 function buildPlayIntentGameEmbeds(playIntent: {
@@ -2620,6 +2582,11 @@ async function applyRecipientResponseToPlayIntentNotification(options: {
   const creatorDiscordUserId = playIntent.user.identities?.[0]?.providerUserId ?? null
   const creatorDiscordLabel = buildDiscordUserLabel(playIntent.user.displayName, creatorDiscordUserId)
   const passAcknowledgementMode = getPassAcknowledgementMode(playIntent.scope)
+  const responseTransition = resolveRecipientResponseTransition({
+    previousChoice,
+    response,
+    scope: playIntent.scope
+  })
   const discordSpace = (await getPlayIntentDiscordSpaceRecipientContexts(playIntent.id, [notification.userId]))
     .get(notification.userId) ?? null
 
@@ -2629,8 +2596,7 @@ async function applyRecipientResponseToPlayIntentNotification(options: {
       recipientDiscordUserId: notification.user.identities?.[0]?.providerUserId ?? null,
       gameTitle: notification.game?.title ?? null
     })
-    const shouldCreateCreatorPassNotification = previousChoice !== NotificationResponseChoice.DECLINE
-      && (playIntent.scope === PlayIntentScope.SPECIFIC_FRIENDS || previousChoice === NotificationResponseChoice.JOIN)
+    const shouldCreateCreatorPassNotification = responseTransition.shouldCreateCreatorSystemNotification
 
     const passResult = shouldCreateCreatorPassNotification
       ? await prisma.$transaction(async (transaction) => {
@@ -2708,20 +2674,20 @@ async function applyRecipientResponseToPlayIntentNotification(options: {
     publishPlayIntentInvalidation()
 
     return {
-      content: previousChoice === NotificationResponseChoice.JOIN
+      content: responseTransition.acknowledgementKind === 'pass-from-join'
         ? buildPassResultMessage(
             `Understood. I marked you as passing.${passAcknowledgementMode === 'creator-notified' ? ` ${playIntent.user.displayName} has been notified.` : ''}`,
             passAcknowledgementMode
           )
-        : previousChoice === NotificationResponseChoice.DECLINE
+        : responseTransition.acknowledgementKind === 'pass-repeat'
           ? buildPassResultMessage('You are still marked as passed on this call to play.', passAcknowledgementMode)
           : buildPassAcceptedMessage(passAcknowledgementMode),
-      discordContent: previousChoice === NotificationResponseChoice.JOIN
+      discordContent: responseTransition.acknowledgementKind === 'pass-from-join'
         ? buildPassResultMessage(
             `Understood. I marked you as passing.${passAcknowledgementMode === 'creator-notified' ? ` ${creatorDiscordLabel} has been notified.` : ''}`,
             passAcknowledgementMode
           )
-        : previousChoice === NotificationResponseChoice.DECLINE
+        : responseTransition.acknowledgementKind === 'pass-repeat'
           ? buildPassResultMessage('You are still marked as passed on this call to play.', passAcknowledgementMode)
           : buildPassAcceptedMessage(passAcknowledgementMode)
     }
@@ -2733,7 +2699,7 @@ async function applyRecipientResponseToPlayIntentNotification(options: {
     gameTitle: notification.game?.title ?? null
   })
 
-  const interestedResult = previousChoice !== NotificationResponseChoice.JOIN
+  const interestedResult = responseTransition.shouldCreateCreatorSystemNotification
     ? await prisma.$transaction(async (transaction) => {
         await transaction.notification.update({
           where: {
@@ -2781,7 +2747,7 @@ async function applyRecipientResponseToPlayIntentNotification(options: {
     notifyOnActiveChange: false
   })
 
-  if (previousChoice !== NotificationResponseChoice.JOIN && creatorDiscordUserId) {
+  if (responseTransition.shouldCreateCreatorSystemNotification && creatorDiscordUserId) {
     const dmResult = await sendCreatorPlayIntentSummaryReply({
       playIntentId: playIntent.id,
       discordUserId: creatorDiscordUserId,

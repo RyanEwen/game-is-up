@@ -353,6 +353,23 @@ export function useDashboardApp() {
       credentials: 'include' as const
     }
 
+    async function readOptionalJson<TParsed>(
+      response: Response | null,
+      parser: (json: unknown) => TParsed,
+      label: string
+    ): Promise<TParsed | null> {
+      if (!response) {
+        return null
+      }
+
+      if (!response.ok) {
+        console.error(`${label} request failed`, response.status, response.statusText)
+        return null
+      }
+
+      return parser(await response.json())
+    }
+
     try {
       const [healthResponse, authResponse, sessionResponse] = await Promise.all([
         fetch(buildApiUrl('/api/health'), requestInit),
@@ -388,20 +405,24 @@ export function useDashboardApp() {
       let debugAdmin: DebugAdminResponse | null = null
       let discordServers: DiscordServerPreferencesResponse | null = null
 
-      if (libraryResponse) {
-        const libraryJson = await libraryResponse.json()
-        library = libraryResponseSchema.parse(libraryJson)
-      }
+      library = await readOptionalJson(
+        libraryResponse,
+        (libraryJson) => libraryResponseSchema.parse(libraryJson),
+        'Library'
+      )
 
-      if (currentPlayIntentResponse) {
-        const currentPlayIntentJson = (await currentPlayIntentResponse.json()) as PlayIntentCurrentResponse
-        activePlayIntentState = playIntentCurrentResponseSchema.parse(currentPlayIntentJson).activeIntent
-      }
+      const currentPlayIntentState = await readOptionalJson(
+        currentPlayIntentResponse,
+        (currentPlayIntentJson) => playIntentCurrentResponseSchema.parse(currentPlayIntentJson as PlayIntentCurrentResponse),
+        'Current play intent'
+      )
+      activePlayIntentState = currentPlayIntentState?.activeIntent ?? null
 
-      if (discordServersResponse) {
-        const discordServersJson = await discordServersResponse.json()
-        discordServers = discordServerPreferencesResponseSchema.parse(discordServersJson)
-      }
+      discordServers = await readOptionalJson(
+        discordServersResponse,
+        (discordServersJson) => discordServerPreferencesResponseSchema.parse(discordServersJson),
+        'Discord servers'
+      )
 
       if (debugResponse) {
         if (debugResponse.ok) {
