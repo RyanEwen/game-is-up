@@ -553,6 +553,18 @@ function summarizePlayIntentGames(
   return `${titles.slice(0, 4).join(', ')} +${titles.length - 4} more`
 }
 
+function buildRecipientDiscordSpaceChannelReference(options: {
+  channelUrl?: string | null;
+  channelName?: string | null;
+  recipientInServer: boolean;
+}) {
+  if (options.recipientInServer) {
+    return options.channelUrl ?? options.channelName ?? null
+  }
+
+  return options.channelName ?? options.channelUrl ?? null
+}
+
 function buildRecipientVoiceChannelValue(
   voiceChannel?: { channelId: string | null; channelName: string | null; recipientSharesServer: boolean } | null,
   discordSpace?: PlayIntentDiscordSpaceRecipientContext | null
@@ -571,16 +583,19 @@ function buildRecipientVoiceChannelValue(
     return null
   }
 
-  const temporaryVoiceChannelValue = discordSpace.voiceChannelUrl
-    ? discordSpace.voiceChannelUrl
-    : discordSpace.voiceChannelName
-      ? discordSpace.voiceChannelName
-      : null
+  const temporaryVoiceChannelValue = buildRecipientDiscordSpaceChannelReference({
+    channelUrl: discordSpace.voiceChannelUrl,
+    channelName: discordSpace.voiceChannelName,
+    recipientInServer: discordSpace.recipientInServer
+  })
+
   return [
     temporaryVoiceChannelValue
       ? temporaryVoiceChannelValue
       : 'The Discord channel will appear after you join the Game\'s Up Discord server.',
-    discordSpace.inviteUrl ? `Invite link (shareable): ${discordSpace.inviteUrl}` : null
+    !discordSpace.recipientInServer && discordSpace.inviteUrl
+      ? `Invite link (shareable): ${discordSpace.inviteUrl}`
+      : null
   ].filter((part): part is string => Boolean(part)).join('\n') || null
 }
 
@@ -2151,19 +2166,25 @@ function buildInterestedAcceptedMessage(
   creatorLabel: string,
   discordSpace?: PlayIntentDiscordSpaceRecipientContext | null
 ) {
+  const textChannelValue = discordSpace
+    ? buildRecipientDiscordSpaceChannelReference({
+        channelUrl: discordSpace.textChannelUrl,
+        channelName: discordSpace.textChannelName,
+        recipientInServer: discordSpace.recipientInServer
+      })
+    : null
+  const voiceChannelValue = discordSpace
+    ? buildRecipientDiscordSpaceChannelReference({
+        channelUrl: discordSpace.voiceChannelUrl,
+        channelName: discordSpace.voiceChannelName,
+        recipientInServer: discordSpace.recipientInServer
+      })
+    : null
   const complementaryLines = discordSpace
     ? [
-        discordSpace.textChannelUrl
-          ? `Text channel: ${discordSpace.textChannelUrl}`
-          : discordSpace.textChannelName
-            ? `Text channel: ${discordSpace.textChannelName}`
-            : null,
-        discordSpace.voiceChannelUrl
-          ? `Voice channel: ${discordSpace.voiceChannelUrl}`
-          : discordSpace.voiceChannelName
-            ? `Voice channel: ${discordSpace.voiceChannelName}`
-            : null,
-        discordSpace.inviteUrl
+        textChannelValue ? `Text channel: ${textChannelValue}` : null,
+        voiceChannelValue ? `Voice channel: ${voiceChannelValue}` : null,
+        !discordSpace.recipientInServer && discordSpace.inviteUrl
           ? `Invite link (shareable): ${discordSpace.inviteUrl}`
           : null,
         !discordSpace.recipientInServer && discordSpace.inviteUrl
@@ -3970,7 +3991,9 @@ export async function handleCreatorPlayIntentSummaryInteraction(interaction: But
       select: {
         id: true,
         userId: true,
-        expiresAt: true
+        expiresAt: true,
+        creatorDiscordDmChannelId: true,
+        creatorDiscordDmMessageId: true
       }
     }),
     prisma.userIdentity.findUnique({
@@ -4023,6 +4046,22 @@ export async function handleCreatorPlayIntentSummaryInteraction(interaction: But
     }
 
     await interaction.deferUpdate()
+
+    if (
+      playIntent.creatorDiscordDmChannelId !== interaction.channelId
+      || playIntent.creatorDiscordDmMessageId !== interaction.message.id
+    ) {
+      await prisma.playIntent.update({
+        where: {
+          id: playIntent.id
+        },
+        data: {
+          creatorDiscordDmChannelId: interaction.channelId,
+          creatorDiscordDmMessageId: interaction.message.id
+        }
+      })
+    }
+
     await deletePlayIntentDiscordSpaceByPlayIntentId(playIntent.id)
     await syncCreatorPlayIntentSummaryMessages([playIntent.id], {
       notifyOnActiveChange: false
