@@ -400,12 +400,12 @@ function DmLifecycleSimulatorSection({
         <Box>
           <Typography level="title-lg">DM lifecycle simulator</Typography>
           <Typography level="body-sm" sx={{ color: 'neutral.400', mt: 0.5 }}>
-            Spin up a fresh in-memory CTP session with side-by-side creator and audience DMs. The buttons inside the simulated messages drive the session locally so you can rehearse anchor and follow-up behavior without touching live rows.
+            Spin up fresh in-memory call-to-play and auto-play prompt DM threads. The buttons inside the simulated messages drive each flow locally so you can rehearse anchor retention, prompt handoff, and follow-up behavior without touching live rows.
           </Typography>
         </Box>
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }}>
           <Typography level="body-xs" sx={{ color: 'neutral.500' }}>
-            Useful for checking invite-anchor retention, go-time follow-ups, audience response flips, and creator summary updates.
+            Useful for checking invite-anchor retention, go-time follow-ups, audience response flips, auto-play prompt closeouts, and prompt-to-summary handoff.
           </Typography>
           <Button variant="soft" color="primary" onClick={onOpen}>
             Open simulator

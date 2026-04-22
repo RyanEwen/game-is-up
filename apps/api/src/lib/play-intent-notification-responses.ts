@@ -652,12 +652,24 @@ function formatUpdatedFieldChange(field: string) {
   }
 }
 
-export function buildPlayIntentUpdatedReplyMessage(updatedFields: string[]) {
+export function buildPlayIntentUpdatedReplyMessage(
+  updatedFields: string[],
+  options: {
+    requiresFreshResponse?: boolean;
+  } = {}
+) {
   return buildDiscordPlainMessage(
     buildDiscordMessageHeading('ℹ️ Call Updated'),
-    updatedFields.map(formatUpdatedFieldChange),
+    [
+      ...updatedFields.map(formatUpdatedFieldChange),
+      options.requiresFreshResponse
+        ? 'Your previous response was cleared because the timing or game selection changed.'
+        : null
+    ],
     {
-      trailingSubtext: 'The original invite above now shows the latest details.'
+      trailingSubtext: options.requiresFreshResponse
+        ? 'Use the buttons on the original invite above to respond again.'
+        : 'The original invite above now shows the latest details.'
     }
   )
 }
@@ -1104,7 +1116,7 @@ export function buildNotificationDirectMessagePreview(options: {
     if (renderState.variant === 'canceled') {
       return {
         content: buildCreatorEndedMessage(),
-        components: []
+        components: [buildLinkRow(options.playIntentId)]
       }
     }
 
@@ -1148,7 +1160,7 @@ export function buildNotificationDirectMessagePreview(options: {
     if (renderState.variant === 'expired') {
       return {
         content: buildExpiredMessage(buildSessionEndedReason(creatorLabel, options.gameTitle ?? null)),
-        components: options.renderSurface === 'response' ? [] : [buildLinkRow(options.playIntentId)]
+        components: [buildLinkRow(options.playIntentId)]
       }
     }
 

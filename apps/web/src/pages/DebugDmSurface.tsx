@@ -24,16 +24,24 @@ import type {
   DebugDmInboxParticipant,
   DebugDmPreview,
   DebugPlayIntentSummary,
+  SimulatedAutoPlayPromptDraft,
+  SimulatedAutoPlayPromptState,
   SimulatedLifecycleEntry,
   SimulatedLifecycleState,
   SimulatedScenarioDraft,
   SimulatedDmMessage
 } from '@game-is-up/shared'
 import {
+  buildInitialAutoPlayPromptHistory,
   buildInitialSimulatorHistory,
+  buildSimulatedAutoPlayDmMessages,
   buildSimulatedDmMessages,
+  buildSimulatorAutoPlayClosedReason,
+  buildSimulatorUpdatedReplyPreview,
+  formatSimulatorDurationLabel,
   formatSimulatorTimestamp,
   shouldInvalidatePlayIntentAudienceResponse,
+  simulatedAutoPlayDmActionIds,
   simulatedDmActionIds
 } from '@game-is-up/shared'
 import ReactMarkdown from 'react-markdown'
@@ -52,10 +60,25 @@ type SimulatedLifecycleAction =
   | 'creator-check-in-confirmed'
   | 'creator-start-now'
   | 'creator-end'
+  | 'creator-archived'
+  | 'audience-archived'
+
+type SimulatedAutoPlayAction =
+  | 'session-created'
+  | 'auto-play-duration-selected'
+  | 'auto-play-audience-confirmed'
+  | 'auto-play-declined'
+  | 'auto-play-expired'
+  | 'auto-play-archived'
+  | 'creator-end'
+
+type SimulatedScenarioKind = 'call-to-play' | 'auto-play-prompt'
 
 type SimulatedLifecycleSnapshot = Omit<SimulatedLifecycleState, 'history' | 'nextEntryId'>
+type SimulatedAutoPlayPromptSnapshot = Omit<SimulatedAutoPlayPromptState, 'history' | 'nextEntryId'>
 
 type SimulatedLifecycleEntryWithAction = SimulatedLifecycleEntry & {
+  scenarioKind: 'call-to-play';
   action: SimulatedLifecycleAction;
   draftSnapshot: SimulatedScenarioDraft;
   stateSnapshot: SimulatedLifecycleSnapshot;
@@ -65,16 +88,34 @@ type SimulatedLifecycleStateWithActions = Omit<SimulatedLifecycleState, 'history
   history: SimulatedLifecycleEntryWithAction[];
 }
 
-type SimulatedSimulatorStartMode = 'scheduled' | 'live'
+type SimulatedAutoPlayEntryWithAction = SimulatedLifecycleEntry & {
+  scenarioKind: 'auto-play-prompt';
+  action: SimulatedAutoPlayAction;
+  draftSnapshot: SimulatedAutoPlayPromptDraft;
+  stateSnapshot: SimulatedAutoPlayPromptSnapshot;
+}
 
-type SimulatedThreadMessageId = 'creator-summary' | 'creator-check-in' | 'creator-follow-up' | 'audience-anchor' | 'audience-follow-up'
+type SimulatedAutoPlayStateWithActions = Omit<SimulatedAutoPlayPromptState, 'history'> & {
+  history: SimulatedAutoPlayEntryWithAction[];
+}
+
+type SimulatedScenarioHistoryEntry = SimulatedLifecycleEntryWithAction | SimulatedAutoPlayEntryWithAction
+
+type SimulatedSimulatorStartMode = 'scheduled' | 'live'
 
 type SimulatedThreadMessageMeta = {
   sentAt: string;
   editedAt: string | null;
 }
 
-type SimulatedThreadMessageMetaById = Partial<Record<SimulatedThreadMessageId, SimulatedThreadMessageMeta>>
+type SimulatedThreadMessageMetaById = Record<string, SimulatedThreadMessageMeta>
+
+type SimulatedAutoPlayResolvedAction =
+  | { action: 'auto-play-duration-selected'; durationMinutes: number }
+  | { action: 'auto-play-audience-confirmed'; durationMinutes: number; notifyScope: 'friends-only' | 'network' }
+  | { action: 'auto-play-declined' }
+  | { action: 'auto-play-archived' }
+  | { action: 'creator-end' }
 
 function orderSimulatedThreadMessages(
   messages: SimulatedDmMessage[],
@@ -84,7 +125,7 @@ function orderSimulatedThreadMessages(
     .map((message, index) => ({
       message,
       index,
-      sentAt: messageMetaById[message.id as SimulatedThreadMessageId]?.sentAt ?? null
+      sentAt: messageMetaById[message.id]?.sentAt ?? null
     }))
     .sort((left, right) => {
       if (left.sentAt && right.sentAt) {
@@ -113,10 +154,31 @@ const defaultSimulatorDraft: SimulatedScenarioDraft = {
   note: 'Hop in if you are free. I can start right away once someone is in.'
 }
 
+const defaultAutoPlayDraft: SimulatedAutoPlayPromptDraft = {
+  creatorName: 'Ryan',
+  gameTitle: 'Helldivers 2',
+  friendRecipientCount: 3,
+  networkRecipientCount: 7
+}
+
 function cloneSimulatorDraft(draft: SimulatedScenarioDraft): SimulatedScenarioDraft {
   return {
     ...draft
   }
+}
+
+function cloneAutoPlayDraft(draft: SimulatedAutoPlayPromptDraft): SimulatedAutoPlayPromptDraft {
+  return {
+    ...draft
+  }
+}
+
+function normalizeSimulatorRecipientCount(value: number) {
+  if (!Number.isFinite(value)) {
+    return 0
+  }
+
+  return Math.max(0, Math.floor(value))
 }
 
 function cloneSimulatorLifecycleSnapshot(state: SimulatedLifecycleSnapshot): SimulatedLifecycleSnapshot {
@@ -126,19 +188,45 @@ function cloneSimulatorLifecycleSnapshot(state: SimulatedLifecycleSnapshot): Sim
   }
 }
 
+function cloneAutoPlayPromptSnapshot(state: SimulatedAutoPlayPromptSnapshot): SimulatedAutoPlayPromptSnapshot {
+  return {
+    ...state
+  }
+}
+
 function snapshotSimulatorLifecycleState(state: SimulatedLifecycleState): SimulatedLifecycleSnapshot {
   return cloneSimulatorLifecycleSnapshot({
     stage: state.stage,
     audienceResponse: state.audienceResponse,
     creatorCheckInState: state.creatorCheckInState,
     hasGoTimeBroadcast: state.hasGoTimeBroadcast,
-    latestAudienceUpdateFields: state.latestAudienceUpdateFields
+    latestAudienceUpdateFields: state.latestAudienceUpdateFields,
+    latestAudienceUpdateRequiresFreshResponse: state.latestAudienceUpdateRequiresFreshResponse,
+    creatorThreadArchived: state.creatorThreadArchived,
+    audienceThreadArchived: state.audienceThreadArchived
+  })
+}
+
+function snapshotAutoPlayPromptState(state: SimulatedAutoPlayPromptState): SimulatedAutoPlayPromptSnapshot {
+  return cloneAutoPlayPromptSnapshot({
+    status: state.status,
+    durationMinutes: state.durationMinutes,
+    notifyScope: state.notifyScope,
+    closedReason: state.closedReason
   })
 }
 
 function materializeSimulatorLifecycleState(snapshot: SimulatedLifecycleSnapshot): SimulatedLifecycleState {
   return {
     ...cloneSimulatorLifecycleSnapshot(snapshot),
+    history: [],
+    nextEntryId: 0
+  }
+}
+
+function materializeAutoPlayPromptState(snapshot: SimulatedAutoPlayPromptSnapshot): SimulatedAutoPlayPromptState {
+  return {
+    ...cloneAutoPlayPromptSnapshot(snapshot),
     history: [],
     nextEntryId: 0
   }
@@ -154,6 +242,13 @@ function areSimulatorDraftsEqual(left: SimulatedScenarioDraft, right: SimulatedS
     && normalizeSimulatorText(left.gameTitle) === normalizeSimulatorText(right.gameTitle)
     && normalizeSimulatorText(left.scheduledForLabel) === normalizeSimulatorText(right.scheduledForLabel)
     && normalizeSimulatorText(left.note) === normalizeSimulatorText(right.note)
+}
+
+function areAutoPlayDraftsEqual(left: SimulatedAutoPlayPromptDraft, right: SimulatedAutoPlayPromptDraft) {
+  return normalizeSimulatorText(left.creatorName) === normalizeSimulatorText(right.creatorName)
+    && normalizeSimulatorText(left.gameTitle) === normalizeSimulatorText(right.gameTitle)
+    && normalizeSimulatorRecipientCount(left.friendRecipientCount) === normalizeSimulatorRecipientCount(right.friendRecipientCount)
+    && normalizeSimulatorRecipientCount(left.networkRecipientCount) === normalizeSimulatorRecipientCount(right.networkRecipientCount)
 }
 
 function resolveSimulatorUpdatedFields(previousDraft: SimulatedScenarioDraft, nextDraft: SimulatedScenarioDraft) {
@@ -199,9 +294,31 @@ function buildInitialSimulatorDialogState(options: {
     ...initialState,
     history: initialState.history.map((entry) => ({
       ...entry,
+      scenarioKind: 'call-to-play' as const,
       action: 'session-created' as const,
       draftSnapshot: draft,
       stateSnapshot: snapshotSimulatorLifecycleState(initialState)
+    }))
+  }
+}
+
+function buildInitialAutoPlayDialogState(options: {
+  now?: Date;
+  draft?: SimulatedAutoPlayPromptDraft;
+} = {}): SimulatedAutoPlayStateWithActions {
+  const draft = cloneAutoPlayDraft(options.draft ?? defaultAutoPlayDraft)
+  const initialState = buildInitialAutoPlayPromptHistory({
+    now: options.now
+  })
+
+  return {
+    ...initialState,
+    history: initialState.history.map((entry) => ({
+      ...entry,
+      scenarioKind: 'auto-play-prompt' as const,
+      action: 'session-created' as const,
+      draftSnapshot: draft,
+      stateSnapshot: snapshotAutoPlayPromptState(initialState)
     }))
   }
 }
@@ -220,9 +337,55 @@ function mapSimulatorCustomIdToAction(customId: string): Exclude<SimulatedLifecy
       return 'creator-start-now'
     case simulatedDmActionIds.creatorEnd:
       return 'creator-end'
+    case simulatedDmActionIds.creatorCleanup:
+      return 'creator-archived'
+    case simulatedDmActionIds.audienceCleanup:
+      return 'audience-archived'
     default:
       return null
   }
+}
+
+function mapSimulatorCustomIdToAutoPlayAction(customId: string): SimulatedAutoPlayResolvedAction | null {
+  if (customId === simulatedDmActionIds.creatorEnd) {
+    return { action: 'creator-end' }
+  }
+
+  if (customId === simulatedAutoPlayDmActionIds.decline) {
+    return { action: 'auto-play-declined' }
+  }
+
+  if (customId === simulatedAutoPlayDmActionIds.cleanup) {
+    return { action: 'auto-play-archived' }
+  }
+
+  const durationMatch = /^auto-play:[^:]+:duration:(\d+)$/.exec(customId)
+
+  if (durationMatch) {
+    return {
+      action: 'auto-play-duration-selected',
+      durationMinutes: Number(durationMatch[1])
+    }
+  }
+
+  const confirmMatch = /^auto-play:[^:]+:confirm:(friends-only|network):(\d+)$/.exec(customId)
+
+  if (confirmMatch) {
+    const notifyScope = confirmMatch[1]
+    const durationMinutes = Number(confirmMatch[2])
+
+    if ((notifyScope !== 'friends-only' && notifyScope !== 'network') || Number.isNaN(durationMinutes)) {
+      return null
+    }
+
+    return {
+      action: 'auto-play-audience-confirmed',
+      notifyScope,
+      durationMinutes
+    }
+  }
+
+  return null
 }
 
 function resolveSimulatorLifecycleTransition(
@@ -249,7 +412,8 @@ function resolveSimulatorLifecycleTransition(
       nextState = {
         ...nextState,
         audienceResponse: 'interested',
-        latestAudienceUpdateFields: null
+        latestAudienceUpdateFields: null,
+        latestAudienceUpdateRequiresFreshResponse: false
       }
       actor = 'audience'
       summary = currentState.stage === 'confirmed'
@@ -260,7 +424,8 @@ function resolveSimulatorLifecycleTransition(
       nextState = {
         ...nextState,
         audienceResponse: 'pass',
-        latestAudienceUpdateFields: null
+        latestAudienceUpdateFields: null,
+        latestAudienceUpdateRequiresFreshResponse: false
       }
       actor = 'audience'
       summary = currentState.stage === 'confirmed'
@@ -283,7 +448,8 @@ function resolveSimulatorLifecycleTransition(
         hasGoTimeBroadcast: true,
         latestAudienceUpdateFields: currentState.audienceResponse === 'pass'
           ? currentState.latestAudienceUpdateFields
-          : null
+          : null,
+        latestAudienceUpdateRequiresFreshResponse: false
       }
       actor = 'creator'
       summary = `${draft.creatorName} confirmed the session is still on.`
@@ -300,7 +466,8 @@ function resolveSimulatorLifecycleTransition(
         hasGoTimeBroadcast: true,
         latestAudienceUpdateFields: currentState.audienceResponse === 'pass'
           ? currentState.latestAudienceUpdateFields
-          : null
+          : null,
+        latestAudienceUpdateRequiresFreshResponse: false
       }
       actor = 'creator'
       summary = `${draft.creatorName} started the session now.`
@@ -312,10 +479,39 @@ function resolveSimulatorLifecycleTransition(
         creatorCheckInState: currentState.creatorCheckInState === 'pending'
           ? 'canceled'
           : currentState.creatorCheckInState,
-        latestAudienceUpdateFields: null
+        latestAudienceUpdateFields: null,
+        latestAudienceUpdateRequiresFreshResponse: false
       }
       actor = 'creator'
       summary = `${draft.creatorName} ended the session.`
+      break
+    case 'creator-archived':
+      if (currentState.stage !== 'ended' || currentState.creatorThreadArchived) {
+        return null
+      }
+
+      nextState = {
+        ...nextState,
+        creatorThreadArchived: true,
+        latestAudienceUpdateFields: null,
+        latestAudienceUpdateRequiresFreshResponse: false
+      }
+      actor = 'creator'
+      summary = `${draft.creatorName} archived the creator summary thread.`
+      break
+    case 'audience-archived':
+      if (currentState.stage !== 'ended' || currentState.audienceThreadArchived) {
+        return null
+      }
+
+      nextState = {
+        ...nextState,
+        audienceThreadArchived: true,
+        latestAudienceUpdateFields: null,
+        latestAudienceUpdateRequiresFreshResponse: false
+      }
+      actor = 'audience'
+      summary = `${draft.audienceName} archived the audience invite thread.`
       break
   }
 
@@ -343,7 +539,7 @@ function applySimulatorScenarioChanges(
   }
 
   const updatedFields = resolveSimulatorUpdatedFields(previousDraft, nextDraft)
-  const shouldSendAudienceUpdateReply = updatedFields.length > 0 && currentState.stage !== 'ended'
+  const shouldSendAudienceUpdateReply = updatedFields.length > 0 && currentState.stage !== 'ended' && !currentState.audienceThreadArchived
   const shouldResetAudienceResponse = shouldSendAudienceUpdateReply
     && shouldInvalidatePlayIntentAudienceResponse(updatedFields)
 
@@ -351,6 +547,7 @@ function applySimulatorScenarioChanges(
     nextState: {
       ...currentState,
       audienceResponse: shouldResetAudienceResponse ? null : currentState.audienceResponse,
+      latestAudienceUpdateRequiresFreshResponse: shouldResetAudienceResponse && currentState.audienceResponse != null,
       latestAudienceUpdateFields: shouldSendAudienceUpdateReply
         ? updatedFields
         : currentState.latestAudienceUpdateFields
@@ -382,6 +579,115 @@ function resolveScheduledStartReachedTransition(
   }
 }
 
+function resolveAutoPlayPromptResolvedAction(
+  currentState: SimulatedAutoPlayPromptState,
+  resolvedAction: SimulatedAutoPlayResolvedAction,
+  draft: SimulatedAutoPlayPromptDraft
+): {
+  nextState: SimulatedAutoPlayPromptState;
+  summary: string;
+  actor: SimulatedLifecycleEntry['actor'];
+} | null {
+  switch (resolvedAction.action) {
+    case 'auto-play-duration-selected':
+      if (currentState.status !== 'initial') {
+        return null
+      }
+
+      return {
+        nextState: {
+          ...currentState,
+          status: 'audience',
+          durationMinutes: resolvedAction.durationMinutes,
+          notifyScope: null,
+          closedReason: null
+        },
+        summary: `${draft.creatorName} picked a ${formatSimulatorDurationLabel(resolvedAction.durationMinutes)} auto-play window.`,
+        actor: 'creator'
+      }
+    case 'auto-play-audience-confirmed':
+      if (currentState.status !== 'audience' || currentState.durationMinutes !== resolvedAction.durationMinutes) {
+        return null
+      }
+
+      return {
+        nextState: {
+          ...currentState,
+          status: 'created',
+          notifyScope: resolvedAction.notifyScope,
+          closedReason: null
+        },
+        summary: resolvedAction.notifyScope === 'friends-only'
+          ? `${draft.creatorName} created a friends-only call from the auto-play prompt.`
+          : `${draft.creatorName} created a network call from the auto-play prompt.`,
+        actor: 'creator'
+      }
+    case 'auto-play-declined':
+      if (currentState.status !== 'initial' && currentState.status !== 'audience') {
+        return null
+      }
+
+      return {
+        nextState: {
+          ...currentState,
+          status: 'declined',
+          closedReason: 'The user declined the prompt from Discord.'
+        },
+        summary: `${draft.creatorName} declined the auto-play prompt.`,
+        actor: 'creator'
+      }
+    case 'auto-play-archived':
+      if (currentState.status !== 'declined' && currentState.status !== 'expired') {
+        return null
+      }
+
+      return {
+        nextState: {
+          ...currentState,
+          status: 'archived'
+        },
+        summary: `${draft.creatorName} archived the closed auto-play prompt.`,
+        actor: 'creator'
+      }
+    case 'creator-end':
+      if (currentState.status !== 'created') {
+        return null
+      }
+
+      return {
+        nextState: {
+          ...currentState,
+          status: 'created-ended'
+        },
+        summary: `${draft.creatorName} ended the call created from the auto-play prompt.`,
+        actor: 'creator'
+      }
+  }
+}
+
+function resolveAutoPlayPromptExpiredTransition(
+  currentState: SimulatedAutoPlayPromptState,
+  draft: SimulatedAutoPlayPromptDraft
+): {
+  nextState: SimulatedAutoPlayPromptState;
+  summary: string;
+  actor: SimulatedLifecycleEntry['actor'];
+} | null {
+  if (currentState.status !== 'initial' && currentState.status !== 'audience') {
+    return null
+  }
+
+  return {
+    nextState: {
+      ...currentState,
+      status: 'expired',
+      closedReason: buildSimulatorAutoPlayClosedReason(draft.gameTitle)
+    },
+    summary: `${draft.creatorName}'s observed ${draft.gameTitle} session ended before the auto-play prompt was finished.`,
+    actor: 'system'
+  }
+}
+
 function buildSimulatedMessagePreviewFingerprint(message: SimulatedDmMessage) {
   return JSON.stringify({
     preview: message.preview,
@@ -389,22 +695,91 @@ function buildSimulatedMessagePreviewFingerprint(message: SimulatedDmMessage) {
   })
 }
 
+function buildSimulatedAudienceUpdateReplyMessages(history: SimulatedLifecycleEntryWithAction[]) {
+  const latestEntry = history[history.length - 1]
+
+  if (!latestEntry || latestEntry.stateSnapshot.stage === 'ended' || latestEntry.stateSnapshot.audienceThreadArchived) {
+    return []
+  }
+
+  return history
+    .filter((entry) => entry.action === 'scenario-updated' && Boolean(entry.stateSnapshot.latestAudienceUpdateFields?.length))
+    .map<SimulatedDmMessage>((entry) => ({
+      id: `audience-update-${entry.id}`,
+      label: 'Audience update reply',
+      preview: buildSimulatorUpdatedReplyPreview(entry.stateSnapshot.latestAudienceUpdateFields ?? [], {
+        requiresFreshResponse: entry.stateSnapshot.latestAudienceUpdateRequiresFreshResponse
+      }),
+      explanation: [
+        'Meaningful call edits add fresh update replies beneath the invite instead of overwriting the audience acknowledgement message.',
+        'Each update reply stays in the thread as a trail of changes while the invite above keeps the latest details.'
+      ],
+      isInteractive: false
+    }))
+}
+
+function buildSimulatedCallToPlayMessagesForHistory(history: SimulatedLifecycleEntryWithAction[]) {
+  const latestEntry = history[history.length - 1]
+
+  if (!latestEntry) {
+    return {
+      creatorMessages: [],
+      audienceMessages: []
+    }
+  }
+
+  const messages = buildSimulatedDmMessages(
+    latestEntry.draftSnapshot,
+    materializeSimulatorLifecycleState(latestEntry.stateSnapshot)
+  )
+
+  return {
+    ...messages,
+    audienceMessages: [...messages.audienceMessages, ...buildSimulatedAudienceUpdateReplyMessages(history)]
+  }
+}
+
+function buildSimulatedMessagesForHistory(history: SimulatedScenarioHistoryEntry[]) {
+  const latestEntry = history[history.length - 1]
+
+  if (!latestEntry) {
+    return []
+  }
+
+  if (latestEntry.scenarioKind === 'call-to-play') {
+    const messages = buildSimulatedCallToPlayMessagesForHistory(history as SimulatedLifecycleEntryWithAction[])
+
+    return [...messages.creatorMessages, ...messages.audienceMessages]
+  }
+
+  const messages = buildSimulatedAutoPlayDmMessages(
+    latestEntry.draftSnapshot,
+    materializeAutoPlayPromptState(latestEntry.stateSnapshot)
+  )
+
+  return [...messages.promptMessages, ...messages.createdCallMessages]
+}
+
 function shouldTreatSimulatorMessageChangeAsReplacement(options: {
-  messageId: SimulatedThreadMessageId;
-  action: SimulatedLifecycleAction;
-  previousState: SimulatedLifecycleSnapshot;
-  nextState: SimulatedLifecycleSnapshot;
+  scenarioKind: SimulatedScenarioKind;
+  messageId: string;
+  action: SimulatedLifecycleAction | SimulatedAutoPlayAction;
+  previousState: SimulatedLifecycleSnapshot | SimulatedAutoPlayPromptSnapshot;
+  nextState: SimulatedLifecycleSnapshot | SimulatedAutoPlayPromptSnapshot;
 }) {
+  if (options.scenarioKind !== 'call-to-play') {
+    return false
+  }
+
+  const previousState = options.previousState as SimulatedLifecycleSnapshot
+  const nextState = options.nextState as SimulatedLifecycleSnapshot
+
   if (options.messageId !== 'creator-follow-up') {
     if (options.messageId === 'audience-follow-up') {
-      if (options.action === 'scenario-updated' && Boolean(options.nextState.latestAudienceUpdateFields?.length)) {
-        return true
-      }
-
       if (
         (options.action === 'creator-start-now' || options.action === 'creator-check-in-confirmed')
-        && options.nextState.stage === 'confirmed'
-        && options.nextState.audienceResponse !== 'pass'
+        && nextState.stage === 'confirmed'
+        && nextState.audienceResponse !== 'pass'
       ) {
         return true
       }
@@ -417,13 +792,13 @@ function shouldTreatSimulatorMessageChangeAsReplacement(options: {
     return false
   }
 
-  return options.previousState.audienceResponse != null
-    && options.nextState.audienceResponse != null
-    && options.previousState.audienceResponse !== options.nextState.audienceResponse
+  return previousState.audienceResponse != null
+    && nextState.audienceResponse != null
+    && previousState.audienceResponse !== nextState.audienceResponse
 }
 
 function buildSimulatedThreadMessageMetaById(
-  history: SimulatedLifecycleEntryWithAction[]
+  history: SimulatedScenarioHistoryEntry[]
 ): SimulatedThreadMessageMetaById {
   const chronologicalHistory = [...history].reverse()
 
@@ -432,14 +807,10 @@ function buildSimulatedThreadMessageMetaById(
   }
 
   let previousEntry = chronologicalHistory[0]!
-  const initialMessages = buildSimulatedDmMessages(
-    previousEntry.draftSnapshot,
-    materializeSimulatorLifecycleState(previousEntry.stateSnapshot)
+  const initialMessages = buildSimulatedMessagesForHistory([previousEntry])
+  let previousMessageFingerprints = new Map<string, string>(
+    initialMessages.map((message) => [message.id, buildSimulatedMessagePreviewFingerprint(message)])
   )
-  let previousMessageFingerprints = new Map<SimulatedThreadMessageId, string>([
-    ...initialMessages.creatorMessages,
-    ...initialMessages.audienceMessages
-  ].map((message) => [message.id as SimulatedThreadMessageId, buildSimulatedMessagePreviewFingerprint(message)]))
 
   const messageMetaById: SimulatedThreadMessageMetaById = {}
   const initialOccurredAt = chronologicalHistory[0]!.occurredAt
@@ -451,15 +822,12 @@ function buildSimulatedThreadMessageMetaById(
     }
   }
 
-  for (const entry of chronologicalHistory.slice(1)) {
-    const nextMessages = buildSimulatedDmMessages(
-      entry.draftSnapshot,
-      materializeSimulatorLifecycleState(entry.stateSnapshot)
+  for (let index = 1; index < chronologicalHistory.length; index += 1) {
+    const entry = chronologicalHistory[index]!
+    const nextMessages = buildSimulatedMessagesForHistory(chronologicalHistory.slice(0, index + 1))
+    const nextMessageFingerprints = new Map<string, string>(
+      nextMessages.map((message) => [message.id, buildSimulatedMessagePreviewFingerprint(message)])
     )
-    const nextMessageFingerprints = new Map<SimulatedThreadMessageId, string>([
-      ...nextMessages.creatorMessages,
-      ...nextMessages.audienceMessages
-    ].map((message) => [message.id as SimulatedThreadMessageId, buildSimulatedMessagePreviewFingerprint(message)]))
 
     for (const [messageId, fingerprint] of nextMessageFingerprints.entries()) {
       const previousFingerprint = previousMessageFingerprints.get(messageId)
@@ -474,6 +842,7 @@ function buildSimulatedThreadMessageMetaById(
 
       if (previousFingerprint !== fingerprint) {
         if (shouldTreatSimulatorMessageChangeAsReplacement({
+          scenarioKind: entry.scenarioKind,
           messageId,
           action: entry.action,
           previousState: previousEntry.stateSnapshot,
@@ -1078,18 +1447,26 @@ export function DmLifecycleSimulatorDialog({
   open: boolean;
   onClose: () => void;
 }) {
+  const [scenarioKind, setScenarioKind] = useState<SimulatedScenarioKind>('call-to-play')
   const [draft, setDraft] = useState<SimulatedScenarioDraft>(() => cloneSimulatorDraft(defaultSimulatorDraft))
   const [committedDraft, setCommittedDraft] = useState<SimulatedScenarioDraft | null>(null)
   const [state, setState] = useState<SimulatedLifecycleStateWithActions | null>(null)
+  const [autoPlayDraft, setAutoPlayDraft] = useState<SimulatedAutoPlayPromptDraft>(() => cloneAutoPlayDraft(defaultAutoPlayDraft))
+  const [committedAutoPlayDraft, setCommittedAutoPlayDraft] = useState<SimulatedAutoPlayPromptDraft | null>(null)
+  const [autoPlayState, setAutoPlayState] = useState<SimulatedAutoPlayStateWithActions | null>(null)
 
   useEffect(() => {
     if (open) {
       return
     }
 
+    setScenarioKind('call-to-play')
     setDraft(cloneSimulatorDraft(defaultSimulatorDraft))
     setCommittedDraft(null)
     setState(null)
+    setAutoPlayDraft(cloneAutoPlayDraft(defaultAutoPlayDraft))
+    setCommittedAutoPlayDraft(null)
+    setAutoPlayState(null)
   }, [open])
 
   const appendSimulatorHistoryEntry = (
@@ -1110,6 +1487,7 @@ export function DmLifecycleSimulatorDialog({
         {
           id: currentState.nextEntryId,
           actor: options.actor,
+          scenarioKind: 'call-to-play',
           action: options.action,
           summary: options.summary,
           occurredAt,
@@ -1122,13 +1500,58 @@ export function DmLifecycleSimulatorDialog({
     }
   }
 
+  const appendAutoPlayHistoryEntry = (
+    currentState: SimulatedAutoPlayStateWithActions,
+    options: {
+      action: SimulatedAutoPlayAction;
+      actor: SimulatedLifecycleEntry['actor'];
+      summary: string;
+      nextState: SimulatedAutoPlayPromptState;
+      draftSnapshot: SimulatedAutoPlayPromptDraft;
+    }
+  ): SimulatedAutoPlayStateWithActions => {
+    const occurredAt = new Date().toISOString()
+
+    return {
+      ...options.nextState,
+      history: [
+        {
+          id: currentState.nextEntryId,
+          actor: options.actor,
+          scenarioKind: 'auto-play-prompt',
+          action: options.action,
+          summary: options.summary,
+          occurredAt,
+          draftSnapshot: cloneAutoPlayDraft(options.draftSnapshot),
+          stateSnapshot: snapshotAutoPlayPromptState(options.nextState)
+        },
+        ...currentState.history
+      ],
+      nextEntryId: currentState.nextEntryId + 1
+    }
+  }
+
   const startSimulation = (mode: SimulatedSimulatorStartMode) => {
+    setScenarioKind('call-to-play')
     const nextDraft = cloneSimulatorDraft(draft)
     setCommittedDraft(nextDraft)
     setState(buildInitialSimulatorDialogState({
       mode,
       draft: nextDraft
     }))
+    setCommittedAutoPlayDraft(null)
+    setAutoPlayState(null)
+  }
+
+  const startAutoPlaySimulation = () => {
+    setScenarioKind('auto-play-prompt')
+    const nextDraft = cloneAutoPlayDraft(autoPlayDraft)
+    setCommittedAutoPlayDraft(nextDraft)
+    setAutoPlayState(buildInitialAutoPlayDialogState({
+      draft: nextDraft
+    }))
+    setCommittedDraft(null)
+    setState(null)
   }
 
   const handleScenarioFieldChange = (field: keyof SimulatedScenarioDraft, value: string) => {
@@ -1136,6 +1559,37 @@ export function DmLifecycleSimulatorDialog({
       ...currentDraft,
       [field]: value
     }))
+  }
+
+  const handleAutoPlayFieldChange = (
+    field: keyof SimulatedAutoPlayPromptDraft,
+    value: string
+  ) => {
+    setAutoPlayDraft((currentDraft) => {
+      if (field === 'friendRecipientCount' || field === 'networkRecipientCount') {
+        return {
+          ...currentDraft,
+          [field]: normalizeSimulatorRecipientCount(Number(value))
+        }
+      }
+
+      return {
+        ...currentDraft,
+        [field]: value
+      }
+    })
+  }
+
+  const handleScenarioKindChange = (nextScenarioKind: SimulatedScenarioKind) => {
+    if (nextScenarioKind === scenarioKind) {
+      return
+    }
+
+    setScenarioKind(nextScenarioKind)
+    setCommittedDraft(null)
+    setState(null)
+    setCommittedAutoPlayDraft(null)
+    setAutoPlayState(null)
   }
 
   const applyScenarioChanges = () => {
@@ -1190,52 +1644,179 @@ export function DmLifecycleSimulatorDialog({
     })
   }
 
-  const handlePreviewButtonClick = (customId: string) => {
-    setState((currentState) => {
-      if (!currentState || !committedDraft) {
+  const handleAutoPlayObservationEnded = () => {
+    setAutoPlayState((currentState) => {
+      if (!currentState || !committedAutoPlayDraft) {
         return currentState
       }
 
-      if (currentState.stage === 'ended') {
-        return currentState
-      }
-
-      const action = mapSimulatorCustomIdToAction(customId)
-
-      if (!action) {
-        return currentState
-      }
-
-      const transition = resolveSimulatorLifecycleTransition(currentState, action, committedDraft)
+      const transition = resolveAutoPlayPromptExpiredTransition(currentState, committedAutoPlayDraft)
 
       if (!transition) {
         return currentState
       }
 
-      return appendSimulatorHistoryEntry(currentState, {
-        action,
+      return appendAutoPlayHistoryEntry(currentState, {
+        action: 'auto-play-expired',
         actor: transition.actor,
         summary: transition.summary,
         nextState: transition.nextState,
-        draftSnapshot: committedDraft
+        draftSnapshot: committedAutoPlayDraft
       })
     })
   }
 
-  const hasScenario = state != null && committedDraft != null
+  const handlePreviewButtonClick = (customId: string) => {
+    if (scenarioKind === 'call-to-play') {
+      setState((currentState) => {
+        if (!currentState || !committedDraft) {
+          return currentState
+        }
+
+        if (currentState.creatorThreadArchived && currentState.audienceThreadArchived) {
+          return currentState
+        }
+
+        const action = mapSimulatorCustomIdToAction(customId)
+
+        if (!action) {
+          return currentState
+        }
+
+        const transition = resolveSimulatorLifecycleTransition(currentState, action, committedDraft)
+
+        if (!transition) {
+          return currentState
+        }
+
+        return appendSimulatorHistoryEntry(currentState, {
+          action,
+          actor: transition.actor,
+          summary: transition.summary,
+          nextState: transition.nextState,
+          draftSnapshot: committedDraft
+        })
+      })
+
+      return
+    }
+
+    setAutoPlayState((currentState) => {
+      if (!currentState || !committedAutoPlayDraft) {
+        return currentState
+      }
+
+      const action = mapSimulatorCustomIdToAutoPlayAction(customId)
+
+      if (!action) {
+        return currentState
+      }
+
+      const transition = resolveAutoPlayPromptResolvedAction(currentState, action, committedAutoPlayDraft)
+
+      if (!transition) {
+        return currentState
+      }
+
+      return appendAutoPlayHistoryEntry(currentState, {
+        action: action.action,
+        actor: transition.actor,
+        summary: transition.summary,
+        nextState: transition.nextState,
+        draftSnapshot: committedAutoPlayDraft
+      })
+    })
+  }
+
+  const hasCtpScenario = state != null && committedDraft != null
+  const hasAutoPlayScenario = autoPlayState != null && committedAutoPlayDraft != null
+  const hasScenario = scenarioKind === 'call-to-play' ? hasCtpScenario : hasAutoPlayScenario
   const pendingUpdatedFields = committedDraft ? resolveSimulatorUpdatedFields(committedDraft, draft) : []
   const hasDraftChanges = committedDraft ? !areSimulatorDraftsEqual(draft, committedDraft) : false
-  const { creatorMessages, audienceMessages } = hasScenario
-    ? buildSimulatedDmMessages(committedDraft, state)
+  const hasAutoPlayDraftChanges = committedAutoPlayDraft ? !areAutoPlayDraftsEqual(autoPlayDraft, committedAutoPlayDraft) : false
+  const activeHistory = scenarioKind === 'call-to-play' ? state?.history ?? [] : autoPlayState?.history ?? []
+  const chronologicalActiveHistory = [...activeHistory].reverse()
+  const ctpMessages = hasCtpScenario
+    ? chronologicalActiveHistory.length > 0
+      ? buildSimulatedCallToPlayMessagesForHistory(chronologicalActiveHistory as SimulatedLifecycleEntryWithAction[])
+      : buildSimulatedDmMessages(committedDraft, state)
     : { creatorMessages: [], audienceMessages: [] }
-  const threadMessageMetaById = state ? buildSimulatedThreadMessageMetaById(state.history) : {}
-  const orderedCreatorMessages = orderSimulatedThreadMessages(creatorMessages, threadMessageMetaById)
-  const orderedAudienceMessages = orderSimulatedThreadMessages(audienceMessages, threadMessageMetaById)
+  const autoPlayMessages = hasAutoPlayScenario
+    ? buildSimulatedAutoPlayDmMessages(committedAutoPlayDraft, autoPlayState)
+    : { promptMessages: [], createdCallMessages: [] }
+  const threadMessageMetaById = activeHistory.length > 0 ? buildSimulatedThreadMessageMetaById(activeHistory) : {}
+  const orderedCreatorMessages = orderSimulatedThreadMessages(ctpMessages.creatorMessages, threadMessageMetaById)
+  const orderedAudienceMessages = orderSimulatedThreadMessages(ctpMessages.audienceMessages, threadMessageMetaById)
+  const orderedPromptMessages = orderSimulatedThreadMessages(autoPlayMessages.promptMessages, threadMessageMetaById)
+  const orderedCreatedCallMessages = orderSimulatedThreadMessages(autoPlayMessages.createdCallMessages, threadMessageMetaById)
+
+  const primaryThread = scenarioKind === 'call-to-play'
+    ? {
+        title: 'Creator thread',
+        badgeColor: 'primary' as const,
+        badgeLabel: committedDraft?.creatorName ?? 'Creator',
+        infoLines: [
+          'The creator keeps one retained summary message that updates in place.',
+          'Scheduled calls can also produce a separate go-time check-in prompt before the creator confirms the session is still on.',
+          'Separate creator replies should only announce audience changes such as interest or pass.'
+        ],
+        emptyTitle: state?.creatorThreadArchived ? 'Creator thread archived' : 'No creator thread yet',
+        emptyBody: state?.creatorThreadArchived
+          ? 'The creator archived only their retained summary thread. The audience thread can remain until it is archived separately.'
+          : 'Start a scenario to generate the retained creator summary, check-in prompt, and follow-up messages.',
+        messages: orderedCreatorMessages
+      }
+    : {
+        title: 'Prompt thread',
+        badgeColor: 'primary' as const,
+        badgeLabel: committedAutoPlayDraft?.creatorName ?? 'Observed player',
+        infoLines: [
+          'The original auto-play prompt is the retained anchor for the prompt flow.',
+          'Picking a duration edits that anchor into the audience step instead of sending a separate second prompt.',
+          'Closed prompt outcomes keep the anchor in place and explain the stop reason in a reply underneath it.'
+        ],
+        emptyTitle: 'No prompt thread yet',
+        emptyBody: 'Start an auto-play prompt to generate the retained prompt anchor and any closeout reply.',
+        messages: orderedPromptMessages
+      }
+
+  const secondaryThread = scenarioKind === 'call-to-play'
+    ? {
+        title: 'Audience thread',
+        badgeColor: 'success' as const,
+        badgeLabel: committedDraft?.audienceName ?? 'Audience',
+        infoLines: [
+          'The invite stays as the anchor for the whole audience lifecycle.',
+          'Meaningful call edits add fresh “Call Updated” replies under the invite while the acknowledgement reply remains separate.',
+          'The acknowledgement and go-time reply should stay retained, while update replies stack as a trail beneath the anchor.'
+        ],
+        emptyTitle: state?.audienceThreadArchived ? 'Audience thread archived' : 'No audience thread yet',
+        emptyBody: state?.audienceThreadArchived
+          ? 'The audience archived only their invite thread. The creator summary can remain until it is archived separately.'
+          : 'Start a scenario to generate the invite anchor and any audience follow-up replies.',
+        messages: orderedAudienceMessages
+      }
+    : {
+        title: 'Created call thread',
+        badgeColor: 'success' as const,
+        badgeLabel: committedAutoPlayDraft?.creatorName ?? 'Creator',
+        infoLines: [
+          'Accepting the prompt hands off to the normal creator summary thread for the newly created call to play.',
+          'From that handoff onward, the creator summary becomes the retained cleanup anchor instead of the original prompt DM.'
+        ],
+        emptyTitle: 'No created call yet',
+        emptyBody: 'Choose a duration and audience from the prompt thread to hand off into a live creator summary.',
+        messages: orderedCreatedCallMessages
+      }
 
   const handleClose = () => {
+    setScenarioKind('call-to-play')
     setDraft(cloneSimulatorDraft(defaultSimulatorDraft))
     setCommittedDraft(null)
     setState(null)
+    setAutoPlayDraft(cloneAutoPlayDraft(defaultAutoPlayDraft))
+    setCommittedAutoPlayDraft(null)
+    setAutoPlayState(null)
     onClose()
   }
 
@@ -1245,14 +1826,14 @@ export function DmLifecycleSimulatorDialog({
       <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, minHeight: 0, overflow: { xs: 'auto', lg: 'hidden' } }}>
         <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center', justifyContent: 'space-between' }}>
           <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
-            In-memory side-by-side DM simulation.
+            In-memory DM simulation for call-to-play and auto-play prompt flows.
           </Typography>
           <InfoPopoverButton
             subject="the DM lifecycle simulator"
             lines={[
               'This simulator runs entirely in-memory in the browser and does not touch live notifications or DM rows.',
-              'Use the DM buttons in the creator and audience panes to drive the local lifecycle and inspect how the anchor and reply messages evolve.',
-              'Scenario edits only affect the threads after you apply them, so you can tell which changes caused an in-place edit versus a fresh follow-up message.'
+              'Use the DM buttons inside the rendered threads to drive the local lifecycle and inspect how retained anchors, replies, and handoff messages evolve.',
+              'Call-to-play scenarios support in-place draft edits, while auto-play prompt scenarios focus on the prompt-to-summary handoff and closed-prompt cleanup path.'
             ]}
           />
         </Stack>
@@ -1269,84 +1850,206 @@ export function DmLifecycleSimulatorDialog({
           >
             <Card variant="soft" sx={{ p: 2, minHeight: 0, overflow: 'auto', flex: { xs: '0 0 auto', lg: '0 1 auto' } }}>
               <Stack spacing={1.5} sx={{ minHeight: 0 }}>
-                <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }} spacing={1}>
+                <Stack spacing={0.75}>
                   <Typography level="title-md">Scenario</Typography>
-                  <Stack direction="row" spacing={0.75} sx={{ flexWrap: 'wrap' }}>
-                    <Button size="sm" variant="soft" color="primary" onClick={() => startSimulation('scheduled')}>
-                      New scheduled call
-                    </Button>
-                    <Button size="sm" variant="soft" color="success" onClick={() => startSimulation('live')}>
-                      New live call
-                    </Button>
-                  </Stack>
-                </Stack>
-                <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
-                  Edit the draft, start a scenario, then apply later changes to see the resulting messages.
-                </Typography>
-                <FormControl>
-                  <FormLabel>Game title</FormLabel>
-                  <Input value={draft.gameTitle} onChange={(event) => handleScenarioFieldChange('gameTitle', event.target.value)} />
-                </FormControl>
-                <FormControl>
-                  <FormLabel>Scheduled time label</FormLabel>
-                  <Input value={draft.scheduledForLabel} onChange={(event) => handleScenarioFieldChange('scheduledForLabel', event.target.value)} />
-                </FormControl>
-                <FormControl>
-                  <FormLabel>Invite note</FormLabel>
-                  <Textarea minRows={3} value={draft.note} onChange={(event) => handleScenarioFieldChange('note', event.target.value)} />
-                </FormControl>
-                <Stack spacing={0.75}>
-                  <Button size="sm" variant="solid" color="primary" disabled={!hasScenario || !hasDraftChanges} onClick={applyScenarioChanges}>
-                    Apply changes
-                  </Button>
-                  <Chip
-                    size="sm"
-                    variant="soft"
-                    color={!hasScenario ? 'neutral' : hasDraftChanges ? 'warning' : 'success'}
-                    sx={{ width: 'fit-content' }}
-                  >
-                    {!hasScenario
-                      ? 'No scenario started yet'
-                      : hasDraftChanges
-                      ? pendingUpdatedFields.length > 0
-                        ? `Pending recipient update: ${pendingUpdatedFields.join(', ')}`
-                        : 'Pending visual-only edit'
-                      : 'Draft is applied'}
-                  </Chip>
-                </Stack>
-                <Divider />
-                <Stack spacing={0.75}>
-                  <Typography level="title-sm">Lifecycle shortcuts</Typography>
+                  <Typography level="body-xs" sx={{ color: 'neutral.500' }}>
+                    Choose the DM flow you want to rehearse.
+                  </Typography>
                   <Stack direction="row" spacing={0.75} sx={{ flexWrap: 'wrap' }}>
                     <Button
                       size="sm"
-                      variant="soft"
-                      color="warning"
-                      disabled={!hasScenario || state.stage !== 'scheduled'}
-                      onClick={handleScheduledStartReached}
+                      variant={scenarioKind === 'call-to-play' ? 'solid' : 'soft'}
+                      color="primary"
+                      onClick={() => handleScenarioKindChange('call-to-play')}
                     >
-                      Scheduled start reached
+                      Call to play
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={scenarioKind === 'auto-play-prompt' ? 'solid' : 'soft'}
+                      color="primary"
+                      onClick={() => handleScenarioKindChange('auto-play-prompt')}
+                    >
+                      Auto-play prompt
                     </Button>
                   </Stack>
                 </Stack>
+
                 <Divider />
-                <Stack direction="row" spacing={0.75} sx={{ flexWrap: 'wrap' }}>
-                  <Chip size="sm" variant="soft" color={!hasScenario ? 'neutral' : state.stage === 'scheduled' ? 'primary' : 'neutral'}>
-                    {!hasScenario ? 'No scenario' : state.stage === 'scheduled' ? 'Scheduled' : 'Not waiting for start'}
-                  </Chip>
-                  <Chip size="sm" variant="soft" color={state?.stage === 'check-in' ? 'warning' : 'neutral'}>
-                    {state?.stage === 'check-in' ? 'Check-in pending' : 'No check-in pending'}
-                  </Chip>
-                  <Chip size="sm" variant="soft" color={state?.stage === 'confirmed' ? 'success' : 'neutral'}>
-                    {state?.stage === 'confirmed' ? 'Call on' : 'Not confirmed'}
-                  </Chip>
-                  <Chip size="sm" variant="soft" color={state?.stage === 'ended' ? 'danger' : 'neutral'}>
-                    {state?.stage === 'ended' ? 'Ended' : 'Open'}
-                  </Chip>
-                  <Chip size="sm" variant="soft" color={state?.audienceResponse === 'interested' ? 'primary' : state?.audienceResponse === 'pass' ? 'warning' : 'neutral'}>
-                    {state?.audienceResponse == null ? 'No audience reply yet' : `Audience: ${state.audienceResponse}`}
-                  </Chip>
-                </Stack>
+
+                {scenarioKind === 'call-to-play' ? (
+                  <>
+                    <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }} spacing={1}>
+                      <Typography level="title-md">Call to play</Typography>
+                      <Stack direction="row" spacing={0.75} sx={{ flexWrap: 'wrap' }}>
+                        <Button size="sm" variant="soft" color="primary" onClick={() => startSimulation('scheduled')}>
+                          New scheduled call
+                        </Button>
+                        <Button size="sm" variant="soft" color="success" onClick={() => startSimulation('live')}>
+                          New live call
+                        </Button>
+                      </Stack>
+                    </Stack>
+                    <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
+                      Edit the draft, start a scenario, then apply later changes to see the resulting messages.
+                    </Typography>
+                    <FormControl>
+                      <FormLabel>Game title</FormLabel>
+                      <Input value={draft.gameTitle} onChange={(event) => handleScenarioFieldChange('gameTitle', event.target.value)} />
+                    </FormControl>
+                    <FormControl>
+                      <FormLabel>Scheduled time label</FormLabel>
+                      <Input value={draft.scheduledForLabel} onChange={(event) => handleScenarioFieldChange('scheduledForLabel', event.target.value)} />
+                    </FormControl>
+                    <FormControl>
+                      <FormLabel>Invite note</FormLabel>
+                      <Textarea minRows={3} value={draft.note} onChange={(event) => handleScenarioFieldChange('note', event.target.value)} />
+                    </FormControl>
+                    <Stack spacing={0.75}>
+                      <Button size="sm" variant="solid" color="primary" disabled={!hasCtpScenario || !hasDraftChanges} onClick={applyScenarioChanges}>
+                        Apply changes
+                      </Button>
+                      <Chip
+                        size="sm"
+                        variant="soft"
+                        color={!hasCtpScenario ? 'neutral' : hasDraftChanges ? 'warning' : 'success'}
+                        sx={{ width: 'fit-content' }}
+                      >
+                        {!hasCtpScenario
+                          ? 'No scenario started yet'
+                          : hasDraftChanges
+                          ? pendingUpdatedFields.length > 0
+                            ? `Pending recipient update: ${pendingUpdatedFields.join(', ')}`
+                            : 'Pending visual-only edit'
+                          : 'Draft is applied'}
+                      </Chip>
+                    </Stack>
+                    <Divider />
+                    <Stack spacing={0.75}>
+                      <Typography level="title-sm">Lifecycle shortcuts</Typography>
+                      <Stack direction="row" spacing={0.75} sx={{ flexWrap: 'wrap' }}>
+                        <Button
+                          size="sm"
+                          variant="soft"
+                          color="warning"
+                          disabled={!hasCtpScenario || state?.stage !== 'scheduled'}
+                          onClick={handleScheduledStartReached}
+                        >
+                          Scheduled start reached
+                        </Button>
+                      </Stack>
+                    </Stack>
+                    <Divider />
+                    <Stack direction="row" spacing={0.75} sx={{ flexWrap: 'wrap' }}>
+                      <Chip size="sm" variant="soft" color={!hasCtpScenario ? 'neutral' : state?.stage === 'scheduled' ? 'primary' : 'neutral'}>
+                        {!hasCtpScenario ? 'No scenario' : state?.stage === 'scheduled' ? 'Scheduled' : 'Not waiting for start'}
+                      </Chip>
+                      <Chip size="sm" variant="soft" color={state?.stage === 'check-in' ? 'warning' : 'neutral'}>
+                        {state?.stage === 'check-in' ? 'Check-in pending' : 'No check-in pending'}
+                      </Chip>
+                      <Chip size="sm" variant="soft" color={state?.stage === 'confirmed' ? 'success' : 'neutral'}>
+                        {state?.stage === 'confirmed' ? 'Call on' : 'Not confirmed'}
+                      </Chip>
+                      <Chip size="sm" variant="soft" color={state?.stage === 'ended' ? 'danger' : 'neutral'}>
+                        {state?.stage === 'ended' ? 'Ended' : 'Open'}
+                      </Chip>
+                      <Chip size="sm" variant="soft" color={state?.creatorThreadArchived ? 'warning' : 'neutral'}>
+                        {state?.creatorThreadArchived ? 'Creator archived' : 'Creator retained'}
+                      </Chip>
+                      <Chip size="sm" variant="soft" color={state?.audienceThreadArchived ? 'warning' : 'neutral'}>
+                        {state?.audienceThreadArchived ? 'Audience archived' : 'Audience retained'}
+                      </Chip>
+                      <Chip size="sm" variant="soft" color={state?.audienceResponse === 'interested' ? 'primary' : state?.audienceResponse === 'pass' ? 'warning' : 'neutral'}>
+                        {state?.audienceResponse == null ? 'No audience reply yet' : `Audience: ${state.audienceResponse}`}
+                      </Chip>
+                    </Stack>
+                  </>
+                ) : (
+                  <>
+                    <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }} spacing={1}>
+                      <Typography level="title-md">Auto-play prompt</Typography>
+                      <Button size="sm" variant="soft" color="primary" onClick={startAutoPlaySimulation}>
+                        New auto-play prompt
+                      </Button>
+                    </Stack>
+                    <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
+                      Start the same DM prompt that Discord sends when it sees someone launch a game, then drive the duration, audience, closeout, and handoff steps from the thread buttons.
+                    </Typography>
+                    <FormControl>
+                      <FormLabel>Game title</FormLabel>
+                      <Input value={autoPlayDraft.gameTitle} onChange={(event) => handleAutoPlayFieldChange('gameTitle', event.target.value)} />
+                    </FormControl>
+                    <FormControl>
+                      <FormLabel>Friends-only reach</FormLabel>
+                      <Input type="number" value={String(autoPlayDraft.friendRecipientCount)} onChange={(event) => handleAutoPlayFieldChange('friendRecipientCount', event.target.value)} />
+                    </FormControl>
+                    <FormControl>
+                      <FormLabel>Network + friends reach</FormLabel>
+                      <Input type="number" value={String(autoPlayDraft.networkRecipientCount)} onChange={(event) => handleAutoPlayFieldChange('networkRecipientCount', event.target.value)} />
+                    </FormControl>
+                    <Chip
+                      size="sm"
+                      variant="soft"
+                      color={!hasAutoPlayScenario ? 'neutral' : hasAutoPlayDraftChanges ? 'warning' : 'success'}
+                      sx={{ width: 'fit-content' }}
+                    >
+                      {!hasAutoPlayScenario
+                        ? 'No prompt started yet'
+                        : hasAutoPlayDraftChanges
+                        ? 'Draft changes apply when you start a fresh prompt'
+                        : autoPlayState?.status === 'created' || autoPlayState?.status === 'created-ended'
+                          ? 'Prompt handed off to call summary'
+                          : 'Draft matches prompt context'}
+                    </Chip>
+                    <Divider />
+                    <Stack spacing={0.75}>
+                      <Typography level="title-sm">Lifecycle shortcuts</Typography>
+                      <Stack direction="row" spacing={0.75} sx={{ flexWrap: 'wrap' }}>
+                        <Button
+                          size="sm"
+                          variant="soft"
+                          color="warning"
+                          disabled={!hasAutoPlayScenario || (autoPlayState?.status !== 'initial' && autoPlayState?.status !== 'audience')}
+                          onClick={handleAutoPlayObservationEnded}
+                        >
+                          Observation ended
+                        </Button>
+                      </Stack>
+                    </Stack>
+                    <Divider />
+                    <Stack direction="row" spacing={0.75} sx={{ flexWrap: 'wrap' }}>
+                      <Chip
+                        size="sm"
+                        variant="soft"
+                        color={!hasAutoPlayScenario ? 'neutral' : autoPlayState?.status === 'created' ? 'success' : autoPlayState?.status === 'created-ended' ? 'danger' : autoPlayState?.status === 'expired' || autoPlayState?.status === 'declined' ? 'warning' : 'primary'}
+                      >
+                        {!hasAutoPlayScenario
+                          ? 'No prompt'
+                          : autoPlayState?.status === 'initial'
+                            ? 'Choose duration'
+                            : autoPlayState?.status === 'audience'
+                              ? 'Choose audience'
+                              : autoPlayState?.status === 'created'
+                                ? 'Call created'
+                                : autoPlayState?.status === 'created-ended'
+                                  ? 'Call ended'
+                                  : autoPlayState?.status === 'archived'
+                                    ? 'Archived'
+                                    : 'Prompt closed'}
+                      </Chip>
+                      {autoPlayState?.durationMinutes != null ? (
+                        <Chip size="sm" variant="soft" color="neutral">
+                          {formatSimulatorDurationLabel(autoPlayState.durationMinutes)}
+                        </Chip>
+                      ) : null}
+                      {autoPlayState?.notifyScope ? (
+                        <Chip size="sm" variant="soft" color="neutral">
+                          {autoPlayState.notifyScope === 'friends-only' ? 'Friends only' : 'Network + friends'}
+                        </Chip>
+                      ) : null}
+                    </Stack>
+                  </>
+                )}
               </Stack>
             </Card>
 
@@ -1356,9 +2059,9 @@ export function DmLifecycleSimulatorDialog({
                 <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
                   Local session timeline.
                 </Typography>
-                {state ? (
+                {activeHistory.length > 0 ? (
                   <Stack spacing={1} sx={{ flex: 1, minHeight: 0, overflow: 'auto', pr: 0.5 }}>
-                    {state.history.map((entry) => (
+                    {activeHistory.map((entry) => (
                       <Card key={entry.id} variant="outlined" sx={{ p: 1.25 }}>
                         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={0.75} justifyContent="space-between">
                           <Typography level="body-sm">{entry.summary}</Typography>
@@ -1384,37 +2087,33 @@ export function DmLifecycleSimulatorDialog({
               <Stack spacing={1.5} sx={{ height: '100%', minHeight: 0 }}>
                 <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1}>
                   <Box>
-                    <Typography level="title-lg">Creator thread</Typography>
+                    <Typography level="title-lg">{primaryThread.title}</Typography>
                   </Box>
                   <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
-                    <Chip size="sm" variant="soft" color="primary">{committedDraft?.creatorName ?? 'Creator'}</Chip>
+                    <Chip size="sm" variant="soft" color={primaryThread.badgeColor}>{primaryThread.badgeLabel}</Chip>
                     <InfoPopoverButton
-                      subject="the creator thread"
-                      lines={[
-                        'The creator keeps one retained summary message that updates in place.',
-                        'Scheduled calls can also produce a separate go-time check-in prompt before the creator confirms the session is still on.',
-                        'Separate creator replies should only announce audience changes such as interest or pass.'
-                      ]}
+                      subject={primaryThread.title.toLowerCase()}
+                      lines={primaryThread.infoLines}
                     />
                   </Stack>
                 </Stack>
 
                 <Stack spacing={0} sx={{ flex: 1, minHeight: 0, overflow: 'auto', pr: 0.5 }}>
-                  {hasScenario ? orderedCreatorMessages.map((message) => (
+                  {hasScenario && primaryThread.messages.length > 0 ? primaryThread.messages.map((message) => (
                     <Box key={message.id}>
                       <SimulatedDmThreadMessage
                         message={message}
                         onButtonClick={handlePreviewButtonClick}
-                        messageMeta={threadMessageMetaById[message.id as SimulatedThreadMessageId]}
+                        messageMeta={threadMessageMetaById[message.id]}
                       />
-                      {message.id !== orderedCreatorMessages[orderedCreatorMessages.length - 1]?.id ? (
+                      {message.id !== primaryThread.messages[primaryThread.messages.length - 1]?.id ? (
                         <Divider sx={{ my: 2, borderColor: 'rgba(255,255,255,0.08)' }} />
                       ) : null}
                     </Box>
                   )) : (
                     <EmptyStateCard
-                      title="No creator thread yet"
-                      body="Start a scenario to generate the retained creator summary, check-in prompt, and follow-up messages."
+                      title={primaryThread.emptyTitle}
+                      body={primaryThread.emptyBody}
                     />
                   )}
                 </Stack>
@@ -1425,37 +2124,33 @@ export function DmLifecycleSimulatorDialog({
               <Stack spacing={1.5} sx={{ height: '100%', minHeight: 0 }}>
                 <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1}>
                   <Box>
-                    <Typography level="title-lg">Audience thread</Typography>
+                    <Typography level="title-lg">{secondaryThread.title}</Typography>
                   </Box>
                   <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
-                    <Chip size="sm" variant="soft" color="success">{committedDraft?.audienceName ?? 'Audience'}</Chip>
+                    <Chip size="sm" variant="soft" color={secondaryThread.badgeColor}>{secondaryThread.badgeLabel}</Chip>
                     <InfoPopoverButton
-                      subject="the audience thread"
-                      lines={[
-                        'The invite stays as the anchor for the whole audience lifecycle.',
-                        'Meaningful call edits can add a fresh “Call Updated” reply under the invite while also editing the invite itself in place.',
-                        'Follow-up replies should look close to the live acknowledgement and go-time messages while pointing back to that anchor.'
-                      ]}
+                      subject={secondaryThread.title.toLowerCase()}
+                      lines={secondaryThread.infoLines}
                     />
                   </Stack>
                 </Stack>
 
                 <Stack spacing={0} sx={{ flex: 1, minHeight: 0, overflow: 'auto', pr: 0.5 }}>
-                  {hasScenario ? orderedAudienceMessages.map((message) => (
+                  {hasScenario && secondaryThread.messages.length > 0 ? secondaryThread.messages.map((message) => (
                     <Box key={message.id}>
                       <SimulatedDmThreadMessage
                         message={message}
                         onButtonClick={handlePreviewButtonClick}
-                        messageMeta={threadMessageMetaById[message.id as SimulatedThreadMessageId]}
+                        messageMeta={threadMessageMetaById[message.id]}
                       />
-                      {message.id !== orderedAudienceMessages[orderedAudienceMessages.length - 1]?.id ? (
+                      {message.id !== secondaryThread.messages[secondaryThread.messages.length - 1]?.id ? (
                         <Divider sx={{ my: 2, borderColor: 'rgba(255,255,255,0.08)' }} />
                       ) : null}
                     </Box>
                   )) : (
                     <EmptyStateCard
-                      title="No audience thread yet"
-                      body="Start a scenario to generate the invite anchor and any audience follow-up replies."
+                      title={secondaryThread.emptyTitle}
+                      body={secondaryThread.emptyBody}
                     />
                   )}
                 </Stack>

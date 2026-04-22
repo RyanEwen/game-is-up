@@ -126,7 +126,9 @@ async function ensureDebugPlayableNotification(options: {
     overlappingGameIds,
     targetUserIds: playIntent.targetFriends.map((entry) => entry.friendUserId),
     includeSelf: options.actingUserId === playIntent.userId,
-    targetDiscordServerIds: playIntent.targetDiscordServers.map((entry) => entry.serverId)
+    targetDiscordServerIds: playIntent.targetDiscordServers.map((entry) => entry.serverId),
+    startsAt: playIntent.windowStartsAt,
+    endsAt: playIntent.windowEndsAt
   })
 
   if (!allowedAudienceUserIds.includes(options.actingUserId)) {

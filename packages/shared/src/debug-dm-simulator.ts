@@ -47,6 +47,9 @@ export type SimulatedLifecycleState = {
   creatorCheckInState: SimulatedCreatorCheckInState;
   hasGoTimeBroadcast: boolean;
   latestAudienceUpdateFields: string[] | null;
+  latestAudienceUpdateRequiresFreshResponse: boolean;
+  creatorThreadArchived: boolean;
+  audienceThreadArchived: boolean;
   history: SimulatedLifecycleEntry[];
   nextEntryId: number;
 }
@@ -57,6 +60,33 @@ export type SimulatedScenarioDraft = {
   gameTitle: string;
   scheduledForLabel: string;
   note: string;
+}
+
+export type SimulatedAutoPlayNotifyScope = 'friends-only' | 'network' | null
+
+export type SimulatedAutoPlayPromptStatus =
+  | 'initial'
+  | 'audience'
+  | 'created'
+  | 'created-ended'
+  | 'declined'
+  | 'expired'
+  | 'archived'
+
+export type SimulatedAutoPlayPromptState = {
+  status: SimulatedAutoPlayPromptStatus;
+  durationMinutes: number | null;
+  notifyScope: SimulatedAutoPlayNotifyScope;
+  closedReason: string | null;
+  history: SimulatedLifecycleEntry[];
+  nextEntryId: number;
+}
+
+export type SimulatedAutoPlayPromptDraft = {
+  creatorName: string;
+  gameTitle: string;
+  friendRecipientCount: number;
+  networkRecipientCount: number;
 }
 
 export type SimulatedDmMessage = {
@@ -73,10 +103,55 @@ export const simulatedDmActionIds = {
   audienceMute: 'simulated:audience:mute',
   creatorConfirmCheckIn: 'simulated:creator:confirm-check-in',
   creatorStartNow: 'simulated:creator:start-now',
-  creatorEnd: 'simulated:creator:end'
+  creatorEnd: 'simulated:creator:end',
+  creatorCleanup: 'simulated:creator:cleanup',
+  audienceCleanup: 'simulated:audience:cleanup'
+} as const
+
+const simulatedAutoPlayPromptId = 'simulated-auto-play-prompt'
+
+export const simulatedAutoPlayDmActionIds = {
+  duration60: `auto-play:${simulatedAutoPlayPromptId}:duration:60`,
+  duration120: `auto-play:${simulatedAutoPlayPromptId}:duration:120`,
+  duration240: `auto-play:${simulatedAutoPlayPromptId}:duration:240`,
+  confirmFriendsOnly120: `auto-play:${simulatedAutoPlayPromptId}:confirm:friends-only:120`,
+  confirmNetwork120: `auto-play:${simulatedAutoPlayPromptId}:confirm:network:120`,
+  decline: `auto-play:${simulatedAutoPlayPromptId}:decline`,
+  cleanup: `auto-play:${simulatedAutoPlayPromptId}:cleanup`
 } as const
 
 const simulatedOpenInAppUrl = 'https://gamesup.app/play'
+
+function buildSimulatorOpenInAppButtons(): SimulatorDebugDmPreview['buttonRows'] {
+  return [[
+    {
+      label: 'Open in App',
+      style: 'link',
+      disabled: false,
+      url: simulatedOpenInAppUrl,
+      customId: null
+    }
+  ]]
+}
+
+function buildSimulatorArchiveButtons(customId: string): SimulatorDebugDmPreview['buttonRows'] {
+  return [[
+    {
+      label: 'Archive',
+      style: 'secondary',
+      disabled: false,
+      url: null,
+      customId
+    },
+    {
+      label: 'Open in App',
+      style: 'link',
+      disabled: false,
+      url: simulatedOpenInAppUrl,
+      customId: null
+    }
+  ]]
+}
 
 function buildSimulatorPlainMessage(title: string, bodyLines: string[], trailingSubtext?: string) {
   const blocks = [title, ...bodyLines]
@@ -86,6 +161,85 @@ function buildSimulatorPlainMessage(title: string, bodyLines: string[], trailing
   }
 
   return blocks.join('\n\n')
+}
+
+function buildSimulatorSubtext(text: string) {
+  const trimmed = text.trim()
+
+  if (trimmed.length === 0) {
+    return ''
+  }
+
+  return trimmed.startsWith('-# ') ? trimmed : `-# ${trimmed}`
+}
+
+function buildSimulatorNotice(title: string, sections: Array<string | null>, subtext?: string | null) {
+  return [
+    title.trim(),
+    ...sections,
+    subtext ? buildSimulatorSubtext(subtext) : null
+  ].filter((part): part is string => Boolean(part)).join('\n\n')
+}
+
+function formatSimulatorPromptFieldName(label: string) {
+  switch (label.trim().toLowerCase()) {
+    case 'game':
+      return '🎮 Game'
+    case 'duration':
+      return '⏰ Duration'
+    case 'audience':
+      return '👥 Audience'
+    case 'reach':
+      return '📬 Reach'
+    case 'status':
+      return '📡 Status'
+    case 'next step':
+      return '🧭 Next Step'
+    default:
+      return label.trim()
+  }
+}
+
+function buildSimulatorPromptSectionHeading(label: string) {
+  switch (label.trim().toLowerCase()) {
+    case 'game':
+      return '### 🎮 Game'
+    case 'duration':
+      return '### ⏰ Duration'
+    case 'audience':
+      return '### 👥 Audience'
+    case 'reach':
+      return '### 📬 Reach'
+    case 'status':
+      return '### 📡 Status'
+    case 'next step':
+      return '### 🧭 Next Step'
+    default:
+      return `### ${label.trim()}`
+  }
+}
+
+function buildSimulatorPromptSection(label: string, value: string) {
+  const trimmed = value.trim()
+
+  if (trimmed.length === 0) {
+    return null
+  }
+
+  return `${buildSimulatorPromptSectionHeading(label)}\n${trimmed}`
+}
+
+export function formatSimulatorDurationLabel(durationMinutes: number) {
+  if (durationMinutes % 60 === 0) {
+    const hours = durationMinutes / 60
+    return `${hours} hour${hours === 1 ? '' : 's'}`
+  }
+
+  return `${durationMinutes} minutes`
+}
+
+export function buildSimulatorAutoPlayClosedReason(gameTitle: string) {
+  return `This prompt was closed because we are no longer seeing you in ${gameTitle}.`
 }
 
 function buildSimulatorTimingLabel(draft: SimulatedScenarioDraft, state: SimulatedLifecycleState) {
@@ -179,8 +333,12 @@ function buildSimulatorAudienceActionButtons(
 function buildSimulatorCreatorSummaryButtons(
   state: SimulatedLifecycleState
 ): SimulatorDebugDmPreview['buttonRows'] {
-  if (state.stage === 'ended') {
+  if (state.creatorThreadArchived) {
     return []
+  }
+
+  if (state.stage === 'ended') {
+    return buildSimulatorArchiveButtons(simulatedDmActionIds.creatorCleanup)
   }
 
   const primaryRow: SimulatorDebugDmPreviewButton[] = []
@@ -253,6 +411,9 @@ export function buildInitialSimulatorHistory(options: {
     creatorCheckInState: null,
     hasGoTimeBroadcast: false,
     latestAudienceUpdateFields: null,
+    latestAudienceUpdateRequiresFreshResponse: false,
+    creatorThreadArchived: false,
+    audienceThreadArchived: false,
     history: [
       {
         id: 1,
@@ -413,7 +574,11 @@ export function buildSimulatorAudienceInvitePreview(
         thumbnailUrl: null
       }
     ],
-    buttonRows: isEnded ? [] : buildSimulatorAudienceActionButtons(draft, state)
+    buttonRows: state.audienceThreadArchived
+      ? []
+      : isEnded
+        ? buildSimulatorArchiveButtons(simulatedDmActionIds.audienceCleanup)
+        : buildSimulatorAudienceActionButtons(draft, state)
   }
 }
 
@@ -432,12 +597,24 @@ function formatSimulatedUpdatedFieldChange(field: string) {
   }
 }
 
-function buildSimulatorUpdatedReplyPreview(updatedFields: string[]): SimulatorDebugDmPreview {
+export function buildSimulatorUpdatedReplyPreview(
+  updatedFields: string[],
+  options: {
+    requiresFreshResponse?: boolean;
+  } = {}
+): SimulatorDebugDmPreview {
   return {
     content: buildSimulatorPlainMessage(
       'ℹ️ Call Updated',
-      updatedFields.map(formatSimulatedUpdatedFieldChange),
-      'The original invite above now shows the latest details.'
+      [
+        ...updatedFields.map(formatSimulatedUpdatedFieldChange),
+        ...(options.requiresFreshResponse
+          ? ['Your previous response was cleared because the timing or games changed.']
+          : [])
+      ],
+      options.requiresFreshResponse
+        ? 'Use the buttons on the original invite above to respond again.'
+        : 'The original invite above now shows the latest details.'
     ),
     embeds: [],
     buttonRows: []
@@ -460,12 +637,8 @@ export function buildSimulatorAudienceFollowUpPreview(
         'Open the app if you still want to coordinate or post your own call to play.'
       ),
       embeds: [],
-      buttonRows: []
+      buttonRows: buildSimulatorOpenInAppButtons()
     }
-  }
-
-  if (state.latestAudienceUpdateFields && state.latestAudienceUpdateFields.length > 0) {
-    return buildSimulatorUpdatedReplyPreview(state.latestAudienceUpdateFields)
   }
 
   if ((state.stage === 'scheduled' || state.stage === 'check-in') && state.audienceResponse == null) {
@@ -593,7 +766,7 @@ export function buildSimulatorCreatorCheckInPreview(
         ]
       ),
       embeds: [],
-      buttonRows: []
+      buttonRows: buildSimulatorOpenInAppButtons()
     }
   }
 
@@ -649,8 +822,10 @@ export function buildSimulatedDmMessages(
   creatorMessages: SimulatedDmMessage[];
   audienceMessages: SimulatedDmMessage[];
 } {
-  const creatorMessages: SimulatedDmMessage[] = [
-    {
+  const creatorMessages: SimulatedDmMessage[] = []
+
+  if (!state.creatorThreadArchived) {
+    creatorMessages.push({
       id: 'creator-summary',
       label: 'Creator retained summary',
       preview: buildSimulatorCreatorSummaryPreview(draft, state),
@@ -659,12 +834,12 @@ export function buildSimulatedDmMessages(
         'The separate creator reply below should only carry audience-change notifications, not duplicate this summary.'
       ],
       isInteractive: true
-    }
-  ]
+    })
+  }
 
   const creatorCheckInPreview = buildSimulatorCreatorCheckInPreview(draft, state)
 
-  if (creatorCheckInPreview) {
+  if (creatorCheckInPreview && !state.creatorThreadArchived) {
     creatorMessages.push({
       id: 'creator-check-in',
       label: state.creatorCheckInState === 'pending' ? 'Creator go-time check-in' : 'Creator resolved check-in',
@@ -679,7 +854,7 @@ export function buildSimulatedDmMessages(
 
   const creatorFollowUpPreview = buildSimulatorCreatorFollowUpPreview(draft, state)
 
-  if (creatorFollowUpPreview) {
+  if (creatorFollowUpPreview && !state.creatorThreadArchived) {
     creatorMessages.push({
       id: 'creator-follow-up',
       label: state.stage === 'confirmed' ? 'Creator audience status reply' : 'Creator interest notification',
@@ -692,8 +867,10 @@ export function buildSimulatedDmMessages(
     })
   }
 
-  const audienceMessages: SimulatedDmMessage[] = [
-    {
+  const audienceMessages: SimulatedDmMessage[] = []
+
+  if (!state.audienceThreadArchived) {
+    audienceMessages.push({
       id: 'audience-anchor',
       label: 'Audience invite anchor',
       preview: buildSimulatorAudienceInvitePreview(draft, state),
@@ -702,23 +879,21 @@ export function buildSimulatedDmMessages(
         'Response changes should update this message in place rather than replacing it with acknowledgement-only copy.'
       ],
       isInteractive: true
-    }
-  ]
+    })
+  }
 
   const followUpPreview = buildSimulatorAudienceFollowUpPreview(draft, state)
 
-  if (followUpPreview) {
+  if (followUpPreview && !state.audienceThreadArchived) {
     audienceMessages.push({
       id: 'audience-follow-up',
-      label: state.latestAudienceUpdateFields && state.latestAudienceUpdateFields.length > 0
-        ? 'Audience update reply'
-        : state.stage === 'confirmed'
-          ? 'Audience follow-up reply'
-          : 'Audience acknowledgement reply',
+      label: state.stage === 'confirmed'
+        ? 'Audience follow-up reply'
+        : 'Audience acknowledgement reply',
       preview: followUpPreview,
       explanation: [
-        'This is one retained audience-side reply slot beneath the original invite.',
-        'Meaningful call edits or go-time reminders can replace this slot with a fresh reply, while quieter lifecycle changes can edit it in place. If the call ends before the recipient answers, this becomes the ended notice; otherwise the invite above carries the ended state on its own.'
+        'This is the retained audience-side acknowledgement or go-time reply beneath the original invite.',
+        'Meaningful call edits should add separate “Call Updated” replies without replacing this message. If the call ends before the recipient answers, this becomes the ended notice; otherwise the invite above carries the ended state on its own.'
       ],
       isInteractive: state.stage === 'confirmed' && state.audienceResponse !== 'pass'
     })
@@ -727,5 +902,433 @@ export function buildSimulatedDmMessages(
   return {
     creatorMessages,
     audienceMessages
+  }
+}
+
+function buildSimulatorAutoPlayInitialButtons(): SimulatorDebugDmPreview['buttonRows'] {
+  return [[
+    {
+      label: '1h',
+      style: 'primary',
+      disabled: false,
+      url: null,
+      customId: simulatedAutoPlayDmActionIds.duration60
+    },
+    {
+      label: '2h',
+      style: 'primary',
+      disabled: false,
+      url: null,
+      customId: simulatedAutoPlayDmActionIds.duration120
+    },
+    {
+      label: '4h',
+      style: 'primary',
+      disabled: false,
+      url: null,
+      customId: simulatedAutoPlayDmActionIds.duration240
+    },
+    {
+      label: 'Not now',
+      style: 'secondary',
+      disabled: false,
+      url: null,
+      customId: simulatedAutoPlayDmActionIds.decline
+    },
+    {
+      label: 'Open App',
+      style: 'link',
+      disabled: false,
+      url: simulatedOpenInAppUrl,
+      customId: null
+    }
+  ]]
+}
+
+function buildSimulatorAutoPlayAudienceButtons(
+  draft: SimulatedAutoPlayPromptDraft,
+  durationMinutes: number
+): SimulatorDebugDmPreview['buttonRows'] {
+  return [[
+    {
+      label: `Friends only (${draft.friendRecipientCount})`,
+      style: 'secondary',
+      disabled: draft.friendRecipientCount === 0,
+      url: null,
+      customId: `auto-play:${simulatedAutoPlayPromptId}:confirm:friends-only:${durationMinutes}`
+    },
+    {
+      label: `Your network + friends (${draft.networkRecipientCount})`,
+      style: 'primary',
+      disabled: false,
+      url: null,
+      customId: `auto-play:${simulatedAutoPlayPromptId}:confirm:network:${durationMinutes}`
+    },
+    {
+      label: 'Cancel',
+      style: 'secondary',
+      disabled: false,
+      url: null,
+      customId: simulatedAutoPlayDmActionIds.decline
+    },
+    {
+      label: 'Open App',
+      style: 'link',
+      disabled: false,
+      url: simulatedOpenInAppUrl,
+      customId: null
+    }
+  ]]
+}
+
+function buildSimulatorAutoPlayCleanupButtons(): SimulatorDebugDmPreview['buttonRows'] {
+  return [[
+    {
+      label: 'Archive',
+      style: 'secondary',
+      disabled: false,
+      url: null,
+      customId: simulatedAutoPlayDmActionIds.cleanup
+    },
+    {
+      label: 'Open App',
+      style: 'link',
+      disabled: false,
+      url: simulatedOpenInAppUrl,
+      customId: null
+    }
+  ]]
+}
+
+function buildSimulatorAutoPlaySummaryButtons(
+  status: SimulatedAutoPlayPromptStatus
+): SimulatorDebugDmPreview['buttonRows'] {
+  if (status !== 'created') {
+    return []
+  }
+
+  return [[
+    {
+      label: 'End call to play',
+      style: 'danger',
+      disabled: false,
+      url: null,
+      customId: simulatedDmActionIds.creatorEnd
+    },
+    {
+      label: 'Open in App',
+      style: 'link',
+      disabled: false,
+      url: simulatedOpenInAppUrl,
+      customId: null
+    }
+  ]]
+}
+
+function buildSimulatorAutoPlayInitialPreview(
+  draft: SimulatedAutoPlayPromptDraft
+): SimulatorDebugDmPreview {
+  return {
+    content: '🎮 Do you want to send out a call to play?',
+    embeds: [
+      {
+        title: null,
+        description: null,
+        color: 0x3b82f6,
+        fields: [
+          {
+            name: formatSimulatorPromptFieldName('Game'),
+            value: draft.gameTitle,
+            inline: false
+          },
+          {
+            name: formatSimulatorPromptFieldName('Reach'),
+            value: `${draft.networkRecipientCount} people in your network and friends could receive a call to play for it right now.`,
+            inline: false
+          },
+          {
+            name: formatSimulatorPromptFieldName('Next Step'),
+            value: 'Pick a duration and I will ask who should receive it.',
+            inline: false
+          }
+        ],
+        footerText: 'Open the app if you want the full composer instead.',
+        imageUrl: null,
+        thumbnailUrl: null
+      }
+    ],
+    buttonRows: buildSimulatorAutoPlayInitialButtons()
+  }
+}
+
+function buildSimulatorAutoPlayAudiencePreview(
+  draft: SimulatedAutoPlayPromptDraft,
+  durationMinutes: number,
+  options: {
+    includeCleanup?: boolean;
+  } = {}
+): SimulatorDebugDmPreview {
+  return {
+    content: '👥 Choose an Audience',
+    embeds: [
+      {
+        title: null,
+        description: null,
+        color: 0x3b82f6,
+        fields: [
+          {
+            name: formatSimulatorPromptFieldName('Game'),
+            value: draft.gameTitle,
+            inline: false
+          },
+          {
+            name: formatSimulatorPromptFieldName('Duration'),
+            value: `Next ${formatSimulatorDurationLabel(durationMinutes)}.`,
+            inline: true
+          },
+          {
+            name: formatSimulatorPromptFieldName('Reach'),
+            value: `Friends only: ${draft.friendRecipientCount}\nYour network + friends: ${draft.networkRecipientCount}`,
+            inline: false
+          }
+        ],
+        footerText: 'Choose who should receive this call to play.',
+        imageUrl: null,
+        thumbnailUrl: null
+      }
+    ],
+    buttonRows: options.includeCleanup
+      ? buildSimulatorAutoPlayCleanupButtons()
+      : buildSimulatorAutoPlayAudienceButtons(draft, durationMinutes)
+  }
+}
+
+function buildSimulatorAutoPlayDeclinedPreview(
+  draft: SimulatedAutoPlayPromptDraft
+): SimulatorDebugDmPreview {
+  return {
+    content: `🛑 ${draft.gameTitle} Prompt Closed`,
+    embeds: [
+      {
+        title: null,
+        description: null,
+        color: 0xef4444,
+        fields: [
+          {
+            name: formatSimulatorPromptFieldName('Game'),
+            value: draft.gameTitle,
+            inline: false
+          },
+          {
+            name: formatSimulatorPromptFieldName('Status'),
+            value: `You chose not to create a call to play for ${draft.gameTitle} right now.`,
+            inline: false
+          }
+        ],
+        footerText: 'Open the app if you want to create or edit a call to play later.',
+        imageUrl: null,
+        thumbnailUrl: null
+      }
+    ],
+    buttonRows: buildSimulatorAutoPlayCleanupButtons()
+  }
+}
+
+function buildSimulatorAutoPlayCreatedSummaryPreview(
+  draft: SimulatedAutoPlayPromptDraft,
+  state: SimulatedAutoPlayPromptState
+): SimulatorDebugDmPreview {
+  const deliveredCount = state.notifyScope === 'friends-only'
+    ? draft.friendRecipientCount
+    : draft.networkRecipientCount
+
+  return {
+    content: state.status === 'created-ended'
+      ? '🎮 Your Call to Play'
+      : '🎮 Your Call to Play',
+    embeds: [
+      {
+        title: null,
+        description: 'Picked up from Discord auto-play.',
+        color: state.status === 'created-ended' ? 0xef4444 : 0x22c55e,
+        fields: [
+          {
+            name: 'Status',
+            value: state.status === 'created-ended' ? 'Ended' : 'Live now',
+            inline: true
+          },
+          {
+            name: 'Games',
+            value: draft.gameTitle,
+            inline: false
+          },
+          {
+            name: 'Audience',
+            value: state.notifyScope === 'friends-only'
+              ? `Friends only\n${draft.friendRecipientCount} recipients`
+              : `Your network + friends\n${draft.networkRecipientCount} recipients`,
+            inline: false
+          },
+          {
+            name: 'Window',
+            value: state.durationMinutes != null
+              ? `Next ${formatSimulatorDurationLabel(state.durationMinutes)}.`
+              : 'Starting now.',
+            inline: true
+          },
+          {
+            name: 'Responses',
+            value: `Interested: 0\nPassed: 0\nWaiting: ${deliveredCount}`,
+            inline: true
+          },
+          {
+            name: 'Note',
+            value: 'Picked up from Discord auto-play.',
+            inline: false
+          }
+        ],
+        footerText: state.status === 'created-ended'
+          ? 'This call to play came from Discord auto-play and has already ended.'
+          : 'This creator summary took over after the Discord auto-play prompt created a call to play.',
+        imageUrl: null,
+        thumbnailUrl: null
+      }
+    ],
+    buttonRows: buildSimulatorAutoPlaySummaryButtons(state.status)
+  }
+}
+
+function buildSimulatorAutoPlayClosedReplyPreview(
+  reason: string
+): SimulatorDebugDmPreview {
+  return {
+    content: buildSimulatorNotice(
+      '🛑 Prompt Closed',
+      [buildSimulatorPromptSection('Status', reason)],
+      'Open the app if you still want to create or edit a call to play.'
+    ),
+    embeds: [],
+    buttonRows: []
+  }
+}
+
+export function buildInitialAutoPlayPromptHistory(options: {
+  now?: Date;
+} = {}): SimulatedAutoPlayPromptState {
+  const now = options.now ?? new Date()
+
+  return {
+    status: 'initial',
+    durationMinutes: null,
+    notifyScope: null,
+    closedReason: null,
+    history: [
+      {
+        id: 1,
+        actor: 'system',
+        summary: 'Recorded a fresh Discord auto-play prompt.',
+        occurredAt: now.toISOString()
+      }
+    ],
+    nextEntryId: 2
+  }
+}
+
+export function buildSimulatedAutoPlayDmMessages(
+  draft: SimulatedAutoPlayPromptDraft,
+  state: SimulatedAutoPlayPromptState
+): {
+  promptMessages: SimulatedDmMessage[];
+  createdCallMessages: SimulatedDmMessage[];
+} {
+  const promptMessages: SimulatedDmMessage[] = []
+  const createdCallMessages: SimulatedDmMessage[] = []
+
+  if (state.status === 'initial') {
+    promptMessages.push({
+      id: 'auto-play-anchor',
+      label: 'Auto-play prompt anchor',
+      preview: buildSimulatorAutoPlayInitialPreview(draft),
+      explanation: [
+        'This is the retained prompt anchor that starts as the duration picker when Discord sees someone launch a game.',
+        'The same message edits in place into the audience picker rather than sending a second standalone prompt.'
+      ],
+      isInteractive: true
+    })
+  }
+
+  if (state.status === 'audience') {
+    promptMessages.push({
+      id: 'auto-play-anchor',
+      label: 'Auto-play audience picker',
+      preview: buildSimulatorAutoPlayAudiencePreview(draft, state.durationMinutes ?? 120),
+      explanation: [
+        'This is still the original prompt anchor, now edited in place to the audience-selection step.',
+        'Choosing an audience creates a normal call-to-play summary and hands future lifecycle ownership over to that summary thread.'
+      ],
+      isInteractive: true
+    })
+  }
+
+  if (state.status === 'declined') {
+    promptMessages.push({
+      id: 'auto-play-anchor',
+      label: 'Declined auto-play prompt',
+      preview: buildSimulatorAutoPlayDeclinedPreview(draft),
+      explanation: [
+        'Declining the prompt rewrites the original anchor in place into a closed state with cleanup controls.',
+        'The closed prompt stays put until the user archives it.'
+      ],
+      isInteractive: true
+    })
+  }
+
+  if (state.status === 'expired') {
+    promptMessages.push({
+      id: 'auto-play-anchor',
+      label: 'Closed auto-play prompt anchor',
+      preview: state.durationMinutes != null
+        ? buildSimulatorAutoPlayAudiencePreview(draft, state.durationMinutes, { includeCleanup: true })
+        : {
+            ...buildSimulatorAutoPlayInitialPreview(draft),
+            buttonRows: buildSimulatorAutoPlayCleanupButtons()
+          },
+      explanation: [
+        'Closed auto-play outcomes freeze the original prompt anchor in place and leave cleanup controls on it.',
+        'The specific close reason moves to a dangling reply beneath that retained anchor.'
+      ],
+      isInteractive: true
+    })
+
+    if (state.closedReason) {
+      promptMessages.push({
+        id: 'auto-play-closed-reply',
+        label: 'Closed auto-play reply',
+        preview: buildSimulatorAutoPlayClosedReplyPreview(state.closedReason),
+        explanation: [
+          'This dangling reply explains why the prompt closed after the original prompt was frozen.',
+          'Archiving the prompt should clear both the retained anchor and this reply together.'
+        ],
+        isInteractive: false
+      })
+    }
+  }
+
+  if (state.status === 'created' || state.status === 'created-ended') {
+    createdCallMessages.push({
+      id: 'auto-play-created-summary',
+      label: state.status === 'created' ? 'Auto-play created call summary' : 'Ended auto-play created call summary',
+      preview: buildSimulatorAutoPlayCreatedSummaryPreview(draft, state),
+      explanation: [
+        'Accepted auto-play prompts hand off into the regular creator-summary thread instead of keeping the original prompt as the cleanup anchor.',
+        'From this point on, the DM behavior should match the creator summary path for a live call to play.'
+      ],
+      isInteractive: state.status === 'created'
+    })
+  }
+
+  return {
+    promptMessages,
+    createdCallMessages
   }
 }

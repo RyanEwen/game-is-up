@@ -317,6 +317,51 @@ function areSameStringSets(left: string[], right: string[]) {
   return true
 }
 
+type RecipientActiveIntentOverlapCandidate = {
+  userId: string;
+  selectionMode: PrismaPlayIntentSelectionMode;
+  windowStartsAt: Date;
+  windowEndsAt: Date;
+  games: Array<{ gameId: string }>;
+}
+
+export function doPlayIntentWindowsOverlap(options: {
+  leftStartsAt: Date;
+  leftEndsAt: Date;
+  rightStartsAt: Date;
+  rightEndsAt: Date;
+}) {
+  return options.leftStartsAt.getTime() < options.rightEndsAt.getTime()
+    && options.rightStartsAt.getTime() < options.leftEndsAt.getTime()
+}
+
+export function excludeRecipientUserIdsWithOverlappingActiveIntents(options: {
+  recipientUserIds: string[];
+  activeRecipientIntents: RecipientActiveIntentOverlapCandidate[];
+  overlappingGameIds: string[];
+  playIntentStartsAt: Date;
+  playIntentEndsAt: Date;
+  creatorUserId: string;
+  selfAudienceMode: 'exclude' | 'append' | 'only';
+}) {
+  const overlappingGameIdSet = new Set(options.overlappingGameIds)
+  const excludedUserIds = new Set(
+    options.activeRecipientIntents
+      .filter((intent) => doPlayIntentWindowsOverlap({
+        leftStartsAt: intent.windowStartsAt,
+        leftEndsAt: intent.windowEndsAt,
+        rightStartsAt: options.playIntentStartsAt,
+        rightEndsAt: options.playIntentEndsAt
+      }))
+      .filter((intent) => intent.selectionMode === PrismaPlayIntentSelectionMode.ENTIRE_LIBRARY
+        || intent.games.some((game) => overlappingGameIdSet.has(game.gameId)))
+      .filter((intent) => !(options.selfAudienceMode !== 'exclude' && intent.userId === options.creatorUserId))
+      .map((intent) => intent.userId)
+  )
+
+  return options.recipientUserIds.filter((recipientUserId) => !excludedUserIds.has(recipientUserId))
+}
+
 function getUpdatedPlayIntentFields(options: {
   previousIntent: {
     selectionMode: PrismaPlayIntentSelectionMode;
@@ -614,7 +659,11 @@ async function getRecipientUserIds(
   explicitFriendUserIds: string[],
   targetUserIds: string[],
   selfAudienceMode: 'exclude' | 'append' | 'only' = 'exclude',
-  targetDiscordServerIds: string[] = []
+  targetDiscordServerIds: string[] = [],
+  timeWindow?: {
+    startsAt: Date;
+    endsAt: Date;
+  }
 ) {
   if (overlappingGameIds.length === 0) {
     return []
@@ -678,18 +727,28 @@ async function getRecipientUserIds(
     return []
   }
 
+  const activeIntentWindowStart = timeWindow?.startsAt ?? new Date()
   const activeRecipientIntents = await prisma.playIntent.findMany({
     where: {
       userId: {
         in: overlappingRecipientUserIds
       },
       expiresAt: {
-        gt: new Date()
-      }
+        gt: activeIntentWindowStart
+      },
+      ...(timeWindow
+        ? {
+            windowStartsAt: {
+              lt: timeWindow.endsAt
+            }
+          }
+        : {})
     },
     select: {
       userId: true,
       selectionMode: true,
+      windowStartsAt: true,
+      windowEndsAt: true,
       games: {
         select: {
           gameId: true
@@ -698,16 +757,28 @@ async function getRecipientUserIds(
     }
   })
 
-  const overlappingGameIdSet = new Set(overlappingGameIds)
-  const excludedUserIds = new Set(
-    activeRecipientIntents
-      .filter((intent) => intent.selectionMode === PrismaPlayIntentSelectionMode.ENTIRE_LIBRARY
-        || intent.games.some((game) => overlappingGameIdSet.has(game.gameId)))
-      .filter((intent) => !(selfAudienceMode !== 'exclude' && intent.userId === userId))
-      .map((intent) => intent.userId)
-  )
+  if (!timeWindow) {
+    const overlappingGameIdSet = new Set(overlappingGameIds)
+    const excludedUserIds = new Set(
+      activeRecipientIntents
+        .filter((intent) => intent.selectionMode === PrismaPlayIntentSelectionMode.ENTIRE_LIBRARY
+          || intent.games.some((game) => overlappingGameIdSet.has(game.gameId)))
+        .filter((intent) => !(selfAudienceMode !== 'exclude' && intent.userId === userId))
+        .map((intent) => intent.userId)
+    )
 
-  return overlappingRecipientUserIds.filter((recipientUserId) => !excludedUserIds.has(recipientUserId))
+    return overlappingRecipientUserIds.filter((recipientUserId) => !excludedUserIds.has(recipientUserId))
+  }
+
+  return excludeRecipientUserIdsWithOverlappingActiveIntents({
+    recipientUserIds: overlappingRecipientUserIds,
+    activeRecipientIntents,
+    overlappingGameIds,
+    playIntentStartsAt: timeWindow.startsAt,
+    playIntentEndsAt: timeWindow.endsAt,
+    creatorUserId: userId,
+    selfAudienceMode
+  })
 }
 
 export async function getPlayIntentRecipientUserIds(
@@ -715,7 +786,11 @@ export async function getPlayIntentRecipientUserIds(
   scope: PlayIntentNotifyScope,
   overlappingGameIds: string[],
   targetUserIds: string[] = [],
-  targetDiscordServerIds: string[] = []
+  targetDiscordServerIds: string[] = [],
+  timeWindow?: {
+    startsAt: Date;
+    endsAt: Date;
+  }
 ) {
   const [user, explicitFriendUserIds] = await Promise.all([
     prisma.user.findUnique({
@@ -743,7 +818,8 @@ export async function getPlayIntentRecipientUserIds(
     explicitFriendUserIds,
     targetUserIds,
     user?.isAdmin ? 'append' : 'exclude',
-    targetDiscordServerIds
+    targetDiscordServerIds,
+    timeWindow
   )
 }
 
@@ -754,6 +830,8 @@ export async function getPlayIntentRecipientUserIdsForDebug(options: {
   targetUserIds?: string[];
   includeSelf?: boolean;
   targetDiscordServerIds?: string[];
+  startsAt?: Date;
+  endsAt?: Date;
 }) {
   const explicitFriendUserIds = await prisma.friend.findMany({
     where: {
@@ -771,7 +849,13 @@ export async function getPlayIntentRecipientUserIdsForDebug(options: {
     explicitFriendUserIds,
     options.targetUserIds ?? [],
     options.includeSelf ? 'append' : 'exclude',
-    options.targetDiscordServerIds ?? []
+    options.targetDiscordServerIds ?? [],
+    options.startsAt && options.endsAt
+      ? {
+          startsAt: options.startsAt,
+          endsAt: options.endsAt
+        }
+      : undefined
   )
 }
 
@@ -1084,7 +1168,11 @@ export async function backfillPlayIntentNotificationsForUserLibraryChange(userId
         ? recipientGameIds
         : intent.games.map((game) => game.gameId),
       intent.targetFriends.map((friend) => friend.friendUserId),
-      intent.targetDiscordServers.map((server) => server.serverId)
+      intent.targetDiscordServers.map((server) => server.serverId),
+      {
+        startsAt: intent.windowStartsAt,
+        endsAt: intent.windowEndsAt
+      }
     )
 
     if (!recipientUserIds.includes(userId)) {
@@ -1591,6 +1679,8 @@ export async function upsertCurrentPlayIntent(
     throw new PlayIntentValidationError('Choose Discord servers that are already selected for your network before posting a specific Discord server call to play.')
   }
 
+  const now = new Date()
+  const { startsAt, durationMinutes, endsAt } = resolvePlayIntentWindow(payload, now)
   const recipientUserIds = await getRecipientUserIds(
     userId,
     payload.notifyScope,
@@ -1598,10 +1688,12 @@ export async function upsertCurrentPlayIntent(
     explicitFriendUserIds,
     targetedFriends.map((friend) => friend.id),
     payload.includeSelf && sender.isAdmin ? 'only' : 'exclude',
-    targetDiscordServers.flatMap((server) => server ? [server.id] : [])
+    targetDiscordServers.flatMap((server) => server ? [server.id] : []),
+    {
+      startsAt,
+      endsAt
+    }
   )
-  const now = new Date()
-  const { startsAt, durationMinutes, endsAt } = resolvePlayIntentWindow(payload, now)
   const editingPlayIntentId = payload.playIntentId ?? null
 
   if (editingPlayIntentId) {
@@ -1803,6 +1895,7 @@ export async function upsertCurrentPlayIntent(
     recipientResponseDiscordDmChannelId: string | null;
     recipientResponseDiscordDmMessageId: string | null;
     sendUpdateReply: boolean;
+    requiresFreshResponse: boolean;
   }> = []
 
   await prisma.$transaction(async (transaction) => {
@@ -1891,26 +1984,29 @@ export async function upsertCurrentPlayIntent(
             throw new PlayIntentValidationError('Unable to refresh the existing invite for this recipient.')
           }
 
+          const shouldResetAudienceResponse = shouldSendUpdateReply && shouldInvalidateAudienceResponse
+          const requiresFreshResponse = shouldResetAudienceResponse && (
+            priorStatus.respondedAt != null
+            || priorStatus.responseChoice === NotificationResponseChoice.JOIN
+            || priorStatus.responseChoice === NotificationResponseChoice.DECLINE
+          )
+
           return transaction.notification.update({
             where: {
               id: priorStatus.notificationId
             },
-            data: (() => {
-              const shouldResetAudienceResponse = shouldSendUpdateReply && shouldInvalidateAudienceResponse
-
-              return {
-                triggeredByUserId: userId,
-                playIntentId: createdIntent.id,
-                gameId: payload.selectionMode === 'subset' ? selectedGameIds[0] : null,
-                type: NotificationType.FRIEND_PLAYING,
-                title: notificationCopy.title,
-                body: notificationCopy.body,
-                respondedAt: shouldResetAudienceResponse ? null : priorStatus.respondedAt,
-                responseChoice: shouldResetAudienceResponse ? null : priorStatus.responseChoice,
-                recipientResponseDiscordDmChannelId: shouldSendUpdateReply ? null : priorStatus.recipientResponseDiscordDmChannelId,
-                recipientResponseDiscordDmMessageId: shouldSendUpdateReply ? null : priorStatus.recipientResponseDiscordDmMessageId
-              }
-            })(),
+            data: {
+              triggeredByUserId: userId,
+              playIntentId: createdIntent.id,
+              gameId: payload.selectionMode === 'subset' ? selectedGameIds[0] : null,
+              type: NotificationType.FRIEND_PLAYING,
+              title: notificationCopy.title,
+              body: notificationCopy.body,
+              respondedAt: shouldResetAudienceResponse ? null : priorStatus.respondedAt,
+              responseChoice: shouldResetAudienceResponse ? null : priorStatus.responseChoice,
+              recipientResponseDiscordDmChannelId: priorStatus.recipientResponseDiscordDmChannelId,
+              recipientResponseDiscordDmMessageId: priorStatus.recipientResponseDiscordDmMessageId
+            },
             select: {
               id: true,
               userId: true,
@@ -1922,13 +2018,17 @@ export async function upsertCurrentPlayIntent(
               recipientResponseDiscordDmChannelId: true,
               recipientResponseDiscordDmMessageId: true
             }
-          })
+          }).then((notification) => ({
+            ...notification,
+            requiresFreshResponse
+          }))
         })
       )
 
       outboundNotifications.push(...reusedNotifications.map((notification) => ({
         ...notification,
-        sendUpdateReply: renotifiedRecipientUserIds.has(notification.userId)
+        sendUpdateReply: renotifiedRecipientUserIds.has(notification.userId),
+        requiresFreshResponse: notification.requiresFreshResponse
       })))
     }
 
@@ -1973,7 +2073,8 @@ export async function upsertCurrentPlayIntent(
 
       outboundNotifications.push(...createdNotifications.map((notification) => ({
         ...notification,
-        sendUpdateReply: false
+        sendUpdateReply: false,
+        requiresFreshResponse: false
       })))
     }
 
@@ -2101,13 +2202,16 @@ export async function upsertCurrentPlayIntent(
           discordDmMessageId: notification.discordDmMessageId,
           recipientResponseDiscordDmChannelId: notification.recipientResponseDiscordDmChannelId,
           recipientResponseDiscordDmMessageId: notification.recipientResponseDiscordDmMessageId,
-          sendUpdateReply: notification.sendUpdateReply
+          sendUpdateReply: notification.sendUpdateReply,
+          requiresFreshResponse: notification.requiresFreshResponse
       }
     })
 
     for (const target of directMessageTargets) {
       const updateReplyContent = target.sendUpdateReply
-        ? buildPlayIntentUpdatedReplyMessage(updatedFields)
+        ? buildPlayIntentUpdatedReplyMessage(updatedFields, {
+            requiresFreshResponse: target.requiresFreshResponse
+          })
         : null
 
       if (target.discordDmChannelId && target.discordDmMessageId) {
@@ -2123,7 +2227,7 @@ export async function upsertCurrentPlayIntent(
           deliveredNotificationCount += 1
 
           if (updateReplyContent && target.discordUserId) {
-            const replyResult = (await sendDiscordDirectMessages([{
+            await sendDiscordDirectMessages([{
               discordUserId: target.discordUserId,
               content: updateReplyContent,
               components: [],
@@ -2131,19 +2235,7 @@ export async function upsertCurrentPlayIntent(
                 channelId: target.discordDmChannelId,
                 messageId: target.discordDmMessageId
               }
-            }]))[0]
-
-            if (replyResult?.status === 'sent' && !replyResult.emulated) {
-              await prisma.notification.update({
-                where: {
-                  id: target.notificationId
-                },
-                data: {
-                  recipientResponseDiscordDmChannelId: replyResult.channelId,
-                  recipientResponseDiscordDmMessageId: replyResult.messageId
-                }
-              })
-            }
+            }])
           }
 
           continue
@@ -2178,6 +2270,18 @@ export async function upsertCurrentPlayIntent(
             discordDmMessageId: dmResult.messageId
           }
         })
+
+        if (updateReplyContent && target.discordUserId && dmResult.channelId && dmResult.messageId) {
+          await sendDiscordDirectMessages([{
+            discordUserId: target.discordUserId,
+            content: updateReplyContent,
+            components: [],
+            replyTo: {
+              channelId: dmResult.channelId,
+              messageId: dmResult.messageId
+            }
+          }])
+        }
       }
     }
   }

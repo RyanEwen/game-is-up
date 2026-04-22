@@ -11,7 +11,7 @@ import { buildClosedAutoPlayPromptReplyMessage, buildDiscordAutoPlayPromptPrevie
 import { buildDiscordMessageHeading } from './discord-dm-formatting.js'
 import { buildDebugDmPreview } from './discord-dm-preview.js'
 import { areDiscordDirectMessagesEmulated, getDiscordPresenceBotState } from './discord-bot-runtime.js'
-import { buildArchivedAudienceCleanupComponents, buildArchivedPlayIntentEmbeds, buildArchivedPlayIntentReplyMessage, buildArchivedPlayIntentSummary } from './discord-dm-cleanup.js'
+import { buildArchivedAudienceCleanupComponents, buildArchivedPlayIntentEmbeds, buildArchivedPlayIntentReplyComponents, buildArchivedPlayIntentReplyMessage, buildArchivedPlayIntentSummary } from './discord-dm-cleanup.js'
 import { getPlayIntentDiscordSpaceRecipientContexts } from './play-intent-discord-spaces.js'
 import { getPlayIntentRecipientUserIdsForDebug } from './play-intents.js'
 import { buildPlayIntentNotificationCopy } from './play-intents.js'
@@ -371,9 +371,11 @@ function buildDebugDmTemplateDefinitions(now: Date): DebugDmTemplateGroupDefinit
         {
           id: 'recipient-scheduled-update',
           label: 'Invite update reply',
-          description: 'Pattern: dangling reply. Sent beneath the original invite after that invite is updated in place for changes like timing, games, audience, note, or voice channel details.',
+          description: 'Pattern: dangling reply. Sent beneath the original invite after that invite is updated in place. When timing or games changed after a prior response, this variant tells the recipient that their old answer was cleared and they need to respond again on the invite above.',
           previewPayload: {
-            content: buildPlayIntentUpdatedReplyMessage(['time', 'game selection', 'audience', 'note']),
+            content: buildPlayIntentUpdatedReplyMessage(['time', 'game selection', 'audience', 'note'], {
+              requiresFreshResponse: true
+            }),
             components: []
           }
         },
@@ -490,7 +492,7 @@ function buildDebugDmTemplateDefinitions(now: Date): DebugDmTemplateGroupDefinit
           description: 'Pattern: dangling reply. Sent beneath the updated ended invite after the original audience invite is archived into its final state.',
           previewPayload: {
             content: buildArchivedPlayIntentReplyMessage(),
-            components: []
+            components: buildArchivedPlayIntentReplyComponents()
           }
         },
         {
@@ -1990,7 +1992,9 @@ export async function buildDebugAdminSnapshot() {
       overlappingGameIds,
       targetUserIds: intent.targetFriends.map((entry) => entry.friendUser.id),
       includeSelf,
-      targetDiscordServerIds: intent.targetDiscordServers.map((entry) => entry.server.id)
+      targetDiscordServerIds: intent.targetDiscordServers.map((entry) => entry.server.id),
+      startsAt: intent.windowStartsAt,
+      endsAt: intent.windowEndsAt
     })
     const intentDiscordSpaceRecipientContexts = intent.discordSpace
       ? await getPlayIntentDiscordSpaceRecipientContexts(intent.id, expectedAudienceUserIds)
