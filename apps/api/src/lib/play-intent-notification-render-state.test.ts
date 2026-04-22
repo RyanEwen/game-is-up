@@ -22,7 +22,8 @@ test('audience invite pass resolves to the declined render branch', () => {
   const state = resolveNotificationDirectMessageRenderState({
     notificationType: NotificationType.FRIEND_PLAYING,
     responseChoice: NotificationResponseChoice.DECLINE,
-    playIntentIsActive: true
+    playIntentIsActive: true,
+    renderSurface: 'response'
   })
 
   assert.deepEqual(state, {
@@ -54,5 +55,33 @@ test('inactive audience invite resolves to the expired render branch', () => {
   assert.deepEqual(state, {
     kind: 'audience-play-intent',
     variant: 'expired'
+  })
+})
+
+test('audience notification surface stays on the prompt branch after interest while active', () => {
+  const state = resolveNotificationDirectMessageRenderState({
+    notificationType: NotificationType.FRIEND_PLAYING,
+    responseChoice: NotificationResponseChoice.JOIN,
+    playIntentIsActive: true,
+    renderSurface: 'notification'
+  })
+
+  assert.deepEqual(state, {
+    kind: 'audience-play-intent',
+    variant: 'prompt'
+  })
+})
+
+test('audience response surface still resolves to joined after interest while active', () => {
+  const state = resolveNotificationDirectMessageRenderState({
+    notificationType: NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED,
+    responseChoice: NotificationResponseChoice.JOIN,
+    playIntentIsActive: true,
+    renderSurface: 'response'
+  })
+
+  assert.deepEqual(state, {
+    kind: 'audience-play-intent',
+    variant: 'joined'
   })
 })

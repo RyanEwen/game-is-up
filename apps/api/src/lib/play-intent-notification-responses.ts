@@ -1082,6 +1082,7 @@ export function buildNotificationDirectMessagePreview(options: {
   passAcknowledgementMode?: PassAcknowledgementMode;
   intentDetails?: RecipientPlayIntentDetails;
   summaryStatus?: AudiencePlayIntentSummaryStatus;
+  renderSurface?: 'notification' | 'response';
 }): DirectMessagePreviewPayload {
   const creatorLabel = options.creatorDisplayName
     ? buildDiscordUserLabel(options.creatorDisplayName, options.creatorDiscordUserId)
@@ -1092,7 +1093,8 @@ export function buildNotificationDirectMessagePreview(options: {
   const renderState = resolveNotificationDirectMessageRenderState({
     notificationType: options.notificationType,
     responseChoice: options.responseChoice,
-    playIntentIsActive: options.playIntentIsActive
+    playIntentIsActive: options.playIntentIsActive,
+    renderSurface: options.renderSurface
   })
 
   const previewBody = options.actorDisplayName
@@ -2132,7 +2134,8 @@ export async function refreshTrackedPlayIntentNotificationDirectMessages(options
             }
           : undefined,
         actorDisplayName: actor?.displayName ?? null,
-        actorDiscordUserId: actor?.identities[0]?.providerUserId ?? null
+        actorDiscordUserId: actor?.identities[0]?.providerUserId ?? null,
+        renderSurface: 'response'
       })
 
       const followUpResult = await editDiscordDirectMessage({

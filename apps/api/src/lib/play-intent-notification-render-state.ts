@@ -9,6 +9,7 @@ export function resolveNotificationDirectMessageRenderState(options: {
   notificationType: NotificationType;
   responseChoice?: NotificationResponseChoice | null;
   playIntentIsActive?: boolean;
+  renderSurface?: 'notification' | 'response';
 }): NotificationDirectMessageRenderState {
   if (options.notificationType === NotificationType.SCHEDULED_PLAY_INTENT_CHECK_IN) {
     if (options.responseChoice === NotificationResponseChoice.CANCELED) {
@@ -31,6 +32,14 @@ export function resolveNotificationDirectMessageRenderState(options: {
     || options.notificationType === NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED
     || options.notificationType === NotificationType.SCHEDULED_PLAY_INTENT_REMINDER
   ) {
+    if (options.renderSurface !== 'response') {
+      if (options.responseChoice === NotificationResponseChoice.EXPIRED || options.playIntentIsActive === false) {
+        return { kind: 'audience-play-intent', variant: 'expired' }
+      }
+
+      return { kind: 'audience-play-intent', variant: 'prompt' }
+    }
+
     if (options.responseChoice === NotificationResponseChoice.JOIN) {
       return { kind: 'audience-play-intent', variant: 'joined' }
     }
