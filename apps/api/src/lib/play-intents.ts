@@ -1296,6 +1296,7 @@ export async function getCurrentPlayIntent(userId: string) {
   const expiredIntentIds = (await prisma.playIntent.findMany({
     where: {
       userId,
+      deletedAt: null,
       expiresAt: {
         lte: now
       },
@@ -1318,6 +1319,7 @@ export async function getCurrentPlayIntent(userId: string) {
   const activeIntent = await prisma.playIntent.findFirst({
     where: {
       userId,
+      deletedAt: null,
       expiresAt: {
         gt: now
       }
@@ -1347,6 +1349,7 @@ export async function clearCurrentPlayIntent(userId: string, playIntentId?: stri
   const activeIntentIds = (await prisma.playIntent.findMany({
     where: {
       userId,
+      deletedAt: null,
       ...(playIntentId
         ? {
             id: playIntentId
@@ -1364,6 +1367,7 @@ export async function clearCurrentPlayIntent(userId: string, playIntentId?: stri
   await prisma.playIntent.updateMany({
     where: {
       userId,
+      deletedAt: null,
       ...(playIntentId
         ? {
             id: playIntentId
@@ -1396,11 +1400,12 @@ export async function deletePlayIntentWithAdminCleanup(playIntentId: string) {
     },
     select: {
       id: true,
-      expiresAt: true
+      expiresAt: true,
+      deletedAt: true
     }
   })
 
-  if (!playIntent) {
+  if (!playIntent || playIntent.deletedAt) {
     throw new PlayIntentValidationError('Call to play not found.')
   }
 
@@ -1413,7 +1418,17 @@ export async function deletePlayIntentWithAdminCleanup(playIntentId: string) {
       },
       data: {
         expiresAt: now,
-        windowEndsAt: now
+        windowEndsAt: now,
+        deletedAt: now
+      }
+    })
+  } else {
+    await prisma.playIntent.update({
+      where: {
+        id: playIntentId
+      },
+      data: {
+        deletedAt: now
       }
     })
   }

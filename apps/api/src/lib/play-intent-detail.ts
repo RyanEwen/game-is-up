@@ -487,7 +487,7 @@ export async function buildPlayIntentDetail(viewerId: string, playIntentId: stri
     })
   ])
 
-  if (!intent) {
+  if (!intent || intent.deletedAt) {
     return null
   }
 

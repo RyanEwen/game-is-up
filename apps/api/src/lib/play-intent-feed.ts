@@ -221,6 +221,7 @@ export async function buildPlayIntentFeed(viewerId?: string | null): Promise<Pla
 
   const intents = await prisma.playIntent.findMany({
     where: {
+      deletedAt: null,
       expiresAt: {
         gt: recentEndedCutoff
       },

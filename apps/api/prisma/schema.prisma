@@ -333,6 +333,7 @@ model PlayIntent {
   scope          PlayIntentScope         @default(MUTUAL_FRIENDS)
   createdAt      DateTime                @default(now())
   expiresAt      DateTime
+  deletedAt      DateTime?
   user           User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
   targetDiscordServers PlayIntentTargetDiscordServer[]
   games          PlayIntentGame[]
@@ -344,6 +345,7 @@ model PlayIntent {
 
   @@index([userId, expiresAt])
   @@index([selectionMode, expiresAt])
+  @@index([deletedAt])
 }
 
 model PlayIntentDiscordSpace {
