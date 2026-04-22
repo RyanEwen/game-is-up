@@ -10,6 +10,11 @@ import {
   sendDiscordDirectMessages,
   supportsDiscordInteractiveMessages
 } from './discord-bot-runtime.js'
+import {
+  buildArchivedNotificationReferenceUpdates,
+  type ArchivedNotificationCandidate as ArchivedNotificationReferenceCandidate,
+  type NotificationDmReferenceUpdate
+} from './discord-dm-cleanup-reference-updates.js'
 import { appendOpenInAppButton, buildDiscordMessageHeading, buildDiscordPlainMessage } from './discord-dm-formatting.js'
 import { env } from './env.js'
 import { callToPlayEndedSystemNotification } from './play-intent-system-notifications.js'
@@ -38,40 +43,7 @@ type ArchivedCreatorCandidate = ArchivedDirectMessageCandidate & {
   notificationId: string | null;
 }
 
-type ArchivedNotificationCandidate = ArchivedDirectMessageCandidate & {
-  notificationId: string;
-  reference: 'notification' | 'response';
-}
-
-type NotificationDmReferenceUpdate = {
-  discordDmChannelId: string | null;
-  discordDmMessageId: string | null;
-  recipientResponseDiscordDmChannelId: string | null;
-  recipientResponseDiscordDmMessageId: string | null;
-}
-
-function createNotificationDmReferenceUpdate(): NotificationDmReferenceUpdate {
-  return {
-    discordDmChannelId: null,
-    discordDmMessageId: null,
-    recipientResponseDiscordDmChannelId: null,
-    recipientResponseDiscordDmMessageId: null
-  }
-}
-
-function preserveArchivedNotificationCandidateReference(
-  update: NotificationDmReferenceUpdate,
-  candidate: ArchivedNotificationCandidate
-) {
-  if (candidate.reference === 'notification') {
-    update.discordDmChannelId = candidate.channelId
-    update.discordDmMessageId = candidate.messageId
-    return
-  }
-
-  update.recipientResponseDiscordDmChannelId = candidate.channelId
-  update.recipientResponseDiscordDmMessageId = candidate.messageId
-}
+type ArchivedNotificationCandidate = ArchivedDirectMessageCandidate & ArchivedNotificationReferenceCandidate
 
 type TrackedDirectMessageEntry = {
   channelId: string;
@@ -1413,18 +1385,6 @@ export async function archivePlayIntentDirectMessages(options: {
   const playIntentIdsToClear = new Set<string>()
   const notificationReferenceUpdates = new Map<string, NotificationDmReferenceUpdate>()
 
-  const getNotificationReferenceUpdate = (notificationId: string) => {
-    const existingUpdate = notificationReferenceUpdates.get(notificationId)
-
-    if (existingUpdate) {
-      return existingUpdate
-    }
-
-    const nextUpdate = createNotificationDmReferenceUpdate()
-    notificationReferenceUpdates.set(notificationId, nextUpdate)
-    return nextUpdate
-  }
-
   for (const playIntent of playIntents) {
     const mutedRecipientUserIds = new Set((await prisma.playIntentMute.findMany({
       where: {
@@ -1547,6 +1507,7 @@ export async function archivePlayIntentDirectMessages(options: {
           return candidateEntries
         })
         .sort((left, right) => left.priority - right.priority)
+      const candidateNotificationIds = new Map(candidates.map((candidate) => [candidate.messageId, candidate.notificationId]))
 
       // Quiet expiry/archive edits the existing tracked DM in place.
       // Manual end paths reply off the retained invite for recipients who explicitly joined.
@@ -1561,7 +1522,7 @@ export async function archivePlayIntentDirectMessages(options: {
           candidates,
           buildDiscordMessageHeading('🛑 Call to Play Ended'),
           archiveEmbeds,
-          (candidate) => buildArchivedAudienceCleanupComponents((candidate as ArchivedNotificationCandidate).notificationId)
+          (candidate) => buildArchivedAudienceCleanupComponents(candidateNotificationIds.get(candidate.messageId) ?? '')
         )
 
         if (!keptMessageId) {
@@ -1569,17 +1530,6 @@ export async function archivePlayIntentDirectMessages(options: {
         }
 
         const keptCandidate = candidates.find((candidate) => candidate.messageId === keptMessageId) ?? null
-
-        for (const candidate of candidates) {
-          getNotificationReferenceUpdate(candidate.notificationId)
-        }
-
-        if (keptCandidate) {
-          preserveArchivedNotificationCandidateReference(
-            getNotificationReferenceUpdate(keptCandidate.notificationId),
-            keptCandidate
-          )
-        }
 
         if (recipientDiscordUserId && keptCandidate?.notificationId) {
           const dmResult = (await sendDiscordDirectMessages([
@@ -1605,9 +1555,28 @@ export async function archivePlayIntentDirectMessages(options: {
               }
             })
 
-            const keptUpdate = getNotificationReferenceUpdate(keptCandidate.notificationId)
-            keptUpdate.recipientResponseDiscordDmChannelId = dmResult.channelId
-            keptUpdate.recipientResponseDiscordDmMessageId = dmResult.messageId
+            const updates = buildArchivedNotificationReferenceUpdates({
+              candidates,
+              keptMessageId,
+              replacementResponse: {
+                notificationId: keptCandidate.notificationId,
+                channelId: dmResult.channelId,
+                messageId: dmResult.messageId
+              }
+            })
+
+            for (const [notificationId, update] of updates.entries()) {
+              notificationReferenceUpdates.set(notificationId, update)
+            }
+          }
+        } else {
+          const updates = buildArchivedNotificationReferenceUpdates({
+            candidates,
+            keptMessageId
+          })
+
+          for (const [notificationId, update] of updates.entries()) {
+            notificationReferenceUpdates.set(notificationId, update)
           }
         }
 
@@ -1632,28 +1601,29 @@ export async function archivePlayIntentDirectMessages(options: {
         candidates,
         buildDiscordMessageHeading('🛑 Call to Play Ended'),
         archiveEmbeds,
-        (candidate) => buildArchivedAudienceCleanupComponents((candidate as ArchivedNotificationCandidate).notificationId)
+        (candidate) => buildArchivedAudienceCleanupComponents(candidateNotificationIds.get(candidate.messageId) ?? '')
       )
 
       if (!keptMessageId) {
         continue
       }
 
-      for (const candidate of candidates) {
-        getNotificationReferenceUpdate(candidate.notificationId)
+      const updates = buildArchivedNotificationReferenceUpdates({
+        candidates,
+        keptMessageId
+      })
+
+      for (const [notificationId, update] of updates.entries()) {
+        notificationReferenceUpdates.set(notificationId, update)
       }
 
       for (const candidate of candidates) {
         if (candidate.messageId === keptMessageId) {
-          preserveArchivedNotificationCandidateReference(
-            getNotificationReferenceUpdate(candidate.notificationId),
-            candidate
-          )
           continue
         }
 
         if (await tryDeleteDirectMessage(candidate.channelId, candidate.messageId)) {
-          getNotificationReferenceUpdate(candidate.notificationId)
+          notificationIdsToClear.add(candidate.notificationId)
         }
       }
     }
