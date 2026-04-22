@@ -141,6 +141,7 @@ function DiscoveryViewContent({
       <EmptyStateCard
         title="Sign in to discover your network"
         body="Discovery becomes personalized after Discord sign-in. Once you are signed in, you can compare your library with friends and other people in your network."
+        showSignInCard
       />
     )
   }

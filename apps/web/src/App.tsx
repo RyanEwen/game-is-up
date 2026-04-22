@@ -95,7 +95,9 @@ function DashboardAppShell() {
   const navigate = useNavigate()
   const { layoutProps, gameDetailsViewProps } = useDashboardContext()
   const requestedTab = getDashboardTabFromPathname(location.pathname)
-  const activeTab = requestedTab === 'debug' && !layoutProps.showDebugView ? 'overview' : (requestedTab ?? 'overview')
+  const isDebugAccessKnown = layoutProps.isSignedIn || layoutProps.showDebugView
+  const shouldRedirectDebugRoute = requestedTab === 'debug' && isDebugAccessKnown && !layoutProps.showDebugView
+  const activeTab = shouldRedirectDebugRoute ? 'overview' : (requestedTab ?? 'overview')
   const tabsAnchorRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
@@ -149,7 +151,7 @@ function DashboardAppShell() {
           />
           <Route
             path={dashboardTabPaths.debug}
-            element={layoutProps.showDebugView ? <DebugView /> : <Navigate to={dashboardTabPaths.overview} replace />}
+            element={shouldRedirectDebugRoute ? <Navigate to={dashboardTabPaths.overview} replace /> : <DebugView />}
           />
           <Route path="*" element={<Navigate to={dashboardTabPaths.overview} replace />} />
         </Routes>

@@ -132,13 +132,13 @@ function AccountCard({
       ) : (
         <Stack spacing={1.5}>
           <Typography level="body-md">
-            Sign in with Discord to form your network from shared servers and keep it current.
+            Sign in with Discord to get started.
           </Typography>
           <Button
             color="primary"
             disabled={!discordEnabled}
             onClick={() => void onDiscordLogin()}
-            sx={{ alignSelf: { xs: 'stretch', sm: 'flex-start' } }}
+            sx={{ alignSelf: 'stretch' }}
           >
             Sign in with Discord
           </Button>

@@ -1078,6 +1078,7 @@ function LibraryViewContent({
       <EmptyStateCard
         title="Sign in to build your library"
         body="Library management becomes available after Discord sign-in. Once you are signed in, this tab is where you add games manually, import from Steam, and manage schedule defaults."
+        showSignInCard
       />
     )
   }

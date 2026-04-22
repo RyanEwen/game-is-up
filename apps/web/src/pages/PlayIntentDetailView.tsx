@@ -6,7 +6,7 @@ import WestRoundedIcon from '@mui/icons-material/WestRounded'
 import { Avatar, Box, Button, ButtonGroup, Card, Chip, Stack, Typography } from '@mui/joy'
 import { dashboardInvalidationEventSchema, playIntentDetailResponseSchema, type PlayIntentDetail } from '@game-is-up/shared'
 import { useNavigate, useParams } from 'react-router-dom'
-import { EmptyStateCard } from '../components/dashboard/EmptyStateCard'
+import { DiscordSignInCard, EmptyStateCard } from '../components/dashboard/EmptyStateCard'
 import { PlayIntentResponseUserList } from '../components/dashboard/InterestedPlayerList'
 import { CompactPersonGameCard } from '../components/dashboard/PersonCard'
 import { PlayIntentGameList } from '../components/dashboard/PlayIntentCard'
@@ -339,22 +339,20 @@ export function PlayIntentDetailView() {
 
   if (requiresAuth) {
     return (
-      <Card variant="soft" sx={{ p: 3 }}>
-        <Stack spacing={1.5}>
-          <Typography level="title-lg">Sign in to open this call to play</Typography>
-          <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
-            This dedicated view uses your Game&apos;s Up account to confirm which people in your network the call reaches and which games actually overlap.
-          </Typography>
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
-            <Button color="primary" onClick={() => void overviewViewProps.onDiscordLogin()}>
-              Sign in with Discord
-            </Button>
+      <Stack spacing={1.5}>
+        <Card variant="soft" sx={{ p: 3 }}>
+          <Stack spacing={1.5}>
+            <Typography level="title-lg">Sign in to open this call to play</Typography>
+            <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
+              This dedicated view uses your Game&apos;s Up account to confirm which people in your network the call reaches and which games actually overlap.
+            </Typography>
             <Button variant="outlined" color="neutral" onClick={() => navigate('/play')} startDecorator={<WestRoundedIcon fontSize="small" />}>
               Back to play feed
             </Button>
           </Stack>
-        </Stack>
-      </Card>
+        </Card>
+        <DiscordSignInCard onClick={() => void overviewViewProps.onDiscordLogin()} />
+      </Stack>
     )
   }
 

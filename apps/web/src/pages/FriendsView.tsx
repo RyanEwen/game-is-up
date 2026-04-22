@@ -91,6 +91,7 @@ function FriendsViewContent({
       <EmptyStateCard
         title="Sign in to manage your friends"
         body="Friend management becomes available after Discord sign-in. Once you are signed in, you can add people from your network, compare libraries, and keep track of what your friends are playing."
+        showSignInCard
       />
     )
   }

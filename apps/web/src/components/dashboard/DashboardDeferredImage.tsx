@@ -5,12 +5,16 @@ export function DashboardDeferredImage({
   src,
   alt,
   rootMargin = '400px 0px',
-  eager = false
+  eager = false,
+  objectFit = 'cover',
+  objectPosition = 'center'
 }: {
   src: string;
   alt: string;
   rootMargin?: string;
   eager?: boolean;
+  objectFit?: 'cover' | 'contain';
+  objectPosition?: string;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const [shouldLoad, setShouldLoad] = useState(eager)
@@ -75,7 +79,8 @@ export function DashboardDeferredImage({
             display: 'block',
             width: '100%',
             height: '100%',
-            objectFit: 'cover',
+            objectFit,
+            objectPosition,
             opacity: loaded ? 1 : 0,
             transition: 'opacity 180ms ease-out'
           }}

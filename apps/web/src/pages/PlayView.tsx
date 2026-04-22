@@ -290,6 +290,7 @@ function PlayViewContent({
       <EmptyStateCard
         title="Sign in to plan calls to play"
         body="Play becomes personalized after Discord sign-in. Once you are signed in, you can create your own calls to play, see which visible calls apply to you by default, and respond to other players."
+        showSignInCard
       />
     )
   }

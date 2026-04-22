@@ -1140,6 +1140,7 @@ export function useDashboardApp() {
   return {
     layoutProps: {
       toastNotices,
+      isSignedIn,
       showDebugView,
       onboarding: inviteAttributionOnboarding || showSignedInOnboarding ? (
         <Stack spacing={2}>

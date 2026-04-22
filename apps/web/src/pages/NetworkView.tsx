@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { Button, Card, Stack, Typography } from '@mui/joy'
+import { Card, Stack, Typography } from '@mui/joy'
 import { DashboardApiIssueCard } from '../components/dashboard/DashboardApiIssueCard'
 import { DashboardModal } from '../components/dashboard/DashboardModal'
+import { DiscordSignInCard } from '../components/dashboard/EmptyStateCard'
 import { useDashboardContext } from '../contexts/useDashboardContext'
 import { DiscoveryServersSection, InviteUsersCard } from './OverviewView'
 
@@ -58,22 +59,17 @@ export function NetworkView() {
             onOpenInviteServer={handleOpenInviteServer}
           />
         ) : (
-          <Card variant="soft" sx={{ p: 3 }}>
-            <Stack spacing={1.5}>
-              <Typography level="title-lg">Sign in to manage your network</Typography>
-              <Typography level="body-md" sx={{ color: 'neutral.300' }}>
-                Network management becomes available after Discord sign-in. Once you are signed in, you can select Discord servers, browse members, and invite people into Game&apos;s Up.
-              </Typography>
-              <Button
-                color="primary"
-                disabled={!discordEnabled}
-                onClick={() => void onDiscordLogin()}
-                sx={{ alignSelf: { xs: 'stretch', sm: 'flex-start' } }}
-              >
-                Sign in with Discord
-              </Button>
-            </Stack>
-          </Card>
+          <Stack spacing={1.5}>
+            <Card variant="soft" sx={{ p: 3 }}>
+              <Stack spacing={1.5}>
+                <Typography level="title-lg">Sign in to manage your network</Typography>
+                <Typography level="body-md" sx={{ color: 'neutral.300' }}>
+                  Network management becomes available after Discord sign-in. Once you are signed in, you can select Discord servers, browse members, and invite people into Game&apos;s Up.
+                </Typography>
+              </Stack>
+            </Card>
+            <DiscordSignInCard disabled={!discordEnabled} onClick={() => void onDiscordLogin()} />
+          </Stack>
         )}
       </Stack>
 
