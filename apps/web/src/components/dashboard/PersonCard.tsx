@@ -179,6 +179,7 @@ export function PersonCard({
   canAddToLibrary,
   libraryGameIds,
   addingLibraryGameId,
+  hideChildCards = false,
   isPending,
   onToggleFriend,
   onAddToLibrary,
@@ -194,6 +195,7 @@ export function PersonCard({
   libraryEntryIdsByGameId: ReadonlyMap<string, string>;
   addingLibraryGameId: string | null;
   removingLibraryEntryId: string | null;
+  hideChildCards?: boolean;
   isPending: boolean;
   onToggleFriend: (target: FriendTarget) => Promise<void>;
   onAddToLibrary: (game: DashboardLibraryQuickAddGame) => Promise<void>;
@@ -317,7 +319,7 @@ export function PersonCard({
         ) : null}
       </Box>
 
-      {person.discordActivity ? (
+      {!hideChildCards && person.discordActivity ? (
         <Sheet
           variant="soft"
           sx={{
@@ -342,57 +344,59 @@ export function PersonCard({
         </Sheet>
       ) : null}
 
-      <Box>
-        {person.games.length > 0 ? (
-          <Box sx={memberGameGridSx}>
-            {person.games.map((game) => {
-              const isInLibrary = libraryGameIds.has(game.id)
+      {!hideChildCards ? (
+        <Box>
+          {person.games.length > 0 ? (
+            <Box sx={memberGameGridSx}>
+              {person.games.map((game) => {
+                const isInLibrary = libraryGameIds.has(game.id)
 
-              return (
-                <CompactPersonGameCard
-                  key={game.id}
-                  game={{
-                    gameId: game.id,
-                    title: game.title,
-                    coverUrl: game.coverUrl,
-                    platformLabels: game.platformLabels
-                  }}
-                  canAddToLibrary={canAddToLibrary}
-                  isInLibrary={isInLibrary}
-                  isAddingToLibrary={addingLibraryGameId === game.id}
-                  supportingText={formatLibraryIntentLabel(game.intent)}
-                  detailLines={[
-                    game.availability && game.availabilitySource === 'game-specific' ? `Availability: ${game.availability}` : 'No game-specific availability shared.',
-                    `Platforms: ${game.platformLabels.join(', ')}`
-                  ]}
-                  badges={[
-                    { label: formatLibraryIntentLabel(game.intent), color: game.intent === 'playing-now' ? 'success' : 'primary' },
-                    ...game.platformLabels.map((platform) => ({ label: platform, variant: 'outlined' as const }))
-                  ]}
-                  footerBadge={game.availability && game.availabilitySource === 'game-specific'
-                    ? { label: `Plays: ${game.availability}` }
-                    : null}
-                  onAddToLibrary={onAddToLibrary}
-                />
-              )
-            })}
-          </Box>
-        ) : (
-          <Sheet
-            variant="soft"
-            sx={{
-              p: 1.5,
-              borderRadius: 'md',
-              ...nestedInsetSurfaceSx
-            }}
-          >
-            <Typography level="title-sm">No games shared yet</Typography>
-            <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
-              Game's Up found this person through your friends list or network, but they have not added any games yet. You can still add them as a friend now.
-            </Typography>
-          </Sheet>
-        )}
-      </Box>
+                return (
+                  <CompactPersonGameCard
+                    key={game.id}
+                    game={{
+                      gameId: game.id,
+                      title: game.title,
+                      coverUrl: game.coverUrl,
+                      platformLabels: game.platformLabels
+                    }}
+                    canAddToLibrary={canAddToLibrary}
+                    isInLibrary={isInLibrary}
+                    isAddingToLibrary={addingLibraryGameId === game.id}
+                    supportingText={formatLibraryIntentLabel(game.intent)}
+                    detailLines={[
+                      game.availability && game.availabilitySource === 'game-specific' ? `Availability: ${game.availability}` : 'No game-specific availability shared.',
+                      `Platforms: ${game.platformLabels.join(', ')}`
+                    ]}
+                    badges={[
+                      { label: formatLibraryIntentLabel(game.intent), color: game.intent === 'playing-now' ? 'success' : 'primary' },
+                      ...game.platformLabels.map((platform) => ({ label: platform, variant: 'outlined' as const }))
+                    ]}
+                    footerBadge={game.availability && game.availabilitySource === 'game-specific'
+                      ? { label: `Plays: ${game.availability}` }
+                      : null}
+                    onAddToLibrary={onAddToLibrary}
+                  />
+                )
+              })}
+            </Box>
+          ) : (
+            <Sheet
+              variant="soft"
+              sx={{
+                p: 1.5,
+                borderRadius: 'md',
+                ...nestedInsetSurfaceSx
+              }}
+            >
+              <Typography level="title-sm">No games shared yet</Typography>
+              <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
+                Game's Up found this person through your friends list or network, but they have not added any games yet. You can still add them as a friend now.
+              </Typography>
+            </Sheet>
+          )}
+        </Box>
+      ) : null}
     </Card>
   )
 }

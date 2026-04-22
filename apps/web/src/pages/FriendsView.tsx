@@ -204,6 +204,7 @@ function FriendsViewContent({
                     libraryEntryIdsByGameId={libraryEntryIdsByGameId}
                     addingLibraryGameId={addingLibraryGameId}
                     removingLibraryEntryId={removingLibraryEntryId}
+                    hideChildCards
                     isPending={friendPendingId === person.id}
                     onToggleFriend={onToggleFriend}
                     onAddToLibrary={onAddGameToLibrary}
