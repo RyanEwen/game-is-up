@@ -67,6 +67,7 @@ export type DiscordChannelMessageSummary = {
   id: string;
   timestamp: string;
   authorId: string | null;
+  referencedMessageId: string | null;
 };
 
 function resolveDiscordBotMode(): DiscordBotMode {
@@ -273,11 +274,19 @@ export async function fetchDiscordChannelMessages(options: {
       && typeof entry.author.id === 'string'
       ? entry.author.id
       : null
+    const referencedMessageId = 'message_reference' in entry
+      && entry.message_reference
+      && typeof entry.message_reference === 'object'
+      && 'message_id' in entry.message_reference
+      && typeof entry.message_reference.message_id === 'string'
+      ? entry.message_reference.message_id
+      : null
 
     return [{
       id: entry.id,
       timestamp,
-      authorId
+      authorId,
+      referencedMessageId
     }]
   })
 }

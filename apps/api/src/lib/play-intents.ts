@@ -25,6 +25,7 @@ import {
   getTargetDiscordServersAudienceUserIds
 } from './discord-servers.js'
 import { editDiscordDirectMessage, sendDiscordDirectMessages } from './discord-bot-runtime.js'
+import { deletePlayIntentDirectMessages } from './discord-dm-cleanup.js'
 import { toClientGameCoverUrl, toClientAvatarUrl } from './game-media.js'
 import { getInterestedUsersByPlayIntentId } from './play-intent-interested-users.js'
 import {
@@ -40,6 +41,7 @@ import {
 import {
   ensurePlayIntentDiscordSpaceAudienceAccess,
   getPlayIntentDiscordSpaceRecipientContexts,
+  markPlayIntentDiscordSpacesRetained,
   provisionPlayIntentDiscordSpaceByPlayIntentId,
   type PlayIntentDiscordSpaceRecipientContext
 } from './play-intent-discord-spaces.js'
@@ -1385,6 +1387,62 @@ export async function clearCurrentPlayIntent(userId: string, playIntentId?: stri
   if (activeIntentIds.length > 0) {
     publishPlayIntentInvalidation()
   }
+}
+
+export async function deletePlayIntentWithAdminCleanup(playIntentId: string) {
+  const playIntent = await prisma.playIntent.findUnique({
+    where: {
+      id: playIntentId
+    },
+    select: {
+      id: true,
+      expiresAt: true
+    }
+  })
+
+  if (!playIntent) {
+    throw new PlayIntentValidationError('Call to play not found.')
+  }
+
+  const now = new Date()
+
+  if (playIntent.expiresAt > now) {
+    await prisma.playIntent.update({
+      where: {
+        id: playIntentId
+      },
+      data: {
+        expiresAt: now,
+        windowEndsAt: now
+      }
+    })
+  }
+
+  await prisma.notification.updateMany({
+    where: {
+      playIntentId,
+      type: {
+        in: [
+          NotificationType.FRIEND_PLAYING,
+          NotificationType.SCHEDULED_PLAY_INTENT_REMINDER,
+          NotificationType.SCHEDULED_PLAY_INTENT_CHECK_IN,
+          NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED
+        ]
+      },
+      respondedAt: null
+    },
+    data: {
+      respondedAt: now,
+      responseChoice: NotificationResponseChoice.EXPIRED
+    }
+  })
+
+  await Promise.all([
+    markPlayIntentDiscordSpacesRetained([playIntentId], now),
+    deletePlayIntentDirectMessages(playIntentId)
+  ])
+
+  publishPlayIntentInvalidation()
 }
 
 export async function upsertCurrentPlayIntent(

@@ -92,8 +92,13 @@ function hasArchivedCreatorDeletableDiscordSpace(playIntent: {
     && playIntent.discordSpace.status !== 'PROVISIONING'
 }
 
-export function buildArchivedAudienceCleanupComponents(notificationId: string) {
-  if (!supportsDiscordInteractiveMessages()) {
+export function buildArchivedAudienceCleanupComponents(
+  notificationId: string,
+  options: {
+    forceInteractive?: boolean;
+  } = {}
+) {
+  if (!(options.forceInteractive ?? supportsDiscordInteractiveMessages())) {
     return []
   }
 
@@ -302,6 +307,74 @@ async function tryDeleteDirectMessage(channelId: string, messageId: string) {
   })
 
   return result.status === 'deleted'
+}
+
+async function deleteBotAuthoredRepliesToAnchor(options: {
+  anchorMessage: DirectMessageTarget;
+  trackedMessageIds?: Set<string>;
+}) {
+  const botUserId = await getDiscordBotUserId()
+
+  if (!botUserId) {
+    return {
+      deletedCount: 0,
+      attemptedCount: 0
+    }
+  }
+
+  let before: string | undefined
+  let inspectedCount = 0
+  let deletedCount = 0
+  let attemptedCount = 0
+
+  while (inspectedCount < discordDmCleanupSweepMessageCap) {
+    const messages = await fetchDiscordChannelMessages({
+      channelId: options.anchorMessage.channelId,
+      before,
+      limit: discordDmCleanupSweepPageLimit
+    })
+
+    if (messages.length === 0) {
+      break
+    }
+
+    for (const message of messages) {
+      inspectedCount += 1
+
+      if (
+        message.authorId !== botUserId
+        || message.referencedMessageId !== options.anchorMessage.messageId
+        || options.trackedMessageIds?.has(message.id)
+      ) {
+        if (inspectedCount >= discordDmCleanupSweepMessageCap) {
+          break
+        }
+
+        continue
+      }
+
+      attemptedCount += 1
+
+      if (await tryDeleteDirectMessage(options.anchorMessage.channelId, message.id)) {
+        deletedCount += 1
+      }
+
+      if (inspectedCount >= discordDmCleanupSweepMessageCap) {
+        break
+      }
+    }
+
+    if (messages.length < discordDmCleanupSweepPageLimit || inspectedCount >= discordDmCleanupSweepMessageCap) {
+      break
+    }
+
+    before = messages[messages.length - 1]?.id
+  }
+
+  return {
+    deletedCount,
+    attemptedCount
+  }
 }
 
 async function clearNotificationDmReferences(notificationIds: string[]) {
@@ -701,119 +774,6 @@ export async function deletePlayIntentDirectMessages(playIntentId: string) {
     prisma.notification.findMany({
       where: {
         playIntentId,
-        discordDmChannelId: {
-          not: null
-        },
-        discordDmMessageId: {
-          not: null
-        }
-      },
-      select: {
-        id: true,
-        discordDmChannelId: true,
-        discordDmMessageId: true
-      }
-    })
-  ])
-
-  if (!playIntent) {
-    return {
-      deletedCount: 0,
-      attemptedCount: 0
-    }
-  }
-
-  const trackedMessages = new Map<string, {
-    channelId: string;
-    messageId: string;
-    notificationIds: string[];
-    clearsCreatorSummary: boolean;
-  }>()
-
-  if (playIntent.creatorDiscordDmChannelId && playIntent.creatorDiscordDmMessageId) {
-    trackedMessages.set(`${playIntent.creatorDiscordDmChannelId}:${playIntent.creatorDiscordDmMessageId}`, {
-      channelId: playIntent.creatorDiscordDmChannelId,
-      messageId: playIntent.creatorDiscordDmMessageId,
-      notificationIds: [],
-      clearsCreatorSummary: true
-    })
-  }
-
-  for (const notification of notifications) {
-    if (!notification.discordDmChannelId || !notification.discordDmMessageId) {
-      continue
-    }
-
-    const key = `${notification.discordDmChannelId}:${notification.discordDmMessageId}`
-    const existingMessage = trackedMessages.get(key)
-
-    if (existingMessage) {
-      existingMessage.notificationIds.push(notification.id)
-      continue
-    }
-
-    trackedMessages.set(key, {
-      channelId: notification.discordDmChannelId,
-      messageId: notification.discordDmMessageId,
-      notificationIds: [notification.id],
-      clearsCreatorSummary: false
-    })
-  }
-
-  const deletedNotificationIds = new Set<string>()
-  let clearCreatorSummary = false
-  let deletedCount = 0
-
-  for (const trackedMessage of trackedMessages.values()) {
-    if (!(await tryDeleteDirectMessage(trackedMessage.channelId, trackedMessage.messageId))) {
-      continue
-    }
-
-    deletedCount += 1
-
-    for (const notificationId of trackedMessage.notificationIds) {
-      deletedNotificationIds.add(notificationId)
-    }
-
-    if (trackedMessage.clearsCreatorSummary) {
-      clearCreatorSummary = true
-    }
-  }
-
-  await Promise.all([
-    clearNotificationDmReferences([...deletedNotificationIds]),
-    clearCreatorSummary ? clearCreatorSummaryDmReferences([playIntentId]) : Promise.resolve()
-  ])
-
-  return {
-    deletedCount,
-    attemptedCount: trackedMessages.size
-  }
-}
-
-export async function deleteCreatorPlayIntentDirectMessages(
-  playIntentId: string,
-  userId: string,
-  options: {
-    summaryMessage?: DirectMessageTarget;
-  } = {}
-) {
-  const [playIntent, notifications] = await Promise.all([
-    prisma.playIntent.findFirst({
-      where: {
-        id: playIntentId,
-        userId
-      },
-      select: {
-        id: true,
-        creatorDiscordDmChannelId: true,
-        creatorDiscordDmMessageId: true
-      }
-    }),
-    prisma.notification.findMany({
-      where: {
-        playIntentId,
-        userId,
         OR: [
           {
             discordDmChannelId: {
@@ -857,25 +817,19 @@ export async function deleteCreatorPlayIntentDirectMessages(
     clearsCreatorSummary: boolean;
   }>()
 
-  const summaryMessage = options.summaryMessage
-    ?? (playIntent.creatorDiscordDmChannelId && playIntent.creatorDiscordDmMessageId
-      ? {
-          channelId: playIntent.creatorDiscordDmChannelId,
-          messageId: playIntent.creatorDiscordDmMessageId
-        }
-      : null)
-
-  if (summaryMessage) {
-    trackedMessages.set(`${summaryMessage.channelId}:${summaryMessage.messageId}`, {
-      channelId: summaryMessage.channelId,
-      messageId: summaryMessage.messageId,
+  if (playIntent.creatorDiscordDmChannelId && playIntent.creatorDiscordDmMessageId) {
+    trackedMessages.set(`${playIntent.creatorDiscordDmChannelId}:${playIntent.creatorDiscordDmMessageId}`, {
+      channelId: playIntent.creatorDiscordDmChannelId,
+      messageId: playIntent.creatorDiscordDmMessageId,
       notificationIds: [],
       clearsCreatorSummary: true
     })
   }
 
   for (const notification of notifications) {
-    if (notification.discordDmChannelId && notification.discordDmMessageId) {
+    if (!notification.discordDmChannelId || !notification.discordDmMessageId) {
+      // Keep checking for tracked response follow-up DMs below.
+    } else {
       const key = `${notification.discordDmChannelId}:${notification.discordDmMessageId}`
       const existingMessage = trackedMessages.get(key)
 
@@ -939,6 +893,222 @@ export async function deleteCreatorPlayIntentDirectMessages(
   return {
     deletedCount,
     attemptedCount: trackedMessages.size
+  }
+}
+
+export async function deleteCreatorPlayIntentDirectMessages(
+  playIntentId: string,
+  userId: string,
+  options: {
+    summaryMessage?: DirectMessageTarget;
+  } = {}
+) {
+  const [playIntent, notifications, autoPlayPrompts] = await Promise.all([
+    prisma.playIntent.findFirst({
+      where: {
+        id: playIntentId,
+        userId
+      },
+      select: {
+        id: true,
+        creatorDiscordDmChannelId: true,
+        creatorDiscordDmMessageId: true
+      }
+    }),
+    prisma.notification.findMany({
+      where: {
+        playIntentId,
+        userId,
+        OR: [
+          {
+            discordDmChannelId: {
+              not: null
+            },
+            discordDmMessageId: {
+              not: null
+            }
+          },
+          {
+            recipientResponseDiscordDmChannelId: {
+              not: null
+            },
+            recipientResponseDiscordDmMessageId: {
+              not: null
+            }
+          }
+        ]
+      },
+      select: {
+        id: true,
+        discordDmChannelId: true,
+        discordDmMessageId: true,
+        recipientResponseDiscordDmChannelId: true,
+        recipientResponseDiscordDmMessageId: true
+      }
+    }),
+    prisma.discordAutoPlayPrompt.findMany({
+      where: {
+        userId,
+        createdPlayIntentId: playIntentId,
+        OR: [
+          {
+            discordDmChannelId: {
+              not: null
+            },
+            discordDmMessageId: {
+              not: null
+            }
+          }
+        ]
+      },
+      select: {
+        id: true,
+        discordDmChannelId: true,
+        discordDmMessageId: true
+      }
+    })
+  ])
+
+  if (!playIntent) {
+    return {
+      deletedCount: 0,
+      attemptedCount: 0
+    }
+  }
+
+  const trackedMessages = new Map<string, {
+    channelId: string;
+    messageId: string;
+    notificationIds: string[];
+    promptIds: string[];
+    clearsCreatorSummary: boolean;
+  }>()
+
+  const summaryMessage = options.summaryMessage
+    ?? (playIntent.creatorDiscordDmChannelId && playIntent.creatorDiscordDmMessageId
+      ? {
+          channelId: playIntent.creatorDiscordDmChannelId,
+          messageId: playIntent.creatorDiscordDmMessageId
+        }
+      : null)
+
+  if (summaryMessage) {
+    trackedMessages.set(`${summaryMessage.channelId}:${summaryMessage.messageId}`, {
+      channelId: summaryMessage.channelId,
+      messageId: summaryMessage.messageId,
+      notificationIds: [],
+      promptIds: [],
+      clearsCreatorSummary: true
+    })
+  }
+
+  for (const notification of notifications) {
+    if (notification.discordDmChannelId && notification.discordDmMessageId) {
+      const key = `${notification.discordDmChannelId}:${notification.discordDmMessageId}`
+      const existingMessage = trackedMessages.get(key)
+
+      if (existingMessage) {
+        existingMessage.notificationIds.push(notification.id)
+      } else {
+        trackedMessages.set(key, {
+          channelId: notification.discordDmChannelId,
+          messageId: notification.discordDmMessageId,
+          notificationIds: [notification.id],
+          promptIds: [],
+          clearsCreatorSummary: false
+        })
+      }
+    }
+
+    if (!notification.recipientResponseDiscordDmChannelId || !notification.recipientResponseDiscordDmMessageId) {
+      continue
+    }
+
+    const responseKey = `${notification.recipientResponseDiscordDmChannelId}:${notification.recipientResponseDiscordDmMessageId}`
+    const existingResponseMessage = trackedMessages.get(responseKey)
+
+    if (existingResponseMessage) {
+      existingResponseMessage.notificationIds.push(notification.id)
+      continue
+    }
+
+    trackedMessages.set(responseKey, {
+      channelId: notification.recipientResponseDiscordDmChannelId,
+      messageId: notification.recipientResponseDiscordDmMessageId,
+      notificationIds: [notification.id],
+      promptIds: [],
+      clearsCreatorSummary: false
+    })
+  }
+
+  for (const prompt of autoPlayPrompts) {
+    if (!prompt.discordDmChannelId || !prompt.discordDmMessageId) {
+      continue
+    }
+
+    const key = `${prompt.discordDmChannelId}:${prompt.discordDmMessageId}`
+    const existingMessage = trackedMessages.get(key)
+
+    if (existingMessage) {
+      existingMessage.promptIds.push(prompt.id)
+      continue
+    }
+
+    trackedMessages.set(key, {
+      channelId: prompt.discordDmChannelId,
+      messageId: prompt.discordDmMessageId,
+      notificationIds: [],
+      promptIds: [prompt.id],
+      clearsCreatorSummary: false
+    })
+  }
+
+  const deletedNotificationIds = new Set<string>()
+  const deletedPromptIds = new Set<string>()
+  let clearCreatorSummary = false
+  let deletedCount = 0
+  let attemptedCount = trackedMessages.size
+
+  if (summaryMessage) {
+    const trackedMessageIds = new Set([...trackedMessages.values()].map((trackedMessage) => trackedMessage.messageId))
+    const danglingReplyCleanup = await deleteBotAuthoredRepliesToAnchor({
+      anchorMessage: summaryMessage,
+      trackedMessageIds
+    })
+
+    deletedCount += danglingReplyCleanup.deletedCount
+    attemptedCount += danglingReplyCleanup.attemptedCount
+  }
+
+  for (const trackedMessage of trackedMessages.values()) {
+    if (!(await tryDeleteDirectMessage(trackedMessage.channelId, trackedMessage.messageId))) {
+      continue
+    }
+
+    deletedCount += 1
+
+    for (const notificationId of trackedMessage.notificationIds) {
+      deletedNotificationIds.add(notificationId)
+    }
+
+    for (const promptId of trackedMessage.promptIds) {
+      deletedPromptIds.add(promptId)
+    }
+
+    if (trackedMessage.clearsCreatorSummary) {
+      clearCreatorSummary = true
+    }
+  }
+
+  await Promise.all([
+    clearNotificationDmReferences([...deletedNotificationIds]),
+    clearPromptDmReferences([...deletedPromptIds]),
+    clearCreatorSummary ? clearCreatorSummaryDmReferences([playIntentId]) : Promise.resolve()
+  ])
+
+  return {
+    deletedCount,
+    attemptedCount
   }
 }
 
@@ -1033,6 +1203,18 @@ export async function deleteUserPlayIntentDirectMessages(
 
   const deletedNotificationIds = new Set<string>()
   let deletedCount = 0
+  let attemptedCount = trackedMessages.size
+
+  if (options.anchorMessage) {
+    const trackedMessageIds = new Set([...trackedMessages.values()].map((trackedMessage) => trackedMessage.messageId))
+    const danglingReplyCleanup = await deleteBotAuthoredRepliesToAnchor({
+      anchorMessage: options.anchorMessage,
+      trackedMessageIds
+    })
+
+    deletedCount += danglingReplyCleanup.deletedCount
+    attemptedCount += danglingReplyCleanup.attemptedCount
+  }
 
   for (const trackedMessage of trackedMessages.values()) {
     if (!(await tryDeleteDirectMessage(trackedMessage.channelId, trackedMessage.messageId))) {
@@ -1050,7 +1232,7 @@ export async function deleteUserPlayIntentDirectMessages(
 
   return {
     deletedCount,
-    attemptedCount: trackedMessages.size
+    attemptedCount
   }
 }
 

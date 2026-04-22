@@ -14,7 +14,14 @@ import {
   PlayIntentScope,
   Prisma
 } from '@prisma/client'
-import { editDiscordDirectMessage, sendDiscordDirectMessages, supportsDiscordInteractiveMessages } from './discord-bot-runtime.js'
+import {
+  deleteDiscordDirectMessage,
+  editDiscordDirectMessage,
+  fetchDiscordChannelMessages,
+  getDiscordBotUserId,
+  sendDiscordDirectMessages,
+  supportsDiscordInteractiveMessages
+} from './discord-bot-runtime.js'
 import {
   appendOpenInAppButton,
   buildDiscordMessageHeading,
@@ -39,6 +46,7 @@ type AutoPlayPromptAction =
   | { kind: 'duration'; promptId: string; durationMinutes: number }
   | { kind: 'confirm'; promptId: string; durationMinutes: number; notifyScope: 'friends-only' | 'network' }
   | { kind: 'decline'; promptId: string }
+  | { kind: 'cleanup'; promptId: string }
 
 type DirectMessagePreviewPayload = {
   content: string;
@@ -69,8 +77,23 @@ function getAutoPlayPromptCooldownCutoff(referenceTime: Date) {
 
 function buildLinkRow() {
   return new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
-    buildOpenInAppButton(buildPlayUrl())
+    buildOpenInAppButton(buildPlayUrl(), 'Open App')
   )
+}
+
+function buildDeclinedPromptRows(promptId: string, options: { forceInteractive?: boolean } = {}) {
+  if (!(options.forceInteractive ?? supportsDiscordInteractiveMessages())) {
+    return [buildLinkRow()]
+  }
+
+  return appendOpenInAppButton([
+    new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`${autoPlayPromptPrefix}:${promptId}:cleanup`)
+        .setLabel('Archive')
+        .setStyle(ButtonStyle.Secondary)
+    )
+  ], buildPlayUrl(), 'Open App')
 }
 
 const autoPlayEmbedColors = {
@@ -159,7 +182,7 @@ function buildDurationRows(promptId: string) {
         .setLabel('Not now')
         .setStyle(ButtonStyle.Secondary)
     )
-  ], buildPlayUrl())
+  ], buildPlayUrl(), 'Open App')
 }
 
 function buildAudienceRows(promptId: string, durationMinutes: number, friendRecipientCount: number, networkRecipientCount: number) {
@@ -179,7 +202,7 @@ function buildAudienceRows(promptId: string, durationMinutes: number, friendReci
         .setLabel('Cancel')
         .setStyle(ButtonStyle.Secondary)
     )
-  ], buildPlayUrl())
+  ], buildPlayUrl(), 'Open App')
 }
 
 function buildInitialPromptEmbeds(gameTitle: string, networkRecipientCount: number) {
@@ -274,13 +297,38 @@ function buildLockedAutoPlayPromptPreview(options: {
   durationMinutes: number | null;
   friendRecipientCount: number;
   networkRecipientCount: number;
+  includeCleanup?: boolean;
+  forceInteractive?: boolean;
 }): DirectMessagePreviewPayload {
   const preview = buildActiveAutoPlayPromptPreview(options)
 
   return {
     ...preview,
-    components: []
+    components: options.includeCleanup
+      ? buildDeclinedPromptRows(options.promptId, {
+          forceInteractive: options.forceInteractive
+        })
+      : []
   }
+}
+
+function buildClosedPromptAnchorPreview(options: {
+  promptId: string;
+  gameTitle: string;
+  durationMinutes: number | null;
+  friendRecipientCount: number;
+  networkRecipientCount: number;
+  forceInteractive?: boolean;
+}) {
+  return buildLockedAutoPlayPromptPreview({
+    promptId: options.promptId,
+    gameTitle: options.gameTitle,
+    durationMinutes: options.durationMinutes,
+    friendRecipientCount: options.friendRecipientCount,
+    networkRecipientCount: options.networkRecipientCount,
+    includeCleanup: true,
+    forceInteractive: options.forceInteractive
+  })
 }
 
 function buildInactiveObservationClosedReason(gameTitle: string) {
@@ -314,6 +362,36 @@ async function sendClosedAutoPlayPromptReply(options: {
       messageId: options.messageId
     }
   }])
+}
+
+async function deleteClosedAutoPlayPromptThread(options: {
+  channelId: string;
+  anchorMessageId: string;
+}) {
+  const botUserId = await getDiscordBotUserId()
+
+  if (botUserId) {
+    const messages = await fetchDiscordChannelMessages({
+      channelId: options.channelId,
+      limit: 100
+    })
+
+    for (const message of messages) {
+      if (message.authorId !== botUserId || message.referencedMessageId !== options.anchorMessageId) {
+        continue
+      }
+
+      await deleteDiscordDirectMessage({
+        channelId: options.channelId,
+        messageId: message.id
+      })
+    }
+  }
+
+  await deleteDiscordDirectMessage({
+    channelId: options.channelId,
+    messageId: options.anchorMessageId
+  })
 }
 
 function isMissingDiscordMessageError(error: string | null | undefined) {
@@ -391,7 +469,8 @@ export async function expireDiscordAutoPlayPromptsForInactiveObservations(observ
       gameTitle: prompt.game.title,
       durationMinutes: prompt.durationMinutes,
       friendRecipientCount: prompt.friendRecipientCount,
-      networkRecipientCount: prompt.networkRecipientCount
+      networkRecipientCount: prompt.networkRecipientCount,
+      includeCleanup: true
     })
 
     await editDiscordDirectMessage({
@@ -454,6 +533,7 @@ export function buildDiscordAutoPlayPromptPreview(options: {
   networkRecipientCount: number;
   statusDetail: string | null;
   deliveredCount: number;
+  forceInteractive?: boolean;
 }): DirectMessagePreviewPayload | null {
   switch (options.status) {
     case DiscordAutoPlayPromptStatus.SKIPPED:
@@ -464,13 +544,17 @@ export function buildDiscordAutoPlayPromptPreview(options: {
         gameTitle: options.gameTitle,
         durationMinutes: options.durationMinutes,
         friendRecipientCount: options.friendRecipientCount,
-        networkRecipientCount: options.networkRecipientCount
+        networkRecipientCount: options.networkRecipientCount,
+        includeCleanup: true,
+        forceInteractive: options.forceInteractive
       })
     case DiscordAutoPlayPromptStatus.DECLINED:
       return {
         content: buildDeclinedMessage(options.gameTitle),
         embeds: buildDeclinedEmbeds(options.gameTitle),
-        components: [buildLinkRow()]
+        components: buildDeclinedPromptRows(options.promptId, {
+          forceInteractive: options.forceInteractive
+        })
       }
     case DiscordAutoPlayPromptStatus.EXPIRED:
       return buildLockedAutoPlayPromptPreview({
@@ -478,7 +562,9 @@ export function buildDiscordAutoPlayPromptPreview(options: {
         gameTitle: options.gameTitle,
         durationMinutes: options.durationMinutes,
         friendRecipientCount: options.friendRecipientCount,
-        networkRecipientCount: options.networkRecipientCount
+        networkRecipientCount: options.networkRecipientCount,
+        includeCleanup: true,
+        forceInteractive: options.forceInteractive
       })
     case DiscordAutoPlayPromptStatus.ACCEPTED:
       return {
@@ -597,6 +683,13 @@ function parseAction(customId: string): AutoPlayPromptAction | null {
   if (parts.length === 3 && parts[2] === 'decline') {
     return {
       kind: 'decline',
+      promptId
+    }
+  }
+
+  if (parts.length === 3 && parts[2] === 'cleanup') {
+    return {
+      kind: 'cleanup',
       promptId
     }
   }
@@ -998,6 +1091,27 @@ export async function handleDiscordAutoPlayPromptInteraction(interaction: Button
   const expectedStatus = DiscordAutoPlayPromptStatus.SENT
 
   if (prompt.status !== expectedStatus) {
+    if (action.kind === 'cleanup') {
+      await interaction.deferUpdate()
+
+      await deleteClosedAutoPlayPromptThread({
+        channelId: interaction.channelId,
+        anchorMessageId: interaction.message.id
+      })
+
+      await prisma.discordAutoPlayPrompt.update({
+        where: {
+          id: prompt.id
+        },
+        data: {
+          discordDmChannelId: null,
+          discordDmMessageId: null
+        }
+      })
+
+      return
+    }
+
     const preview = buildDiscordAutoPlayPromptPreview({
       promptId: prompt.id,
       status: prompt.status,
@@ -1022,6 +1136,18 @@ export async function handleDiscordAutoPlayPromptInteraction(interaction: Button
     return
   }
 
+  if (action.kind === 'cleanup') {
+    await interaction.update({
+      content: buildPromptNotice(
+        '⌛ Prompt Closed',
+        [buildPromptSection('Status', 'This prompt is still active and cannot be archived yet.')],
+        'Use the current prompt buttons or open the app if you want to change course.'
+      ),
+      components: [buildLinkRow()]
+    })
+    return
+  }
+
   if (!prompt.user.discordAutoPromptPlayIntent) {
     const closedReason = 'Automatic Discord prompts are turned off in your profile now.'
 
@@ -1041,7 +1167,8 @@ export async function handleDiscordAutoPlayPromptInteraction(interaction: Button
       gameTitle: prompt.game.title,
       durationMinutes: prompt.durationMinutes,
       friendRecipientCount: prompt.friendRecipientCount,
-      networkRecipientCount: prompt.networkRecipientCount
+      networkRecipientCount: prompt.networkRecipientCount,
+      includeCleanup: true
     })
 
     await interaction.update({
@@ -1077,7 +1204,8 @@ export async function handleDiscordAutoPlayPromptInteraction(interaction: Button
       gameTitle: prompt.game.title,
       durationMinutes: prompt.durationMinutes,
       friendRecipientCount: prompt.friendRecipientCount,
-      networkRecipientCount: prompt.networkRecipientCount
+      networkRecipientCount: prompt.networkRecipientCount,
+      includeCleanup: true
     })
 
     await interaction.update({
@@ -1110,7 +1238,7 @@ export async function handleDiscordAutoPlayPromptInteraction(interaction: Button
     await interaction.update({
       content: buildDeclinedMessage(prompt.game.title),
       embeds: buildDeclinedEmbeds(prompt.game.title),
-      components: [buildLinkRow()]
+      components: buildDeclinedPromptRows(prompt.id)
     })
     return
   }
@@ -1149,7 +1277,8 @@ export async function handleDiscordAutoPlayPromptInteraction(interaction: Button
       gameTitle: prompt.game.title,
       durationMinutes: action.durationMinutes,
       friendRecipientCount: prompt.friendRecipientCount,
-      networkRecipientCount: prompt.networkRecipientCount
+      networkRecipientCount: prompt.networkRecipientCount,
+      includeCleanup: true
     })
 
     await interaction.update({
@@ -1202,7 +1331,8 @@ export async function handleDiscordAutoPlayPromptInteraction(interaction: Button
       gameTitle: prompt.game.title,
       durationMinutes: action.durationMinutes,
       friendRecipientCount: prompt.friendRecipientCount,
-      networkRecipientCount: prompt.networkRecipientCount
+      networkRecipientCount: prompt.networkRecipientCount,
+      includeCleanup: true
     })
 
     await interaction.update({
@@ -1286,7 +1416,7 @@ export async function handleDiscordAutoPlayPromptInteraction(interaction: Button
       }
     })
 
-    const lockedPreview = buildLockedAutoPlayPromptPreview({
+    const lockedPreview = buildClosedPromptAnchorPreview({
       promptId: prompt.id,
       gameTitle: prompt.game.title,
       durationMinutes: action.durationMinutes,

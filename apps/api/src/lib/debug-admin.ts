@@ -322,12 +322,12 @@ function buildDebugDmTemplateDefinitions(now: Date): DebugDmTemplateGroupDefinit
     {
       id: 'call-to-play-audience',
       label: 'Call to Play Audience',
-      description: 'Recipient-facing Discord DM templates for initial invites, invite update replies, go-time follow-ups, and resolution states.',
+      description: 'Recipient-facing Discord DM templates. Each entry now calls out whether it is the original invite, an in-place update of that invite, a dangling reply beneath it, or a standalone alert. Multi-message invite threads eventually end on an archived anchor with an Archive button that clears the anchor and its replies.',
       entries: [
         {
           id: 'recipient-scheduled-invite',
           label: 'Scheduled invite',
-          description: 'The first DM an audience member gets when a future scheduled call to play matches them.',
+          description: 'Pattern: original message. The first DM an audience member gets when a future scheduled call to play matches them.',
           previewPayload: buildNotificationDirectMessagePreview({
             notificationId: 'template-scheduled-invite',
             notificationType: NotificationType.FRIEND_PLAYING,
@@ -349,7 +349,7 @@ function buildDebugDmTemplateDefinitions(now: Date): DebugDmTemplateGroupDefinit
         {
           id: 'recipient-live-invite',
           label: 'Live invite',
-          description: 'The first DM an audience member gets when a live call to play matches them.',
+          description: 'Pattern: original message. The first DM an audience member gets when a live call to play matches them.',
           previewPayload: buildNotificationDirectMessagePreview({
             notificationId: 'template-live-invite',
             notificationType: NotificationType.FRIEND_PLAYING,
@@ -371,7 +371,7 @@ function buildDebugDmTemplateDefinitions(now: Date): DebugDmTemplateGroupDefinit
         {
           id: 'recipient-scheduled-update',
           label: 'Invite update reply',
-          description: 'The reply DM sent after the original invite is updated, whether the call is live or scheduled, for changes like timing, games, audience, note, or voice channel details.',
+          description: 'Pattern: dangling reply. Sent beneath the original invite after that invite is updated in place for changes like timing, games, audience, note, or voice channel details.',
           previewPayload: {
             content: buildPlayIntentUpdatedReplyMessage(['time', 'game selection', 'audience', 'note']),
             components: []
@@ -380,7 +380,7 @@ function buildDebugDmTemplateDefinitions(now: Date): DebugDmTemplateGroupDefinit
         {
           id: 'recipient-go-time-reminder',
           label: 'Go-time reminder',
-          description: 'The follow-up reply DM sent to unanswered recipients after the creator confirms a scheduled call is still on.',
+          description: 'Pattern: dangling reply. Sent beneath the original invite to unanswered recipients after the creator confirms a scheduled call is still on.',
           previewPayload: buildPlayIntentNotificationPromptPreview({
             notificationId: 'template-go-time-reminder',
             notificationType: NotificationType.SCHEDULED_PLAY_INTENT_REMINDER,
@@ -399,7 +399,7 @@ function buildDebugDmTemplateDefinitions(now: Date): DebugDmTemplateGroupDefinit
         {
           id: 'recipient-go-time-confirmed',
           label: 'Go-time confirmation',
-          description: 'The follow-up reply DM accepted recipients receive when a scheduled call reaches go-time.',
+          description: 'Pattern: dangling reply. Sent beneath the original invite to accepted recipients when a scheduled call reaches go-time.',
           previewPayload: buildPlayIntentNotificationPromptPreview({
             notificationId: 'template-go-time-confirmed',
             notificationType: NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED,
@@ -418,7 +418,7 @@ function buildDebugDmTemplateDefinitions(now: Date): DebugDmTemplateGroupDefinit
         {
           id: 'recipient-join-confirmation',
           label: 'Interested confirmation',
-          description: 'The confirmation a recipient sees after pressing I\'m interested.',
+          description: 'Pattern: dangling reply. This is the recipient feedback message that hangs beneath the original invite after pressing I\'m interested.',
           previewPayload: buildNotificationDirectMessagePreview({
             notificationId: 'template-join-confirmation',
             notificationType: NotificationType.FRIEND_PLAYING,
@@ -437,7 +437,7 @@ function buildDebugDmTemplateDefinitions(now: Date): DebugDmTemplateGroupDefinit
         {
           id: 'recipient-pass-confirmation',
           label: 'Pass confirmation',
-          description: 'The confirmation a recipient sees after pressing Pass on an audience-wide call.',
+          description: 'Pattern: dangling reply. This is the recipient feedback message that hangs beneath the original invite after pressing Pass on an audience-wide call.',
           previewPayload: buildNotificationDirectMessagePreview({
             notificationId: 'template-pass-confirmation',
             notificationType: NotificationType.FRIEND_PLAYING,
@@ -455,7 +455,7 @@ function buildDebugDmTemplateDefinitions(now: Date): DebugDmTemplateGroupDefinit
         {
           id: 'recipient-pass-confirmation-specific-friends',
           label: 'Pass confirmation (specific friends)',
-          description: 'The confirmation a targeted friend sees after pressing Pass on a specific-friends call.',
+          description: 'Pattern: dangling reply. This is the recipient feedback message that hangs beneath the original invite after pressing Pass on a specific-friends call.',
           previewPayload: buildNotificationDirectMessagePreview({
             notificationId: 'template-pass-confirmation-specific-friends',
             notificationType: NotificationType.FRIEND_PLAYING,
@@ -475,17 +475,19 @@ function buildDebugDmTemplateDefinitions(now: Date): DebugDmTemplateGroupDefinit
         {
           id: 'recipient-ended-invite',
           label: 'Ended invite state',
-          description: 'The archived original audience invite after the call has ended and the anchor message is updated in place.',
+          description: 'Pattern: in-place update to the original message. This is the archived audience invite after the call has ended and the anchor message has been rewritten into its final state.',
           previewPayload: {
             content: buildDiscordMessageHeading('🛑 Call to Play Ended'),
             embeds: buildArchivedPlayIntentEmbeds(archivedAudienceSummary.body),
-            components: buildArchivedAudienceCleanupComponents('template-ended-invite')
+            components: buildArchivedAudienceCleanupComponents('template-ended-invite', {
+              forceInteractive: true
+            })
           }
         },
         {
           id: 'recipient-ended-summary',
           label: 'Ended reply',
-          description: 'The reply DM sent after the original audience invite is archived into its ended state.',
+          description: 'Pattern: dangling reply. Sent beneath the updated ended invite after the original audience invite is archived into its final state.',
           previewPayload: {
             content: buildArchivedPlayIntentReplyMessage(),
             components: []
@@ -494,7 +496,7 @@ function buildDebugDmTemplateDefinitions(now: Date): DebugDmTemplateGroupDefinit
         {
           id: 'recipient-creator-launched-game',
           label: 'Creator launched the game',
-          description: 'The one-time alert sent to interested audience members when the creator launches the selected game.',
+          description: 'Pattern: standalone alert. A one-time DM sent to interested audience members when the creator launches the selected game.',
           previewPayload: buildNotificationDirectMessagePreview({
             notificationId: 'template-creator-launched-game',
             notificationType: NotificationType.SYSTEM,
@@ -511,24 +513,24 @@ function buildDebugDmTemplateDefinitions(now: Date): DebugDmTemplateGroupDefinit
     {
       id: 'call-to-play-creator',
       label: 'Call to Play Creator',
-      description: 'Creator-facing DM templates for summaries, interest updates, and scheduled check-ins.',
+      description: 'Creator-facing DM templates. Each entry now calls out whether it is the persistent summary/original prompt, an in-place update, a dangling reply beneath the summary, or a standalone alert. Multi-message creator threads eventually archive from the retained summary anchor, which clears the whole thread.',
       entries: [
         {
           id: 'creator-summary-active',
           label: 'Active summary',
-          description: 'The persistent creator summary for an active call to play. Scheduled and live variants use the same template and only differ by status and color.',
+          description: 'Pattern: original message updated in place over time. This is the persistent creator summary for an active call to play; scheduled and live variants only differ by status and color.',
           previewPayload: activeSummaryPreview
         },
         {
           id: 'creator-summary-ended',
           label: 'Ended summary',
-          description: 'The creator summary after the call has already ended.',
+          description: 'Pattern: in-place update to the original summary. This is the creator summary after the call has already ended.',
           previewPayload: endedSummaryPreview
         },
         {
           id: 'creator-interest-update',
           label: 'Interest update',
-          description: 'The separate creator-facing DM sent when someone marks themselves interested.',
+          description: 'Pattern: dangling reply. This creator-facing feedback message hangs beneath the summary when someone marks themselves interested.',
           previewPayload: buildNotificationDirectMessagePreview({
             notificationId: 'template-interest-update',
             notificationType: NotificationType.SYSTEM,
@@ -543,7 +545,7 @@ function buildDebugDmTemplateDefinitions(now: Date): DebugDmTemplateGroupDefinit
         {
           id: 'creator-interest-withdrawn',
           label: 'Interest withdrawn',
-          description: 'The separate creator-facing DM sent when someone who was interested changes their mind.',
+          description: 'Pattern: dangling reply. This creator-facing feedback message hangs beneath the summary when someone who was interested changes their mind.',
           previewPayload: buildNotificationDirectMessagePreview({
             notificationId: 'template-interest-withdrawn',
             notificationType: NotificationType.SYSTEM,
@@ -558,7 +560,7 @@ function buildDebugDmTemplateDefinitions(now: Date): DebugDmTemplateGroupDefinit
         {
           id: 'creator-interested-player-launched-game',
           label: 'Interested player launched the game',
-          description: 'The one-time alert sent to the creator when an interested audience member launches the selected game.',
+          description: 'Pattern: dangling reply. This one-time creator alert hangs beneath the summary when an interested audience member launches the selected game.',
           previewPayload: buildNotificationDirectMessagePreview({
             notificationId: 'template-interested-player-launched-game',
             notificationType: NotificationType.SYSTEM,
@@ -573,7 +575,7 @@ function buildDebugDmTemplateDefinitions(now: Date): DebugDmTemplateGroupDefinit
         {
           id: 'creator-check-in-prompt',
           label: 'Go-time check-in',
-          description: 'The prompt asking the creator whether the scheduled call is still happening.',
+          description: 'Pattern: dangling reply with buttons. This prompt hangs beneath the creator summary and asks whether the scheduled call is still happening.',
           previewPayload: buildNotificationDirectMessagePreview({
             notificationId: 'template-check-in',
             notificationType: NotificationType.SCHEDULED_PLAY_INTENT_CHECK_IN,
@@ -587,7 +589,7 @@ function buildDebugDmTemplateDefinitions(now: Date): DebugDmTemplateGroupDefinit
         {
           id: 'creator-check-in-confirmed',
           label: 'Confirmed response',
-          description: 'The confirmation the creator sees after saying the scheduled call is still on.',
+          description: 'Pattern: in-place update to the dangling check-in reply. This is the confirmation the creator sees after saying the scheduled call is still on.',
           previewPayload: buildNotificationDirectMessagePreview({
             notificationId: 'template-check-in-confirmed',
             notificationType: NotificationType.SCHEDULED_PLAY_INTENT_CHECK_IN,
@@ -602,7 +604,7 @@ function buildDebugDmTemplateDefinitions(now: Date): DebugDmTemplateGroupDefinit
         {
           id: 'creator-check-in-ended',
           label: 'Ended response',
-          description: 'The confirmation the creator sees after ending a scheduled call from Discord.',
+          description: 'Pattern: in-place update to the dangling check-in reply. This is the confirmation the creator sees after ending a scheduled call from Discord.',
           previewPayload: buildNotificationDirectMessagePreview({
             notificationId: 'template-check-in-ended',
             notificationType: NotificationType.SCHEDULED_PLAY_INTENT_CHECK_IN,
@@ -617,7 +619,7 @@ function buildDebugDmTemplateDefinitions(now: Date): DebugDmTemplateGroupDefinit
         {
           id: 'creator-check-in-expired',
           label: 'Expired check-in',
-          description: 'The fallback state if the creator never confirms before the scheduled prompt expires.',
+          description: 'Pattern: in-place update to the dangling check-in reply. This is the fallback state if the creator never confirms before the scheduled prompt expires.',
           previewPayload: buildNotificationDirectMessagePreview({
             notificationId: 'template-check-in-expired',
             notificationType: NotificationType.SCHEDULED_PLAY_INTENT_CHECK_IN,
@@ -634,12 +636,12 @@ function buildDebugDmTemplateDefinitions(now: Date): DebugDmTemplateGroupDefinit
     {
       id: 'auto-play-prompts',
       label: 'Auto-Play Prompts',
-      description: 'Discord DM templates for automatic prompts that appear when the bot sees someone start a game.',
+      description: 'Discord DM templates for automatic prompts that appear when the bot sees someone start a game. Each entry calls out whether it is the original prompt, an in-place update, a summary handoff, or a dangling reply. Closed prompt threads archive from the retained prompt anchor, and accepted prompts hand off that responsibility to the creator summary anchor.',
       entries: [
         {
           id: 'auto-play-initial',
           label: 'Initial prompt',
-          description: 'The first prompt offering to create a call to play from detected gameplay.',
+          description: 'Pattern: original message. The first prompt offering to create a call to play from detected gameplay.',
           previewPayload: buildDiscordAutoPlayPromptPreview({
             promptId: 'template-auto-play-initial',
             status: DiscordAutoPlayPromptStatus.SENT,
@@ -655,7 +657,7 @@ function buildDebugDmTemplateDefinitions(now: Date): DebugDmTemplateGroupDefinit
         {
           id: 'auto-play-audience',
           label: 'Audience picker',
-          description: 'The second prompt after the user picks a duration and needs to choose who gets the call.',
+          description: 'Pattern: in-place update to the original prompt. This is the second step after the user picks a duration and needs to choose who gets the call.',
           previewPayload: buildDiscordAutoPlayPromptPreview({
             promptId: 'template-auto-play-audience',
             status: DiscordAutoPlayPromptStatus.SENT,
@@ -671,13 +673,13 @@ function buildDebugDmTemplateDefinitions(now: Date): DebugDmTemplateGroupDefinit
         {
           id: 'auto-play-live',
           label: 'Call created',
-          description: 'The regular creator summary that replaces the auto-play prompt after the call is created.',
+          description: 'Pattern: summary handoff. This is the regular creator summary message that takes over after the auto-play prompt flow creates a call.',
           previewPayload: autoPlayCreatedSummaryPreview
         },
         {
           id: 'auto-play-declined',
           label: 'Declined prompt',
-          description: 'The response shown after choosing Not now.',
+          description: 'Pattern: in-place update to the original prompt, with cleanup controls. This is the response shown after choosing Not now.',
           previewPayload: buildDiscordAutoPlayPromptPreview({
             promptId: 'template-auto-play-declined',
             status: DiscordAutoPlayPromptStatus.DECLINED,
@@ -687,13 +689,14 @@ function buildDebugDmTemplateDefinitions(now: Date): DebugDmTemplateGroupDefinit
             friendRecipientCount: 3,
             networkRecipientCount: 7,
             statusDetail: 'The user declined the prompt from Discord.',
-            deliveredCount: 0
+            deliveredCount: 0,
+            forceInteractive: true
           }) ?? { content: '', components: [] }
         },
         {
           id: 'auto-play-closed-anchor',
-          label: 'Closed prompt anchor',
-          description: 'The original auto-play prompt after it is locked in place with its buttons removed for a closed outcome.',
+          label: 'Closed prompt anchor (frozen audience step)',
+          description: 'Pattern: in-place update to the original prompt, with cleanup controls. This is the original auto-play prompt locked in place after the user reached the audience step but the flow closed before completion.',
           previewPayload: buildDiscordAutoPlayPromptPreview({
             promptId: 'template-auto-play-closed-anchor',
             status: DiscordAutoPlayPromptStatus.EXPIRED,
@@ -703,13 +706,14 @@ function buildDebugDmTemplateDefinitions(now: Date): DebugDmTemplateGroupDefinit
             friendRecipientCount: 3,
             networkRecipientCount: 7,
             statusDetail: 'That audience no longer has anyone who overlaps on this game.',
-            deliveredCount: 0
+            deliveredCount: 0,
+            forceInteractive: true
           }) ?? { content: '', components: [] }
         },
         {
           id: 'auto-play-expired',
           label: 'Closed reply',
-          description: 'The reply sent after the original prompt is locked with its buttons removed for any closed auto-play outcome.',
+          description: 'Pattern: dangling reply. Sent beneath the updated prompt after the original auto-play prompt is locked for any closed outcome.',
           previewPayload: {
             content: buildClosedAutoPlayPromptReplyMessage(`This prompt was closed because we are no longer seeing you in ${gameTitle}.`),
             components: []

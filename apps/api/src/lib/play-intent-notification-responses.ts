@@ -904,7 +904,7 @@ export function buildPlayIntentNotificationComponents(
   return appendOpenInAppButton(
     rows,
     buildPlayAppUrl(options.playIntentId),
-    options.playIntentId ? 'Open in App' : 'Open App'
+    'Open in App'
   )
 }
 
@@ -919,7 +919,7 @@ export function buildScheduledPlayIntentCheckInComponents(
     ? appendOpenInAppButton(
         [buildScheduledCheckInResponseRow(notificationId)],
         buildPlayAppUrl(options.playIntentId),
-        options.playIntentId ? 'Open in App' : 'Open App'
+        'Open in App'
       )
     : [buildLinkRow(options.playIntentId)]
 }

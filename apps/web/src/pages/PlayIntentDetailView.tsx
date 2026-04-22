@@ -402,6 +402,7 @@ export function PlayIntentDetailView() {
     && intent.discordSpace.status !== 'provisioning'
     && intent.discordSpace.status !== 'deleted'
   )
+  const canAdminDeleteIntent = playViewProps.isSignedIn && playViewProps.isAdmin
   const canRetryDiscordSpace = Boolean(
     isOwnIntent
     && intent.discordSpace?.lastSyncError
@@ -410,6 +411,7 @@ export function PlayIntentDetailView() {
   )
   const debugMailboxIntent = debugViewProps.debugAdmin?.recentPlayIntents.find((candidate) => candidate.id === intent.id) ?? null
   const canOpenDmEmulator = debugViewProps.debugAdmin != null && debugMailboxIntent != null
+  const hasAdminActionRow = canOpenDmEmulator || canAdminDeleteIntent
 
   return (
     <Stack spacing={2.5}>
@@ -449,83 +451,115 @@ export function PlayIntentDetailView() {
               </Box>
             </Stack>
 
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ flexWrap: 'wrap', alignItems: { xs: 'stretch', sm: 'flex-start' } }}>
-              {isEditingCurrentIntent ? (
-                <Button
-                  color="primary"
-                  sx={{ width: { xs: '100%', sm: 'auto' } }}
-                  onClick={() => {
-                    playViewProps.openPlayIntentComposerForIntent(intent)
-                    navigate('/play')
-                  }}
-                >
-                  Edit call to play
-                </Button>
-              ) : null}
-              {canOpenDmEmulator ? (
-                <Button
-                  variant="outlined"
-                  color="neutral"
-                  sx={{ width: { xs: '100%', sm: 'auto' } }}
-                  onClick={() => setIsDmEmulatorOpen(true)}
-                >
-                  Open DM emulator
-                </Button>
-              ) : null}
-              {canRespond ? (
-                <ButtonGroup
-                  sx={{
-                    width: { xs: '100%', sm: 'auto' },
-                    '& > *': {
-                      flex: { xs: 1, sm: 'initial' },
-                      minWidth: 0
-                    }
-                  }}
-                >
-                  {intent.viewerResponseChoice !== 'interested' ? (
-                    <Button
-                      variant="solid"
-                      color="primary"
-                      disabled={responsePending}
-                      onClick={() => void playViewProps.onRespondToPlayIntent(intent.id, 'interested')}
-                    >
-                      I&apos;m interested
-                    </Button>
-                  ) : null}
-                  {intent.viewerResponseChoice !== 'pass' ? (
+            <Stack spacing={1} sx={{ alignItems: { xs: 'stretch', sm: 'flex-start' } }}>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ flexWrap: 'wrap', alignItems: { xs: 'stretch', sm: 'flex-start' } }}>
+                {isEditingCurrentIntent ? (
+                  <Button
+                    color="primary"
+                    sx={{ width: { xs: '100%', sm: 'auto' } }}
+                    onClick={() => {
+                      playViewProps.openPlayIntentComposerForIntent(intent)
+                      navigate('/play')
+                    }}
+                  >
+                    Edit call to play
+                  </Button>
+                ) : null}
+                {canRespond ? (
+                  <ButtonGroup
+                    sx={{
+                      width: { xs: '100%', sm: 'auto' },
+                      '& > *': {
+                        flex: { xs: 1, sm: 'initial' },
+                        minWidth: 0
+                      }
+                    }}
+                  >
+                    {intent.viewerResponseChoice !== 'interested' ? (
+                      <Button
+                        variant="solid"
+                        color="primary"
+                        disabled={responsePending}
+                        onClick={() => void playViewProps.onRespondToPlayIntent(intent.id, 'interested')}
+                      >
+                        I&apos;m interested
+                      </Button>
+                    ) : null}
+                    {intent.viewerResponseChoice !== 'pass' ? (
+                      <Button
+                        variant="outlined"
+                        color="neutral"
+                        disabled={responsePending}
+                        onClick={() => void playViewProps.onRespondToPlayIntent(intent.id, 'pass')}
+                      >
+                        Pass
+                      </Button>
+                    ) : null}
+                  </ButtonGroup>
+                ) : null}
+                {!isOwnIntent && playViewProps.isSignedIn ? (
+                  <Button
+                    variant={isMuted ? 'soft' : 'outlined'}
+                    color="neutral"
+                    sx={{ width: { xs: '100%', sm: 'auto' } }}
+                    onClick={() => void (isMuted ? playViewProps.onUnmutePlayIntentUser(intent.user.id) : playViewProps.onMutePlayIntentUser(intent.user.id))}
+                  >
+                    {isMuted ? 'Unmute creator' : 'Mute creator'}
+                  </Button>
+                ) : null}
+                {canDeleteDiscordSpace ? (
+                  <Button
+                    variant="outlined"
+                    color="danger"
+                    sx={{ width: { xs: '100%', sm: 'auto' } }}
+                    disabled={playViewProps.playIntentDiscordSpaceDeletePendingIntentId === intent.id}
+                    onClick={() => void playViewProps.onDeletePlayIntentDiscordSpace(intent.id)}
+                  >
+                    {playViewProps.playIntentDiscordSpaceDeletePendingIntentId === intent.id
+                      ? 'Removing Discord channel...'
+                      : 'Remove Discord channel'}
+                  </Button>
+                ) : null}
+              </Stack>
+
+              {hasAdminActionRow ? (
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ flexWrap: 'wrap', alignItems: { xs: 'stretch', sm: 'flex-start' } }}>
+                  {canOpenDmEmulator ? (
                     <Button
                       variant="outlined"
                       color="neutral"
-                      disabled={responsePending}
-                      onClick={() => void playViewProps.onRespondToPlayIntent(intent.id, 'pass')}
+                      sx={{ width: { xs: '100%', sm: 'auto' } }}
+                      onClick={() => setIsDmEmulatorOpen(true)}
                     >
-                      Pass
+                      Open DM emulator
                     </Button>
                   ) : null}
-                </ButtonGroup>
-              ) : null}
-              {!isOwnIntent && playViewProps.isSignedIn ? (
-                <Button
-                  variant={isMuted ? 'soft' : 'outlined'}
-                  color="neutral"
-                  sx={{ width: { xs: '100%', sm: 'auto' } }}
-                  onClick={() => void (isMuted ? playViewProps.onUnmutePlayIntentUser(intent.user.id) : playViewProps.onMutePlayIntentUser(intent.user.id))}
-                >
-                  {isMuted ? 'Unmute creator' : 'Mute creator'}
-                </Button>
-              ) : null}
-              {canDeleteDiscordSpace ? (
-                <Button
-                  variant="outlined"
-                  color="danger"
-                  sx={{ width: { xs: '100%', sm: 'auto' } }}
-                  disabled={playViewProps.playIntentDiscordSpaceDeletePendingIntentId === intent.id}
-                  onClick={() => void playViewProps.onDeletePlayIntentDiscordSpace(intent.id)}
-                >
-                  {playViewProps.playIntentDiscordSpaceDeletePendingIntentId === intent.id
-                    ? 'Removing Discord channel...'
-                    : 'Remove Discord channel'}
-                </Button>
+                  {canAdminDeleteIntent ? (
+                    <Button
+                      variant="soft"
+                      color="danger"
+                      sx={{ width: { xs: '100%', sm: 'auto' } }}
+                      disabled={playViewProps.playIntentDeletePendingIntentId === intent.id}
+                      onClick={() => {
+                        if (typeof window !== 'undefined' && !window.confirm('Delete this call to play and remove its tracked Discord DMs?')) {
+                          return
+                        }
+
+                        void (async () => {
+                          const deleted = await playViewProps.onDeletePlayIntent(intent.id)
+
+                          if (deleted) {
+                            navigate('/play')
+                          }
+                        })()
+                      }}
+                    >
+                      {playViewProps.playIntentDeletePendingIntentId === intent.id
+                        ? 'Deleting call to play...'
+                        : 'Delete call to play'}
+                    </Button>
+                  ) : null}
+                </Stack>
               ) : null}
             </Stack>
           </Stack>

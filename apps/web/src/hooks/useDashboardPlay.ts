@@ -141,6 +141,8 @@ export type DashboardPlayViewProps = {
   playIntentSaving: boolean;
   onSavePlayIntent: () => Promise<void>;
   onClearPlayIntent: () => Promise<void>;
+  playIntentDeletePendingIntentId: string | null;
+  onDeletePlayIntent: (playIntentId: string) => Promise<boolean>;
   playIntentPreviews: PlayIntentPreview[];
   playIntentResponsePendingIntentId: string | null;
   onRespondToPlayIntent: (playIntentId: string, responseChoice: PlayIntentRecipientResponseChoice) => Promise<void>;
@@ -205,6 +207,7 @@ export function useDashboardPlay({
   const [playIntentResponsePendingIntentId, setPlayIntentResponsePendingIntentId] = useState<string | null>(null)
   const [playIntentDiscordSpaceRetryPendingIntentId, setPlayIntentDiscordSpaceRetryPendingIntentId] = useState<string | null>(null)
   const [playIntentDiscordSpaceDeletePendingIntentId, setPlayIntentDiscordSpaceDeletePendingIntentId] = useState<string | null>(null)
+  const [playIntentDeletePendingIntentId, setPlayIntentDeletePendingIntentId] = useState<string | null>(null)
   const [playIntentSaving, setPlayIntentSaving] = useState(false)
   const [isPlayIntentComposerOpen, setIsPlayIntentComposerOpen] = useState(false)
   const [composerPlayIntent, setComposerPlayIntent] = useState<ActivePlayIntent | null>(null)
@@ -720,6 +723,50 @@ export function useDashboardPlay({
     }
   }, [buildApiUrl, composerPlayIntent, loadDashboard, setPlayIntentNotice])
 
+  const handleDeletePlayIntent = useCallback(async (playIntentId: string) => {
+    if (!isAdmin) {
+      setPlayIntentNotice({
+        tone: 'danger',
+        message: 'Admin access is required to delete this call to play.'
+      })
+      return false
+    }
+
+    setPlayIntentDeletePendingIntentId(playIntentId)
+    setPlayIntentNotice(null)
+
+    try {
+      const response = await fetch(buildApiUrl(`/api/play-intents/${playIntentId}/admin`), {
+        method: 'DELETE',
+        credentials: 'include'
+      })
+
+      if (!response.ok) {
+        const responseBody = await response.json() as { error?: string }
+        setPlayIntentNotice({
+          tone: 'danger',
+          message: responseBody.error ?? 'Unable to delete this call to play right now.'
+        })
+        return false
+      }
+
+      setPlayIntentNotice({
+        tone: 'success',
+        message: 'The call to play was deleted and tracked Discord DMs were cleaned up.'
+      })
+      await loadDashboard()
+      return true
+    } catch (error) {
+      setPlayIntentNotice({
+        tone: 'danger',
+        message: error instanceof Error ? error.message : 'Unable to delete this call to play right now.'
+      })
+      return false
+    } finally {
+      setPlayIntentDeletePendingIntentId(null)
+    }
+  }, [buildApiUrl, isAdmin, loadDashboard, setPlayIntentNotice])
+
   const handlePlayIntentNotifyScopeChange = useCallback((scope: PlayIntentNotifyScope) => {
     setPlayIntentNotifyScope(scope)
     setPlayIntentNotice(null)
@@ -1101,6 +1148,8 @@ export function useDashboardPlay({
     playIntentSaving,
     onSavePlayIntent: handleSavePlayIntent,
     onClearPlayIntent: handleClearPlayIntent,
+    playIntentDeletePendingIntentId,
+    onDeletePlayIntent: handleDeletePlayIntent,
     playIntentPreviews,
     playIntentResponsePendingIntentId,
     onRespondToPlayIntent: handleRespondToPlayIntent,

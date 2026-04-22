@@ -20,6 +20,7 @@ import { buildPlayIntentDetail } from '../lib/play-intent-detail.js'
 import { deletePlayIntentDiscordSpaceByPlayIntentId, provisionPlayIntentDiscordSpaceByPlayIntentId } from '../lib/play-intent-discord-spaces.js'
 import {
   clearCurrentPlayIntent,
+  deletePlayIntentWithAdminCleanup,
   getCurrentPlayIntent,
   PlayIntentValidationError,
   upsertCurrentPlayIntent
@@ -48,6 +49,13 @@ function requireSignedInUserId(request: Request, response: Response): string | n
   }
 
   return session.userId
+}
+
+async function requireAdminUser(userId: string) {
+  return prisma.user.findUnique({
+    where: { id: userId },
+    select: { isAdmin: true }
+  })
 }
 
 async function handleFeed(request: Request, response: Response, next: (error: unknown) => void) {
@@ -163,6 +171,45 @@ playIntentRouter.delete('/:playIntentId', async (request, response, next) => {
 
     response.status(204).send()
   } catch (error) {
+    next(error)
+  }
+})
+
+playIntentRouter.delete('/:playIntentId/admin', async (request, response, next) => {
+  const userId = requireSignedInUserId(request, response)
+
+  if (!userId) {
+    return
+  }
+
+  const paramsParse = playIntentParamSchema.safeParse(request.params)
+
+  if (!paramsParse.success) {
+    response.status(400).json({ error: 'Invalid play intent ID.' })
+    return
+  }
+
+  const requestUser = await requireAdminUser(userId)
+
+  if (!requestUser?.isAdmin) {
+    response.status(403).json({
+      error: 'Admin access required.'
+    })
+    return
+  }
+
+  try {
+    await deletePlayIntentWithAdminCleanup(paramsParse.data.playIntentId)
+
+    response.status(204).send()
+  } catch (error) {
+    if (error instanceof PlayIntentValidationError) {
+      response.status(404).json({
+        error: error.message
+      })
+      return
+    }
+
     next(error)
   }
 })
