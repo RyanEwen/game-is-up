@@ -128,6 +128,11 @@ type ResolvablePlayIntentNotification = {
   } | null;
 }
 
+function notificationUsesInviteOwnedAudienceResponseThread(notificationType: NotificationType) {
+  return notificationType === NotificationType.SCHEDULED_PLAY_INTENT_REMINDER
+    || notificationType === NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED
+}
+
 type CreatorPlayIntentSummarySnapshot = {
   id: string;
   headline: string;
@@ -4088,9 +4093,70 @@ export async function handlePlayIntentNotificationInteraction(interaction: Butto
     return
   }
 
+  const inviteOwnedResponseNotification = notificationUsesInviteOwnedAudienceResponseThread(notification.type)
+    ? await prisma.notification.findFirst({
+        where: {
+          playIntentId: notification.playIntentId,
+          userId: notification.userId,
+          type: NotificationType.FRIEND_PLAYING
+        },
+        orderBy: {
+          createdAt: 'desc'
+        },
+        select: {
+          id: true,
+          userId: true,
+          gameId: true,
+          responseChoice: true,
+          discordDmChannelId: true,
+          discordDmMessageId: true,
+          recipientResponseDiscordDmChannelId: true,
+          recipientResponseDiscordDmMessageId: true,
+          user: {
+            select: {
+              displayName: true,
+              identities: {
+                where: {
+                  provider: AuthProvider.DISCORD
+                },
+                select: {
+                  providerUserId: true
+                }
+              }
+            }
+          },
+          game: {
+            select: {
+              title: true
+            }
+          },
+          playIntent: {
+            select: {
+              id: true,
+              scope: true,
+              user: {
+                select: {
+                  id: true,
+                  displayName: true,
+                  identities: {
+                    where: {
+                      provider: AuthProvider.DISCORD
+                    },
+                    select: {
+                      providerUserId: true
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      })
+    : null
+  const responseNotification = inviteOwnedResponseNotification ?? notification
   const playIntent = notification.playIntent
   const result = await applyRecipientResponseToPlayIntentNotification({
-    notification,
+    notification: responseNotification,
     response: action.response
   })
   const interestedUsers = await getInterestedUsersByPlayIntentId([playIntent.id])
@@ -4133,15 +4199,19 @@ export async function handlePlayIntentNotificationInteraction(interaction: Butto
   })
 
   await syncRecipientResponseFollowUpDirectMessage({
-    notificationId: notification.id,
-    discordUserId: notification.user.identities?.[0]?.providerUserId ?? interaction.user.id,
+    notificationId: responseNotification.id,
+    discordUserId: responseNotification.user.identities?.[0]?.providerUserId ?? interaction.user.id,
     content: result.discordContent ?? result.content,
-    channelId: notification.recipientResponseDiscordDmChannelId,
-    messageId: notification.recipientResponseDiscordDmMessageId,
+    channelId: responseNotification.recipientResponseDiscordDmChannelId,
+    messageId: responseNotification.recipientResponseDiscordDmMessageId,
     replyTo: buildTrackedDirectMessageReplyReference(
-      notification.discordDmChannelId,
-      notification.discordDmMessageId
+      responseNotification.discordDmChannelId,
+      responseNotification.discordDmMessageId
     )
+  })
+
+  await refreshTrackedPlayIntentNotificationDirectMessages({
+    playIntentIds: [playIntent.id]
   })
 }
 
