@@ -37,6 +37,26 @@ const gameDetailsCache = new Map<string, { expiresAt: number; value: GameDetails
 const multiplayerMatchers = [/multi-player/u, /multiplayer/u, /online co-op/u, /co-op/u, /coop/u, /local co-op/u, /local multiplayer/u, /shared\/split screen/u, /split screen/u, /mmo/u, /pvp/u]
 const singlePlayerMatchers = [/single-player/u, /singleplayer/u]
 
+function truncateText(value: string | null | undefined, maxLength: number): string | null {
+  const trimmed = value?.trim()
+
+  if (!trimmed) {
+    return null
+  }
+
+  if (trimmed.length <= maxLength) {
+    return trimmed
+  }
+
+  const sliced = trimmed.slice(0, Math.max(0, maxLength - 3))
+  const lastWhitespaceIndex = sliced.lastIndexOf(' ')
+  const truncated = lastWhitespaceIndex >= Math.floor((maxLength - 3) * 0.6)
+    ? sliced.slice(0, lastWhitespaceIndex)
+    : sliced
+
+  return `${truncated.trimEnd()}...`
+}
+
 function dedupeStrings(values: Array<string | null | undefined>): string[] {
   return [...new Set(values.map((value) => value?.trim()).filter((value): value is string => Boolean(value)))]
 }
@@ -73,6 +93,18 @@ function classifyGameplay(labels: string[]): GameDetailsGameplay {
     isMultiplayer,
     isCoOp,
     evidence
+  }
+}
+
+function normalizeGameDetails(details: GameDetails | null): GameDetails | null {
+  if (!details) {
+    return null
+  }
+
+  return {
+    ...details,
+    description: truncateText(details.description, 12000),
+    shortDescription: truncateText(details.shortDescription, 1200)
   }
 }
 
@@ -259,7 +291,7 @@ async function fetchCachedGameDetails(cacheKey: string, loader: () => Promise<Ga
     return cached.value
   }
 
-  const value = await loader()
+  const value = normalizeGameDetails(await loader())
   gameDetailsCache.set(cacheKey, {
     expiresAt: Date.now() + detailCacheTtlMs,
     value

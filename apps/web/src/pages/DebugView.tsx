@@ -484,7 +484,7 @@ function DmTemplateLibrarySection({
           <Box>
             <Typography level="title-lg">DM template library</Typography>
             <Typography level="body-sm" sx={{ color: 'neutral.400', mt: 0.5 }}>
-              Read-only previews for each major Discord DM flow, using the same builders as the live bot output.
+              Read-only previews for each major Discord DM flow, including invite update replies for both live and scheduled calls, using the same builders as the live bot output.
             </Typography>
           </Box>
           <Input
@@ -1413,6 +1413,7 @@ function DebugViewContent({
       <EmptyStateCard
         title="Sign in to inspect debug data"
         body="The debug view is only populated for authenticated sessions so it can reuse the same backend access checks as the rest of the dashboard."
+        showSignInCard
       />
     )
   }

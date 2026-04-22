@@ -1,4 +1,4 @@
-import { NotificationResponseChoice, NotificationType } from '@prisma/client'
+import { AuthProvider, NotificationResponseChoice, NotificationType } from '@prisma/client'
 import { toClientAvatarUrl } from './game-media.js'
 import { prisma } from './prisma.js'
 
@@ -7,6 +7,7 @@ export type PlayIntentResponseUser = {
   handle: string;
   displayName: string;
   avatarUrl: string | null;
+  identities?: { providerUserId: string }[];
 }
 
 const recipientResponseNotificationTypes = [
@@ -39,7 +40,15 @@ async function getResponseUsersByPlayIntentId(playIntentIds: string[], responseC
           id: true,
           handle: true,
           displayName: true,
-          avatarUrl: true
+          avatarUrl: true,
+          identities: {
+            where: {
+              provider: AuthProvider.DISCORD
+            },
+            select: {
+              providerUserId: true
+            }
+          }
         }
       }
     },
@@ -69,7 +78,8 @@ async function getResponseUsersByPlayIntentId(playIntentIds: string[], responseC
       id: notification.user.id,
       handle: notification.user.handle,
       displayName: notification.user.displayName,
-      avatarUrl: toClientAvatarUrl(notification.user.avatarUrl)
+      avatarUrl: toClientAvatarUrl(notification.user.avatarUrl),
+      identities: notification.user.identities
     })
     responseUsersByPlayIntentId.set(notification.playIntentId, responseUsers)
   }

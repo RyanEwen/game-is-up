@@ -594,9 +594,9 @@ export async function getPlayIntentDiscordSpaceRecipientContexts(playIntentId: s
       status: toRecipientContextStatus(space.status),
       recipientInServer: grant.inServer,
       textChannelName: space.textChannelName,
-      textChannelUrl: grant.roleGrantedAt ? buildDiscordChannelUrl(space.serverId, space.textChannelId) : null,
+      textChannelUrl: buildDiscordChannelUrl(space.serverId, space.textChannelId),
       voiceChannelName: space.voiceChannelName,
-      voiceChannelUrl: grant.roleGrantedAt ? buildDiscordChannelUrl(space.serverId, space.voiceChannelId) : null,
+      voiceChannelUrl: buildDiscordChannelUrl(space.serverId, space.voiceChannelId),
       inviteUrl: space.inviteUrl
     }
   ]))

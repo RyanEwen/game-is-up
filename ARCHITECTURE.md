@@ -66,6 +66,8 @@ Users can keep multiple active play intents at once as long as their availabilit
 
 Notification rows can now also track whether a recipient explicitly said they would join from a Discord DM prompt. That keeps the response flow attached to the original play intent instead of introducing a second RSVP-specific entity.
 
+For audience-facing Discord delivery, the current model is anchor-plus-replies: the original invite DM is the retained anchor message, quiet state changes edit that anchor in place, and follow-up events such as invite updates, go-time reminders, go-time confirmations, and ended notices are sent as replies to that retained invite when possible.
+
 Play-intent feed and current-intent payloads now also include lightweight interested-user previews derived from interested responses. That lets the web app render interested-player summaries directly on the Play view without a second lookup for basic identity data.
 
 Feed previews now also expose a lightweight status (`active` or `ended`) plus an `appliesToViewer` flag. The web client uses those fields to keep recently ended calls visible for a short history window, default the Play page to only calls that apply to the viewer, and let the viewer expand active or ended sections to all calls they are allowed to see in their network.
@@ -86,7 +88,11 @@ For targeted friend calls, the detail contract now also includes passed-user ide
 
 Notification and auto-play prompt rows also store the Discord DM message reference when the bot delivers an interactive DM. Call-to-play notification rows can additionally store a second tracked DM reference for the recipient's separate rolling confirmation message. That allows the API to keep the original invite prompt in place, replace only the acknowledgement when a recipient flips between interested and pass, edit stale bot prompts in place when a play intent expires or an observed Discord activity ends, and decide between edit-in-place or full replacement when a live call-to-play update should trigger a fresh Discord notification.
 
+Auto-play prompts now use the same retained-anchor approach for closed outcomes. When a prompt closes because conditions changed or it can no longer complete, the original prompt DM is kept as the anchor with its interactive buttons removed, and the specific close reason is sent as a reply to that prompt instead of replacing it with a second standalone terminal state.
+
 The admin debug snapshot now also exposes serialized DM previews, a DM template library for the major Discord DM flows, sendable self-sample previews for those templates, and derived revision history for tracked call-to-play threads. Those revisions are reconstructed from play-intent and notification lifecycle timestamps instead of being stored in a separate message-history table, which keeps Discord as the single live message surface while still giving the web emulator historical states to inspect.
+
+The DM template library is expected to cover both reply messages and their retained anchor states for any threaded flow, so operational review can confirm not just the follow-up copy but also what the underlying edited message looks like after each lifecycle transition.
 
 Those serialized DM previews now include Discord embed payloads as well as button rows and fallback content. That keeps the debug emulator aligned with the live bot output as structured Discord flows move from markdown-heavy content blocks to embed-first layouts.
 

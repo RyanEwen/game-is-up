@@ -10,7 +10,7 @@ import {
   sendDiscordDirectMessages,
   supportsDiscordInteractiveMessages
 } from './discord-bot-runtime.js'
-import { appendOpenInAppButton, buildDiscordMessageHeading } from './discord-dm-formatting.js'
+import { appendOpenInAppButton, buildDiscordMessageHeading, buildDiscordPlainMessage } from './discord-dm-formatting.js'
 import { env } from './env.js'
 import { callToPlayEndedSystemNotification } from './play-intent-system-notifications.js'
 import { formatPlayIntentWindowLabel } from './play-intent-time-format.js'
@@ -212,6 +212,16 @@ export function buildArchivedPlayIntentEmbeds(summaryBody: string) {
       .setColor(0xef4444)
       .addFields(fields)
   ]
+}
+
+export function buildArchivedPlayIntentReplyMessage() {
+  return buildDiscordPlainMessage(
+    buildDiscordMessageHeading('🛑 Call to Play Ended'),
+    ['This call to play is over.'],
+    {
+      trailingSubtext: 'The original invite above now shows the final ended state.'
+    }
+  )
 }
 
 export function buildArchivedCreatorPlayIntentPreview(
@@ -1493,63 +1503,64 @@ export async function archivePlayIntentDirectMessages(options: {
         .sort((left, right) => left.priority - right.priority)
 
       // Quiet expiry/archive edits the existing tracked DM in place.
-      // Manual end paths only send a fresh ended-summary DM to recipients who explicitly joined.
+      // Manual end paths reply off the retained invite for recipients who explicitly joined.
       // Unanswered recipients stay on the quieter edit-in-place archival path.
       if (options.replaceRecipientMessages && recipientInterested && !recipientPassed && !recipientMutedCreator) {
         const recipientDiscordUserId = notifications[0]?.user.identities[0]?.providerUserId
-        const archiveSummary = buildArchivedPlayIntentSummary(playIntent, notifications[0]?.user.timezoneId ?? playIntent.user.timezoneId)
-
-        if (recipientDiscordUserId) {
-          const archivedNotification = await prisma.notification.create({
-            data: {
-              userId,
-              triggeredByUserId: playIntent.user.id,
-              playIntentId: playIntent.id,
-              type: NotificationType.SYSTEM,
-              title: archiveSummary.title,
-              body: archiveSummary.body
-            },
-            select: {
-              id: true
-            }
-          })
-
-          const dmResult = (await sendDiscordDirectMessages([
-            {
-              discordUserId: recipientDiscordUserId,
-              content: buildDiscordMessageHeading('🛑 Call to Play Ended'),
-              embeds: archiveEmbeds,
-              components: buildArchivedAudienceCleanupComponents(archivedNotification.id)
-            }
-          ]))[0]
-
-          if (dmResult?.status === 'sent') {
-            if (!dmResult.emulated && dmResult.channelId && dmResult.messageId) {
-              await prisma.notification.update({
-                where: {
-                  id: archivedNotification.id
-                },
-                data: {
-                  deliveredAt: new Date(),
-                  discordDmChannelId: dmResult.channelId,
-                  discordDmMessageId: dmResult.messageId
-                }
-              })
-            }
-
-            for (const candidate of candidates) {
-              if (await tryDeleteDirectMessage(candidate.channelId, candidate.messageId)) {
-                notificationIdsToClear.add(candidate.notificationId)
-              }
-            }
-
-            continue
-          }
-        }
-
         if (candidates.length === 0) {
           continue
         }
+
+        const keptMessageId = await tryArchiveDirectMessage(
+          candidates,
+          buildDiscordMessageHeading('🛑 Call to Play Ended'),
+          archiveEmbeds,
+          (candidate) => buildArchivedAudienceCleanupComponents((candidate as ArchivedNotificationCandidate).notificationId)
+        )
+
+        if (!keptMessageId) {
+          continue
+        }
+
+        const keptCandidate = candidates.find((candidate) => candidate.messageId === keptMessageId) ?? null
+
+        if (recipientDiscordUserId && keptCandidate?.notificationId) {
+          const dmResult = (await sendDiscordDirectMessages([
+            {
+              discordUserId: recipientDiscordUserId,
+              content: buildArchivedPlayIntentReplyMessage(),
+              components: [],
+              replyTo: {
+                channelId: keptCandidate.channelId,
+                messageId: keptCandidate.messageId
+              }
+            }
+          ]))[0]
+
+          if (dmResult?.status === 'sent' && !dmResult.emulated && dmResult.channelId && dmResult.messageId) {
+            await prisma.notification.update({
+              where: {
+                id: keptCandidate.notificationId
+              },
+              data: {
+                recipientResponseDiscordDmChannelId: dmResult.channelId,
+                recipientResponseDiscordDmMessageId: dmResult.messageId
+              }
+            })
+          }
+        }
+
+        for (const candidate of candidates) {
+          if (candidate.messageId === keptMessageId) {
+            continue
+          }
+
+          if (await tryDeleteDirectMessage(candidate.channelId, candidate.messageId)) {
+            notificationIdsToClear.add(candidate.notificationId)
+          }
+        }
+
+        continue
       }
 
       if (candidates.length === 0) {

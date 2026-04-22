@@ -236,16 +236,84 @@ function buildDeclinedEmbeds(gameTitle: string) {
   ]
 }
 
-function buildExpiredEmbeds(gameTitle: string, reason: string) {
-  return [
-    new EmbedBuilder()
-      .setColor(autoPlayEmbedColors.danger)
-      .addFields(buildPromptEmbedFields([
-        { name: formatPromptEmbedFieldName('Game'), value: gameTitle, inline: false },
-        { name: formatPromptEmbedFieldName('Status'), value: reason, inline: false }
-      ]))
-      .setFooter({ text: 'Open the app if you still want to create or edit a call to play.' })
-  ]
+function buildActiveAutoPlayPromptPreview(options: {
+  promptId: string;
+  gameTitle: string;
+  durationMinutes: number | null;
+  friendRecipientCount: number;
+  networkRecipientCount: number;
+}): DirectMessagePreviewPayload {
+  if (options.durationMinutes != null) {
+    return {
+      content: buildDiscordMessageHeading('👥 Choose an Audience'),
+      embeds: buildAudienceEmbeds(
+        options.gameTitle,
+        options.durationMinutes,
+        options.friendRecipientCount,
+        options.networkRecipientCount
+      ),
+      components: buildAudienceRows(
+        options.promptId,
+        options.durationMinutes,
+        options.friendRecipientCount,
+        options.networkRecipientCount
+      )
+    }
+  }
+
+  return {
+    content: buildInitialPromptHeading(),
+    embeds: buildInitialPromptEmbeds(options.gameTitle, options.networkRecipientCount),
+    components: buildDurationRows(options.promptId)
+  }
+}
+
+function buildLockedAutoPlayPromptPreview(options: {
+  promptId: string;
+  gameTitle: string;
+  durationMinutes: number | null;
+  friendRecipientCount: number;
+  networkRecipientCount: number;
+}): DirectMessagePreviewPayload {
+  const preview = buildActiveAutoPlayPromptPreview(options)
+
+  return {
+    ...preview,
+    components: []
+  }
+}
+
+function buildInactiveObservationClosedReason(gameTitle: string) {
+  return `This prompt was closed because we are no longer seeing you in ${gameTitle}.`
+}
+
+export function buildClosedAutoPlayPromptReplyMessage(reason: string) {
+  return buildPromptNotice(
+    '🛑 Prompt Closed',
+    [buildPromptSection('Status', reason)],
+    'Open the app if you still want to create or edit a call to play.'
+  )
+}
+
+export function buildInactiveObservationClosedReplyMessage(gameTitle: string) {
+  return buildClosedAutoPlayPromptReplyMessage(buildInactiveObservationClosedReason(gameTitle))
+}
+
+async function sendClosedAutoPlayPromptReply(options: {
+  discordUserId: string;
+  channelId: string;
+  messageId: string;
+  reason: string;
+}) {
+  await sendDiscordDirectMessages([{
+    discordUserId: options.discordUserId,
+    content: buildClosedAutoPlayPromptReplyMessage(options.reason),
+    components: [],
+    replyTo: {
+      channelId: options.channelId,
+      messageId: options.messageId
+    }
+  }])
 }
 
 function isMissingDiscordMessageError(error: string | null | undefined) {
@@ -275,9 +343,24 @@ export async function expireDiscordAutoPlayPromptsForInactiveObservations(observ
     },
     select: {
       id: true,
+      durationMinutes: true,
+      friendRecipientCount: true,
+      networkRecipientCount: true,
       game: {
         select: {
           title: true
+        }
+      },
+      user: {
+        select: {
+          identities: {
+            where: {
+              provider: AuthProvider.DISCORD
+            },
+            select: {
+              providerUserId: true
+            }
+          }
         }
       },
       discordDmChannelId: true,
@@ -303,13 +386,37 @@ export async function expireDiscordAutoPlayPromptsForInactiveObservations(observ
       return
     }
 
+    const lockedPreview = buildLockedAutoPlayPromptPreview({
+      promptId: prompt.id,
+      gameTitle: prompt.game.title,
+      durationMinutes: prompt.durationMinutes,
+      friendRecipientCount: prompt.friendRecipientCount,
+      networkRecipientCount: prompt.networkRecipientCount
+    })
+
     await editDiscordDirectMessage({
       channelId: prompt.discordDmChannelId,
       messageId: prompt.discordDmMessageId,
-      content: buildDiscordMessageHeading(`🛑 ${prompt.game.title} Prompt Closed`),
-      embeds: buildExpiredEmbeds(prompt.game.title, `This prompt was closed because we are no longer seeing you in ${prompt.game.title}.`),
-      components: [buildLinkRow()]
+      content: lockedPreview.content,
+      embeds: lockedPreview.embeds,
+      components: lockedPreview.components
     })
+
+    const discordUserId = prompt.user.identities[0]?.providerUserId
+
+    if (!discordUserId) {
+      return
+    }
+
+    await sendDiscordDirectMessages([{
+      discordUserId,
+      content: buildInactiveObservationClosedReplyMessage(prompt.game.title),
+      components: [],
+      replyTo: {
+        channelId: prompt.discordDmChannelId,
+        messageId: prompt.discordDmMessageId
+      }
+    }])
   }))
 }
 
@@ -352,11 +459,13 @@ export function buildDiscordAutoPlayPromptPreview(options: {
     case DiscordAutoPlayPromptStatus.SKIPPED:
       return null
     case DiscordAutoPlayPromptStatus.FAILED:
-      return {
-        content: buildDiscordMessageHeading(`🛑 ${options.gameTitle} Prompt Closed`),
-        embeds: buildExpiredEmbeds(options.gameTitle, options.statusDetail ?? `This ${options.gameTitle} prompt could not be completed.`),
-        components: [buildLinkRow()]
-      }
+      return buildLockedAutoPlayPromptPreview({
+        promptId: options.promptId,
+        gameTitle: options.gameTitle,
+        durationMinutes: options.durationMinutes,
+        friendRecipientCount: options.friendRecipientCount,
+        networkRecipientCount: options.networkRecipientCount
+      })
     case DiscordAutoPlayPromptStatus.DECLINED:
       return {
         content: buildDeclinedMessage(options.gameTitle),
@@ -364,11 +473,13 @@ export function buildDiscordAutoPlayPromptPreview(options: {
         components: [buildLinkRow()]
       }
     case DiscordAutoPlayPromptStatus.EXPIRED:
-      return {
-        content: buildDiscordMessageHeading(`🛑 ${options.gameTitle} Prompt Closed`),
-        embeds: buildExpiredEmbeds(options.gameTitle, options.statusDetail ?? `This ${options.gameTitle} prompt is no longer active.`),
-        components: [buildLinkRow()]
-      }
+      return buildLockedAutoPlayPromptPreview({
+        promptId: options.promptId,
+        gameTitle: options.gameTitle,
+        durationMinutes: options.durationMinutes,
+        friendRecipientCount: options.friendRecipientCount,
+        networkRecipientCount: options.networkRecipientCount
+      })
     case DiscordAutoPlayPromptStatus.ACCEPTED:
       return {
         content: buildDiscordMessageHeading('✅ Call to Play Is Live'),
@@ -381,29 +492,13 @@ export function buildDiscordAutoPlayPromptPreview(options: {
         components: [buildLinkRow()]
       }
     default:
-      if (options.durationMinutes != null) {
-        return {
-          content: buildDiscordMessageHeading('👥 Choose an Audience'),
-          embeds: buildAudienceEmbeds(
-            options.gameTitle,
-            options.durationMinutes,
-            options.friendRecipientCount,
-            options.networkRecipientCount
-          ),
-          components: buildAudienceRows(
-            options.promptId,
-            options.durationMinutes,
-            options.friendRecipientCount,
-            options.networkRecipientCount
-          )
-        }
-      }
-
-      return {
-        content: buildInitialPromptHeading(),
-        embeds: buildInitialPromptEmbeds(options.gameTitle, options.networkRecipientCount),
-        components: buildDurationRows(options.promptId)
-      }
+      return buildActiveAutoPlayPromptPreview({
+        promptId: options.promptId,
+        gameTitle: options.gameTitle,
+        durationMinutes: options.durationMinutes,
+        friendRecipientCount: options.friendRecipientCount,
+        networkRecipientCount: options.networkRecipientCount
+      })
   }
 }
 
@@ -895,7 +990,7 @@ export async function handleDiscordAutoPlayPromptInteraction(interaction: Button
         [buildPromptSection('Status', 'The saved prompt record could not be found.')],
         'Open the app if you still want to create or edit a call to play.'
       ),
-      components: [buildLinkRow()]
+      components: []
     })
     return
   }
@@ -903,15 +998,33 @@ export async function handleDiscordAutoPlayPromptInteraction(interaction: Button
   const expectedStatus = DiscordAutoPlayPromptStatus.SENT
 
   if (prompt.status !== expectedStatus) {
+    const preview = buildDiscordAutoPlayPromptPreview({
+      promptId: prompt.id,
+      status: prompt.status,
+      gameTitle: prompt.game.title,
+      durationMinutes: prompt.durationMinutes,
+      notifyScope: prompt.notifyScope,
+      friendRecipientCount: prompt.friendRecipientCount,
+      networkRecipientCount: prompt.networkRecipientCount,
+      statusDetail: prompt.statusDetail,
+      deliveredCount: parseDeliveredPromptCount(prompt.statusDetail)
+    })
+
     await interaction.update({
-      content: buildDiscordMessageHeading(`🛑 ${prompt.game.title} Prompt Closed`),
-      embeds: buildExpiredEmbeds(prompt.game.title, prompt.statusDetail ?? 'It was already handled earlier.'),
-      components: [buildLinkRow()]
+      content: preview?.content ?? buildPromptNotice(
+        '⌛ Prompt Closed',
+        [buildPromptSection('Status', prompt.statusDetail ?? 'It was already handled earlier.')],
+        'Open the app if you still want to create or edit a call to play.'
+      ),
+      embeds: preview?.embeds,
+      components: preview?.components ?? []
     })
     return
   }
 
   if (!prompt.user.discordAutoPromptPlayIntent) {
+    const closedReason = 'Automatic Discord prompts are turned off in your profile now.'
+
     await prisma.discordAutoPlayPrompt.update({
       where: {
         id: prompt.id
@@ -922,11 +1035,28 @@ export async function handleDiscordAutoPlayPromptInteraction(interaction: Button
         statusDetail: 'The user turned off automatic Discord prompts before responding.'
       }
     })
-    await interaction.update({
-      content: buildDiscordMessageHeading(`🛑 ${prompt.game.title} Prompt Closed`),
-      embeds: buildExpiredEmbeds(prompt.game.title, 'Automatic Discord prompts are turned off in your profile now.'),
-      components: [buildLinkRow()]
+
+    const lockedPreview = buildLockedAutoPlayPromptPreview({
+      promptId: prompt.id,
+      gameTitle: prompt.game.title,
+      durationMinutes: prompt.durationMinutes,
+      friendRecipientCount: prompt.friendRecipientCount,
+      networkRecipientCount: prompt.networkRecipientCount
     })
+
+    await interaction.update({
+      content: lockedPreview.content,
+      embeds: lockedPreview.embeds,
+      components: lockedPreview.components
+    })
+
+    await sendClosedAutoPlayPromptReply({
+      discordUserId: interaction.user.id,
+      channelId: interaction.channelId,
+      messageId: interaction.message.id,
+      reason: closedReason
+    })
+
     return
   }
 
@@ -941,11 +1071,28 @@ export async function handleDiscordAutoPlayPromptInteraction(interaction: Button
         statusDetail: `Closed because we are no longer seeing the user in ${prompt.game.title}.`
       }
     })
-    await interaction.update({
-      content: buildDiscordMessageHeading(`🛑 ${prompt.game.title} Prompt Closed`),
-      embeds: buildExpiredEmbeds(prompt.game.title, `This prompt was closed because we are no longer seeing you in ${prompt.game.title}.`),
-      components: [buildLinkRow()]
+
+    const lockedPreview = buildLockedAutoPlayPromptPreview({
+      promptId: prompt.id,
+      gameTitle: prompt.game.title,
+      durationMinutes: prompt.durationMinutes,
+      friendRecipientCount: prompt.friendRecipientCount,
+      networkRecipientCount: prompt.networkRecipientCount
     })
+
+    await interaction.update({
+      content: lockedPreview.content,
+      embeds: lockedPreview.embeds,
+      components: lockedPreview.components
+    })
+
+    await sendClosedAutoPlayPromptReply({
+      discordUserId: interaction.user.id,
+      channelId: interaction.channelId,
+      messageId: interaction.message.id,
+      reason: buildInactiveObservationClosedReason(prompt.game.title)
+    })
+
     return
   }
 
@@ -982,11 +1129,42 @@ export async function handleDiscordAutoPlayPromptInteraction(interaction: Button
     : prompt.networkRecipientCount
 
   if (selectedRecipientCount === 0) {
-    await interaction.update({
-      content: buildDiscordMessageHeading(`🛑 ${prompt.game.title} Prompt Closed`),
-      embeds: buildExpiredEmbeds(prompt.game.title, 'That audience no longer has anyone who overlaps on this game.'),
-      components: [buildLinkRow()]
+    const closedReason = 'That audience no longer has anyone who overlaps on this game.'
+
+    await prisma.discordAutoPlayPrompt.update({
+      where: {
+        id: prompt.id
+      },
+      data: {
+        status: DiscordAutoPlayPromptStatus.EXPIRED,
+        respondedAt: new Date(),
+        durationMinutes: action.durationMinutes,
+        notifyScope: action.notifyScope === 'friends-only' ? PlayIntentScope.FRIENDS_ONLY : PlayIntentScope.MUTUAL_FRIENDS,
+        statusDetail: closedReason
+      }
     })
+
+    const lockedPreview = buildLockedAutoPlayPromptPreview({
+      promptId: prompt.id,
+      gameTitle: prompt.game.title,
+      durationMinutes: action.durationMinutes,
+      friendRecipientCount: prompt.friendRecipientCount,
+      networkRecipientCount: prompt.networkRecipientCount
+    })
+
+    await interaction.update({
+      content: lockedPreview.content,
+      embeds: lockedPreview.embeds,
+      components: lockedPreview.components
+    })
+
+    await sendClosedAutoPlayPromptReply({
+      discordUserId: interaction.user.id,
+      channelId: interaction.channelId,
+      messageId: interaction.message.id,
+      reason: closedReason
+    })
+
     return
   }
 
@@ -1006,6 +1184,8 @@ export async function handleDiscordAutoPlayPromptInteraction(interaction: Button
   })
 
   if (activeIntent) {
+    const closedReason = 'You already have an overlapping call to play.'
+
     await prisma.discordAutoPlayPrompt.update({
       where: {
         id: prompt.id
@@ -1016,11 +1196,28 @@ export async function handleDiscordAutoPlayPromptInteraction(interaction: Button
         statusDetail: 'The user already had an overlapping call to play before accepting this prompt.'
       }
     })
-    await interaction.update({
-      content: buildDiscordMessageHeading(`🛑 ${prompt.game.title} Prompt Closed`),
-      embeds: buildExpiredEmbeds(prompt.game.title, 'You already have an overlapping call to play.'),
-      components: [buildLinkRow()]
+
+    const lockedPreview = buildLockedAutoPlayPromptPreview({
+      promptId: prompt.id,
+      gameTitle: prompt.game.title,
+      durationMinutes: action.durationMinutes,
+      friendRecipientCount: prompt.friendRecipientCount,
+      networkRecipientCount: prompt.networkRecipientCount
     })
+
+    await interaction.update({
+      content: lockedPreview.content,
+      embeds: lockedPreview.embeds,
+      components: lockedPreview.components
+    })
+
+    await sendClosedAutoPlayPromptReply({
+      discordUserId: interaction.user.id,
+      channelId: interaction.channelId,
+      messageId: interaction.message.id,
+      reason: closedReason
+    })
+
     return
   }
 
@@ -1089,10 +1286,36 @@ export async function handleDiscordAutoPlayPromptInteraction(interaction: Button
       }
     })
 
+    const lockedPreview = buildLockedAutoPlayPromptPreview({
+      promptId: prompt.id,
+      gameTitle: prompt.game.title,
+      durationMinutes: action.durationMinutes,
+      friendRecipientCount: prompt.friendRecipientCount,
+      networkRecipientCount: prompt.networkRecipientCount
+    })
+
+    if (prompt.discordDmChannelId && prompt.discordDmMessageId) {
+      await editDiscordDirectMessage({
+        channelId: prompt.discordDmChannelId,
+        messageId: prompt.discordDmMessageId,
+        content: lockedPreview.content,
+        embeds: lockedPreview.embeds,
+        components: lockedPreview.components
+      })
+
+      await sendClosedAutoPlayPromptReply({
+        discordUserId: interaction.user.id,
+        channelId: prompt.discordDmChannelId,
+        messageId: prompt.discordDmMessageId,
+        reason: message
+      })
+
+      return
+    }
+
     await interaction.editReply({
-      content: buildDiscordMessageHeading(`🛑 ${prompt.game.title} Prompt Closed`),
-      embeds: buildExpiredEmbeds(prompt.game.title, message),
-      components: [buildLinkRow()]
+      content: buildClosedAutoPlayPromptReplyMessage(message),
+      components: []
     })
   }
 }

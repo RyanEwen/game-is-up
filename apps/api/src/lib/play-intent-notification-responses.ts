@@ -16,13 +16,11 @@ import {
 import {
   archivePlayIntentDirectMessages,
   buildArchivedAudienceCleanupComponents,
-  buildArchivedCreatorPlayIntentPreview,
   buildArchivedPlayIntentEmbeds,
   deleteCreatorPlayIntentDirectMessages,
   deleteUserPlayIntentDirectMessages
 } from './discord-dm-cleanup.js'
 import {
-  deleteDiscordDirectMessage,
   editDiscordDirectMessage,
   sendDiscordDirectMessages,
   type DiscordDirectMessagePayload,
@@ -179,6 +177,31 @@ type CreatorPlayIntentSummarySnapshot = {
   }[];
 }
 
+type PlayIntentAudienceTargetServer = {
+  server: {
+    name: string;
+  };
+}
+
+type PlayIntentAudienceTargetFriend = {
+  friendUser: {
+    displayName: string;
+    identities?: { providerUserId: string }[];
+  };
+}
+
+type RecipientPlayIntentDetails = {
+  headline?: string | null;
+  selectionMode?: 'ENTIRE_LIBRARY' | 'SELECTED_GAMES' | 'library' | 'subset' | null;
+  selectedGameTitles?: string[];
+  scope?: PlayIntentScope | null;
+  targetDiscordServers?: PlayIntentAudienceTargetServer[];
+  targetFriends?: PlayIntentAudienceTargetFriend[];
+  note?: string | null;
+}
+
+const defaultPlayIntentHeadline = 'Call to play'
+
 type ExpirePendingPlayIntentNotificationsOptions = {
   notifyAudienceOnEnd?: boolean;
   publishInvalidation?: boolean;
@@ -325,8 +348,9 @@ function buildDirectMessageSectionHeading(label: string) {
       return '### 📝 Title'
     case 'games':
       return '### 🎯 Games'
+    case 'timing':
     case 'when':
-      return '### ⏰ When'
+      return '### ⏰ Timing'
     case 'audience':
       return '### 👥 Audience'
     case 'window':
@@ -373,6 +397,16 @@ const dmEmbedColors = {
   neutral: 0x64748b
 } as const
 
+type AudiencePlayIntentSummaryStatus = 'scheduled' | 'live'
+
+function resolveAudiencePlayIntentSummaryStatus(startsAt: Date, currentTime = new Date()): AudiencePlayIntentSummaryStatus {
+  return startsAt.getTime() > currentTime.getTime() + 60 * 1000 ? 'scheduled' : 'live'
+}
+
+function resolveAudiencePlayIntentSummaryColor(status: AudiencePlayIntentSummaryStatus) {
+  return status === 'scheduled' ? dmEmbedColors.info : dmEmbedColors.success
+}
+
 type DiscordEmbedFieldInput = {
   name: string;
   value: string | null | undefined;
@@ -407,8 +441,9 @@ function formatPlayIntentEmbedFieldName(label: string) {
       return '📝 Title'
     case 'games':
       return '🎯 Games'
+    case 'timing':
     case 'when':
-      return '⏰ When'
+      return '⏰ Timing'
     case 'audience':
       return '👥 Audience'
     case 'window':
@@ -457,8 +492,195 @@ function extractLabeledFields(text: string) {
     })
 }
 
+function summarizePlayIntentAudience(
+  scope: PlayIntentScope | null | undefined,
+  targetDiscordServers: PlayIntentAudienceTargetServer[] = [],
+  targetFriends: PlayIntentAudienceTargetFriend[] = []
+) {
+  if (scope === 'SPECIFIC_DISCORD_SERVER' && targetDiscordServers.length > 0) {
+    const names = targetDiscordServers
+      .map((entry) => entry.server.name)
+      .sort((left, right) => left.localeCompare(right))
+
+    if (names.length <= 4) {
+      return `Discord servers ${names.join(', ')}`
+    }
+
+    return `Discord servers ${names.slice(0, 4).join(', ')} +${names.length - 4} more`
+  }
+
+  if (scope === 'SPECIFIC_FRIENDS') {
+    const names = targetFriends
+      .map((entry) => buildDiscordUserLabel(entry.friendUser.displayName, entry.friendUser.identities?.[0]?.providerUserId))
+      .sort((left, right) => left.localeCompare(right))
+
+    if (names.length <= 4) {
+      return `Specific friends (${names.join(', ')})`
+    }
+
+    return `Specific friends (${names.slice(0, 4).join(', ')} +${names.length - 4} more)`
+  }
+
+  if (scope === 'MUTUAL_FRIENDS') {
+    return 'Friends and your selected network'
+  }
+
+  if (scope === 'FRIENDS_ONLY') {
+    return 'Friends only'
+  }
+
+  return null
+}
+
+function summarizePlayIntentGames(
+  selectionMode: RecipientPlayIntentDetails['selectionMode'],
+  selectedGameTitles: string[] = []
+) {
+  if (selectionMode === 'ENTIRE_LIBRARY' || selectionMode === 'library') {
+    return 'Any game in their library.'
+  }
+
+  const titles = [...selectedGameTitles].sort((left, right) => left.localeCompare(right))
+
+  if (titles.length === 0) {
+    return null
+  }
+
+  if (titles.length <= 4) {
+    return titles.join(', ')
+  }
+
+  return `${titles.slice(0, 4).join(', ')} +${titles.length - 4} more`
+}
+
+function buildRecipientVoiceChannelValue(
+  voiceChannel?: { channelId: string | null; channelName: string | null; recipientSharesServer: boolean } | null,
+  discordSpace?: PlayIntentDiscordSpaceRecipientContext | null
+) {
+  const selectedVoiceChannelValue = voiceChannel?.channelName
+    ? voiceChannel.channelId && voiceChannel.recipientSharesServer
+      ? `<#${voiceChannel.channelId}>`
+      : voiceChannel.channelName
+    : null
+
+  if (selectedVoiceChannelValue) {
+    return selectedVoiceChannelValue
+  }
+
+  if (!discordSpace) {
+    return null
+  }
+
+  const temporaryVoiceChannelValue = discordSpace.voiceChannelUrl
+    ? discordSpace.voiceChannelUrl
+    : discordSpace.voiceChannelName
+      ? discordSpace.voiceChannelName
+      : null
+  return [
+    temporaryVoiceChannelValue
+      ? temporaryVoiceChannelValue
+      : 'The Discord channel will appear after you join the Game\'s Up Discord server.',
+    discordSpace.inviteUrl ? `Invite link (shareable): ${discordSpace.inviteUrl}` : null
+  ].filter((part): part is string => Boolean(part)).join('\n') || null
+}
+
+function buildInterestFieldValue(interestedCount?: number, interestedUserLabels?: string[]) {
+  const resolvedInterestedCount = interestedUserLabels?.length ?? interestedCount ?? 0
+
+  if (resolvedInterestedCount <= 0) {
+    return 'No one is showing interest yet.'
+  }
+
+  return [
+    `${resolvedInterestedCount} ${resolvedInterestedCount === 1 ? 'person is' : 'people are'} showing interest:`,
+    interestedUserLabels && interestedUserLabels.length > 0
+      ? formatInterestedUserLabelSummary(interestedUserLabels)
+      : null
+  ].filter((part): part is string => Boolean(part)).join('\n')
+}
+
+function formatUpdatedFieldChange(field: string) {
+  switch (field) {
+    case 'time':
+      return 'Timing changed.'
+    case 'game selection':
+      return 'Games changed.'
+    case 'audience':
+      return 'Audience changed.'
+    case 'note':
+      return 'Note changed.'
+    case 'temporary Discord channel':
+      return 'Voice channel changed.'
+    default:
+      return `${field.charAt(0).toUpperCase()}${field.slice(1)} changed.`
+  }
+}
+
+export function buildPlayIntentUpdatedReplyMessage(updatedFields: string[]) {
+  return buildDiscordPlainMessage(
+    buildDiscordMessageHeading('ℹ️ Call Updated'),
+    updatedFields.map(formatUpdatedFieldChange),
+    {
+      trailingSubtext: 'The original invite above now shows the latest details.'
+    }
+  )
+}
+
+export function buildGoTimeReminderReplyMessage(options: {
+  creatorDiscordUserId?: string | null;
+  creatorDisplayName?: string | null;
+}) {
+  const creatorLabel = options.creatorDisplayName
+    ? buildDiscordUserLabel(options.creatorDisplayName, options.creatorDiscordUserId)
+    : 'The creator'
+
+  return buildDiscordPlainMessage(
+    buildDiscordMessageHeading('⏰ Go Time'),
+    [
+      `${creatorLabel} confirmed this session is still on.`,
+      'Use the buttons below if you want in.'
+    ],
+    {
+      trailingSubtext: 'The original invite above has the full details.'
+    }
+  )
+}
+
+export function buildGoTimeConfirmedReplyMessage(options: {
+  creatorDiscordUserId?: string | null;
+  creatorDisplayName?: string | null;
+  voiceChannel?: { channelId: string | null; channelName: string | null; recipientSharesServer: boolean } | null;
+  discordSpace?: PlayIntentDiscordSpaceRecipientContext | null;
+}) {
+  const creatorLabel = options.creatorDisplayName
+    ? buildDiscordUserLabel(options.creatorDisplayName, options.creatorDiscordUserId)
+    : 'The creator'
+  const voiceChannelValue = buildRecipientVoiceChannelValue(options.voiceChannel, options.discordSpace)
+
+  return buildDiscordPlainMessage(
+    buildDiscordMessageHeading('🎮 Go Time'),
+    [
+      `${creatorLabel} confirmed the session is starting now.`,
+      voiceChannelValue ? `Voice channel: ${voiceChannelValue}` : 'Jump in when you are ready.'
+    ],
+    {
+      trailingSubtext: 'The original invite above has the full details.'
+    }
+  )
+}
+
+function resolveRecipientPlayIntentHeadline(headline: string | null | undefined) {
+  const trimmedHeadline = headline?.trim() ?? ''
+
+  if (!trimmedHeadline || trimmedHeadline === defaultPlayIntentHeadline) {
+    return null
+  }
+
+  return trimmedHeadline
+}
+
 export function buildPlayIntentDirectMessageEmbeds(
-  title: string,
+  _title: string,
   body: string,
   creatorDiscordUserId?: string | null,
   creatorDisplayName?: string | null,
@@ -468,81 +690,88 @@ export function buildPlayIntentDirectMessageEmbeds(
   discordSpace?: PlayIntentDiscordSpaceRecipientContext | null,
   options: {
     includeUpdateDescription?: boolean;
+    intentDetails?: RecipientPlayIntentDetails;
+    summaryStatus?: AudiencePlayIntentSummaryStatus;
+    showVoiceChannel?: boolean;
   } = {}
 ) {
   const creatorLabel = creatorDisplayName
     ? buildDiscordUserLabel(creatorDisplayName, creatorDiscordUserId)
     : null
+  const titleValue = resolveRecipientPlayIntentHeadline(options.intentDetails?.headline)
   const replacedBody = creatorDisplayName
     ? replaceDisplayNameWithMention(body, creatorDisplayName, creatorDiscordUserId)
     : body
-  const voiceChannelValue = voiceChannel?.channelName
-    ? voiceChannel.channelId && voiceChannel.recipientSharesServer
-      ? `<#${voiceChannel.channelId}>`
-      : voiceChannel.channelName
-    : null
   const fieldsFromBody = extractLabeledFields(replacedBody)
   const updateField = fieldsFromBody.find((field) => field.label.trim().toLowerCase() === 'update')
-  const detailFields = fieldsFromBody.filter((field) => field.label.trim().toLowerCase() !== 'update')
-  const interestedSummary = interestedUserLabels && interestedUserLabels.length > 0
-    ? `Interested: ${formatInterestedUserLabelSummary(interestedUserLabels)}`
+  const timingField = fieldsFromBody.find((field) => {
+    const normalizedLabel = field.label.trim().toLowerCase()
+
+    return normalizedLabel === 'when' || normalizedLabel === 'timing'
+  })
+  const bodyGamesField = fieldsFromBody.find((field) => field.label.trim().toLowerCase() === 'games')
+  const bodyAudienceField = fieldsFromBody.find((field) => field.label.trim().toLowerCase() === 'audience')
+  const bodyNoteField = fieldsFromBody.find((field) => field.label.trim().toLowerCase() === 'note')
+  const gamesValue = options.intentDetails
+    ? summarizePlayIntentGames(options.intentDetails.selectionMode, options.intentDetails.selectedGameTitles)
+    : (bodyGamesField?.value ?? null)
+  const audienceValue = options.intentDetails
+    ? summarizePlayIntentAudience(
+        options.intentDetails.scope,
+        options.intentDetails.targetDiscordServers,
+        options.intentDetails.targetFriends
+      )
+    : (bodyAudienceField?.value ?? null)
+  const noteValue = options.intentDetails?.note?.trim() || bodyNoteField?.value || null
+  const voiceChannelValue = options.showVoiceChannel
+    ? buildRecipientVoiceChannelValue(voiceChannel, discordSpace)
     : null
-  const discordSpaceValue = discordSpace?.recipientInServer
-    ? [
-        discordSpace.textChannelUrl
-          ? `Text channel: ${discordSpace.textChannelUrl}`
-          : discordSpace.textChannelName
-            ? `Text channel: ${discordSpace.textChannelName}`
-            : null,
-        discordSpace.voiceChannelUrl
-          ? `Voice channel: ${discordSpace.voiceChannelUrl}`
-          : discordSpace.voiceChannelName
-            ? `Voice channel: ${discordSpace.voiceChannelName}`
-            : null,
-        discordSpace.inviteUrl
-          ? `Reusable invite: ${discordSpace.inviteUrl}`
-          : null
-      ].filter((part): part is string => Boolean(part)).join('\n')
-    : null
+  const summaryDescription = [
+    titleValue,
+    (options.includeUpdateDescription ?? true) ? updateField?.value ?? null : null
+  ].filter((value): value is string => Boolean(value)).join('\n\n')
+  const summaryStatus = options.summaryStatus ?? 'scheduled'
   const embed = new EmbedBuilder()
-    .setColor(dmEmbedColors.info)
+    .setColor(resolveAudiencePlayIntentSummaryColor(summaryStatus))
+    .setDescription(summaryDescription || null)
     .addFields(buildDiscordEmbedFields([
       {
         name: formatPlayIntentEmbedFieldName('Creator'),
         value: creatorLabel,
-        inline: true
-      },
-      ...detailFields.map((field) => ({
-        name: formatPlayIntentEmbedFieldName(field.label),
-        value: field.value,
-        inline: field.label.trim().toLowerCase() !== 'games'
-      })),
-      {
-        name: formatPlayIntentEmbedFieldName('Voice Channel'),
-        value: voiceChannelValue,
-        inline: true
-      },
-      {
-        name: formatPlayIntentEmbedFieldName('Interest'),
-        value: [
-          interestedCount && interestedCount > 0
-            ? `${interestedCount} ${interestedCount === 1 ? 'person is' : 'people are'} showing interest.`
-            : null,
-          interestedSummary
-        ].filter((part): part is string => Boolean(part)).join('\n'),
         inline: false
       },
       {
-        name: '🪩 Temporary Discord channel',
-        value: discordSpaceValue,
+        name: formatPlayIntentEmbedFieldName('Games'),
+        value: gamesValue,
+        inline: false
+      },
+      {
+        name: formatPlayIntentEmbedFieldName('Timing'),
+        value: timingField?.value ?? null,
+        inline: false
+      },
+      {
+        name: formatPlayIntentEmbedFieldName('Audience'),
+        value: audienceValue,
+        inline: false
+      },
+      {
+        name: formatPlayIntentEmbedFieldName('Interest'),
+        value: buildInterestFieldValue(interestedCount, interestedUserLabels),
+        inline: false
+      },
+      {
+        name: formatPlayIntentEmbedFieldName('Note'),
+        value: noteValue,
+        inline: false
+      },
+      {
+        name: formatPlayIntentEmbedFieldName('Voice Channel'),
+        value: voiceChannelValue,
         inline: false
       }
     ]))
     .setFooter({ text: 'Respond from the buttons below or open the app.' })
-
-  if ((options.includeUpdateDescription ?? true) && updateField?.value) {
-    embed.setDescription(updateField.value)
-  }
 
   return [
     embed
@@ -557,7 +786,7 @@ function buildScheduledCheckInEmbeds(creatorLabel: string) {
       .addFields(buildDiscordEmbedFields([
         {
           name: formatPlayIntentEmbedFieldName('Status'),
-          value: 'Confirm that you are still on, or end the call if plans changed.',
+          value: 'Confirm if it is still on, or end the call if plans changed.',
           inline: false
         }
       ]))
@@ -590,10 +819,10 @@ export function buildPlayIntentDirectMessage(
 
   const interestSection = buildDirectMessageBulletSection('Interest', [
     interestedCount && interestedCount > 0
-      ? `${interestedCount} ${interestedCount === 1 ? 'person is' : 'people are'} showing interest.`
+      ? `${interestedCount} ${interestedCount === 1 ? 'person is' : 'people are'} showing interest:`
       : '',
     interestedUserLabels && interestedUserLabels.length > 0
-      ? `Interested: ${formatInterestedUserLabelSummary(interestedUserLabels)}`
+      ? formatInterestedUserLabelSummary(interestedUserLabels)
       : ''
   ])
 
@@ -695,7 +924,53 @@ export function buildPlayIntentNotificationPromptPreview(options: {
   interestedCount?: number;
   interestedUserLabels?: string[];
   responseCustomIdBuilder?: (response: 'interested' | 'pass') => string;
+  intentDetails?: RecipientPlayIntentDetails;
+  summaryStatus?: AudiencePlayIntentSummaryStatus;
 }): DirectMessagePreviewPayload {
+  if (options.notificationType === NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED) {
+    return {
+      content: buildGoTimeConfirmedReplyMessage({
+        creatorDiscordUserId: options.creatorDiscordUserId,
+        creatorDisplayName: options.creatorDisplayName,
+        voiceChannel: options.voiceChannel,
+        discordSpace: options.discordSpace
+      }),
+      components: buildPlayIntentNotificationComponents(
+        options.notificationId,
+        options.creatorUserId ?? undefined,
+        options.creatorDisplayName ?? undefined,
+        options.responseChoice,
+        options.notificationType,
+        {
+          forceInteractive: true,
+          playIntentId: options.playIntentId,
+          responseCustomIdBuilder: options.responseCustomIdBuilder
+        }
+      )
+    }
+  }
+
+  if (options.notificationType === NotificationType.SCHEDULED_PLAY_INTENT_REMINDER) {
+    return {
+      content: buildGoTimeReminderReplyMessage({
+        creatorDiscordUserId: options.creatorDiscordUserId,
+        creatorDisplayName: options.creatorDisplayName
+      }),
+      components: buildPlayIntentNotificationComponents(
+        options.notificationId,
+        options.creatorUserId ?? undefined,
+        options.creatorDisplayName ?? undefined,
+        options.responseChoice,
+        options.notificationType,
+        {
+          forceInteractive: true,
+          playIntentId: options.playIntentId,
+          responseCustomIdBuilder: options.responseCustomIdBuilder
+        }
+      )
+    }
+  }
+
   return {
     content: buildPlayIntentDirectMessageHeading(options.title),
     embeds: buildPlayIntentDirectMessageEmbeds(
@@ -708,8 +983,10 @@ export function buildPlayIntentNotificationPromptPreview(options: {
       options.interestedUserLabels,
       options.discordSpace,
       {
-        includeUpdateDescription: options.notificationType !== NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED
-          && options.notificationType !== NotificationType.SCHEDULED_PLAY_INTENT_REMINDER
+        intentDetails: options.intentDetails,
+        includeUpdateDescription: true,
+        summaryStatus: options.summaryStatus,
+        showVoiceChannel: false
       }
     ),
     components: buildPlayIntentNotificationComponents(
@@ -769,6 +1046,8 @@ export function buildNotificationDirectMessagePreview(options: {
   actorDisplayName?: string | null;
   actorDiscordUserId?: string | null;
   passAcknowledgementMode?: PassAcknowledgementMode;
+  intentDetails?: RecipientPlayIntentDetails;
+  summaryStatus?: AudiencePlayIntentSummaryStatus;
 }): DirectMessagePreviewPayload {
   const creatorLabel = options.creatorDisplayName
     ? buildDiscordUserLabel(options.creatorDisplayName, options.creatorDiscordUserId)
@@ -850,7 +1129,9 @@ export function buildNotificationDirectMessagePreview(options: {
       voiceChannel: options.voiceChannel,
       discordSpace: options.discordSpace,
       interestedCount: options.interestedCount,
-      interestedUserLabels: options.interestedUserLabels
+      interestedUserLabels: options.interestedUserLabels,
+      intentDetails: options.intentDetails,
+      summaryStatus: options.summaryStatus
     })
   }
 
@@ -941,7 +1222,7 @@ function buildCreatorDiscordSpaceSummary(snapshot: CreatorPlayIntentSummarySnaps
         ? `Voice channel: ${snapshot.discordSpace.voiceChannelName}`
       : null,
     snapshot.discordSpace.inviteUrl
-      ? `Invite: ${snapshot.discordSpace.inviteUrl}`
+      ? `Invite link (shareable): ${snapshot.discordSpace.inviteUrl}`
       : null,
     snapshot.discordSpace.deleteAfter
       ? `Delete after: ${formatPlayIntentDateLabel(snapshot.discordSpace.deleteAfter, snapshot.user.timezoneId)}`
@@ -971,35 +1252,7 @@ function buildCreatorPlayIntentSummaryHeading(startsAtLabel: string) {
 }
 
 function summarizeCreatorAudience(snapshot: CreatorPlayIntentSummarySnapshot) {
-  if (snapshot.scope === 'SPECIFIC_DISCORD_SERVER' && snapshot.targetDiscordServers.length > 0) {
-    const names = snapshot.targetDiscordServers
-      .map((entry) => entry.server.name)
-      .sort((left, right) => left.localeCompare(right))
-
-    if (names.length <= 4) {
-      return `Audience: Discord servers ${names.join(', ')}`
-    }
-
-    return `Audience: Discord servers ${names.slice(0, 4).join(', ')} +${names.length - 4} more`
-  }
-
-  if (snapshot.scope === 'SPECIFIC_FRIENDS') {
-    const names = snapshot.targetFriends
-      .map((entry) => buildDiscordUserLabel(entry.friendUser.displayName, entry.friendUser.identities?.[0]?.providerUserId))
-      .sort((left, right) => left.localeCompare(right))
-
-    if (names.length <= 4) {
-      return `Audience: Specific friends (${names.join(', ')})`
-    }
-
-    return `Audience: Specific friends (${names.slice(0, 4).join(', ')} +${names.length - 4} more)`
-  }
-
-  if (snapshot.scope === 'MUTUAL_FRIENDS') {
-    return 'Audience: Friends and your selected network'
-  }
-
-  return 'Audience: Friends only'
+  return `Audience: ${summarizePlayIntentAudience(snapshot.scope, snapshot.targetDiscordServers, snapshot.targetFriends) ?? 'Friends only'}`
 }
 
 function summarizeCreatorGames(snapshot: CreatorPlayIntentSummarySnapshot) {
@@ -1007,13 +1260,7 @@ function summarizeCreatorGames(snapshot: CreatorPlayIntentSummarySnapshot) {
     return 'Games: Your library'
   }
 
-  const titles = snapshot.games.map((entry) => entry.game.title).sort((left, right) => left.localeCompare(right))
-
-  if (titles.length <= 4) {
-    return `Games: ${titles.join(', ')}`
-  }
-
-  return `Games: ${titles.slice(0, 4).join(', ')} +${titles.length - 4} more`
+  return `Games: ${summarizePlayIntentGames(snapshot.selectionMode, snapshot.games.map((entry) => entry.game.title)) ?? 'None selected.'}`
 }
 
 function formatInterestedUserLabelSummary(labels: string[]) {
@@ -1167,19 +1414,12 @@ function buildCreatorPlayIntentSummaryEmbeds(
           inline: false
         },
         {
-          name: formatPlayIntentEmbedFieldName('Reach'),
-          value: stats.matchedCount > 0
-            ? `${stats.deliveredCount} of ${stats.matchedCount} matched players received a Discord DM.`
-            : 'No matching players were found yet.',
-          inline: true
-        },
-        {
           name: formatPlayIntentEmbedFieldName('Note'),
           value: snapshot.note,
           inline: false
         },
         {
-          name: '🪩 Temporary Discord channel',
+          name: formatPlayIntentEmbedFieldName('Voice Channel'),
           value: buildCreatorDiscordSpaceSummary(snapshot),
           inline: false
         }
@@ -1244,28 +1484,6 @@ export function buildCreatorPlayIntentSummaryPreview(snapshot: {
     ...snapshot,
     discordSpace: snapshot.discordSpace ?? null
   } as CreatorPlayIntentSummarySnapshot
-
-  if (snapshot.expiresAt <= currentTime) {
-    return buildArchivedCreatorPlayIntentPreview(
-      snapshot.id,
-      {
-        selectionMode: snapshot.selectionMode,
-        windowStartsAt: snapshot.windowStartsAt,
-        windowEndsAt: snapshot.windowEndsAt,
-        user: {
-          displayName: snapshot.user.displayName,
-          identities: snapshot.user.identities
-        },
-        games: snapshot.games,
-        discordSpace: typedSnapshot.discordSpace
-          ? {
-              status: typedSnapshot.discordSpace.status
-            }
-          : null
-      },
-      snapshot.user.timezoneId
-    )
-  }
 
   return {
     content: buildCreatorPlayIntentSummaryHeading(startsAtLabel),
@@ -1427,8 +1645,10 @@ type CreatorPlayIntentSummarySyncOptions = {
 
 async function sendOrEditCreatorPlayIntentSummary(
   playIntentId: string,
-  options: CreatorPlayIntentSummarySyncOptions = {}
+  _options: CreatorPlayIntentSummarySyncOptions = {}
 ) {
+  void _options
+
   const snapshot = await getCreatorPlayIntentSummarySnapshot(playIntentId)
 
   if (!snapshot) {
@@ -1446,48 +1666,6 @@ async function sendOrEditCreatorPlayIntentSummary(
   const content = buildCreatorPlayIntentSummaryHeading(startsAtLabel)
   const embeds = buildCreatorPlayIntentSummaryEmbeds(snapshot)
   const components = buildCreatorPlayIntentSummaryComponents(playIntentId, isActive, hasCreatorDeletableDiscordSpace(snapshot))
-  const notifyOnActiveChange = options.notifyOnActiveChange ?? true
-
-  // Active summary changes should trigger a fresh Discord notification.
-  // Ended/archive states are allowed to fall back to quiet edit-in-place updates.
-  if (isActive && notifyOnActiveChange) {
-    const dmResult = (await sendDiscordDirectMessages([
-      {
-        discordUserId: creatorDiscordUserId,
-        content,
-        embeds,
-        components
-      }
-    ]))[0]
-
-    if (dmResult?.status === 'sent') {
-      if (dmResult.emulated) {
-        return
-      }
-
-      if (!dmResult.channelId || !dmResult.messageId) {
-        return
-      }
-
-      if (snapshot.creatorDiscordDmChannelId && snapshot.creatorDiscordDmMessageId) {
-        await deleteDiscordDirectMessage({
-          channelId: snapshot.creatorDiscordDmChannelId,
-          messageId: snapshot.creatorDiscordDmMessageId
-        })
-      }
-
-      await prisma.playIntent.update({
-        where: {
-          id: playIntentId
-        },
-        data: {
-          creatorDiscordDmChannelId: dmResult.channelId,
-          creatorDiscordDmMessageId: dmResult.messageId
-        }
-      })
-      return
-    }
-  }
 
   if (snapshot.creatorDiscordDmChannelId && snapshot.creatorDiscordDmMessageId) {
     const editResult = await editDiscordDirectMessage({
@@ -1501,6 +1679,20 @@ async function sendOrEditCreatorPlayIntentSummary(
     if (editResult.status === 'edited') {
       return
     }
+
+    if (!isMissingDiscordMessageError(editResult.error)) {
+      return
+    }
+
+    await prisma.playIntent.update({
+      where: {
+        id: playIntentId
+      },
+      data: {
+        creatorDiscordDmChannelId: null,
+        creatorDiscordDmMessageId: null
+      }
+    })
   }
 
   const dmResult = (await sendDiscordDirectMessages([
@@ -1592,7 +1784,10 @@ export async function refreshTrackedCreatorPlayIntentSummaryMessages() {
   }
 }
 
-export async function refreshTrackedPlayIntentNotificationDirectMessages() {
+export async function refreshTrackedPlayIntentNotificationDirectMessages(options: {
+  playIntentIds?: string[];
+} = {}) {
+  const targetPlayIntentIds = options.playIntentIds?.filter((playIntentId): playIntentId is string => Boolean(playIntentId)) ?? []
   const notifications = await prisma.notification.findMany({
     where: {
       discordDmChannelId: {
@@ -1600,7 +1795,14 @@ export async function refreshTrackedPlayIntentNotificationDirectMessages() {
       },
       discordDmMessageId: {
         not: null
-      }
+      },
+      ...(targetPlayIntentIds.length > 0
+        ? {
+            playIntentId: {
+              in: targetPlayIntentIds
+            }
+          }
+        : {})
     },
     select: {
       id: true,
@@ -1625,10 +1827,39 @@ export async function refreshTrackedPlayIntentNotificationDirectMessages() {
           id: true,
           userId: true,
           scope: true,
+          headline: true,
           selectionMode: true,
+          note: true,
+          windowStartsAt: true,
           expiresAt: true,
           voiceChannelId: true,
           voiceChannelName: true,
+          targetDiscordServers: {
+            select: {
+              server: {
+                select: {
+                  name: true
+                }
+              }
+            }
+          },
+          targetFriends: {
+            select: {
+              friendUser: {
+                select: {
+                  displayName: true,
+                  identities: {
+                    where: {
+                      provider: AuthProvider.DISCORD
+                    },
+                    select: {
+                      providerUserId: true
+                    }
+                  }
+                }
+              }
+            }
+          },
           games: {
             select: {
               game: {
@@ -1791,8 +2022,22 @@ export async function refreshTrackedPlayIntentNotificationDirectMessages() {
       voiceChannel,
       discordSpace,
       interestedCount: interestedUsers.length > 0 ? interestedUsers.length : undefined,
-      interestedUserLabels: interestedUsers.map((user) => user.displayName),
+      interestedUserLabels: interestedUsers.map((user) => buildDiscordUserLabel(user.displayName, user.identities?.[0]?.providerUserId)),
       passAcknowledgementMode,
+      summaryStatus: playIntent
+        ? resolveAudiencePlayIntentSummaryStatus(playIntent.windowStartsAt, now)
+        : undefined,
+      intentDetails: playIntent
+        ? {
+            selectionMode: playIntent.selectionMode,
+            headline: playIntent.headline,
+            selectedGameTitles: playIntent.games.map((entry) => entry.game.title),
+            scope: playIntent.scope,
+            targetDiscordServers: playIntent.targetDiscordServers,
+            targetFriends: playIntent.targetFriends,
+            note: playIntent.note
+          }
+        : undefined,
       actorDisplayName: actor?.displayName ?? null,
       actorDiscordUserId: actor?.identities[0]?.providerUserId ?? null
     })
@@ -1846,8 +2091,22 @@ export async function refreshTrackedPlayIntentNotificationDirectMessages() {
         voiceChannel,
         discordSpace,
         interestedCount: interestedUsers.length > 0 ? interestedUsers.length : undefined,
-        interestedUserLabels: interestedUsers.map((user) => user.displayName),
+        interestedUserLabels: interestedUsers.map((user) => buildDiscordUserLabel(user.displayName, user.identities?.[0]?.providerUserId)),
         passAcknowledgementMode,
+        summaryStatus: playIntent
+          ? resolveAudiencePlayIntentSummaryStatus(playIntent.windowStartsAt, now)
+          : undefined,
+        intentDetails: playIntent
+          ? {
+              selectionMode: playIntent.selectionMode,
+              headline: playIntent.headline,
+              selectedGameTitles: playIntent.games.map((entry) => entry.game.title),
+              scope: playIntent.scope,
+              targetDiscordServers: playIntent.targetDiscordServers,
+              targetFriends: playIntent.targetFriends,
+              note: playIntent.note
+            }
+          : undefined,
         actorDisplayName: actor?.displayName ?? null,
         actorDiscordUserId: actor?.identities[0]?.providerUserId ?? null
       })
@@ -1893,28 +2152,24 @@ function buildInterestedAcceptedMessage(
   discordSpace?: PlayIntentDiscordSpaceRecipientContext | null
 ) {
   const complementaryLines = discordSpace
-    ? discordSpace.recipientInServer
-      ? [
-          discordSpace.textChannelUrl
-            ? `Text channel: ${discordSpace.textChannelUrl}`
-            : discordSpace.textChannelName
-              ? `Text channel: ${discordSpace.textChannelName}`
-              : null,
-          discordSpace.voiceChannelUrl
-            ? `Voice channel: ${discordSpace.voiceChannelUrl}`
-            : discordSpace.voiceChannelName
-              ? `Voice channel: ${discordSpace.voiceChannelName}`
-              : null,
-          discordSpace.inviteUrl
-            ? `Reusable invite: ${discordSpace.inviteUrl}`
-            : null
-        ]
-      : discordSpace.inviteUrl
-        ? [
-            `Join the Game's Up Discord server: ${discordSpace.inviteUrl}`,
-            'Your temporary Discord channel will appear automatically after you join.'
-          ]
-        : []
+    ? [
+        discordSpace.textChannelUrl
+          ? `Text channel: ${discordSpace.textChannelUrl}`
+          : discordSpace.textChannelName
+            ? `Text channel: ${discordSpace.textChannelName}`
+            : null,
+        discordSpace.voiceChannelUrl
+          ? `Voice channel: ${discordSpace.voiceChannelUrl}`
+          : discordSpace.voiceChannelName
+            ? `Voice channel: ${discordSpace.voiceChannelName}`
+            : null,
+        discordSpace.inviteUrl
+          ? `Invite link (shareable): ${discordSpace.inviteUrl}`
+          : null,
+        !discordSpace.recipientInServer && discordSpace.inviteUrl
+          ? 'The Discord channel will appear after you join.'
+          : null
+      ]
     : []
 
   return buildDiscordPlainMessage(
@@ -2096,13 +2351,15 @@ async function syncRecipientResponseFollowUpDirectMessage(options: {
   content: string;
   channelId?: string | null;
   messageId?: string | null;
+  replyTo?: DiscordDirectMessagePayload['replyTo'];
 }) {
   const sendNewFollowUp = async () => {
     const dmResult = (await sendDiscordDirectMessages([
       {
         discordUserId: options.discordUserId,
         content: options.content,
-        components: []
+        components: [],
+        replyTo: options.replyTo
       }
     ]))[0]
 
@@ -2809,14 +3066,13 @@ export async function expirePendingPlayIntentNotifications(
 
       const creatorDiscordUserId = notification.playIntent?.user.identities?.[0]?.providerUserId
 
-      if (creatorDiscordUserId) {
-        await sendDiscordDirectMessages([
-          {
-            discordUserId: creatorDiscordUserId,
-            content: buildExpiredMessage('This call to play expired before you confirmed.'),
-            components: []
-          }
-        ])
+      if (creatorDiscordUserId && notification.playIntentId) {
+        await sendCreatorPlayIntentSummaryReply({
+          playIntentId: notification.playIntentId,
+          discordUserId: creatorDiscordUserId,
+          content: buildExpiredMessage('This call to play expired before you confirmed.'),
+          components: []
+        })
       }
 
       return
@@ -2874,7 +3130,48 @@ export async function handleScheduledPlayIntentCheckInInteraction(interaction: B
           select: {
             id: true,
             userId: true,
+            scope: true,
+            headline: true,
+            selectionMode: true,
+            note: true,
             expiresAt: true,
+            voiceChannelId: true,
+            voiceChannelName: true,
+            targetDiscordServers: {
+              select: {
+                server: {
+                  select: {
+                    name: true
+                  }
+                }
+              }
+            },
+            targetFriends: {
+              select: {
+                friendUser: {
+                  select: {
+                    displayName: true,
+                    identities: {
+                      where: {
+                        provider: AuthProvider.DISCORD
+                      },
+                      select: {
+                        providerUserId: true
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            games: {
+              select: {
+                game: {
+                  select: {
+                    title: true
+                  }
+                }
+              }
+            },
             user: {
               select: {
                 displayName: true,
@@ -3041,8 +3338,11 @@ export async function handleScheduledPlayIntentCheckInInteraction(interaction: B
       },
       select: {
         userId: true,
+        type: true,
         responseChoice: true,
-        respondedAt: true
+        respondedAt: true,
+        discordDmChannelId: true,
+        discordDmMessageId: true
       },
       orderBy: {
         createdAt: 'desc'
@@ -3050,11 +3350,24 @@ export async function handleScheduledPlayIntentCheckInInteraction(interaction: B
     })
 
     const latestRecipientStatusByUserId = new Map<string, { respondedAt: Date | null; responseChoice: NotificationResponseChoice | null }>()
+    const latestInviteMessageByUserId = new Map<string, { channelId: string; messageId: string }>()
     for (const recipientNotification of recipientNotifications) {
       if (!latestRecipientStatusByUserId.has(recipientNotification.userId)) {
         latestRecipientStatusByUserId.set(recipientNotification.userId, {
           respondedAt: recipientNotification.respondedAt,
           responseChoice: recipientNotification.responseChoice
+        })
+      }
+
+      if (
+        recipientNotification.type === NotificationType.FRIEND_PLAYING
+        && recipientNotification.discordDmChannelId
+        && recipientNotification.discordDmMessageId
+        && !latestInviteMessageByUserId.has(recipientNotification.userId)
+      ) {
+        latestInviteMessageByUserId.set(recipientNotification.userId, {
+          channelId: recipientNotification.discordDmChannelId,
+          messageId: recipientNotification.discordDmMessageId
         })
       }
     }
@@ -3090,7 +3403,7 @@ export async function handleScheduledPlayIntentCheckInInteraction(interaction: B
     }
 
     const confirmedNotifications = acceptedUserIds.length > 0
-      ? await Promise.all(acceptedUserIds.map((recipientUserId) => transaction.notification.create({
+      ? (await Promise.all(acceptedUserIds.map((recipientUserId) => transaction.notification.create({
         data: {
           userId: recipientUserId,
           triggeredByUserId: playIntent.userId,
@@ -3106,11 +3419,15 @@ export async function handleScheduledPlayIntentCheckInInteraction(interaction: B
           body: true,
           type: true
         }
-      })))
+      })))).map((notification) => ({
+        ...notification,
+        replyToInviteChannelId: latestInviteMessageByUserId.get(notification.userId)?.channelId ?? null,
+        replyToInviteMessageId: latestInviteMessageByUserId.get(notification.userId)?.messageId ?? null
+      }))
       : []
 
     const reminderNotifications = unansweredUserIds.length > 0
-      ? await Promise.all(unansweredUserIds.map((recipientUserId) => transaction.notification.create({
+      ? (await Promise.all(unansweredUserIds.map((recipientUserId) => transaction.notification.create({
         data: {
           userId: recipientUserId,
           triggeredByUserId: playIntent.userId,
@@ -3126,7 +3443,15 @@ export async function handleScheduledPlayIntentCheckInInteraction(interaction: B
           body: true,
           type: true
         }
-      })))
+      })))).map((notification) => {
+        const replyToInvite = latestInviteMessageByUserId.get(notification.userId)
+
+        return {
+          ...notification,
+          replyToInviteChannelId: replyToInvite?.channelId ?? null,
+          replyToInviteMessageId: replyToInvite?.messageId ?? null
+        }
+      })
       : []
 
     return {
@@ -3144,7 +3469,7 @@ export async function handleScheduledPlayIntentCheckInInteraction(interaction: B
     return
   }
 
-  const [recipientIdentities, creatorIdentity, acceptedUsers] = await Promise.all([
+  const [recipientIdentities, creatorIdentity, acceptedUsers, creatorMemberships] = await Promise.all([
     prisma.userIdentity.findMany({
       where: {
         provider: AuthProvider.DISCORD,
@@ -3184,15 +3509,42 @@ export async function handleScheduledPlayIntentCheckInInteraction(interaction: B
           }
         }
       }
-    })
+    }),
+    playIntent.voiceChannelId
+      ? prisma.discordServerMembership.findMany({
+          where: {
+            userId: playIntent.userId
+          },
+          select: {
+            serverId: true
+          }
+        })
+      : Promise.resolve([] as Array<{ serverId: string }>)
   ])
   const creatorDiscordUserId = creatorIdentity?.providerUserId ?? null
   const discordUserIdByUserId = new Map(recipientIdentities.map((identityEntry) => [identityEntry.userId, identityEntry.providerUserId]))
   const acceptedUserLabels = acceptedUsers.map((user) => buildDiscordUserLabel(user.displayName, user.identities[0]?.providerUserId))
+  const creatorServerIds = creatorMemberships.map((membership) => membership.serverId)
   const discordSpaceRecipientContexts = await getPlayIntentDiscordSpaceRecipientContexts(
     playIntent.id,
     result.createdNotifications.map((createdNotification) => createdNotification.userId)
   )
+  const recipientServerMemberships = playIntent.voiceChannelId && creatorServerIds.length > 0
+    ? await prisma.discordServerMembership.findMany({
+        where: {
+          userId: {
+            in: result.createdNotifications.map((createdNotification) => createdNotification.userId)
+          },
+          serverId: {
+            in: creatorServerIds
+          }
+        },
+        select: {
+          userId: true
+        }
+      })
+    : []
+  const recipientUserIdsWithSharedServer = new Set(recipientServerMemberships.map((membership) => membership.userId))
 
   const dmTargets = result.createdNotifications
     .flatMap((createdNotification) => {
@@ -3202,24 +3554,55 @@ export async function handleScheduledPlayIntentCheckInInteraction(interaction: B
         return []
       }
 
+      const voiceChannel = playIntent.voiceChannelId || playIntent.voiceChannelName
+        ? {
+            channelId: playIntent.voiceChannelId ?? null,
+            channelName: playIntent.voiceChannelName ?? null,
+            recipientSharesServer: recipientUserIdsWithSharedServer.has(createdNotification.userId)
+          }
+        : null
+
       return [{
         notificationId: createdNotification.id,
         discordUserId,
-        content: buildPlayIntentDirectMessageHeading(createdNotification.title),
-        embeds: buildPlayIntentDirectMessageEmbeds(
-          createdNotification.title,
-          createdNotification.body,
-          creatorDiscordUserId,
-          playIntent.user.displayName,
-          null,
-          result.priorAcceptedCount,
-          acceptedUserLabels,
-          discordSpaceRecipientContexts.get(createdNotification.userId) ?? null,
-          {
-            includeUpdateDescription: createdNotification.type !== NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED
-              && createdNotification.type !== NotificationType.SCHEDULED_PLAY_INTENT_REMINDER
-          }
-        ),
+        content: createdNotification.type === NotificationType.SCHEDULED_PLAY_INTENT_REMINDER
+          ? buildGoTimeReminderReplyMessage({
+              creatorDiscordUserId,
+              creatorDisplayName: playIntent.user.displayName
+            })
+          : createdNotification.type === NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED
+            ? buildGoTimeConfirmedReplyMessage({
+                creatorDiscordUserId,
+                creatorDisplayName: playIntent.user.displayName,
+                voiceChannel,
+                discordSpace: discordSpaceRecipientContexts.get(createdNotification.userId) ?? null
+              })
+            : buildPlayIntentDirectMessageHeading(createdNotification.title),
+        embeds: createdNotification.type === NotificationType.SCHEDULED_PLAY_INTENT_REMINDER
+          || createdNotification.type === NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED
+          ? undefined
+          : buildPlayIntentDirectMessageEmbeds(
+              createdNotification.title,
+              createdNotification.body,
+              creatorDiscordUserId,
+              playIntent.user.displayName,
+              voiceChannel,
+              result.priorAcceptedCount,
+              acceptedUserLabels,
+              discordSpaceRecipientContexts.get(createdNotification.userId) ?? null,
+              {
+                intentDetails: {
+                  selectionMode: playIntent.selectionMode,
+                  headline: playIntent.headline,
+                  selectedGameTitles: playIntent.games.map((entry) => entry.game.title),
+                  scope: playIntent.scope,
+                  targetDiscordServers: playIntent.targetDiscordServers,
+                  targetFriends: playIntent.targetFriends,
+                  note: playIntent.note
+                },
+                includeUpdateDescription: true
+              }
+            ),
         components: buildPlayIntentNotificationComponents(
           createdNotification.id,
           playIntent.userId,
@@ -3229,7 +3612,16 @@ export async function handleScheduledPlayIntentCheckInInteraction(interaction: B
           {
             playIntentId: playIntent.id
           }
-        )
+        ),
+        replyTo: (
+          createdNotification.type === NotificationType.SCHEDULED_PLAY_INTENT_REMINDER
+          || createdNotification.type === NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED
+        ) && createdNotification.replyToInviteMessageId
+          ? {
+              channelId: createdNotification.replyToInviteChannelId,
+              messageId: createdNotification.replyToInviteMessageId
+            }
+          : undefined
       }]
     })
 
@@ -3239,7 +3631,8 @@ export async function handleScheduledPlayIntentCheckInInteraction(interaction: B
         discordUserId: target.discordUserId,
         content: target.content,
         embeds: target.embeds,
-        components: target.components
+        components: target.components,
+        replyTo: target.replyTo
       }))
     )
 
@@ -3281,6 +3674,10 @@ export async function handleScheduledPlayIntentCheckInInteraction(interaction: B
     content: preservedPrompt.content,
     embeds: preservedPrompt.embeds,
     components: preservedPrompt.components
+  })
+
+  await refreshTrackedPlayIntentNotificationDirectMessages({
+    playIntentIds: [playIntent.id]
   })
 
   await syncCreatorPlayIntentSummaryMessages([playIntent.id], {
@@ -3332,6 +3729,8 @@ export async function handlePlayIntentNotificationInteraction(interaction: Butto
         body: true,
         respondedAt: true,
         responseChoice: true,
+        discordDmChannelId: true,
+        discordDmMessageId: true,
         recipientResponseDiscordDmChannelId: true,
         recipientResponseDiscordDmMessageId: true,
         user: {
@@ -3475,7 +3874,11 @@ export async function handlePlayIntentNotificationInteraction(interaction: Butto
     discordUserId: notification.user.identities?.[0]?.providerUserId ?? interaction.user.id,
     content: result.discordContent ?? result.content,
     channelId: notification.recipientResponseDiscordDmChannelId,
-    messageId: notification.recipientResponseDiscordDmMessageId
+    messageId: notification.recipientResponseDiscordDmMessageId,
+    replyTo: buildTrackedDirectMessageReplyReference(
+      notification.discordDmChannelId,
+      notification.discordDmMessageId
+    )
   })
 }
 

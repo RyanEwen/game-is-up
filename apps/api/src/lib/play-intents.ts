@@ -24,7 +24,7 @@ import {
   getMutualDiscoveryAudienceUserIds,
   getTargetDiscordServersAudienceUserIds
 } from './discord-servers.js'
-import { sendDiscordDirectMessages } from './discord-bot-runtime.js'
+import { editDiscordDirectMessage, sendDiscordDirectMessages } from './discord-bot-runtime.js'
 import { toClientGameCoverUrl, toClientAvatarUrl } from './game-media.js'
 import { getInterestedUsersByPlayIntentId } from './play-intent-interested-users.js'
 import {
@@ -32,6 +32,7 @@ import {
   buildPlayIntentDirectMessageEmbeds,
   buildPlayIntentNotificationComponents,
   buildPlayIntentNotificationPromptPreview,
+  buildPlayIntentUpdatedReplyMessage,
   buildGoTimeReminderCopy,
   expirePendingPlayIntentNotifications,
   syncCreatorPlayIntentSummaryMessages
@@ -326,6 +327,8 @@ function getUpdatedPlayIntentFields(options: {
   nextEndsAt: Date;
   nextNote: string;
   nextCreateDiscordSpace: boolean;
+  previousAudienceUserIds: string[];
+  nextAudienceUserIds: string[];
   nextSelectedGameIds: string[];
 }) {
   const updatedFields: string[] = []
@@ -356,6 +359,10 @@ function getUpdatedPlayIntentFields(options: {
     updatedFields.push('note')
   }
 
+  if (!areSameStringSets(options.previousAudienceUserIds, options.nextAudienceUserIds)) {
+    updatedFields.push('audience')
+  }
+
   if (Boolean(options.previousIntent.discordSpace) !== options.nextCreateDiscordSpace) {
     updatedFields.push('temporary Discord channel')
   }
@@ -369,7 +376,7 @@ function shouldRenotifyPriorDecliner(options: {
   targetedFriendUserIds: string[];
   recipientUserId: string;
 }) {
-  if (options.updatedFields.includes('time') || options.updatedFields.includes('game selection') || options.updatedFields.includes('temporary Discord channel')) {
+  if (options.updatedFields.length > 0) {
     return true
   }
 
@@ -1596,9 +1603,14 @@ export async function upsertCurrentPlayIntent(
           type: NotificationType.FRIEND_PLAYING
         },
         select: {
+          id: true,
           userId: true,
           respondedAt: true,
           responseChoice: true,
+          discordDmChannelId: true,
+          discordDmMessageId: true,
+          recipientResponseDiscordDmChannelId: true,
+          recipientResponseDiscordDmMessageId: true,
           createdAt: true,
           user: {
             select: {
@@ -1621,15 +1633,25 @@ export async function upsertCurrentPlayIntent(
     ])
     : [null, []]
   const priorRecipientStatusByUserId = new Map<string, {
+    notificationId: string;
     respondedAt: Date | null;
     responseChoice: NotificationResponseChoice | null;
+    discordDmChannelId: string | null;
+    discordDmMessageId: string | null;
+    recipientResponseDiscordDmChannelId: string | null;
+    recipientResponseDiscordDmMessageId: string | null;
     interestedUserLabel: string;
   }>()
   for (const notification of priorRecipientNotifications) {
     if (!priorRecipientStatusByUserId.has(notification.userId)) {
       priorRecipientStatusByUserId.set(notification.userId, {
+        notificationId: notification.id,
         respondedAt: notification.respondedAt,
         responseChoice: notification.responseChoice,
+        discordDmChannelId: notification.discordDmChannelId,
+        discordDmMessageId: notification.discordDmMessageId,
+        recipientResponseDiscordDmChannelId: notification.recipientResponseDiscordDmChannelId,
+        recipientResponseDiscordDmMessageId: notification.recipientResponseDiscordDmMessageId,
         interestedUserLabel: notification.user?.identities[0]?.providerUserId
           ? `<@${notification.user.identities[0].providerUserId}>`
           : (notification.user?.displayName ?? notification.userId)
@@ -1648,13 +1670,17 @@ export async function upsertCurrentPlayIntent(
       nextEndsAt: endsAt,
       nextNote: note,
       nextCreateDiscordSpace: payload.createDiscordSpace,
+      previousAudienceUserIds: [...priorNotifiedRecipientUserIds],
+      nextAudienceUserIds: recipientUserIds,
       nextSelectedGameIds: selectedGameIds
     })
     : []
   const isMeaningfulUpdate = updatedFields.length > 0 && priorNotifiedRecipientUserIds.size > 0
-  const recipientUserIdsForNotifications = recipientUserIds.filter((recipientUserId) => {
-    if (!isMeaningfulUpdate) {
-      return !priorNotifiedRecipientUserIds.has(recipientUserId)
+  const reusedRecipientUserIds = recipientUserIds.filter((recipientUserId) => priorNotifiedRecipientUserIds.has(recipientUserId))
+  const newRecipientUserIds = recipientUserIds.filter((recipientUserId) => !priorNotifiedRecipientUserIds.has(recipientUserId))
+  const renotifiedRecipientUserIds = new Set(recipientUserIds.filter((recipientUserId) => {
+    if (!isMeaningfulUpdate || !priorNotifiedRecipientUserIds.has(recipientUserId)) {
+      return false
     }
 
     const priorStatus = priorRecipientStatusByUserId.get(recipientUserId)
@@ -1669,7 +1695,7 @@ export async function upsertCurrentPlayIntent(
       targetedFriendUserIds: targetedFriends.map((friend) => friend.id),
       recipientUserId
     })
-  })
+  }))
   const recipientProfiles = recipientUserIds.length > 0
     ? await prisma.user.findMany({
         where: {
@@ -1689,7 +1715,17 @@ export async function upsertCurrentPlayIntent(
 
   let activeIntent: ActivePlayIntent | null = null
   let activeIntentId: string | null = null
-  let createdNotifications: Array<{ id: string; userId: string; title: string; body: string }> = []
+  const outboundNotifications: Array<{
+    id: string;
+    userId: string;
+    title: string;
+    body: string;
+    discordDmChannelId: string | null;
+    discordDmMessageId: string | null;
+    recipientResponseDiscordDmChannelId: string | null;
+    recipientResponseDiscordDmMessageId: string | null;
+    sendUpdateReply: boolean;
+  }> = []
 
   await prisma.$transaction(async (transaction) => {
     if (supersededIntentIds.length > 0) {
@@ -1757,14 +1793,9 @@ export async function upsertCurrentPlayIntent(
       include: activePlayIntentInclude
     })
 
-    const carriedRecipientUserIds = recipientUserIds.filter((recipientUserId) => (
-      priorNotifiedRecipientUserIds.has(recipientUserId)
-      && !recipientUserIdsForNotifications.includes(recipientUserId)
-    ))
-
-    if (carriedRecipientUserIds.length > 0) {
-      await Promise.all(
-        carriedRecipientUserIds.map((recipientUserId) => {
+    if (reusedRecipientUserIds.length > 0) {
+      const reusedNotifications = await Promise.all(
+        reusedRecipientUserIds.map((recipientUserId) => {
           const timezoneId = recipientTimezoneByUserId.get(recipientUserId) ?? sender.timezoneId
           const notificationCopy = buildPlayIntentNotificationCopy(
             sender.displayName,
@@ -1776,34 +1807,52 @@ export async function upsertCurrentPlayIntent(
             timezoneId
           )
           const priorStatus = priorRecipientStatusByUserId.get(recipientUserId)
+          const shouldSendUpdateReply = renotifiedRecipientUserIds.has(recipientUserId)
 
-          return transaction.notification.create({
+          if (!priorStatus) {
+            throw new PlayIntentValidationError('Unable to refresh the existing invite for this recipient.')
+          }
+
+          return transaction.notification.update({
+            where: {
+              id: priorStatus.notificationId
+            },
             data: {
-              userId: recipientUserId,
               triggeredByUserId: userId,
               playIntentId: createdIntent.id,
               gameId: payload.selectionMode === 'subset' ? selectedGameIds[0] : null,
               type: NotificationType.FRIEND_PLAYING,
               title: notificationCopy.title,
               body: notificationCopy.body,
-              respondedAt: priorStatus?.respondedAt ?? null,
-              responseChoice: priorStatus?.responseChoice ?? null
+              respondedAt: shouldSendUpdateReply ? null : priorStatus.respondedAt,
+              responseChoice: shouldSendUpdateReply ? null : priorStatus.responseChoice,
+              recipientResponseDiscordDmChannelId: shouldSendUpdateReply ? null : priorStatus.recipientResponseDiscordDmChannelId,
+              recipientResponseDiscordDmMessageId: shouldSendUpdateReply ? null : priorStatus.recipientResponseDiscordDmMessageId
             },
             select: {
-              id: true
+              id: true,
+              userId: true,
+              title: true,
+              body: true,
+              discordDmChannelId: true,
+              discordDmMessageId: true,
+              recipientResponseDiscordDmChannelId: true,
+              recipientResponseDiscordDmMessageId: true
             }
           })
         })
       )
+
+      outboundNotifications.push(...reusedNotifications.map((notification) => ({
+        ...notification,
+        sendUpdateReply: renotifiedRecipientUserIds.has(notification.userId)
+      })))
     }
 
-    if (recipientUserIdsForNotifications.length > 0) {
-      createdNotifications = await Promise.all(
-        recipientUserIdsForNotifications.map((recipientUserId) => {
+    if (newRecipientUserIds.length > 0) {
+      const createdNotifications = await Promise.all(
+        newRecipientUserIds.map((recipientUserId) => {
           const timezoneId = recipientTimezoneByUserId.get(recipientUserId) ?? sender.timezoneId
-          const recipientUpdatedFields = isMeaningfulUpdate && priorNotifiedRecipientUserIds.has(recipientUserId)
-            ? updatedFields
-            : []
           const notificationCopy = buildPlayIntentNotificationCopy(
             sender.displayName,
             payload.selectionMode,
@@ -1811,8 +1860,7 @@ export async function upsertCurrentPlayIntent(
             durationMinutes,
             startsAt,
             now,
-            timezoneId,
-            recipientUpdatedFields
+            timezoneId
           )
 
           return transaction.notification.create({
@@ -1829,11 +1877,20 @@ export async function upsertCurrentPlayIntent(
               id: true,
               userId: true,
               title: true,
-              body: true
+              body: true,
+              discordDmChannelId: true,
+              discordDmMessageId: true,
+              recipientResponseDiscordDmChannelId: true,
+              recipientResponseDiscordDmMessageId: true
             }
           })
         })
       )
+
+      outboundNotifications.push(...createdNotifications.map((notification) => ({
+        ...notification,
+        sendUpdateReply: false
+      })))
     }
 
     activeIntent = serializeActivePlayIntent(createdIntent, [])
@@ -1845,24 +1902,25 @@ export async function upsertCurrentPlayIntent(
   })
 
   let discordSpaceRecipientContexts = new Map<string, PlayIntentDiscordSpaceRecipientContext>()
+  const outboundRecipientUserIds = [...new Set(outboundNotifications.map((notification) => notification.userId))]
 
   if (payload.createDiscordSpace && activeIntentId) {
     await provisionPlayIntentDiscordSpaceByPlayIntentId(activeIntentId)
     discordSpaceRecipientContexts = await getPlayIntentDiscordSpaceRecipientContexts(
       activeIntentId,
-      createdNotifications.map((notification) => notification.userId)
+      outboundRecipientUserIds
     )
   }
 
   let deliveredNotificationCount = 0
 
-  if (createdNotifications.length > 0) {
+  if (outboundNotifications.length > 0) {
     const [recipientIdentities, creatorIdentity, creatorServerIds] = await Promise.all([
       prisma.userIdentity.findMany({
         where: {
           provider: AuthProvider.DISCORD,
           userId: {
-            in: createdNotifications.map((notification) => notification.userId)
+            in: outboundRecipientUserIds
           }
         },
         select: {
@@ -1890,7 +1948,7 @@ export async function upsertCurrentPlayIntent(
     const recipientServerMemberships = payload.voiceChannelId && creatorServerIds.length > 0
       ? await prisma.discordServerMembership.findMany({
           where: {
-            userId: { in: createdNotifications.map((n) => n.userId) },
+            userId: { in: outboundRecipientUserIds },
             serverId: { in: creatorServerIds }
           },
           select: { userId: true }
@@ -1900,25 +1958,19 @@ export async function upsertCurrentPlayIntent(
 
     const creatorDiscordUserId = creatorIdentity?.providerUserId ?? null
     const discordUserIdByUserId = new Map(recipientIdentities.map((identity) => [identity.userId, identity.providerUserId]))
-    const directMessageTargets = createdNotifications
-      .flatMap((notification) => {
-        const discordUserId = discordUserIdByUserId.get(notification.userId)
+    const directMessageTargets = outboundNotifications.map((notification) => {
+      const discordUserId = discordUserIdByUserId.get(notification.userId) ?? null
+      const sharesServer = recipientUserIdsWithSharedServer.has(notification.userId)
+      const voiceChannel = payload.voiceChannelId || payload.voiceChannelName
+        ? {
+            channelId: payload.voiceChannelId ?? null,
+            channelName: payload.voiceChannelName ?? null,
+            recipientSharesServer: sharesServer
+          }
+        : null
+      const discordSpace = discordSpaceRecipientContexts.get(notification.userId) ?? null
 
-        if (!discordUserId) {
-          return []
-        }
-
-        const sharesServer = recipientUserIdsWithSharedServer.has(notification.userId)
-        const voiceChannel = payload.voiceChannelId || payload.voiceChannelName
-          ? {
-              channelId: payload.voiceChannelId ?? null,
-              channelName: payload.voiceChannelName ?? null,
-              recipientSharesServer: sharesServer
-            }
-          : null
-        const discordSpace = discordSpaceRecipientContexts.get(notification.userId) ?? null
-
-        return [{
+      return {
           notificationId: notification.id,
           discordUserId,
           content: buildPlayIntentDirectMessageHeading(notification.title),
@@ -1931,21 +1983,28 @@ export async function upsertCurrentPlayIntent(
               voiceChannel,
               priorInterestedUserLabels.length > 0 ? priorInterestedUserLabels.length : undefined,
               priorInterestedUserLabels,
-              discordSpace
+              discordSpace,
+              {
+                intentDetails: {
+                  headline: payload.title?.trim() || null,
+                  selectionMode: payload.selectionMode,
+                  selectedGameTitles: selectedTitles,
+                  scope: toPrismaNotifyScope(payload.notifyScope),
+                  targetDiscordServers: targetDiscordServers.flatMap((server) => server ? [{ server: { name: server.name } }] : []),
+                  targetFriends: targetedFriends.map((friend) => ({
+                    friendUser: {
+                      displayName: friend.displayName
+                    }
+                  })),
+                  note
+                },
+                summaryStatus: startsAt.getTime() > now.getTime() + 60 * 1000 ? 'scheduled' : 'live'
+              }
             ),
             ...dmGameEmbeds
-          ]
-        }]
-      })
-
-    if (directMessageTargets.length > 0) {
-      const dmResults = await sendDiscordDirectMessages(
-        directMessageTargets.map((target) => ({
-          discordUserId: target.discordUserId,
-          content: target.content,
-          embeds: target.embeds,
+          ],
           components: buildPlayIntentNotificationComponents(
-            target.notificationId,
+            notification.id,
             userId,
             sender.displayName,
             null,
@@ -1953,36 +2012,89 @@ export async function upsertCurrentPlayIntent(
             {
               playIntentId: activeIntentId ?? undefined
             }
-          )
-        }))
-      )
-      const deliveredTargets = directMessageTargets
-        .map((target) => {
-          const result = dmResults.find((candidate) => candidate.discordUserId === target.discordUserId && candidate.status === 'sent')
+          ),
+          discordDmChannelId: notification.discordDmChannelId,
+          discordDmMessageId: notification.discordDmMessageId,
+          recipientResponseDiscordDmChannelId: notification.recipientResponseDiscordDmChannelId,
+          recipientResponseDiscordDmMessageId: notification.recipientResponseDiscordDmMessageId,
+          sendUpdateReply: notification.sendUpdateReply
+      }
+    })
 
-          return result
-            && !result.emulated
-            ? {
-                notificationId: target.notificationId,
-                channelId: result.channelId,
-                messageId: result.messageId
-              }
-            : null
+    for (const target of directMessageTargets) {
+      const updateReplyContent = target.sendUpdateReply
+        ? buildPlayIntentUpdatedReplyMessage(updatedFields)
+        : null
+
+      if (target.discordDmChannelId && target.discordDmMessageId) {
+        const editResult = await editDiscordDirectMessage({
+          channelId: target.discordDmChannelId,
+          messageId: target.discordDmMessageId,
+          content: target.content,
+          embeds: target.embeds,
+          components: target.components
         })
-        .filter((target): target is { notificationId: string; channelId: string | null; messageId: string | null } => target != null)
 
-      deliveredNotificationCount = deliveredTargets.length
+        if (editResult.status === 'edited') {
+          deliveredNotificationCount += 1
 
-      await Promise.all(deliveredTargets.map((target) => prisma.notification.update({
-        where: {
-          id: target.notificationId
-        },
-        data: {
-          deliveredAt: new Date(),
-          discordDmChannelId: target.channelId,
-          discordDmMessageId: target.messageId
+          if (updateReplyContent && target.discordUserId) {
+            const replyResult = (await sendDiscordDirectMessages([{
+              discordUserId: target.discordUserId,
+              content: updateReplyContent,
+              components: [],
+              replyTo: {
+                channelId: target.discordDmChannelId,
+                messageId: target.discordDmMessageId
+              }
+            }]))[0]
+
+            if (replyResult?.status === 'sent' && !replyResult.emulated) {
+              await prisma.notification.update({
+                where: {
+                  id: target.notificationId
+                },
+                data: {
+                  recipientResponseDiscordDmChannelId: replyResult.channelId,
+                  recipientResponseDiscordDmMessageId: replyResult.messageId
+                }
+              })
+            }
+          }
+
+          continue
         }
-      })))
+      }
+
+      if (!target.discordUserId) {
+        continue
+      }
+
+      const [dmResult] = await sendDiscordDirectMessages([{
+        discordUserId: target.discordUserId,
+        content: target.content,
+        embeds: target.embeds,
+        components: target.components
+      }])
+
+      if (!dmResult || dmResult.status !== 'sent') {
+        continue
+      }
+
+      if (!dmResult.emulated) {
+        deliveredNotificationCount += 1
+
+        await prisma.notification.update({
+          where: {
+            id: target.notificationId
+          },
+          data: {
+            deliveredAt: new Date(),
+            discordDmChannelId: dmResult.channelId,
+            discordDmMessageId: dmResult.messageId
+          }
+        })
+      }
     }
   }
 

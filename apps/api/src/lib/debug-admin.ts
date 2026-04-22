@@ -7,20 +7,22 @@ import {
   PlayIntentScope,
   PlayIntentSelectionMode
 } from '@prisma/client'
-import { buildDiscordAutoPlayPromptPreview } from './discord-auto-play-prompts.js'
+import { buildClosedAutoPlayPromptReplyMessage, buildDiscordAutoPlayPromptPreview } from './discord-auto-play-prompts.js'
+import { buildDiscordMessageHeading } from './discord-dm-formatting.js'
 import { buildDebugDmPreview } from './discord-dm-preview.js'
 import { areDiscordDirectMessagesEmulated, getDiscordPresenceBotState } from './discord-bot-runtime.js'
+import { buildArchivedAudienceCleanupComponents, buildArchivedPlayIntentEmbeds, buildArchivedPlayIntentReplyMessage, buildArchivedPlayIntentSummary } from './discord-dm-cleanup.js'
 import { getPlayIntentDiscordSpaceRecipientContexts } from './play-intent-discord-spaces.js'
 import { getPlayIntentRecipientUserIdsForDebug } from './play-intents.js'
 import { buildPlayIntentNotificationCopy } from './play-intents.js'
 import {
   buildPlayIntentNotificationPromptPreview,
+  buildPlayIntentUpdatedReplyMessage,
   buildCreatorPlayIntentSummaryPreview,
   buildNotificationDirectMessagePreview,
   buildScheduledCheckInPromptPreview
 } from './play-intent-notification-responses.js'
 import {
-  callToPlayEndedSystemNotification,
   formatCreatorInterestUpdateSystemNotification,
   formatCreatorInterestWithdrawnSystemNotification,
   formatCreatorLaunchedGameSystemNotification,
@@ -135,7 +137,7 @@ function buildDebugDmTemplateDefinitions(now: Date): DebugDmTemplateGroupDefinit
     textChannelName: null,
     textChannelUrl: null,
     voiceChannelName: 'ctp-avery-the-crew-motorfest-a1b2c3',
-    voiceChannelUrl: null,
+    voiceChannelUrl: 'https://discord.com/channels/987654321098765432/666666666666666666',
     inviteUrl: 'https://discord.gg/gamesup-motorfest'
   }
   const templateCreatorDiscordSpace = {
@@ -156,12 +158,6 @@ function buildDebugDmTemplateDefinitions(now: Date): DebugDmTemplateGroupDefinit
     inviteUrl: 'https://discord.gg/gamesup-motorfest',
     deleteAfter: new Date(now.getTime() + 12 * 60 * 60 * 1000)
   }
-  const templateArchivedBody = [
-    `Creator: <@${creatorDiscordUserId}>`,
-    `Games: ${gameTitle}, ${alternateGameTitle}`,
-    'When: Apr 17, 7:00 PM PDT',
-    'Status: This call to play is no longer active.'
-  ].join('\n')
   const liveInviteCopy = buildPlayIntentNotificationCopy(
     creatorDisplayName,
     'subset',
@@ -171,15 +167,14 @@ function buildDebugDmTemplateDefinitions(now: Date): DebugDmTemplateGroupDefinit
     now,
     creatorTimezoneId
   )
-  const updatedInviteCopy = buildPlayIntentNotificationCopy(
+  const scheduledInviteCopy = buildPlayIntentNotificationCopy(
     creatorDisplayName,
     'subset',
     [gameTitle],
-    90,
-    new Date(now.getTime() + 90 * 60 * 1000),
+    120,
+    new Date(now.getTime() + 2 * 60 * 60 * 1000),
     now,
-    creatorTimezoneId,
-    ['time', 'game selection']
+    creatorTimezoneId
   )
   const confirmedUpdate = {
     title: `${creatorDisplayName} confirmed the session is on`,
@@ -189,6 +184,30 @@ function buildDebugDmTemplateDefinitions(now: Date): DebugDmTemplateGroupDefinit
     title: `${creatorDisplayName} confirmed the session is on`,
     body: `Update: ${creatorDisplayName} confirmed this session is still on.\nWhen: Right now.`
   }
+  const templateAudienceIntentDetails = {
+    headline: 'Looking for a crew and happy to hop into voice.',
+    selectionMode: 'subset' as const,
+    selectedGameTitles: [gameTitle],
+    scope: PlayIntentScope.MUTUAL_FRIENDS,
+    targetDiscordServers: [] as Array<{ server: { name: string } }>,
+    targetFriends: [] as Array<{ friendUser: { displayName: string; identities?: { providerUserId: string }[] } }>,
+    note: 'Starting from the downtown playlist. Jump in when ready.'
+  }
+  const templateSpecificFriendsIntentDetails = {
+    ...templateAudienceIntentDetails,
+    scope: PlayIntentScope.SPECIFIC_FRIENDS,
+    targetFriends: [{ friendUser: { displayName: 'Jordan', identities: [{ providerUserId: '200000000000000001' }] } }]
+  }
+  const archivedAudienceSummary = buildArchivedPlayIntentSummary({
+    selectionMode: 'SELECTED_GAMES',
+    windowStartsAt: new Date(now.getTime() - 2 * 60 * 60 * 1000),
+    windowEndsAt: new Date(now.getTime() - 30 * 60 * 1000),
+    user: {
+      displayName: creatorDisplayName,
+      identities: [{ providerUserId: creatorDiscordUserId }]
+    },
+    games: [{ game: { title: gameTitle } }]
+  }, creatorTimezoneId)
   const liveSummaryNotifications = [
     {
       userId: 'template-user-1',
@@ -227,7 +246,7 @@ function buildDebugDmTemplateDefinitions(now: Date): DebugDmTemplateGroupDefinit
       }
     }
   ]
-  const liveSummaryPreview = buildCreatorPlayIntentSummaryPreview({
+  const activeSummaryPreview = buildCreatorPlayIntentSummaryPreview({
     id: 'template-live-summary',
     headline: 'Looking for a crew and happy to hop into voice.',
     note: 'Starting from the downtown playlist. Jump in when ready.',
@@ -248,27 +267,6 @@ function buildDebugDmTemplateDefinitions(now: Date): DebugDmTemplateGroupDefinit
       { game: { title: alternateGameTitle } }
     ],
     notifications: liveSummaryNotifications,
-    discordSpace: templateCreatorDiscordSpace,
-    currentTime: now
-  })
-  const scheduledSummaryPreview = buildCreatorPlayIntentSummaryPreview({
-    id: 'template-scheduled-summary',
-    headline: 'Planning ahead for tonight.',
-    note: 'Will confirm once dinner wraps up.',
-    selectionMode: 'ENTIRE_LIBRARY',
-    scope: 'FRIENDS_ONLY',
-    windowStartsAt: new Date(now.getTime() + 2 * 60 * 60 * 1000),
-    windowEndsAt: new Date(now.getTime() + 4 * 60 * 60 * 1000),
-    expiresAt: new Date(now.getTime() + 4 * 60 * 60 * 1000),
-    voiceChannelName: null,
-    user: {
-      displayName: creatorDisplayName,
-      timezoneId: creatorTimezoneId
-    },
-    targetDiscordServers: [],
-    targetFriends: [],
-    games: [],
-    notifications: [],
     discordSpace: templateCreatorDiscordSpace,
     currentTime: now
   })
@@ -324,8 +322,30 @@ function buildDebugDmTemplateDefinitions(now: Date): DebugDmTemplateGroupDefinit
     {
       id: 'call-to-play-audience',
       label: 'Call to Play Audience',
-      description: 'Recipient-facing Discord DM templates for initial invites, go-time updates, and resolution states.',
+      description: 'Recipient-facing Discord DM templates for initial invites, invite update replies, go-time follow-ups, and resolution states.',
       entries: [
+        {
+          id: 'recipient-scheduled-invite',
+          label: 'Scheduled invite',
+          description: 'The first DM an audience member gets when a future scheduled call to play matches them.',
+          previewPayload: buildNotificationDirectMessagePreview({
+            notificationId: 'template-scheduled-invite',
+            notificationType: NotificationType.FRIEND_PLAYING,
+            title: scheduledInviteCopy.title,
+            body: scheduledInviteCopy.body,
+            creatorUserId: 'template-creator',
+            creatorDiscordUserId,
+            creatorDisplayName,
+            gameTitle,
+            playIntentIsActive: true,
+            voiceChannel: templateVoiceChannel,
+            discordSpace: templateDiscordSpaceForServerMembers,
+            interestedCount: 2,
+            interestedUserLabels: ['<@200000000000000001>', '<@200000000000000002>'],
+            intentDetails: templateAudienceIntentDetails,
+            summaryStatus: 'scheduled'
+          })
+        },
         {
           id: 'recipient-live-invite',
           label: 'Live invite',
@@ -343,34 +363,25 @@ function buildDebugDmTemplateDefinitions(now: Date): DebugDmTemplateGroupDefinit
             voiceChannel: templateVoiceChannel,
             discordSpace: templateDiscordSpaceForServerMembers,
             interestedCount: 2,
-            interestedUserLabels: ['Jordan', 'Casey']
+            interestedUserLabels: ['<@200000000000000001>', '<@200000000000000002>'],
+            intentDetails: templateAudienceIntentDetails,
+            summaryStatus: 'live'
           })
         },
         {
           id: 'recipient-scheduled-update',
-          label: 'Scheduled update',
-          description: 'A refreshed invite when the scheduled time or game selection changed.',
-          previewPayload: buildNotificationDirectMessagePreview({
-            notificationId: 'template-scheduled-update',
-            notificationType: NotificationType.FRIEND_PLAYING,
-            title: updatedInviteCopy.title,
-            body: updatedInviteCopy.body,
-            creatorUserId: 'template-creator',
-            creatorDiscordUserId,
-            creatorDisplayName,
-            gameTitle,
-            playIntentIsActive: true,
-            voiceChannel: templateVoiceChannel,
-            discordSpace: templateDiscordSpaceForServerMembers,
-            interestedCount: 1,
-            interestedUserLabels: ['Jordan']
-          })
+          label: 'Invite update reply',
+          description: 'The reply DM sent after the original invite is updated, whether the call is live or scheduled, for changes like timing, games, audience, note, or voice channel details.',
+          previewPayload: {
+            content: buildPlayIntentUpdatedReplyMessage(['time', 'game selection', 'audience', 'note']),
+            components: []
+          }
         },
         {
           id: 'recipient-go-time-reminder',
           label: 'Go-time reminder',
-          description: 'The follow-up DM sent to unanswered recipients after the creator confirms a scheduled call is still on.',
-          previewPayload: buildNotificationDirectMessagePreview({
+          description: 'The follow-up reply DM sent to unanswered recipients after the creator confirms a scheduled call is still on.',
+          previewPayload: buildPlayIntentNotificationPromptPreview({
             notificationId: 'template-go-time-reminder',
             notificationType: NotificationType.SCHEDULED_PLAY_INTENT_REMINDER,
             title: reminderUpdate.title,
@@ -378,19 +389,18 @@ function buildDebugDmTemplateDefinitions(now: Date): DebugDmTemplateGroupDefinit
             creatorUserId: 'template-creator',
             creatorDiscordUserId,
             creatorDisplayName,
-            gameTitle,
-            playIntentIsActive: true,
             voiceChannel: templateVoiceChannel,
             discordSpace: templateDiscordSpaceForServerMembers,
             interestedCount: 2,
-            interestedUserLabels: ['Jordan', 'Casey']
+            interestedUserLabels: ['<@200000000000000001>', '<@200000000000000002>'],
+            intentDetails: templateAudienceIntentDetails
           })
         },
         {
           id: 'recipient-go-time-confirmed',
           label: 'Go-time confirmation',
-          description: 'The follow-up DM accepted recipients receive when a scheduled call reaches go-time.',
-          previewPayload: buildNotificationDirectMessagePreview({
+          description: 'The follow-up reply DM accepted recipients receive when a scheduled call reaches go-time.',
+          previewPayload: buildPlayIntentNotificationPromptPreview({
             notificationId: 'template-go-time-confirmed',
             notificationType: NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED,
             title: confirmedUpdate.title,
@@ -398,12 +408,11 @@ function buildDebugDmTemplateDefinitions(now: Date): DebugDmTemplateGroupDefinit
             creatorUserId: 'template-creator',
             creatorDiscordUserId,
             creatorDisplayName,
-            gameTitle,
-            playIntentIsActive: true,
             voiceChannel: templateVoiceChannel,
             discordSpace: templateDiscordSpaceForServerMembers,
             interestedCount: 2,
-            interestedUserLabels: ['Jordan', 'Casey']
+            interestedUserLabels: ['<@200000000000000001>', '<@200000000000000002>'],
+            intentDetails: templateAudienceIntentDetails
           })
         },
         {
@@ -459,21 +468,28 @@ function buildDebugDmTemplateDefinitions(now: Date): DebugDmTemplateGroupDefinit
             gameTitle,
             playIntentIsActive: true,
             voiceChannel: templateVoiceChannel,
-            passAcknowledgementMode: 'creator-notified'
+            passAcknowledgementMode: 'creator-notified',
+            intentDetails: templateSpecificFriendsIntentDetails
           })
         },
         {
+          id: 'recipient-ended-invite',
+          label: 'Ended invite state',
+          description: 'The archived original audience invite after the call has ended and the anchor message is updated in place.',
+          previewPayload: {
+            content: buildDiscordMessageHeading('🛑 Call to Play Ended'),
+            embeds: buildArchivedPlayIntentEmbeds(archivedAudienceSummary.body),
+            components: buildArchivedAudienceCleanupComponents('template-ended-invite')
+          }
+        },
+        {
           id: 'recipient-ended-summary',
-          label: 'Ended summary',
-          description: 'The archived DM that replaces an old audience invite when the call ends.',
-          previewPayload: buildNotificationDirectMessagePreview({
-            notificationId: 'template-ended-summary',
-            notificationType: NotificationType.SYSTEM,
-            title: callToPlayEndedSystemNotification.title,
-            body: templateArchivedBody,
-            actorDisplayName: creatorDisplayName,
-            actorDiscordUserId: creatorDiscordUserId
-          })
+          label: 'Ended reply',
+          description: 'The reply DM sent after the original audience invite is archived into its ended state.',
+          previewPayload: {
+            content: buildArchivedPlayIntentReplyMessage(),
+            components: []
+          }
         },
         {
           id: 'recipient-creator-launched-game',
@@ -498,16 +514,10 @@ function buildDebugDmTemplateDefinitions(now: Date): DebugDmTemplateGroupDefinit
       description: 'Creator-facing DM templates for summaries, interest updates, and scheduled check-ins.',
       entries: [
         {
-          id: 'creator-summary-live',
-          label: 'Live summary',
-          description: 'The persistent creator summary while a call is currently active.',
-          previewPayload: liveSummaryPreview
-        },
-        {
-          id: 'creator-summary-scheduled',
-          label: 'Scheduled summary',
-          description: 'The creator summary for a future scheduled call before go-time.',
-          previewPayload: scheduledSummaryPreview
+          id: 'creator-summary-active',
+          label: 'Active summary',
+          description: 'The persistent creator summary for an active call to play. Scheduled and live variants use the same template and only differ by status and color.',
+          previewPayload: activeSummaryPreview
         },
         {
           id: 'creator-summary-ended',
@@ -681,20 +691,29 @@ function buildDebugDmTemplateDefinitions(now: Date): DebugDmTemplateGroupDefinit
           }) ?? { content: '', components: [] }
         },
         {
-          id: 'auto-play-expired',
-          label: 'Closed prompt',
-          description: 'The state shown when the prompt is no longer valid because the game activity ended or conditions changed.',
+          id: 'auto-play-closed-anchor',
+          label: 'Closed prompt anchor',
+          description: 'The original auto-play prompt after it is locked in place with its buttons removed for a closed outcome.',
           previewPayload: buildDiscordAutoPlayPromptPreview({
-            promptId: 'template-auto-play-expired',
+            promptId: 'template-auto-play-closed-anchor',
             status: DiscordAutoPlayPromptStatus.EXPIRED,
             gameTitle,
             durationMinutes: 120,
             notifyScope: PlayIntentScope.FRIENDS_ONLY,
-            friendRecipientCount: 0,
-            networkRecipientCount: 0,
-            statusDetail: `This prompt was closed because we are no longer seeing you in ${gameTitle}.`,
+            friendRecipientCount: 3,
+            networkRecipientCount: 7,
+            statusDetail: 'That audience no longer has anyone who overlaps on this game.',
             deliveredCount: 0
           }) ?? { content: '', components: [] }
+        },
+        {
+          id: 'auto-play-expired',
+          label: 'Closed reply',
+          description: 'The reply sent after the original prompt is locked with its buttons removed for any closed auto-play outcome.',
+          previewPayload: {
+            content: buildClosedAutoPlayPromptReplyMessage(`This prompt was closed because we are no longer seeing you in ${gameTitle}.`),
+            components: []
+          }
         }
       ]
     }
@@ -878,6 +897,7 @@ function buildNotificationMessageRevisions(options: {
   voiceChannel: { channelId: string | null; channelName: string | null; recipientSharesServer: boolean } | null;
   discordSpace?: Parameters<typeof buildNotificationDirectMessagePreview>[0]['discordSpace'];
   interestedCount?: number;
+  intentDetails?: Parameters<typeof buildNotificationDirectMessagePreview>[0]['intentDetails'];
   actorDisplayName?: string | null;
   actorDiscordUserId?: string | null;
 }) {
@@ -893,6 +913,7 @@ function buildNotificationMessageRevisions(options: {
     voiceChannel: options.voiceChannel,
     discordSpace: options.discordSpace,
     interestedCount: options.interestedCount,
+    intentDetails: options.intentDetails,
     actorDisplayName: options.actorDisplayName,
     actorDiscordUserId: options.actorDiscordUserId
   }
@@ -1390,9 +1411,51 @@ export async function buildDebugAdminSnapshot() {
         select: {
           id: true,
           userId: true,
+          scope: true,
+          headline: true,
+          selectionMode: true,
+          note: true,
           expiresAt: true,
           voiceChannelId: true,
           voiceChannelName: true,
+          targetDiscordServers: {
+            select: {
+              server: {
+                select: {
+                  id: true,
+                  name: true
+                }
+              }
+            }
+          },
+          targetFriends: {
+            select: {
+              friendUser: {
+                select: {
+                  id: true,
+                  displayName: true,
+                  identities: {
+                    where: {
+                      provider: AuthProvider.DISCORD
+                    },
+                    select: {
+                      providerUserId: true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          games: {
+            select: {
+              game: {
+                select: {
+                  id: true,
+                  title: true
+                }
+              }
+            }
+          },
           user: {
             select: {
               displayName: true,
@@ -1965,7 +2028,16 @@ export async function buildDebugAdminSnapshot() {
                   })),
                   notification.createdAt
                 )
-              : undefined
+              : undefined,
+            intentDetails: {
+              headline: intent.headline,
+              selectionMode: intent.selectionMode,
+              selectedGameTitles: intent.games.map((entry) => entry.game.title),
+              scope: intent.scope,
+              targetDiscordServers: intent.targetDiscordServers,
+              targetFriends: intent.targetFriends,
+              note: intent.note
+            }
           })
 
           const promptMessage = {
@@ -2253,6 +2325,17 @@ export async function buildDebugAdminSnapshot() {
                 || notification.type === NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED
               ) && playIntent
                 ? getInterestedCountBeforeNotification(playIntent.notifications, notification.createdAt)
+                : undefined,
+              intentDetails: playIntent
+                ? {
+                    headline: playIntent.headline,
+                    selectionMode: playIntent.selectionMode,
+                    selectedGameTitles: playIntent.games.map((entry) => entry.game.title),
+                    scope: playIntent.scope,
+                    targetDiscordServers: playIntent.targetDiscordServers,
+                    targetFriends: playIntent.targetFriends,
+                    note: playIntent.note
+                  }
                 : undefined
             })
           : buildPlayIntentNotificationPromptPreview({
@@ -2277,6 +2360,17 @@ export async function buildDebugAdminSnapshot() {
               || notification.type === NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED
             ) && playIntent
               ? getInterestedCountBeforeNotification(playIntent.notifications, notification.createdAt)
+              : undefined,
+            intentDetails: playIntent
+              ? {
+                  headline: playIntent.headline,
+                  selectionMode: playIntent.selectionMode,
+                  selectedGameTitles: playIntent.games.map((entry) => entry.game.title),
+                  scope: playIntent.scope,
+                  targetDiscordServers: playIntent.targetDiscordServers,
+                  targetFriends: playIntent.targetFriends,
+                  note: playIntent.note
+                }
               : undefined
           })
         : buildNotificationDirectMessagePreview({
