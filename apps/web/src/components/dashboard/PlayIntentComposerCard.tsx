@@ -155,6 +155,7 @@ type ComposerSummaryChip = {
   label: string;
   color?: 'danger' | 'neutral' | 'primary' | 'success' | 'warning';
   variant?: 'outlined' | 'soft' | 'solid';
+  onClick?: () => void;
 }
 
 const composerSteps: Array<{
@@ -217,13 +218,15 @@ function createSummaryChip(
   key: string,
   label: string,
   color: ComposerSummaryChip['color'] = 'neutral',
-  variant: ComposerSummaryChip['variant'] = 'soft'
+  variant: ComposerSummaryChip['variant'] = 'soft',
+  onClick?: () => void
 ): ComposerSummaryChip {
   return {
     key,
     label,
     color,
-    variant
+    variant,
+    onClick
   }
 }
 
@@ -240,6 +243,15 @@ function ComposerSummaryChipRow({ chips }: { chips: ComposerSummaryChip[] }) {
           size="sm"
           color={chip.color ?? 'neutral'}
           variant={chip.variant ?? 'soft'}
+          onClick={chip.onClick}
+          sx={{
+            cursor: chip.onClick ? 'pointer' : 'default',
+            '&:focus-visible': {
+              outline: '2px solid',
+              outlineColor: 'focusVisible',
+              outlineOffset: '2px'
+            }
+          }}
         >
           {chip.label}
         </Chip>
@@ -257,6 +269,7 @@ function PlayIntentComposerStepCard({
   statusColor,
   summaryText,
   summaryChips,
+  onActivateStep,
   children
 }: {
   stepNumber: number;
@@ -267,6 +280,7 @@ function PlayIntentComposerStepCard({
   statusColor: 'danger' | 'neutral' | 'primary' | 'success' | 'warning';
   summaryText: string;
   summaryChips: ComposerSummaryChip[];
+  onActivateStep: () => void;
   children: ReactNode;
 }) {
   return (
@@ -292,7 +306,22 @@ function PlayIntentComposerStepCard({
             {description}
           </Typography>
         </Stack>
-        <Chip size="sm" color={statusColor} variant={active ? 'solid' : 'soft'} sx={{ flexShrink: 0, mt: 0.125 }}>
+        <Chip
+          size="sm"
+          color={statusColor}
+          variant={active ? 'solid' : 'soft'}
+          onClick={onActivateStep}
+          sx={{
+            flexShrink: 0,
+            mt: 0.125,
+            cursor: 'pointer',
+            '&:focus-visible': {
+              outline: '2px solid',
+              outlineColor: 'focusVisible',
+              outlineOffset: '2px'
+            }
+          }}
+        >
           {statusLabel}
         </Chip>
       </Stack>
@@ -1119,7 +1148,11 @@ export function PlayIntentComposerCard({
                 statusLabel={statusLabel}
                 statusColor={statusColor}
                 summaryText={stepSummary.summaryText}
-                summaryChips={stepSummary.summaryChips}
+                summaryChips={stepSummary.summaryChips.map((chip) => ({
+                  ...chip,
+                  onClick: () => setActiveStep(step.id)
+                }))}
+                onActivateStep={() => setActiveStep(step.id)}
               >
                 {renderStepContent(step.id)}
               </PlayIntentComposerStepCard>

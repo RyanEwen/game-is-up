@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { Box, Button, DialogContent, DialogTitle, Option, Select, Stack, Typography } from '@mui/joy'
-import type { DiscoveryPerson } from '@game-is-up/shared'
+import type { DiscordServerPreference, DiscoveryPerson } from '@game-is-up/shared'
 import { DashboardModal } from '../components/dashboard/DashboardModal'
 import { DashboardApiIssueCard } from '../components/dashboard/DashboardApiIssueCard'
+import { DiscordServerPicker } from '../components/dashboard/DiscordServerPicker'
 import { EmptyStateCard } from '../components/dashboard/EmptyStateCard'
 import { LibraryEditorCard } from '../components/dashboard/LibraryEditorCard'
 import { PersonCard } from '../components/dashboard/PersonCard'
@@ -10,6 +11,7 @@ import {
   buildHeaderFilterSelectSx,
   headerActionFilterButtonSx,
   headerActionFilterStackSx,
+  headerFilterControlSx,
   headerFilterControlMatchActionWidthSx
 } from '../components/dashboard/dashboardUtils'
 import { useDashboardContext } from '../contexts/useDashboardContext'
@@ -47,6 +49,7 @@ function FriendsViewContent({
   isSignedIn,
   friends,
   addableFriends,
+  selectedDiscoveryServers,
   noDiscoveryServersSelected,
   libraryGameIds,
   libraryEntryIdsByGameId,
@@ -64,6 +67,7 @@ function FriendsViewContent({
   isSignedIn: boolean;
   friends: DiscoveryPerson[];
   addableFriends: DiscoveryPerson[];
+  selectedDiscoveryServers: DiscordServerPreference[];
   noDiscoveryServersSelected: boolean;
   libraryGameIds: ReadonlySet<string>;
   libraryEntryIdsByGameId: ReadonlyMap<string, string>;
@@ -78,9 +82,14 @@ function FriendsViewContent({
   onUnmutePlayIntentUser: (userId: string) => Promise<void>;
 }) {
   const [isAddFriendsModalOpen, setIsAddFriendsModalOpen] = useState(false)
+  const [addFriendsServerFilterId, setAddFriendsServerFilterId] = useState('')
   const [friendSort, setFriendSort] = useState<FriendSort>('matching-games')
   const sortedFriends = sortPeople(friends, friendSort, libraryGameIds)
-  const sortedAddableFriends = sortPeople(addableFriends, friendSort, libraryGameIds)
+  const filteredAddableFriends = addFriendsServerFilterId
+    ? addableFriends.filter((person) => person.mutualServerIds.includes(addFriendsServerFilterId))
+    : addableFriends
+  const activeAddFriendsServer = selectedDiscoveryServers.find((server) => server.id === addFriendsServerFilterId) ?? null
+  const sortedAddableFriends = sortPeople(filteredAddableFriends, friendSort, libraryGameIds)
 
   if (error) {
     return <DashboardApiIssueCard error={error} />
@@ -119,7 +128,14 @@ function FriendsViewContent({
   const friendHeaderControls = isSignedIn || friendSortControl ? (
     <Stack spacing={1} alignItems="stretch" sx={headerActionFilterStackSx}>
       {isSignedIn ? (
-        <Button color="primary" onClick={() => setIsAddFriendsModalOpen(true)} sx={headerActionFilterButtonSx}>
+        <Button
+          color="primary"
+          onClick={() => {
+            setAddFriendsServerFilterId('')
+            setIsAddFriendsModalOpen(true)
+          }}
+          sx={headerActionFilterButtonSx}
+        >
           Add friends
         </Button>
       ) : null}
@@ -187,9 +203,40 @@ function FriendsViewContent({
               WebkitOverflowScrolling: 'touch'
             }}
           >
-            <Typography level="body-md" sx={{ color: 'neutral.300' }}>
-              Add people who are already in your network.
-            </Typography>
+            <Stack
+              direction={{ xs: 'column', sm: 'row' }}
+              spacing={1.5}
+              justifyContent="space-between"
+              alignItems={{ xs: 'stretch', sm: 'center' }}
+            >
+              <Typography level="body-md" sx={{ color: 'neutral.300', flex: 1 }}>
+                Add people who are already in your network.
+              </Typography>
+
+              {selectedDiscoveryServers.length > 1 ? (
+                <Box sx={{ display: 'flex', justifyContent: { xs: 'stretch', sm: 'flex-end' }, width: { xs: '100%', sm: 'auto' } }}>
+                  <Box sx={headerFilterControlSx}>
+                    <Typography level="body-sm" sx={{ color: 'neutral.400', whiteSpace: 'nowrap' }}>Filter</Typography>
+                    <Box sx={{ flex: { xs: '1 1 0', sm: '0 0 auto' }, minWidth: { xs: 0, sm: 240 }, maxWidth: '100%' }}>
+                      <DiscordServerPicker
+                        options={selectedDiscoveryServers}
+                        value={addFriendsServerFilterId}
+                        placeholder="Entire network"
+                        onChange={setAddFriendsServerFilterId}
+                        emptyOptionLabel="Entire network"
+                        getOptionDescription={(option) => {
+                          const addableFriendCount = addableFriends.filter((person) => person.mutualServerIds.includes(option.id)).length
+
+                          return addableFriendCount > 0
+                            ? `${addableFriendCount} ${addableFriendCount === 1 ? 'person' : 'people'} available to add`
+                            : 'No one available to add right now'
+                        }}
+                      />
+                    </Box>
+                  </Box>
+                </Box>
+              ) : null}
+            </Stack>
 
             {sortedAddableFriends.length > 0 ? (
               <Stack spacing={2}>
@@ -220,7 +267,9 @@ function FriendsViewContent({
                 title="No one new to add right now"
                 body={noDiscoveryServersSelected
                   ? 'Select at least one Discord server to form your network first so people appear here.'
-                  : 'Everyone in your network is already on your friends list.'}
+                  : activeAddFriendsServer
+                    ? `No one from ${activeAddFriendsServer.name} is available to add right now. Try Entire network or another Discord server.`
+                    : 'Everyone in your network is already on your friends list.'}
               />
             )}
           </DialogContent>

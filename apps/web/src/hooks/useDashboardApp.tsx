@@ -1240,6 +1240,7 @@ export function useDashboardApp() {
       isSignedIn,
       friends: friendPeople,
       addableFriends: addableFriendPeople,
+      selectedDiscoveryServers: playIntentDiscordServerOptions,
       noDiscoveryServersSelected,
       libraryGameIds,
       libraryEntryIdsByGameId,
