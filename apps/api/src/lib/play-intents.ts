@@ -39,9 +39,9 @@ import {
   syncCreatorPlayIntentSummaryMessages
 } from './play-intent-notification-responses.js'
 import {
+  deletePlayIntentDiscordSpaceByPlayIntentId,
   ensurePlayIntentDiscordSpaceAudienceAccess,
   getPlayIntentDiscordSpaceRecipientContexts,
-  markPlayIntentDiscordSpacesRetained,
   provisionPlayIntentDiscordSpaceByPlayIntentId,
   type PlayIntentDiscordSpaceRecipientContext
 } from './play-intent-discord-spaces.js'
@@ -1453,7 +1453,7 @@ export async function deletePlayIntentWithAdminCleanup(playIntentId: string) {
   })
 
   await Promise.all([
-    markPlayIntentDiscordSpacesRetained([playIntentId], now),
+    deletePlayIntentDiscordSpaceByPlayIntentId(playIntentId),
     deletePlayIntentDirectMessages(playIntentId)
   ])
 
