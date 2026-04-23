@@ -329,6 +329,22 @@ type DiscordRoleGrantResult = {
   message: string | null;
 }
 
+type PlayIntentDiscordSpaceMemberJoinDependencies = {
+  discordServerId: string | null;
+  prisma: Pick<typeof prisma, 'userIdentity' | 'playIntentDiscordSpace' | 'playIntentDiscordSpaceAccessGrant' | 'discordServerMembership'>;
+  fetchGuildInviteUses: typeof fetchGuildInviteUses;
+  tryGrantRoleToMember: typeof tryGrantRoleToMember;
+  publishPlayIntentInvalidation: typeof publishPlayIntentInvalidation;
+}
+
+const defaultPlayIntentDiscordSpaceMemberJoinDependencies: PlayIntentDiscordSpaceMemberJoinDependencies = {
+  discordServerId: env.DISCORD_SERVER_ID ?? null,
+  prisma,
+  fetchGuildInviteUses,
+  tryGrantRoleToMember,
+  publishPlayIntentInvalidation
+}
+
 function getDiscordApiErrorCode(error: unknown) {
   if (!error || typeof error !== 'object' || !('code' in error)) {
     return null
@@ -1052,16 +1068,18 @@ export async function sweepDeleteDuePlayIntentDiscordSpaces() {
 export async function handlePlayIntentDiscordSpaceMemberJoin(options: {
   serverId: string;
   discordUserId: string;
-}) {
-  if (options.serverId !== env.DISCORD_SERVER_ID) {
+}, dependencies: PlayIntentDiscordSpaceMemberJoinDependencies = defaultPlayIntentDiscordSpaceMemberJoinDependencies) {
+  if (options.serverId !== dependencies.discordServerId) {
     return
   }
+
+  const database = dependencies.prisma
 
   let changed = false
   const creatorResolvedSpaceIds = new Set<string>()
 
   const [identity, spaces, inviteUses] = await Promise.all([
-    prisma.userIdentity.findUnique({
+    database.userIdentity.findUnique({
       where: {
         provider_providerUserId: {
           provider: AuthProvider.DISCORD,
@@ -1072,7 +1090,7 @@ export async function handlePlayIntentDiscordSpaceMemberJoin(options: {
         userId: true
       }
     }),
-    prisma.playIntentDiscordSpace.findMany({
+    database.playIntentDiscordSpace.findMany({
       where: {
         serverId: options.serverId,
         status: {
@@ -1089,11 +1107,25 @@ export async function handlePlayIntentDiscordSpaceMemberJoin(options: {
         inviteUseCount: true
       }
     }),
-    fetchGuildInviteUses(options.serverId)
+    dependencies.fetchGuildInviteUses(options.serverId)
   ])
 
   if (identity) {
-    const trackedGrantSpaces = await prisma.playIntentDiscordSpaceAccessGrant.findMany({
+    await database.discordServerMembership.upsert({
+      where: {
+        userId_serverId: {
+          userId: identity.userId,
+          serverId: options.serverId
+        }
+      },
+      update: {},
+      create: {
+        userId: identity.userId,
+        serverId: options.serverId
+      }
+    })
+
+    const trackedGrantSpaces = await database.playIntentDiscordSpaceAccessGrant.findMany({
       where: {
         userId: identity.userId,
         revokedAt: null,
@@ -1125,7 +1157,7 @@ export async function handlePlayIntentDiscordSpaceMemberJoin(options: {
         continue
       }
 
-      const roleGrantResult = await tryGrantRoleToMember(options.serverId, options.discordUserId, grant.space.roleId)
+      const roleGrantResult = await dependencies.tryGrantRoleToMember(options.serverId, options.discordUserId, grant.space.roleId)
 
       if (!roleGrantResult.ok && roleGrantResult.reason !== 'member-missing') {
         console.error('Failed to grant complementary role on guild member join', {
@@ -1137,7 +1169,7 @@ export async function handlePlayIntentDiscordSpaceMemberJoin(options: {
         })
       }
 
-      await prisma.playIntentDiscordSpaceAccessGrant.update({
+      await database.playIntentDiscordSpaceAccessGrant.update({
         where: {
           spaceId_userId: {
             spaceId: grant.spaceId,
@@ -1157,36 +1189,9 @@ export async function handlePlayIntentDiscordSpaceMemberJoin(options: {
 
       changed = true
     }
-  }
-
-  const spacesWithInviteDelta = spaces.filter((space) => {
-    if (!space.inviteCode) {
-      return false
-    }
-
-    const currentUses = inviteUses.get(space.inviteCode) ?? space.inviteUseCount
-    return currentUses > space.inviteUseCount
-  })
-
-  if (spacesWithInviteDelta.length === 1) {
-    const matchedSpace = spacesWithInviteDelta[0]!
-
-    if (matchedSpace.roleId) {
-      const roleGrantResult = await tryGrantRoleToMember(options.serverId, options.discordUserId, matchedSpace.roleId)
-
-      if (!roleGrantResult.ok && roleGrantResult.reason !== 'member-missing') {
-        console.error('Failed to grant complementary role for invite-matched member join', {
-          serverId: options.serverId,
-          discordUserId: options.discordUserId,
-          spaceId: matchedSpace.id,
-          reason: roleGrantResult.reason,
-          error: roleGrantResult.message
-        })
-      }
-    }
 
     if (creatorResolvedSpaceIds.size > 0) {
-      await prisma.playIntentDiscordSpace.updateMany({
+      await database.playIntentDiscordSpace.updateMany({
         where: {
           id: {
             in: [...creatorResolvedSpaceIds]
@@ -1205,8 +1210,36 @@ export async function handlePlayIntentDiscordSpaceMemberJoin(options: {
     }
   }
 
+  const spacesWithInviteDelta = spaces.filter((space) => {
+    if (!space.inviteCode) {
+      return false
+    }
+
+    const currentUses = inviteUses.get(space.inviteCode) ?? space.inviteUseCount
+    return currentUses > space.inviteUseCount
+  })
+
+  if (spacesWithInviteDelta.length === 1) {
+    const matchedSpace = spacesWithInviteDelta[0]!
+
+    if (matchedSpace.roleId) {
+      const roleGrantResult = await dependencies.tryGrantRoleToMember(options.serverId, options.discordUserId, matchedSpace.roleId)
+
+      if (!roleGrantResult.ok && roleGrantResult.reason !== 'member-missing') {
+        console.error('Failed to grant complementary role for invite-matched member join', {
+          serverId: options.serverId,
+          discordUserId: options.discordUserId,
+          spaceId: matchedSpace.id,
+          reason: roleGrantResult.reason,
+          error: roleGrantResult.message
+        })
+      }
+    }
+
+  }
+
   if (changed) {
-    publishPlayIntentInvalidation()
+    dependencies.publishPlayIntentInvalidation()
   }
 
   for (const space of spaces) {
@@ -1220,7 +1253,7 @@ export async function handlePlayIntentDiscordSpaceMemberJoin(options: {
       continue
     }
 
-    await prisma.playIntentDiscordSpace.update({
+    await database.playIntentDiscordSpace.update({
       where: {
         id: space.id
       },
