@@ -9,6 +9,7 @@ import {
   sweepScheduledPlayIntentCreatorCheckIns
 } from './play-intent-notification-responses.js'
 import {
+  sweepBackfillLegacyPlayIntentDiscordSpaces,
   sweepDeleteDuePlayIntentDiscordSpaces,
   sweepProvisionPendingPlayIntentDiscordSpaces
 } from './play-intent-discord-spaces.js'
@@ -84,6 +85,11 @@ async function runCleanupSweep() {
   cleanupInFlight = true
 
   try {
+    await sweepScheduledPlayIntentCreatorCheckIns()
+    await sweepProvisionPendingPlayIntentDiscordSpaces()
+    await sweepBackfillLegacyPlayIntentDiscordSpaces()
+    await sweepDeleteDuePlayIntentDiscordSpaces()
+
     if (!trackedDiscordDmRefreshCompleted) {
       await refreshTrackedPlayIntentNotificationDirectMessages()
       await refreshTrackedDiscordAutoPlayPromptDirectMessages()
@@ -91,9 +97,6 @@ async function runCleanupSweep() {
       trackedDiscordDmRefreshCompleted = true
     }
 
-    await sweepScheduledPlayIntentCreatorCheckIns()
-    await sweepProvisionPendingPlayIntentDiscordSpaces()
-    await sweepDeleteDuePlayIntentDiscordSpaces()
     await sweepExpiredPlayIntentNotifications()
     await publishElapsedPlayIntentTimeBoundaryInvalidation()
 

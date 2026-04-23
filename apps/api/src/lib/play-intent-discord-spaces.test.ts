@@ -1,14 +1,21 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { buildComplementarySpaceNames, handlePlayIntentDiscordSpaceMemberJoin } from './play-intent-discord-spaces.js'
+import { PlayIntentDiscordSpaceStatus } from '@prisma/client'
+
+import {
+  buildComplementarySpaceNames,
+  handlePlayIntentDiscordSpaceMemberJoin,
+  shouldBackfillLegacyPlayIntentDiscordSpace,
+  sweepBackfillLegacyPlayIntentDiscordSpaces
+} from './play-intent-discord-spaces.js'
 
 type MemberJoinDependencies = NonNullable<Parameters<typeof handlePlayIntentDiscordSpaceMemberJoin>[1]>
 type MembershipUpsertArgs = Parameters<MemberJoinDependencies['prisma']['discordServerMembership']['upsert']>[0]
 type AccessGrantUpdateArgs = Parameters<MemberJoinDependencies['prisma']['playIntentDiscordSpaceAccessGrant']['update']>[0]
 type SpaceUpdateManyArgs = Parameters<MemberJoinDependencies['prisma']['playIntentDiscordSpace']['updateMany']>[0]
 
-test('temporary Discord voice channel names omit the ctp prefix', () => {
+test('temporary Discord channel names keep the role slug but expose a human-readable category', () => {
   const names = buildComplementarySpaceNames({
     id: 'abcdef123456',
     headline: 'Friday Night Helldivers',
@@ -18,7 +25,86 @@ test('temporary Discord voice channel names omit the ctp prefix', () => {
   })
 
   assert.equal(names.roleName, 'ctp-friday-night-helldivers-abcdef')
+  assert.equal(names.categoryName, 'Ryan Friday Night Helldivers abcdef')
+  assert.equal(names.textChannelName, 'chat-friday-night-helldivers-abcdef')
   assert.equal(names.voiceChannelName, 'ryan-friday-night-helldivers-abcdef')
+})
+
+test('legacy Discord-space backfill only targets active voice-backed spaces missing category or text channels', () => {
+  assert.equal(shouldBackfillLegacyPlayIntentDiscordSpace({
+    id: 'space-1',
+    status: PlayIntentDiscordSpaceStatus.ACTIVE,
+    categoryChannelId: null,
+    textChannelId: 'text-1',
+    voiceChannelId: 'voice-1'
+  }), true)
+
+  assert.equal(shouldBackfillLegacyPlayIntentDiscordSpace({
+    id: 'space-2',
+    status: PlayIntentDiscordSpaceStatus.ACTIVE,
+    categoryChannelId: 'category-1',
+    textChannelId: null,
+    voiceChannelId: 'voice-1'
+  }), true)
+
+  assert.equal(shouldBackfillLegacyPlayIntentDiscordSpace({
+    id: 'space-3',
+    status: PlayIntentDiscordSpaceStatus.ACTIVE,
+    categoryChannelId: 'category-1',
+    textChannelId: 'text-1',
+    voiceChannelId: 'voice-1'
+  }), false)
+
+  assert.equal(shouldBackfillLegacyPlayIntentDiscordSpace({
+    id: 'space-4',
+    status: PlayIntentDiscordSpaceStatus.RETAINED,
+    categoryChannelId: null,
+    textChannelId: null,
+    voiceChannelId: 'voice-1'
+  }), false)
+
+  assert.equal(shouldBackfillLegacyPlayIntentDiscordSpace({
+    id: 'space-5',
+    status: PlayIntentDiscordSpaceStatus.ACTIVE,
+    categoryChannelId: null,
+    textChannelId: null,
+    voiceChannelId: null
+  }), false)
+})
+
+test('legacy Discord-space backfill reprovisions only the missing-channel candidates it receives', async () => {
+  const reprovisionedSpaceIds: string[] = []
+
+  await sweepBackfillLegacyPlayIntentDiscordSpaces({
+    findSpaces: async () => ([
+      {
+        id: 'space-1',
+        status: PlayIntentDiscordSpaceStatus.ACTIVE,
+        categoryChannelId: null,
+        textChannelId: 'text-1',
+        voiceChannelId: 'voice-1'
+      },
+      {
+        id: 'space-2',
+        status: PlayIntentDiscordSpaceStatus.ACTIVE,
+        categoryChannelId: 'category-1',
+        textChannelId: 'text-1',
+        voiceChannelId: 'voice-1'
+      },
+      {
+        id: 'space-3',
+        status: PlayIntentDiscordSpaceStatus.PROVISION_FAILED,
+        categoryChannelId: null,
+        textChannelId: null,
+        voiceChannelId: 'voice-3'
+      }
+    ]),
+    provisionSpace: async (spaceId) => {
+      reprovisionedSpaceIds.push(spaceId)
+    }
+  })
+
+  assert.deepEqual(reprovisionedSpaceIds, ['space-1'])
 })
 
 test('guild member join upserts membership and clears creator recovery errors after granting access', async () => {

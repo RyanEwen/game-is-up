@@ -7,6 +7,13 @@ import { getDiscordBotRest } from './discord-bot-runtime.js'
 import { prisma } from './prisma.js'
 
 type ProvisionableSpace = Awaited<ReturnType<typeof loadProvisionableSpace>>
+type LegacyBackfillCandidateSpace = {
+  id: string;
+  status: PlayIntentDiscordSpaceStatus;
+  categoryChannelId: string | null;
+  textChannelId: string | null;
+  voiceChannelId: string | null;
+}
 
 export type PlayIntentDiscordSpaceRecipientContext = {
   status: 'active' | 'retained' | 'delete-requested';
@@ -39,14 +46,27 @@ function normalizeNameSegment(value: string, fallback: string) {
   return normalized.length > 0 ? normalized : fallback
 }
 
+function normalizeCategorySegment(value: string, fallback: string) {
+  const normalized = value
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 40)
+
+  return normalized.length > 0 ? normalized : fallback
+}
+
 export function buildComplementarySpaceNames(playIntent: { id: string; headline: string; user: { displayName: string } }) {
   const shortId = playIntent.id.slice(0, 6)
   const titleSegment = normalizeNameSegment(playIntent.headline, 'call-to-play')
   const creatorSegment = normalizeNameSegment(playIntent.user.displayName, 'player')
+  const categoryTitleSegment = normalizeCategorySegment(playIntent.headline, 'Call to Play')
+  const categoryCreatorSegment = normalizeCategorySegment(playIntent.user.displayName, 'Player')
   const base = `${titleSegment}-${shortId}`.slice(0, 42)
 
   return {
     roleName: `ctp-${base}`.slice(0, 100),
+    categoryName: `${categoryCreatorSegment} ${categoryTitleSegment} ${shortId}`.slice(0, 100),
+    textChannelName: `chat-${base}`.slice(0, 100),
     voiceChannelName: `${creatorSegment}-${base}`.slice(0, 100)
   }
 }
@@ -55,6 +75,52 @@ function isUnknownDiscordResourceError(error: unknown) {
   const message = error instanceof Error ? error.message : String(error ?? '')
 
   return /Unknown (Channel|Role|Invite|Member)/i.test(message)
+}
+
+function buildBasePermissionOverwrites(roleId: string) {
+  return [
+    {
+      id: env.DISCORD_SERVER_ID ?? '',
+      type: OverwriteType.Role,
+      deny: PermissionFlagsBits.ViewChannel.toString(),
+      allow: '0'
+    },
+    {
+      id: roleId,
+      type: OverwriteType.Role,
+      allow: PermissionFlagsBits.ViewChannel.toString(),
+      deny: '0'
+    }
+  ]
+}
+
+function buildTextPermissionOverwrites(roleId: string) {
+  return [
+    {
+      id: env.DISCORD_SERVER_ID ?? '',
+      type: OverwriteType.Role,
+      deny: (
+        PermissionFlagsBits.ViewChannel
+        | PermissionFlagsBits.SendMessages
+        | PermissionFlagsBits.ReadMessageHistory
+        | PermissionFlagsBits.AttachFiles
+        | PermissionFlagsBits.EmbedLinks
+      ).toString(),
+      allow: '0'
+    },
+    {
+      id: roleId,
+      type: OverwriteType.Role,
+      allow: (
+        PermissionFlagsBits.ViewChannel
+        | PermissionFlagsBits.SendMessages
+        | PermissionFlagsBits.ReadMessageHistory
+        | PermissionFlagsBits.AttachFiles
+        | PermissionFlagsBits.EmbedLinks
+      ).toString(),
+      deny: '0'
+    }
+  ]
 }
 
 function buildVoicePermissionOverwrites(roleId: string) {
@@ -141,6 +207,42 @@ async function loadDeletableSpace(spaceId: string) {
       voiceChannelId: true
     }
   })
+}
+
+function findLegacyBackfillCandidateSpaces() {
+  return prisma.playIntentDiscordSpace.findMany({
+    where: {
+      status: PlayIntentDiscordSpaceStatus.ACTIVE,
+      voiceChannelId: {
+        not: null
+      },
+      OR: [
+        {
+          categoryChannelId: null
+        },
+        {
+          textChannelId: null
+        }
+      ]
+    },
+    select: {
+      id: true,
+      status: true,
+      categoryChannelId: true,
+      textChannelId: true,
+      voiceChannelId: true
+    },
+    take: 10,
+    orderBy: {
+      createdAt: 'asc'
+    }
+  })
+}
+
+export function shouldBackfillLegacyPlayIntentDiscordSpace(space: LegacyBackfillCandidateSpace) {
+  return space.status === PlayIntentDiscordSpaceStatus.ACTIVE
+    && Boolean(space.voiceChannelId)
+    && (!space.categoryChannelId || !space.textChannelId)
 }
 
 async function createRole(serverId: string, name: string) {
@@ -924,11 +1026,45 @@ export async function provisionPlayIntentDiscordSpace(spaceId: string) {
         }
       })
     }
+    const category = !resetLegacyChannels && space.categoryChannelId
+      ? { id: space.categoryChannelId, name: space.categoryChannelName ?? names.categoryName }
+      : await createChannel(space.serverId, {
+          name: names.categoryName,
+          type: ChannelType.GuildCategory,
+          permissionOverwrites: buildBasePermissionOverwrites(role.id)
+        })
+    if (resetLegacyChannels || !space.categoryChannelId) {
+      await prisma.playIntentDiscordSpace.update({
+        where: { id: space.id },
+        data: {
+          categoryChannelId: category.id,
+          categoryChannelName: category.name
+        }
+      })
+    }
+    const textChannel = !resetLegacyChannels && space.textChannelId
+      ? { id: space.textChannelId, name: space.textChannelName ?? names.textChannelName }
+      : await createChannel(space.serverId, {
+          name: names.textChannelName,
+          type: ChannelType.GuildText,
+          parentId: category.id,
+          permissionOverwrites: buildTextPermissionOverwrites(role.id)
+        })
+    if (resetLegacyChannels || !space.textChannelId) {
+      await prisma.playIntentDiscordSpace.update({
+        where: { id: space.id },
+        data: {
+          textChannelId: textChannel.id,
+          textChannelName: textChannel.name
+        }
+      })
+    }
     const voiceChannel = !resetLegacyChannels && space.voiceChannelId
       ? { id: space.voiceChannelId, name: space.voiceChannelName ?? names.voiceChannelName }
       : await createChannel(space.serverId, {
           name: names.voiceChannelName,
           type: ChannelType.GuildVoice,
+          parentId: category.id,
           permissionOverwrites: buildVoicePermissionOverwrites(role.id)
         })
     if (resetLegacyChannels || !space.voiceChannelId) {
@@ -942,7 +1078,7 @@ export async function provisionPlayIntentDiscordSpace(spaceId: string) {
     }
     const invite = !resetLegacyChannels && space.inviteCode
       ? { code: space.inviteCode, url: space.inviteUrl ?? `https://discord.gg/${space.inviteCode}`, uses: space.inviteUseCount }
-      : await createInvite(voiceChannel.id)
+      : await createInvite(textChannel.id)
     if (resetLegacyChannels || !space.inviteCode) {
       await prisma.playIntentDiscordSpace.update({
         where: { id: space.id },
@@ -960,6 +1096,10 @@ export async function provisionPlayIntentDiscordSpace(spaceId: string) {
         status: PlayIntentDiscordSpaceStatus.ACTIVE,
         roleId: role.id,
         roleName: role.name,
+        categoryChannelId: category.id,
+        categoryChannelName: category.name,
+        textChannelId: textChannel.id,
+        textChannelName: textChannel.name,
         voiceChannelId: voiceChannel.id,
         voiceChannelName: voiceChannel.name,
         inviteCode: invite.code,
@@ -1037,6 +1177,21 @@ export async function sweepProvisionPendingPlayIntentDiscordSpaces() {
 
   for (const space of spaces) {
     await provisionPlayIntentDiscordSpace(space.id)
+  }
+}
+
+export async function sweepBackfillLegacyPlayIntentDiscordSpaces(options: {
+  findSpaces?: () => Promise<LegacyBackfillCandidateSpace[]>;
+  provisionSpace?: (spaceId: string) => Promise<unknown>;
+} = {}) {
+  const spaces = await (options.findSpaces ?? findLegacyBackfillCandidateSpaces)()
+
+  for (const space of spaces) {
+    if (!shouldBackfillLegacyPlayIntentDiscordSpace(space)) {
+      continue
+    }
+
+    await (options.provisionSpace ?? provisionPlayIntentDiscordSpace)(space.id)
   }
 }
 
