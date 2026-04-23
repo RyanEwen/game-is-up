@@ -1,4 +1,5 @@
 import { type ReactNode, useEffect, useMemo, useState } from 'react'
+import ChatBubbleRoundedIcon from '@mui/icons-material/ChatBubbleRounded'
 import HeadsetMicRoundedIcon from '@mui/icons-material/HeadsetMicRounded'
 import OpenInNewRoundedIcon from '@mui/icons-material/OpenInNewRounded'
 import ScheduleRoundedIcon from '@mui/icons-material/ScheduleRounded'
@@ -837,10 +838,18 @@ export function PlayIntentDetailView() {
                             }
                           }}
                         >
+                          {intent.discordSpace?.textChannelUrl ? (
+                            <DiscordChannelButton
+                              href={intent.discordSpace.textChannelUrl}
+                              label={intent.discordSpace.textChannelName ?? 'Open text channel'}
+                              icon={<ChatBubbleRoundedIcon />}
+                              disabled={intent.discordSpace.status === 'deleted'}
+                            />
+                          ) : null}
                           {intent.discordSpace?.voiceChannelUrl ? (
                             <DiscordChannelButton
                               href={intent.discordSpace.voiceChannelUrl}
-                              label={intent.discordSpace.voiceChannelName ?? 'Open Discord channel'}
+                              label={intent.discordSpace.voiceChannelName ?? 'Open voice channel'}
                               icon={<HeadsetMicRoundedIcon />}
                               disabled={intent.discordSpace.status === 'deleted'}
                             />
@@ -857,9 +866,14 @@ export function PlayIntentDetailView() {
                         </Box>
                       ) : null}
 
+                      {intent.discordSpace?.textChannelUrl == null && intent.discordSpace?.textChannelName ? (
+                        <DiscordDetailTextRow icon={<ChatBubbleRoundedIcon />}>
+                          Text channel: {intent.discordSpace.textChannelName}
+                        </DiscordDetailTextRow>
+                      ) : null}
                       {intent.discordSpace?.voiceChannelUrl == null && intent.discordSpace?.voiceChannelName ? (
                         <DiscordDetailTextRow icon={<HeadsetMicRoundedIcon />}>
-                          Discord channel: {intent.discordSpace.voiceChannelName}
+                          Voice channel: {intent.discordSpace.voiceChannelName}
                         </DiscordDetailTextRow>
                       ) : null}
                       {!intent.discordSpace && intent.voiceChannelName ? (
