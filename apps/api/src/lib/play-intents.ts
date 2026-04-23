@@ -1728,26 +1728,16 @@ export async function upsertCurrentPlayIntent(
     throw new PlayIntentValidationError('This call to play overlaps one of your other active calls. Adjust the timing so your calls do not overlap.')
   }
 
-  const supersededIntentIds = editingPlayIntentId ? [editingPlayIntentId] : []
   const headline = normalizePlayIntentTitle(payload.title)
   const note = payload.note?.trim() ?? ''
-  const [latestSupersededIntent, priorRecipientNotifications] = supersededIntentIds.length > 0
+  const [existingIntent, priorRecipientNotifications] = editingPlayIntentId
     ? await Promise.all([
-      prisma.playIntent.findFirst({
+      prisma.playIntent.findUnique({
         where: {
-          id: {
-            in: supersededIntentIds
-          }
+          id: editingPlayIntentId
         },
-        orderBy: [
-          {
-            expiresAt: 'desc'
-          },
-          {
-            createdAt: 'desc'
-          }
-        ],
         select: {
+          id: true,
           selectionMode: true,
           windowStartsAt: true,
           windowEndsAt: true,
@@ -1767,9 +1757,7 @@ export async function upsertCurrentPlayIntent(
       }),
       prisma.notification.findMany({
         where: {
-          playIntentId: {
-            in: supersededIntentIds
-          },
+          playIntentId: editingPlayIntentId,
           type: NotificationType.FRIEND_PLAYING
         },
         select: {
@@ -1832,16 +1820,16 @@ export async function upsertCurrentPlayIntent(
   const priorInterestedUserLabels = [...priorRecipientStatusByUserId.values()]
     .filter((status) => status.responseChoice === NotificationResponseChoice.JOIN)
     .map((status) => status.interestedUserLabel)
-  const updatedFields = latestSupersededIntent
+  const updatedFields = existingIntent
     ? resolvePlayIntentUpdatedFields(
       buildPlayIntentUpdateComparison({
-        selectionMode: toClientSelectionMode(latestSupersededIntent.selectionMode),
-        startsAt: latestSupersededIntent.windowStartsAt,
-        endsAt: latestSupersededIntent.windowEndsAt,
-        note: latestSupersededIntent.note,
+        selectionMode: toClientSelectionMode(existingIntent.selectionMode),
+        startsAt: existingIntent.windowStartsAt,
+        endsAt: existingIntent.windowEndsAt,
+        note: existingIntent.note,
         audienceUserIds: [...priorNotifiedRecipientUserIds],
-        selectedGameIds: latestSupersededIntent.games.map((entry) => entry.gameId),
-        hasTemporaryDiscordChannel: Boolean(latestSupersededIntent.discordSpace)
+        selectedGameIds: existingIntent.games.map((entry) => entry.gameId),
+        hasTemporaryDiscordChannel: Boolean(existingIntent.discordSpace)
       }),
       buildPlayIntentUpdateComparison({
         selectionMode: payload.selectionMode,
@@ -1858,6 +1846,15 @@ export async function upsertCurrentPlayIntent(
   const isMeaningfulUpdate = updatedFields.length > 0 && priorNotifiedRecipientUserIds.size > 0
   const reusedRecipientUserIds = recipientUserIds.filter((recipientUserId) => priorNotifiedRecipientUserIds.has(recipientUserId))
   const newRecipientUserIds = recipientUserIds.filter((recipientUserId) => !priorNotifiedRecipientUserIds.has(recipientUserId))
+  const removedRecipientStatuses = [...priorRecipientStatusByUserId.entries()]
+    .filter(([recipientUserId]) => !recipientUserIds.includes(recipientUserId))
+    .map(([, status]) => status)
+  const removedPendingNotificationIds = removedRecipientStatuses
+    .filter((status) => status.respondedAt == null)
+    .map((status) => status.notificationId)
+  const removedResolvedNotificationIds = removedRecipientStatuses
+    .filter((status) => status.respondedAt != null)
+    .map((status) => status.notificationId)
   const renotifiedRecipientUserIds = new Set(recipientUserIds.filter((recipientUserId) => {
     if (!isMeaningfulUpdate || !priorNotifiedRecipientUserIds.has(recipientUserId)) {
       return false
@@ -1893,6 +1890,48 @@ export async function upsertCurrentPlayIntent(
   const discordSpaceAudienceGrantUserIds = [...new Set(recipientUserIds.filter((recipientUserId) => recipientUserId !== userId))]
   const discordSpaceAccessGrantCreates = buildDiscordSpaceAccessGrantCreates(userId, discordSpaceAudienceGrantUserIds)
   const visibleInterestedUserLabels = shouldInvalidateAudienceResponse ? [] : priorInterestedUserLabels
+  const targetDiscordServerCreates = targetDiscordServers.flatMap((server) => server ? [{ serverId: server.id }] : [])
+  const targetFriendCreates = targetedFriends.map((friend) => ({
+    friendUserId: friend.id
+  }))
+  const platformCreates = platformLabels.map((platformLabel) => ({
+    platformLabel
+  }))
+  const selectedGameCreates = selectedGameIds.map((gameId) => ({
+    gameId
+  }))
+  const existingDiscordSpace = existingIntent?.discordSpace ?? null
+  const shouldReuseDiscordSpace = Boolean(
+    payload.createDiscordSpace
+    && existingDiscordSpace
+    && existingDiscordSpace.status !== PlayIntentDiscordSpaceStatus.DELETED
+  )
+  const shouldCreateDiscordSpace = Boolean(
+    payload.createDiscordSpace
+    && env.DISCORD_SERVER_ID
+    && !shouldReuseDiscordSpace
+  )
+  const shouldDeleteDiscordSpace = Boolean(
+    editingPlayIntentId
+    && existingDiscordSpace
+    && existingDiscordSpace.status !== PlayIntentDiscordSpaceStatus.DELETED
+    && !payload.createDiscordSpace
+  )
+  const shouldDropDeletedDiscordSpace = Boolean(
+    editingPlayIntentId
+    && existingDiscordSpace?.status === PlayIntentDiscordSpaceStatus.DELETED
+  )
+  const discordSpaceCreate = shouldCreateDiscordSpace
+    ? {
+        create: {
+          serverId: env.DISCORD_SERVER_ID!,
+          status: PlayIntentDiscordSpaceStatus.REQUESTED,
+          accessGrants: {
+            create: discordSpaceAccessGrantCreates
+          }
+        }
+      }
+    : undefined
 
   let activeIntent: ActivePlayIntent | null = null
   let activeIntentId: string | null = null
@@ -1912,90 +1951,113 @@ export async function upsertCurrentPlayIntent(
   }> = []
 
   await prisma.$transaction(async (transaction) => {
-    if (supersededIntentIds.length > 0) {
-      await transaction.playIntent.updateMany({
+    if (shouldDropDeletedDiscordSpace && existingDiscordSpace) {
+      await transaction.playIntentDiscordSpace.delete({
         where: {
-          id: {
-            in: supersededIntentIds
-          }
-        },
-        data: {
-          expiresAt: now,
-          windowEndsAt: now
+          id: existingDiscordSpace.id
         }
       })
     }
 
-    const shouldReuseDiscordSpace = Boolean(
-      payload.createDiscordSpace
-      && latestSupersededIntent?.discordSpace
-      && latestSupersededIntent.discordSpace.status !== PlayIntentDiscordSpaceStatus.DELETED
-    )
+    let savedIntent: Prisma.PlayIntentGetPayload<{ include: typeof activePlayIntentInclude }>
 
-    const createdIntent = await transaction.playIntent.create({
-      data: {
-        userId,
-        selectionMode: toPrismaSelectionMode(payload.selectionMode),
-        headline,
-        note,
-        voiceChannelId: payload.voiceChannelId ?? null,
-        voiceChannelName: payload.voiceChannelName ?? null,
-        discordSpace: payload.createDiscordSpace && env.DISCORD_SERVER_ID && !shouldReuseDiscordSpace
-          ? {
-              create: {
-                serverId: env.DISCORD_SERVER_ID,
-                status: PlayIntentDiscordSpaceStatus.REQUESTED,
-                accessGrants: {
-                  create: discordSpaceAccessGrantCreates
+    if (editingPlayIntentId) {
+      savedIntent = await transaction.playIntent.update({
+          where: {
+            id: editingPlayIntentId
+          },
+          data: {
+            selectionMode: toPrismaSelectionMode(payload.selectionMode),
+            headline,
+            note,
+            voiceChannelId: payload.voiceChannelId ?? null,
+            voiceChannelName: payload.voiceChannelName ?? null,
+            discordSpace: discordSpaceCreate,
+            targetDiscordServers: {
+              deleteMany: {},
+              ...(payload.notifyScope === 'specific-discord-server'
+                ? {
+                    create: targetDiscordServerCreates
+                  }
+                : {})
+            },
+            scope: toPrismaNotifyScope(payload.notifyScope),
+            windowStartsAt: startsAt,
+            windowEndsAt: endsAt,
+            expiresAt: endsAt,
+            platforms: {
+              deleteMany: {},
+              create: platformCreates
+            },
+            targetFriends: {
+              deleteMany: {},
+              ...(payload.notifyScope === 'specific-friends'
+                ? {
+                    create: targetFriendCreates
+                  }
+                : {})
+            },
+            games: {
+              deleteMany: {},
+              ...(payload.selectionMode === 'subset'
+                ? {
+                    create: selectedGameCreates
+                  }
+                : {})
+            }
+          },
+          include: activePlayIntentInclude
+        })
+    } else {
+      savedIntent = await transaction.playIntent.create({
+          data: {
+            userId,
+            selectionMode: toPrismaSelectionMode(payload.selectionMode),
+            headline,
+            note,
+            voiceChannelId: payload.voiceChannelId ?? null,
+            voiceChannelName: payload.voiceChannelName ?? null,
+            discordSpace: discordSpaceCreate,
+            targetDiscordServers: payload.notifyScope === 'specific-discord-server'
+              ? {
+                  create: targetDiscordServerCreates
                 }
-              }
-            }
-          : undefined,
-        targetDiscordServers: payload.notifyScope === 'specific-discord-server'
-          ? {
-              create: targetDiscordServers.flatMap((server) => server ? [{ serverId: server.id }] : [])
-            }
-          : undefined,
-        scope: toPrismaNotifyScope(payload.notifyScope),
-        windowStartsAt: startsAt,
-        windowEndsAt: endsAt,
-        expiresAt: endsAt,
-        platforms: {
-          create: platformLabels.map((platformLabel) => ({
-            platformLabel
-          }))
-        },
-        targetFriends: payload.notifyScope === 'specific-friends'
-          ? {
-              create: targetedFriends.map((friend) => ({
-                friendUserId: friend.id
-              }))
-            }
-          : undefined,
-        games: payload.selectionMode === 'library'
-          ? undefined
-          : {
-              create: selectedGameIds.map((gameId) => ({
-                gameId
-              }))
-            }
-      },
-      include: activePlayIntentInclude
-    })
+              : undefined,
+            scope: toPrismaNotifyScope(payload.notifyScope),
+            windowStartsAt: startsAt,
+            windowEndsAt: endsAt,
+            expiresAt: endsAt,
+            platforms: {
+              create: platformCreates
+            },
+            targetFriends: payload.notifyScope === 'specific-friends'
+              ? {
+                  create: targetFriendCreates
+                }
+              : undefined,
+            games: payload.selectionMode === 'library'
+              ? undefined
+              : {
+                  create: selectedGameCreates
+                }
+          },
+          include: activePlayIntentInclude
+            })
+        }
 
-    if (shouldReuseDiscordSpace && latestSupersededIntent?.discordSpace) {
+    if (shouldReuseDiscordSpace && existingDiscordSpace) {
       reusedDiscordSpace = true
 
       await transaction.playIntentDiscordSpace.update({
         where: {
-          id: latestSupersededIntent.discordSpace.id
+          id: existingDiscordSpace.id
         },
         data: {
-          playIntentId: createdIntent.id,
-          status: latestSupersededIntent.discordSpace.status === PlayIntentDiscordSpaceStatus.RETAINED
-            || latestSupersededIntent.discordSpace.status === PlayIntentDiscordSpaceStatus.DELETE_REQUESTED
+          playIntentId: savedIntent.id,
+          status: existingDiscordSpace.status === PlayIntentDiscordSpaceStatus.RETAINED
+            || existingDiscordSpace.status === PlayIntentDiscordSpaceStatus.DELETE_REQUESTED
             ? PlayIntentDiscordSpaceStatus.ACTIVE
-            : latestSupersededIntent.discordSpace.status,
+            : existingDiscordSpace.status,
           deleteAfter: null,
           deleteRequestedAt: null,
           deletedAt: null,
@@ -2004,7 +2066,7 @@ export async function upsertCurrentPlayIntent(
       })
 
       await syncUpdatedDiscordSpaceAccessGrants(transaction, {
-        spaceId: latestSupersededIntent.discordSpace.id,
+        spaceId: existingDiscordSpace.id,
         creatorUserId: userId,
         audienceUserIds: discordSpaceAudienceGrantUserIds
       })
@@ -2043,7 +2105,7 @@ export async function upsertCurrentPlayIntent(
             },
             data: {
               triggeredByUserId: userId,
-              playIntentId: createdIntent.id,
+              playIntentId: savedIntent.id,
               gameId: payload.selectionMode === 'subset' ? selectedGameIds[0] : null,
               type: NotificationType.FRIEND_PLAYING,
               title: notificationCopy.title,
@@ -2096,7 +2158,7 @@ export async function upsertCurrentPlayIntent(
             data: {
               userId: recipientUserId,
               triggeredByUserId: userId,
-              playIntentId: createdIntent.id,
+              playIntentId: savedIntent.id,
               gameId: payload.selectionMode === 'subset' ? selectedGameIds[0] : null,
               type: NotificationType.FRIEND_PLAYING,
               title: notificationCopy.title,
@@ -2124,12 +2186,36 @@ export async function upsertCurrentPlayIntent(
       })))
     }
 
-    activeIntent = serializeActivePlayIntent(createdIntent, [])
-    activeIntentId = createdIntent.id
-  })
+    if (removedPendingNotificationIds.length > 0) {
+      await transaction.notification.updateMany({
+        where: {
+          id: {
+            in: removedPendingNotificationIds
+          }
+        },
+        data: {
+          playIntentId: null,
+          respondedAt: now,
+          responseChoice: NotificationResponseChoice.EXPIRED
+        }
+      })
+    }
 
-  await expirePendingPlayIntentNotifications(supersededIntentIds, {
-    publishInvalidation: false
+    if (removedResolvedNotificationIds.length > 0) {
+      await transaction.notification.updateMany({
+        where: {
+          id: {
+            in: removedResolvedNotificationIds
+          }
+        },
+        data: {
+          playIntentId: null
+        }
+      })
+    }
+
+    activeIntent = serializeActivePlayIntent(savedIntent, [])
+    activeIntentId = savedIntent.id
   })
 
   let discordSpaceRecipientContexts = new Map<string, PlayIntentDiscordSpaceRecipientContext>()
@@ -2153,6 +2239,30 @@ export async function upsertCurrentPlayIntent(
       if (refreshedIntent) {
         activeIntent = serializeActivePlayIntent(refreshedIntent, [])
       }
+    }
+  }
+
+  if (shouldDeleteDiscordSpace && activeIntentId) {
+    const deletedSpace = await deletePlayIntentDiscordSpaceByPlayIntentId(activeIntentId)
+
+    if (deletedSpace.status === 'deleted') {
+      await prisma.playIntentDiscordSpace.deleteMany({
+        where: {
+          playIntentId: activeIntentId,
+          status: PlayIntentDiscordSpaceStatus.DELETED
+        }
+      })
+    }
+
+    const refreshedIntent = await prisma.playIntent.findUnique({
+      where: {
+        id: activeIntentId
+      },
+      include: activePlayIntentInclude
+    })
+
+    if (refreshedIntent) {
+      activeIntent = serializeActivePlayIntent(refreshedIntent, [])
     }
   }
 

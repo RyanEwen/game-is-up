@@ -105,7 +105,7 @@ function EndedPlayIntentWindowFilterControl({
   return (
     <Box sx={headerFilterControlSx}>
       <Typography level="body-sm" sx={{ color: 'neutral.400', whiteSpace: 'nowrap' }}>
-        Window
+        Max Age
       </Typography>
       <Select
         size="sm"
