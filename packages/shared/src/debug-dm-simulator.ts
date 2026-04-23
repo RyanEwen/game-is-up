@@ -671,10 +671,7 @@ export function buildSimulatorAudienceFollowUpPreview(
             )
           : buildSimulatorPlainMessage(
               '❎ Passed for Now',
-              [
-                'You are marked as passing for now.',
-                'Passing is anonymous.'
-              ],
+              ['You are marked as passing for now. Passing is anonymous.'],
               'If you change your mind you can switch to "I\'m interested" later.'
             ),
         embeds: [],
@@ -700,10 +697,7 @@ export function buildSimulatorAudienceFollowUpPreview(
       return {
         content: buildSimulatorPlainMessage(
           '❎ Passed for Now',
-          [
-            'You are marked as passing for now.',
-            'Passing is anonymous.'
-          ],
+          ['You are marked as passing for now. Passing is anonymous.'],
           'If you change your mind you can switch to "I\'m interested" later.'
         ),
         embeds: [],
@@ -733,10 +727,7 @@ export function buildSimulatorAudienceFollowUpPreview(
         )
       : buildSimulatorPlainMessage(
           '❎ Passed for Now',
-          [
-            'You are marked as passing for now.',
-            'Passing is anonymous.'
-          ],
+          ['You are marked as passing for now. Passing is anonymous.'],
           'If you change your mind you can switch to "I\'m interested" later.'
         ),
     embeds: [],

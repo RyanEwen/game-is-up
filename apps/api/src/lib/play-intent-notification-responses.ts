@@ -1506,7 +1506,7 @@ export function buildNotificationDirectMessagePreview(options: {
 
     if (renderState.variant === 'declined') {
       return {
-        content: buildPassAcceptedMessage(options.passAcknowledgementMode),
+        content: buildPassAcceptedMessage(options.passAcknowledgementMode, creatorLabel),
         components: []
       }
     }
@@ -2669,10 +2669,10 @@ const passAcknowledgementCopyByMode = {
     subtext: 'Passing is anonymous.'
   },
   'creator-notified': {
-    bodyLine: 'The creator has been notified.',
+    bodyLine: null,
     subtext: 'The creator can see passes for this targeted call to play.'
   }
-} as const satisfies Record<PassAcknowledgementMode, { bodyLine: string; subtext: string }>
+} as const satisfies Record<PassAcknowledgementMode, { bodyLine: string | null; subtext: string }>
 
 function getPassAcknowledgementMode(scope: PlayIntentScope | null | undefined): PassAcknowledgementMode {
   return scope === PlayIntentScope.SPECIFIC_FRIENDS ? 'creator-notified' : 'anonymous'
@@ -2682,14 +2682,16 @@ function getPassAcknowledgementCopy(mode: PassAcknowledgementMode = 'anonymous')
   return passAcknowledgementCopyByMode[mode]
 }
 
-function buildPassAcceptedMessage(mode: PassAcknowledgementMode = 'anonymous') {
+function buildPassAcceptedMessage(mode: PassAcknowledgementMode = 'anonymous', creatorLabel?: string | null) {
   const acknowledgementCopy = getPassAcknowledgementCopy(mode)
+  const bodyLine = mode === 'creator-notified'
+    ? `You are marked as passing for now. ${(creatorLabel ?? 'The creator')} has been notified.`
+    : `You are marked as passing for now. ${acknowledgementCopy.bodyLine ?? 'Passing is anonymous.'}`
 
   return buildDiscordPlainMessage(
     '❎ Passed for Now',
     [
-      'You are marked as passing for now.',
-      acknowledgementCopy.bodyLine
+      bodyLine
     ],
     {
       trailingSubtext: 'If you change your mind you can switch to "I\'m interested" later.'
@@ -3092,7 +3094,6 @@ function buildPlayIntentGameEmbeds(playIntent: {
     const firstGame = gamesWithCover[0]!
 
     return [{
-      title: `Game: ${firstGame.title}`,
       image: { url: firstGame.coverUrl }
     }]
   }
@@ -3319,7 +3320,7 @@ async function applyRecipientResponseToPlayIntentNotification(options: {
           )
         : responseTransition.acknowledgementKind === 'pass-repeat'
           ? buildPassResultMessage('You are still marked as passed on this call to play.', passAcknowledgementMode)
-          : buildPassAcceptedMessage(passAcknowledgementMode),
+          : buildPassAcceptedMessage(passAcknowledgementMode, playIntent.user.displayName),
       discordContent: responseTransition.acknowledgementKind === 'pass-from-join'
         ? buildPassResultMessage(
             `Understood. I marked you as passing.${passAcknowledgementMode === 'creator-notified' ? ` ${creatorDiscordLabel} has been notified.` : ''}`,
@@ -3327,7 +3328,7 @@ async function applyRecipientResponseToPlayIntentNotification(options: {
           )
         : responseTransition.acknowledgementKind === 'pass-repeat'
           ? buildPassResultMessage('You are still marked as passed on this call to play.', passAcknowledgementMode)
-          : buildPassAcceptedMessage(passAcknowledgementMode)
+          : buildPassAcceptedMessage(passAcknowledgementMode, creatorDiscordLabel)
     }
   }
 

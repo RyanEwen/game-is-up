@@ -130,6 +130,8 @@ test('audience pass follow-up previews use the cross-mark emoji heading', () => 
 
   assert.ok(followUp)
   assert.match(followUp.preview.content, /^❎ Passed for Now/m)
+  assert.match(followUp.preview.content, /You are marked as passing for now\. Passing is anonymous\./)
+  assert.doesNotMatch(followUp.preview.content, /Ryan has been notified\./)
 })
 
 test('creator live activity events add dangling replies to the audience thread in the simulator', () => {

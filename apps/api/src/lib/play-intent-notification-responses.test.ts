@@ -229,6 +229,26 @@ test('pass acknowledgements use the cross-mark emoji heading', () => {
 
   assert.match(preview.content, /^❎ Passed for Now/m)
   assert.doesNotMatch(preview.content, /^👎 Passed for Now/m)
+  assert.match(preview.content, /You are marked as passing for now\. Passing is anonymous\./)
+  assert.doesNotMatch(preview.content, /The creator has been notified\./)
+})
+
+test('specific-friends pass acknowledgements name the creator on one line', () => {
+  const preview = buildNotificationDirectMessagePreview({
+    notificationId: 'notification-1',
+    notificationType: NotificationType.FRIEND_PLAYING,
+    title: 'Call to Play',
+    body: 'Games: Helldivers 2\nWhen: Tonight',
+    responseChoice: NotificationResponseChoice.DECLINE,
+    creatorDisplayName: 'Ryan',
+    creatorDiscordUserId: 'discord-creator-1',
+    playIntentIsActive: true,
+    passAcknowledgementMode: 'creator-notified',
+    renderSurface: 'response'
+  })
+
+  assert.match(preview.content, /You are marked as passing for now\. <@discord-creator-1> has been notified\./)
+  assert.doesNotMatch(preview.content, /The creator has been notified\./)
 })
 
 for (const notificationType of [
