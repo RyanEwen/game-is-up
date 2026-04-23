@@ -27,102 +27,6 @@ type DebugDmRevisionDraft = {
   preview: DebugDmPreviewPayload;
 }
 
-type DebugDmRenderablePayload = {
-  content: string;
-  components: Parameters<typeof buildDebugDmPreview>[1];
-  embeds?: Parameters<typeof buildDebugDmPreview>[2];
-}
-
-type DebugNotificationRecipient = {
-  id: string;
-  handle: string;
-  displayName: string;
-  timezoneId: string;
-}
-
-type DebugRecentNotification = {
-  id: string;
-  createdAt: Date;
-  deliveredAt: Date | null;
-  responseChoice: NotificationResponseChoice | null;
-  type: NotificationType;
-  playIntentId: string | null;
-  title: string;
-  body: string;
-  triggeredByUserId: string | null;
-  game: {
-    title: string;
-  } | null;
-  user: DebugNotificationRecipient;
-}
-
-type DebugTriggeredByUser = {
-  id: string;
-  handle: string;
-  displayName: string;
-  identities: Array<{
-    providerUserId: string;
-  }>;
-}
-
-type DebugPreviewPlayIntent = {
-  id: string;
-  userId: string;
-  scope: PlayIntentScope;
-  headline: string;
-  selectionMode: PlayIntentSelectionMode;
-  note: string;
-  expiresAt: Date;
-  voiceChannelId: string | null;
-  voiceChannelName: string | null;
-  targetDiscordServers: Array<{
-    server: {
-      id: string;
-      name: string;
-    };
-  }>;
-  targetFriends: Array<{
-    friendUser: {
-      id: string;
-      displayName: string;
-      identities: Array<{
-        providerUserId: string;
-      }>;
-    };
-  }>;
-  games: Array<{
-    game: {
-      id: string;
-      title: string;
-    };
-  }>;
-  user: {
-    displayName: string;
-    identities: Array<{
-      providerUserId: string;
-    }>;
-  };
-  notifications: Array<{
-    userId: string;
-    type: NotificationType;
-    createdAt: Date;
-    responseChoice: NotificationResponseChoice | null;
-  }>;
-}
-
-type DebugNotificationVoiceChannel = NonNullable<Parameters<typeof buildNotificationDirectMessagePreview>[0]['voiceChannel']>
-type DebugNotificationIntentDetails = Parameters<typeof buildNotificationDirectMessagePreview>[0]['intentDetails']
-type DebugNotificationDiscordSpace = Parameters<typeof buildNotificationDirectMessagePreview>[0]['discordSpace']
-
-type DebugNotificationPreviewOptions = {
-  notification: DebugRecentNotification;
-  playIntent: DebugPreviewPlayIntent | null;
-  discordSpace: DebugNotificationDiscordSpace | null;
-  recipientSharesServer: boolean;
-  triggeredByUserMap: Map<string, DebugTriggeredByUser>;
-  now: Date;
-}
-
 function areDebugDmPreviewsEqual(left: DebugDmPreviewPayload, right: DebugDmPreviewPayload) {
   return left.content === right.content
     && JSON.stringify(left.embeds) === JSON.stringify(right.embeds)
@@ -158,138 +62,6 @@ function getLatestRevisionPreview(revisions: Array<{ preview: DebugDmPreviewPayl
   }
 
   return latestRevision.preview
-}
-
-function toDebugDmPreview(payload: DebugDmRenderablePayload | null) {
-  return payload ? buildDebugDmPreview(payload.content, payload.components, payload.embeds) : null
-}
-
-function buildDebugNotificationVoiceChannel(playIntent: DebugPreviewPlayIntent | null, recipientSharesServer: boolean): DebugNotificationVoiceChannel | null {
-  if (!playIntent || (!playIntent.voiceChannelId && !playIntent.voiceChannelName)) {
-    return null
-  }
-
-  return {
-    channelId: playIntent.voiceChannelId,
-    channelName: playIntent.voiceChannelName,
-    recipientSharesServer
-  }
-}
-
-function buildDebugNotificationIntentDetails(playIntent: DebugPreviewPlayIntent | null): DebugNotificationIntentDetails {
-  if (!playIntent) {
-    return undefined
-  }
-
-  return {
-    headline: playIntent.headline,
-    selectionMode: playIntent.selectionMode,
-    selectedGameTitles: playIntent.games.map((entry) => entry.game.title),
-    scope: playIntent.scope,
-    targetDiscordServers: playIntent.targetDiscordServers,
-    targetFriends: playIntent.targetFriends,
-    note: playIntent.note
-  }
-}
-
-function getDebugNotificationTriggeredByUser(
-  notification: DebugRecentNotification,
-  triggeredByUserMap: Map<string, DebugTriggeredByUser>
-) {
-  return notification.triggeredByUserId ? (triggeredByUserMap.get(notification.triggeredByUserId) ?? null) : null
-}
-
-function getDebugNotificationInterestedCount(
-  notification: DebugRecentNotification,
-  playIntent: DebugPreviewPlayIntent | null
-) {
-  if (
-    !playIntent
-    || (
-      notification.type !== NotificationType.SCHEDULED_PLAY_INTENT_REMINDER
-      && notification.type !== NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED
-    )
-  ) {
-    return undefined
-  }
-
-  return getInterestedCountBeforeNotification(playIntent.notifications, notification.createdAt)
-}
-
-function buildDebugNotificationPreviewPayload(options: DebugNotificationPreviewOptions): DebugDmRenderablePayload {
-  const { notification, playIntent, discordSpace, recipientSharesServer, triggeredByUserMap, now } = options
-  const triggeredByUser = getDebugNotificationTriggeredByUser(notification, triggeredByUserMap)
-  const creatorDiscordUserId = playIntent?.user.identities[0]?.providerUserId ?? null
-  const creatorDisplayName = playIntent?.user.displayName ?? triggeredByUser?.displayName ?? null
-  const voiceChannel = buildDebugNotificationVoiceChannel(playIntent, recipientSharesServer)
-  const interestedCount = getDebugNotificationInterestedCount(notification, playIntent)
-  const intentDetails = buildDebugNotificationIntentDetails(playIntent)
-
-  if (notification.type === NotificationType.SCHEDULED_PLAY_INTENT_CHECK_IN) {
-    return buildScheduledCheckInPromptPreview({
-      notificationId: notification.id,
-      creatorDiscordUserId,
-      creatorDisplayName,
-      resolved: Boolean(notification.responseChoice)
-    })
-  }
-
-  if (
-    notification.type === NotificationType.FRIEND_PLAYING
-    || notification.type === NotificationType.SCHEDULED_PLAY_INTENT_REMINDER
-    || notification.type === NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED
-  ) {
-    if (notification.responseChoice === NotificationResponseChoice.EXPIRED) {
-      return buildNotificationDirectMessagePreview({
-        notificationId: notification.id,
-        notificationType: notification.type,
-        title: notification.title,
-        body: notification.body,
-        responseChoice: notification.responseChoice,
-        creatorUserId: playIntent?.userId ?? notification.triggeredByUserId ?? null,
-        creatorDiscordUserId,
-        creatorDisplayName,
-        gameTitle: notification.game?.title ?? null,
-        playIntentIsActive: false,
-        voiceChannel,
-        discordSpace,
-        interestedCount,
-        intentDetails
-      })
-    }
-
-    return buildPlayIntentNotificationPromptPreview({
-      notificationId: notification.id,
-      notificationType: notification.type,
-      title: notification.title,
-      body: notification.body,
-      responseChoice: notification.responseChoice,
-      creatorUserId: playIntent?.userId ?? notification.triggeredByUserId ?? null,
-      creatorDiscordUserId,
-      creatorDisplayName,
-      voiceChannel,
-      discordSpace,
-      interestedCount,
-      intentDetails
-    })
-  }
-
-  return buildNotificationDirectMessagePreview({
-    notificationId: notification.id,
-    notificationType: notification.type,
-    title: notification.title,
-    body: notification.body,
-    responseChoice: notification.responseChoice,
-    creatorUserId: playIntent?.userId ?? notification.triggeredByUserId ?? null,
-    creatorDiscordUserId,
-    creatorDisplayName,
-    gameTitle: notification.game?.title ?? null,
-    playIntentIsActive: playIntent ? playIntent.expiresAt.getTime() > now.getTime() : undefined,
-    voiceChannel,
-    discordSpace,
-    actorDisplayName: triggeredByUser?.displayName ?? null,
-    actorDiscordUserId: triggeredByUser?.identities[0]?.providerUserId ?? null
-  })
 }
 
 function toCreatorSummaryNotificationsAtTime(
@@ -962,376 +734,452 @@ export async function buildDebugAdminSnapshot() {
     autoPromptIdsByPlayIntentId.set(prompt.createdPlayIntentId, existingPromptIds)
   }
 
-  function buildLifecycleEvents() {
-    return recentPlayIntents.flatMap((intent) => {
-      const events: Array<{
-        id: string;
-        playIntentId: string;
-        occurredAt: string;
-        source: 'play-intent' | 'notification' | 'auto-play-prompt' | 'system';
-        eventType: string;
-        summary: string;
-        details: string | null;
-        isError: boolean;
-        notificationId: string | null;
-        promptId: string | null;
-        actorDisplayName: string | null;
-        recipientDisplayName: string | null;
-      }> = []
+  const lifecycleEvents = recentPlayIntents.flatMap((intent) => {
+    const events: Array<{
+      id: string;
+      playIntentId: string;
+      occurredAt: string;
+      source: 'play-intent' | 'notification' | 'auto-play-prompt' | 'system';
+      eventType: string;
+      summary: string;
+      details: string | null;
+      isError: boolean;
+      notificationId: string | null;
+      promptId: string | null;
+      actorDisplayName: string | null;
+      recipientDisplayName: string | null;
+    }> = []
 
+    events.push({
+      id: `play-intent:${intent.id}:created`,
+      playIntentId: intent.id,
+      occurredAt: intent.createdAt.toISOString(),
+      source: 'play-intent',
+      eventType: 'created',
+      summary: 'Call to play created',
+      details: `${intent.user.displayName} created this call to play.`,
+      isError: false,
+      notificationId: null,
+      promptId: null,
+      actorDisplayName: intent.user.displayName,
+      recipientDisplayName: null
+    })
+
+    if (intent.windowStartsAt.getTime() > intent.createdAt.getTime() + 60 * 1000) {
       events.push({
-        id: `play-intent:${intent.id}:created`,
+        id: `play-intent:${intent.id}:window-start`,
         playIntentId: intent.id,
-        occurredAt: intent.createdAt.toISOString(),
+        occurredAt: intent.windowStartsAt.toISOString(),
         source: 'play-intent',
-        eventType: 'created',
-        summary: 'Call to play created',
-        details: `${intent.user.displayName} created this call to play.`,
+        eventType: 'scheduled-start',
+        summary: 'Scheduled start time reached',
+        details: `The scheduled session window opened for ${intent.user.displayName}.`,
         isError: false,
         notificationId: null,
         promptId: null,
         actorDisplayName: intent.user.displayName,
         recipientDisplayName: null
       })
+    }
 
-      if (intent.windowStartsAt.getTime() > intent.createdAt.getTime() + 60 * 1000) {
+    const intentPrompts = playIntentAutoPrompts.filter((prompt) => prompt.createdPlayIntentId === intent.id)
+    for (const prompt of intentPrompts) {
+      events.push({
+        id: `auto-play-prompt:${prompt.id}:created`,
+        playIntentId: intent.id,
+        occurredAt: prompt.createdAt.toISOString(),
+        source: 'auto-play-prompt',
+        eventType: 'prompt-created',
+        summary: 'Auto-play prompt recorded',
+        details: `${prompt.user.displayName} · ${prompt.game.title} · status ${toClientPromptStatus(prompt.status)}.`,
+        isError: prompt.status === DiscordAutoPlayPromptStatus.FAILED || Boolean(prompt.dmError),
+        notificationId: null,
+        promptId: prompt.id,
+        actorDisplayName: prompt.user.displayName,
+        recipientDisplayName: null
+      })
+
+      if (prompt.deliveredAt) {
         events.push({
-          id: `play-intent:${intent.id}:window-start`,
+          id: `auto-play-prompt:${prompt.id}:delivered`,
           playIntentId: intent.id,
-          occurredAt: intent.windowStartsAt.toISOString(),
-          source: 'play-intent',
-          eventType: 'scheduled-start',
-          summary: 'Scheduled start time reached',
-          details: `The scheduled session window opened for ${intent.user.displayName}.`,
+          occurredAt: prompt.deliveredAt.toISOString(),
+          source: 'auto-play-prompt',
+          eventType: 'prompt-delivered',
+          summary: 'Auto-play prompt DM delivered',
+          details: null,
           isError: false,
           notificationId: null,
-          promptId: null,
-          actorDisplayName: intent.user.displayName,
-          recipientDisplayName: null
+          promptId: prompt.id,
+          actorDisplayName: prompt.user.displayName,
+          recipientDisplayName: prompt.user.displayName
         })
       }
 
-      const intentPrompts = playIntentAutoPrompts.filter((prompt) => prompt.createdPlayIntentId === intent.id)
-      for (const prompt of intentPrompts) {
+      if (prompt.respondedAt) {
         events.push({
-          id: `auto-play-prompt:${prompt.id}:created`,
+          id: `auto-play-prompt:${prompt.id}:responded`,
           playIntentId: intent.id,
-          occurredAt: prompt.createdAt.toISOString(),
+          occurredAt: prompt.respondedAt.toISOString(),
           source: 'auto-play-prompt',
-          eventType: 'prompt-created',
-          summary: 'Auto-play prompt recorded',
-          details: `${prompt.user.displayName} · ${prompt.game.title} · status ${toClientPromptStatus(prompt.status)}.`,
+          eventType: 'prompt-responded',
+          summary: `Auto-play prompt ${toClientPromptStatus(prompt.status)}`,
+          details: prompt.statusDetail,
           isError: prompt.status === DiscordAutoPlayPromptStatus.FAILED || Boolean(prompt.dmError),
           notificationId: null,
           promptId: prompt.id,
           actorDisplayName: prompt.user.displayName,
-          recipientDisplayName: null
+          recipientDisplayName: prompt.user.displayName
         })
-
-        if (prompt.deliveredAt) {
-          events.push({
-            id: `auto-play-prompt:${prompt.id}:delivered`,
-            playIntentId: intent.id,
-            occurredAt: prompt.deliveredAt.toISOString(),
-            source: 'auto-play-prompt',
-            eventType: 'prompt-delivered',
-            summary: 'Auto-play prompt DM delivered',
-            details: null,
-            isError: false,
-            notificationId: null,
-            promptId: prompt.id,
-            actorDisplayName: prompt.user.displayName,
-            recipientDisplayName: prompt.user.displayName
-          })
-        }
-
-        if (prompt.respondedAt) {
-          events.push({
-            id: `auto-play-prompt:${prompt.id}:responded`,
-            playIntentId: intent.id,
-            occurredAt: prompt.respondedAt.toISOString(),
-            source: 'auto-play-prompt',
-            eventType: 'prompt-responded',
-            summary: `Auto-play prompt ${toClientPromptStatus(prompt.status)}`,
-            details: prompt.statusDetail,
-            isError: prompt.status === DiscordAutoPlayPromptStatus.FAILED || Boolean(prompt.dmError),
-            notificationId: null,
-            promptId: prompt.id,
-            actorDisplayName: prompt.user.displayName,
-            recipientDisplayName: prompt.user.displayName
-          })
-        }
       }
+    }
 
-      for (const notification of intent.notifications) {
+    for (const notification of intent.notifications) {
+      events.push({
+        id: `notification:${notification.id}:created`,
+        playIntentId: intent.id,
+        occurredAt: notification.createdAt.toISOString(),
+        source: 'notification',
+        eventType: 'notification-created',
+        summary: `${toNotificationTypeLabel(notification.type)} created`,
+        details: notification.title,
+        isError: false,
+        notificationId: notification.id,
+        promptId: null,
+        actorDisplayName: notification.triggeredByUserId ? (triggeredByUserMap.get(notification.triggeredByUserId)?.displayName ?? null) : null,
+        recipientDisplayName: notification.user.displayName
+      })
+
+      if (notification.deliveredAt) {
         events.push({
-          id: `notification:${notification.id}:created`,
+          id: `notification:${notification.id}:delivered`,
           playIntentId: intent.id,
-          occurredAt: notification.createdAt.toISOString(),
+          occurredAt: notification.deliveredAt.toISOString(),
           source: 'notification',
-          eventType: 'notification-created',
-          summary: `${toNotificationTypeLabel(notification.type)} created`,
-          details: notification.title,
+          eventType: 'notification-delivered',
+          summary: 'Notification DM delivered',
+          details: notification.body,
           isError: false,
           notificationId: notification.id,
           promptId: null,
-          actorDisplayName: notification.triggeredByUserId ? (triggeredByUserMap.get(notification.triggeredByUserId)?.displayName ?? null) : null,
+          actorDisplayName: null,
           recipientDisplayName: notification.user.displayName
         })
-
-        if (notification.deliveredAt) {
-          events.push({
-            id: `notification:${notification.id}:delivered`,
-            playIntentId: intent.id,
-            occurredAt: notification.deliveredAt.toISOString(),
-            source: 'notification',
-            eventType: 'notification-delivered',
-            summary: 'Notification DM delivered',
-            details: notification.body,
-            isError: false,
-            notificationId: notification.id,
-            promptId: null,
-            actorDisplayName: null,
-            recipientDisplayName: notification.user.displayName
-          })
-        }
-
-        if (notification.respondedAt) {
-          const responseLabel = notification.responseChoice ? notification.responseChoice.toLowerCase() : 'handled'
-          events.push({
-            id: `notification:${notification.id}:responded`,
-            playIntentId: intent.id,
-            occurredAt: notification.respondedAt.toISOString(),
-            source: 'notification',
-            eventType: 'notification-responded',
-            summary: `Notification response recorded: ${responseLabel}`,
-            details: null,
-            isError: false,
-            notificationId: notification.id,
-            promptId: null,
-            actorDisplayName: notification.user.displayName,
-            recipientDisplayName: notification.user.displayName
-          })
-        }
       }
 
-      if (intent.expiresAt.getTime() <= now.getTime()) {
+      if (notification.respondedAt) {
+        const responseLabel = notification.responseChoice ? notification.responseChoice.toLowerCase() : 'handled'
         events.push({
-          id: `play-intent:${intent.id}:ended`,
+          id: `notification:${notification.id}:responded`,
           playIntentId: intent.id,
-          occurredAt: intent.expiresAt.toISOString(),
-          source: 'play-intent',
-          eventType: 'ended',
-          summary: 'Call to play ended',
-          details: `${intent.user.displayName}'s call to play ended.`,
+          occurredAt: notification.respondedAt.toISOString(),
+          source: 'notification',
+          eventType: 'notification-responded',
+          summary: `Notification response recorded: ${responseLabel}`,
+          details: null,
           isError: false,
-          notificationId: null,
+          notificationId: notification.id,
           promptId: null,
-          actorDisplayName: intent.user.displayName,
-          recipientDisplayName: null
+          actorDisplayName: notification.user.displayName,
+          recipientDisplayName: notification.user.displayName
         })
       }
+    }
 
-      events.sort((left, right) => new Date(left.occurredAt).getTime() - new Date(right.occurredAt).getTime())
-      return events
-    })
-  }
+    if (intent.expiresAt.getTime() <= now.getTime()) {
+      events.push({
+        id: `play-intent:${intent.id}:ended`,
+        playIntentId: intent.id,
+        occurredAt: intent.expiresAt.toISOString(),
+        source: 'play-intent',
+        eventType: 'ended',
+        summary: 'Call to play ended',
+        details: `${intent.user.displayName}'s call to play ended.`,
+        isError: false,
+        notificationId: null,
+        promptId: null,
+        actorDisplayName: intent.user.displayName,
+        recipientDisplayName: null
+      })
+    }
 
-  function buildRecentErrors() {
-    return [
-      ...(getDiscordPresenceBotState().lastError
-        ? [{
-            id: 'bot:last-error',
-            occurredAt: new Date().toISOString(),
-            source: 'system' as const,
-            message: 'Discord bot reported an error',
-            detail: getDiscordPresenceBotState().lastError,
-            playIntentId: null,
-            notificationId: null,
-            promptId: null
-          }]
-        : []),
-      ...recentAutoPlayPrompts
-        .filter((prompt) => prompt.dmError || prompt.status === DiscordAutoPlayPromptStatus.FAILED)
-        .map((prompt) => ({
-          id: `auto-play-prompt:error:${prompt.id}`,
-          occurredAt: (prompt.respondedAt ?? prompt.deliveredAt ?? prompt.createdAt).toISOString(),
-          source: 'auto-play-prompt' as const,
-          message: prompt.dmError ? 'Auto-play prompt DM error' : 'Auto-play prompt failed',
-          detail: prompt.dmError ?? prompt.statusDetail ?? null,
-          playIntentId: prompt.createdPlayIntentId ?? null,
+    events.sort((left, right) => new Date(left.occurredAt).getTime() - new Date(right.occurredAt).getTime())
+    return events
+  })
+
+  const recentErrors = [
+    ...(getDiscordPresenceBotState().lastError
+      ? [{
+          id: 'bot:last-error',
+          occurredAt: new Date().toISOString(),
+          source: 'system' as const,
+          message: 'Discord bot reported an error',
+          detail: getDiscordPresenceBotState().lastError,
+          playIntentId: null,
           notificationId: null,
-          promptId: prompt.id
-        }))
-    ]
-  }
+          promptId: null
+        }]
+      : []),
+    ...recentAutoPlayPrompts
+      .filter((prompt) => prompt.dmError || prompt.status === DiscordAutoPlayPromptStatus.FAILED)
+      .map((prompt) => ({
+        id: `auto-play-prompt:error:${prompt.id}`,
+        occurredAt: (prompt.respondedAt ?? prompt.deliveredAt ?? prompt.createdAt).toISOString(),
+        source: 'auto-play-prompt' as const,
+        message: prompt.dmError ? 'Auto-play prompt DM error' : 'Auto-play prompt failed',
+        detail: prompt.dmError ?? prompt.statusDetail ?? null,
+        playIntentId: prompt.createdPlayIntentId ?? null,
+        notificationId: null,
+        promptId: prompt.id
+      }))
+  ]
 
-  const recentErrors = buildRecentErrors()
+  const recentPlayIntentRows = await Promise.all(recentPlayIntents.map(async (intent) => {
+    const notificationCount = intent.notifications.length
+    const deliveredNotificationCount = intent.notifications.filter((notification) => Boolean(notification.deliveredAt)).length
+    const respondedNotificationCount = intent.notifications.filter((notification) => Boolean(notification.respondedAt)).length
+    const errorCount = recentErrors.filter((errorEntry) => errorEntry.playIntentId === intent.id).length
+    const creatorSummaryRevisions = buildCreatorSummaryRevisions({
+      ...intent,
+      discordSpace: intent.discordSpace
+        ? {
+            status: intent.discordSpace.status,
+            textChannelName: intent.discordSpace.textChannelName,
+            textChannelUrl: buildDiscordChannelUrl(intent.discordSpace.serverId, intent.discordSpace.textChannelId),
+            voiceChannelName: intent.discordSpace.voiceChannelName,
+            voiceChannelUrl: buildDiscordChannelUrl(intent.discordSpace.serverId, intent.discordSpace.voiceChannelId),
+            inviteUrl: intent.discordSpace.inviteUrl,
+            deleteAfter: intent.discordSpace.deleteAfter
+          }
+        : null,
+      user: {
+        displayName: intent.user.displayName,
+        timezoneId: intent.user.timezoneId
+      },
+      notifications: intent.notifications.map((notification) => ({
+        userId: notification.userId,
+        type: notification.type,
+        respondedAt: notification.respondedAt,
+        responseChoice: notification.responseChoice,
+        deliveredAt: notification.deliveredAt,
+        createdAt: notification.createdAt
+      }))
+    }, now)
+    const creatorPreview = getLatestRevisionPreview(creatorSummaryRevisions)
 
-  async function buildRecentPlayIntentRows() {
-    return Promise.all(recentPlayIntents.map(async (intent) => {
-      const notificationCount = intent.notifications.length
-      const deliveredNotificationCount = intent.notifications.filter((notification) => Boolean(notification.deliveredAt)).length
-      const respondedNotificationCount = intent.notifications.filter((notification) => Boolean(notification.respondedAt)).length
-      const errorCount = recentErrors.filter((errorEntry) => errorEntry.playIntentId === intent.id).length
-      const creatorSummaryRevisions = buildCreatorSummaryRevisions({
-        ...intent,
-        discordSpace: intent.discordSpace
-          ? {
-              status: intent.discordSpace.status,
-              textChannelName: intent.discordSpace.textChannelName,
-              textChannelUrl: buildDiscordChannelUrl(intent.discordSpace.serverId, intent.discordSpace.textChannelId),
-              voiceChannelName: intent.discordSpace.voiceChannelName,
-              voiceChannelUrl: buildDiscordChannelUrl(intent.discordSpace.serverId, intent.discordSpace.voiceChannelId),
-              inviteUrl: intent.discordSpace.inviteUrl,
-              deleteAfter: intent.discordSpace.deleteAfter
-            }
-          : null,
-        user: {
-          displayName: intent.user.displayName,
-          timezoneId: intent.user.timezoneId
-        },
-        notifications: intent.notifications.map((notification) => ({
-          userId: notification.userId,
-          type: notification.type,
-          respondedAt: notification.respondedAt,
-          responseChoice: notification.responseChoice,
-          deliveredAt: notification.deliveredAt,
-          createdAt: notification.createdAt
-        }))
-      }, now)
-      const creatorPreview = getLatestRevisionPreview(creatorSummaryRevisions)
+    return {
+      id: intent.id,
+      createdAt: intent.createdAt.toISOString(),
+      windowStartsAt: intent.windowStartsAt.toISOString(),
+      windowEndsAt: intent.windowEndsAt.toISOString(),
+      expiresAt: intent.expiresAt.toISOString(),
+      status: intent.expiresAt.getTime() > now.getTime() ? 'active' : 'ended',
+      headline: intent.headline,
+      note: intent.note,
+      selectionMode: toClientSelectionMode(intent.selectionMode),
+      notifyScope: toClientNotifyScope(intent.scope),
+      gameTitles: intent.games.map((entry) => entry.game.title).sort((left, right) => left.localeCompare(right)),
+      platformLabels: intent.platforms.map((entry) => entry.platformLabel).sort((left, right) => left.localeCompare(right)),
+      targetedFriendCount: intent.targetFriends.length,
+      notificationCount,
+      deliveredNotificationCount,
+      respondedNotificationCount,
+      errorCount,
+      creator: {
+        id: intent.user.id,
+        handle: intent.user.handle,
+        displayName: intent.user.displayName,
+        timezoneId: intent.user.timezoneId
+      },
+      creatorSummaryPreview: creatorPreview
+    }
+  }))
 
-      return {
-        id: intent.id,
-        createdAt: intent.createdAt.toISOString(),
-        windowStartsAt: intent.windowStartsAt.toISOString(),
-        windowEndsAt: intent.windowEndsAt.toISOString(),
-        expiresAt: intent.expiresAt.toISOString(),
-        status: intent.expiresAt.getTime() > now.getTime() ? 'active' : 'ended',
-        headline: intent.headline,
-        note: intent.note,
-        selectionMode: toClientSelectionMode(intent.selectionMode),
-        notifyScope: toClientNotifyScope(intent.scope),
-        gameTitles: intent.games.map((entry) => entry.game.title).sort((left, right) => left.localeCompare(right)),
-        platformLabels: intent.platforms.map((entry) => entry.platformLabel).sort((left, right) => left.localeCompare(right)),
-        targetedFriendCount: intent.targetFriends.length,
-        notificationCount,
-        deliveredNotificationCount,
-        respondedNotificationCount,
-        errorCount,
-        creator: {
-          id: intent.user.id,
-          handle: intent.user.handle,
-          displayName: intent.user.displayName,
-          timezoneId: intent.user.timezoneId
-        },
-        creatorSummaryPreview: creatorPreview
-      }
-    }))
-  }
+  const creatorSummaryPreviewByPlayIntentId = new Map(
+    recentPlayIntentRows.flatMap((intent) => intent.creatorSummaryPreview ? [[intent.id, intent.creatorSummaryPreview]] : [])
+  )
 
-  const recentPlayIntentRows = await buildRecentPlayIntentRows()
-
-  function buildRecentAutoPlayPromptRows() {
-    const creatorSummaryPreviewByPlayIntentId = new Map(
-      recentPlayIntentRows.flatMap((intent) => intent.creatorSummaryPreview ? [[intent.id, intent.creatorSummaryPreview]] : [])
-    )
-
-    return recentAutoPlayPrompts.map((prompt) => {
-      const previewPayload = buildDiscordAutoPlayPromptPreview({
-        promptId: prompt.id,
-        status: prompt.status,
-        gameTitle: prompt.game.title,
-        durationMinutes: prompt.durationMinutes,
-        notifyScope: prompt.notifyScope,
-        friendRecipientCount: prompt.friendRecipientCount,
-        networkRecipientCount: prompt.networkRecipientCount,
-        statusDetail: prompt.statusDetail,
-        deliveredCount: prompt.createdPlayIntent?.notifications.length ?? 0
-      })
-      const dmPreview = prompt.status === DiscordAutoPlayPromptStatus.ACCEPTED && prompt.createdPlayIntentId
-        ? creatorSummaryPreviewByPlayIntentId.get(prompt.createdPlayIntentId)
-          ?? toDebugDmPreview(previewPayload)
-        : previewPayload
-          ? toDebugDmPreview(previewPayload)
-          : null
-
-      return {
-        id: prompt.id,
-        createdAt: prompt.createdAt.toISOString(),
-        deliveredAt: prompt.deliveredAt?.toISOString() ?? null,
-        respondedAt: prompt.respondedAt?.toISOString() ?? null,
-        status: toClientPromptStatus(prompt.status),
-        statusDetail: prompt.statusDetail,
-        dmError: prompt.dmError,
-        durationMinutes: prompt.durationMinutes,
-        notifyScope: toClientNotifyScope(prompt.notifyScope ?? null),
-        friendRecipientCount: prompt.friendRecipientCount,
-        networkRecipientCount: prompt.networkRecipientCount,
-        sourceServerName: prompt.sourceServer?.name ?? null,
-        observationStartedAt: prompt.observation.startedAt?.toISOString() ?? null,
-        createdPlayIntentId: prompt.createdPlayIntentId,
-        user: prompt.user,
-        game: prompt.game,
-        dmPreview
-      }
+  const recentAutoPlayPromptRows = recentAutoPlayPrompts.map((prompt) => {
+    const previewPayload = buildDiscordAutoPlayPromptPreview({
+      promptId: prompt.id,
+      status: prompt.status,
+      gameTitle: prompt.game.title,
+      durationMinutes: prompt.durationMinutes,
+      notifyScope: prompt.notifyScope,
+      friendRecipientCount: prompt.friendRecipientCount,
+      networkRecipientCount: prompt.networkRecipientCount,
+      statusDetail: prompt.statusDetail,
+      deliveredCount: prompt.createdPlayIntent?.notifications.length ?? 0
     })
-  }
-
-  function buildRecentNotificationRows() {
-    return recentNotifications.map((notification) => {
-      const playIntent = notification.playIntentId ? (previewPlayIntentMap.get(notification.playIntentId) ?? null) : null
-      const discordSpaceRecipientContext = notification.playIntentId
-        ? recentNotificationDiscordSpaceRecipientContextsByPlayIntentId.get(notification.playIntentId)?.get(notification.user.id) ?? null
+    const dmPreview = prompt.status === DiscordAutoPlayPromptStatus.ACCEPTED && prompt.createdPlayIntentId
+      ? creatorSummaryPreviewByPlayIntentId.get(prompt.createdPlayIntentId)
+        ?? (previewPayload ? buildDebugDmPreview(previewPayload.content, previewPayload.components, previewPayload.embeds) : null)
+      : previewPayload
+        ? buildDebugDmPreview(previewPayload.content, previewPayload.components, previewPayload.embeds)
         : null
-      const creatorServerIds = playIntent ? creatorServerIdsByUserId.get(playIntent.userId) : null
-      const recipientServerIds = recipientServerIdsByUserId.get(notification.user.id)
-      const recipientSharesServer = creatorServerIds != null && recipientServerIds != null
-        ? [...creatorServerIds].some((serverId) => recipientServerIds.has(serverId))
-        : false
-      const previewPayload = buildDebugNotificationPreviewPayload({
-        notification,
-        playIntent,
-        discordSpace: discordSpaceRecipientContext,
-        recipientSharesServer,
-        triggeredByUserMap,
-        now
-      })
 
-      return {
-        id: notification.id,
-        createdAt: notification.createdAt.toISOString(),
-        deliveredAt: notification.deliveredAt?.toISOString() ?? null,
-        title: notification.title,
-        body: notification.body,
-        gameTitle: notification.game?.title ?? null,
-        recipient: notification.user,
-        triggeredBy: notification.triggeredByUserId ? (triggeredByUserMap.get(notification.triggeredByUserId) ?? null) : null,
-        dmPreview: toDebugDmPreview(previewPayload)
-      }
-    })
-  }
+    return {
+      id: prompt.id,
+      createdAt: prompt.createdAt.toISOString(),
+      deliveredAt: prompt.deliveredAt?.toISOString() ?? null,
+      respondedAt: prompt.respondedAt?.toISOString() ?? null,
+      status: toClientPromptStatus(prompt.status),
+      statusDetail: prompt.statusDetail,
+      dmError: prompt.dmError,
+      durationMinutes: prompt.durationMinutes,
+      notifyScope: toClientNotifyScope(prompt.notifyScope ?? null),
+      friendRecipientCount: prompt.friendRecipientCount,
+      networkRecipientCount: prompt.networkRecipientCount,
+      sourceServerName: prompt.sourceServer?.name ?? null,
+      observationStartedAt: prompt.observation.startedAt?.toISOString() ?? null,
+      createdPlayIntentId: prompt.createdPlayIntentId,
+      user: prompt.user,
+      game: prompt.game,
+      dmPreview
+    }
+  })
 
-  function buildRecentInviteAttributionRows() {
-    return recentInviteAttributions.map((attribution) => ({
-      id: attribution.id,
-      acceptedAt: attribution.acceptedAt.toISOString(),
-      kind: attribution.kind === 'DIRECT' ? 'direct' : 'server',
-      serverId: attribution.serverId,
-      serverName: attribution.serverName,
-      memberCount: attribution.hintedMemberCount,
-      acceptedUser: attribution.acceptedUser,
-      inviterUser: attribution.inviterUser,
-      inviterDiscordUserId: attribution.inviterDiscordUserId,
-      inviterLabel: attribution.inviterLabel
-    }))
-  }
+  const recentNotificationRows = recentNotifications.map((notification) => {
+    const playIntent = notification.playIntentId ? (previewPlayIntentMap.get(notification.playIntentId) ?? null) : null
+    const discordSpaceRecipientContext = notification.playIntentId
+      ? recentNotificationDiscordSpaceRecipientContextsByPlayIntentId.get(notification.playIntentId)?.get(notification.user.id) ?? null
+      : null
+    const creatorServerIds = playIntent ? creatorServerIdsByUserId.get(playIntent.userId) : null
+    const recipientServerIds = recipientServerIdsByUserId.get(notification.user.id)
+    const recipientSharesServer = creatorServerIds != null && recipientServerIds != null
+      ? [...creatorServerIds].some((serverId) => recipientServerIds.has(serverId))
+      : false
+    const previewPayload = notification.type === NotificationType.SCHEDULED_PLAY_INTENT_CHECK_IN
+      ? buildScheduledCheckInPromptPreview({
+          notificationId: notification.id,
+          creatorDiscordUserId: playIntent?.user.identities[0]?.providerUserId ?? null,
+          creatorDisplayName: playIntent?.user.displayName ?? null,
+          resolved: Boolean(notification.responseChoice)
+        })
+      : notification.type === NotificationType.FRIEND_PLAYING
+        || notification.type === NotificationType.SCHEDULED_PLAY_INTENT_REMINDER
+        || notification.type === NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED
+        ? notification.responseChoice === NotificationResponseChoice.EXPIRED
+          ? buildNotificationDirectMessagePreview({
+              notificationId: notification.id,
+              notificationType: notification.type,
+              title: notification.title,
+              body: notification.body,
+              responseChoice: notification.responseChoice,
+              creatorUserId: playIntent?.userId ?? notification.triggeredByUserId ?? null,
+              creatorDiscordUserId: playIntent?.user.identities[0]?.providerUserId ?? null,
+              creatorDisplayName: playIntent?.user.displayName ?? (notification.triggeredByUserId ? (triggeredByUserMap.get(notification.triggeredByUserId)?.displayName ?? null) : null),
+              gameTitle: notification.game?.title ?? null,
+              playIntentIsActive: false,
+              voiceChannel: playIntent && (playIntent.voiceChannelId || playIntent.voiceChannelName)
+                ? {
+                    channelId: playIntent.voiceChannelId,
+                    channelName: playIntent.voiceChannelName,
+                    recipientSharesServer
+                  }
+                : null,
+              discordSpace: discordSpaceRecipientContext,
+              interestedCount: (
+                notification.type === NotificationType.SCHEDULED_PLAY_INTENT_REMINDER
+                || notification.type === NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED
+              ) && playIntent
+                ? getInterestedCountBeforeNotification(playIntent.notifications, notification.createdAt)
+                : undefined,
+              intentDetails: playIntent
+                ? {
+                    headline: playIntent.headline,
+                    selectionMode: playIntent.selectionMode,
+                    selectedGameTitles: playIntent.games.map((entry) => entry.game.title),
+                    scope: playIntent.scope,
+                    targetDiscordServers: playIntent.targetDiscordServers,
+                    targetFriends: playIntent.targetFriends,
+                    note: playIntent.note
+                  }
+                : undefined
+            })
+          : buildPlayIntentNotificationPromptPreview({
+            notificationId: notification.id,
+            notificationType: notification.type,
+            title: notification.title,
+            body: notification.body,
+            responseChoice: notification.responseChoice,
+            creatorUserId: playIntent?.userId ?? notification.triggeredByUserId ?? null,
+            creatorDiscordUserId: playIntent?.user.identities[0]?.providerUserId ?? null,
+            creatorDisplayName: playIntent?.user.displayName ?? (notification.triggeredByUserId ? (triggeredByUserMap.get(notification.triggeredByUserId)?.displayName ?? null) : null),
+            voiceChannel: playIntent && (playIntent.voiceChannelId || playIntent.voiceChannelName)
+              ? {
+                  channelId: playIntent.voiceChannelId,
+                  channelName: playIntent.voiceChannelName,
+                  recipientSharesServer
+                }
+              : null,
+            discordSpace: discordSpaceRecipientContext,
+            interestedCount: (
+              notification.type === NotificationType.SCHEDULED_PLAY_INTENT_REMINDER
+              || notification.type === NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED
+            ) && playIntent
+              ? getInterestedCountBeforeNotification(playIntent.notifications, notification.createdAt)
+              : undefined,
+            intentDetails: playIntent
+              ? {
+                  headline: playIntent.headline,
+                  selectionMode: playIntent.selectionMode,
+                  selectedGameTitles: playIntent.games.map((entry) => entry.game.title),
+                  scope: playIntent.scope,
+                  targetDiscordServers: playIntent.targetDiscordServers,
+                  targetFriends: playIntent.targetFriends,
+                  note: playIntent.note
+                }
+              : undefined
+          })
+        : buildNotificationDirectMessagePreview({
+            notificationId: notification.id,
+            notificationType: notification.type,
+            title: notification.title,
+            body: notification.body,
+            responseChoice: notification.responseChoice,
+            creatorUserId: playIntent?.userId ?? notification.triggeredByUserId ?? null,
+            creatorDiscordUserId: playIntent?.user.identities[0]?.providerUserId ?? null,
+            creatorDisplayName: playIntent?.user.displayName ?? (notification.triggeredByUserId ? (triggeredByUserMap.get(notification.triggeredByUserId)?.displayName ?? null) : null),
+            gameTitle: notification.game?.title ?? null,
+            playIntentIsActive: playIntent ? playIntent.expiresAt.getTime() > now.getTime() : undefined,
+            voiceChannel: playIntent && (playIntent.voiceChannelId || playIntent.voiceChannelName)
+              ? {
+                  channelId: playIntent.voiceChannelId,
+                  channelName: playIntent.voiceChannelName,
+                  recipientSharesServer
+                }
+              : null,
+            discordSpace: discordSpaceRecipientContext,
+            actorDisplayName: notification.triggeredByUserId ? (triggeredByUserMap.get(notification.triggeredByUserId)?.displayName ?? null) : null,
+            actorDiscordUserId: notification.triggeredByUserId ? (triggeredByUserMap.get(notification.triggeredByUserId)?.identities[0]?.providerUserId ?? null) : null
+          })
 
-  const lifecycleEvents = buildLifecycleEvents()
-  const recentAutoPlayPromptRows = buildRecentAutoPlayPromptRows()
-  const recentNotificationRows = buildRecentNotificationRows()
-  const recentInviteAttributionRows = buildRecentInviteAttributionRows()
+    return {
+      id: notification.id,
+      createdAt: notification.createdAt.toISOString(),
+      deliveredAt: notification.deliveredAt?.toISOString() ?? null,
+      title: notification.title,
+      body: notification.body,
+      gameTitle: notification.game?.title ?? null,
+      recipient: notification.user,
+      triggeredBy: notification.triggeredByUserId ? (triggeredByUserMap.get(notification.triggeredByUserId) ?? null) : null,
+      dmPreview: buildDebugDmPreview(previewPayload.content, previewPayload.components, previewPayload.embeds)
+    }
+  })
+
+  const recentInviteAttributionRows = recentInviteAttributions.map((attribution) => ({
+    id: attribution.id,
+    acceptedAt: attribution.acceptedAt.toISOString(),
+    kind: attribution.kind === 'DIRECT' ? 'direct' : 'server',
+    serverId: attribution.serverId,
+    serverName: attribution.serverName,
+    memberCount: attribution.hintedMemberCount,
+    acceptedUser: attribution.acceptedUser,
+    inviterUser: attribution.inviterUser,
+    inviterDiscordUserId: attribution.inviterDiscordUserId,
+    inviterLabel: attribution.inviterLabel
+  }))
 
   return debugAdminResponseSchema.parse({
     generatedAt: new Date().toISOString(),
