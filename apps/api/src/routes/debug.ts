@@ -1,16 +1,9 @@
 import { Router } from 'express'
 import { buildDebugAdminSnapshot } from '../lib/debug-admin.js'
 import { getAuthSession } from '../lib/session.js'
-import { prisma } from '../lib/prisma.js'
+import { getUserAdminStatus } from '../lib/route-auth.js'
 
 export const debugRouter = Router()
-
-async function requireAdminSessionUser(sessionUserId: string) {
-  return prisma.user.findUnique({
-    where: { id: sessionUserId },
-    select: { isAdmin: true }
-  })
-}
 
 debugRouter.get('/admin', async (request, response, next) => {
   const session = getAuthSession(request)
@@ -22,7 +15,7 @@ debugRouter.get('/admin', async (request, response, next) => {
     return
   }
 
-  const user = await requireAdminSessionUser(session.userId)
+  const user = await getUserAdminStatus(session.userId)
 
   if (!user?.isAdmin) {
     response.status(403).json({

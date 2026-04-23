@@ -1,5 +1,4 @@
 import { Router } from 'express'
-import type { Request, Response } from 'express'
 import { z } from 'zod'
 import {
   upsertUserGameAliasRequestSchema,
@@ -8,7 +7,7 @@ import {
   userPlatformAliasesResponseSchema
 } from '@game-is-up/shared'
 import { prisma } from '../lib/prisma.js'
-import { getAuthSession } from '../lib/session.js'
+import { requireSignedInUserId } from '../lib/route-auth.js'
 
 export const aliasesRouter = Router()
 
@@ -19,17 +18,6 @@ const platformParamSchema = z.string().trim().min(1).max(32).refine(
 )
 
 const gameIdParamSchema = z.object({ gameId: z.string().uuid() })
-
-function requireSignedInUserId(request: Request, response: Response): string | null {
-  const session = getAuthSession(request)
-
-  if (!session) {
-    response.status(401).json({ error: 'Authentication required.' })
-    return null
-  }
-
-  return session.userId
-}
 
 // GET /api/aliases/platforms
 aliasesRouter.get('/platforms', async (request, response, next) => {

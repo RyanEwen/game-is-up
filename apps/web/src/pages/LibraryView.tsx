@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Box, Button, Card, Checkbox, Chip, DialogContent, DialogTitle, Input, Option, Select, Sheet, Stack, Typography } from '@mui/joy'
 import type { GameDetails, GameSearchResponse, GameSearchResult, ImportSteamLibrarySelectionRequest, LibraryEntry, LibraryEntryIntent, LibrarySuggestedGame, SteamLibraryImportGame, SteamLibraryImportPreviewResponse, UserGameAlias, UserPlatformAlias } from '@game-is-up/shared'
-import { gameDetailsResponseSchema } from '@game-is-up/shared'
+import { extractErrorMessage, gameDetailsResponseSchema } from '@game-is-up/shared'
 import { DashboardModal } from '../components/dashboard/DashboardModal'
 import { AliasManagementCard } from '../components/dashboard/AliasManagementCard'
 import { DashboardApiIssueCard } from '../components/dashboard/DashboardApiIssueCard'
@@ -524,9 +524,7 @@ function SteamImportModalPicker({
         const responseBody = await response.json()
 
         if (!response.ok) {
-          throw new Error(typeof responseBody === 'object' && responseBody && 'error' in responseBody && typeof responseBody.error === 'string'
-            ? responseBody.error
-            : 'Unable to load Steam metadata right now.')
+          throw new Error(extractErrorMessage(responseBody, 'Unable to load Steam metadata right now.'))
         }
 
         const parsed = gameDetailsResponseSchema.parse(responseBody)

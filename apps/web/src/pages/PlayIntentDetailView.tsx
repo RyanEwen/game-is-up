@@ -5,7 +5,7 @@ import OpenInNewRoundedIcon from '@mui/icons-material/OpenInNewRounded'
 import ScheduleRoundedIcon from '@mui/icons-material/ScheduleRounded'
 import WestRoundedIcon from '@mui/icons-material/WestRounded'
 import { Avatar, Box, Button, ButtonGroup, Card, Chip, Stack, Typography } from '@mui/joy'
-import { playIntentDetailResponseSchema, type PlayIntentDetail } from '@game-is-up/shared'
+import { extractErrorMessage, playIntentDetailResponseSchema, type PlayIntentDetail } from '@game-is-up/shared'
 import { useNavigate, useParams } from 'react-router-dom'
 import { DiscordSignInCard, EmptyStateCard } from '../components/dashboard/EmptyStateCard'
 import { PlayIntentResponseUserList } from '../components/dashboard/InterestedPlayerList'
@@ -258,9 +258,7 @@ export function PlayIntentDetailView() {
         const responseJson = await response.json()
 
         if (!response.ok) {
-          const responseBody = typeof responseJson === 'object' && responseJson && 'error' in responseJson && typeof responseJson.error === 'string'
-            ? responseJson.error
-            : 'Unable to load this call to play right now.'
+          const responseBody = extractErrorMessage(responseJson, 'Unable to load this call to play right now.')
 
           if (!cancelled) {
             setIntent(null)

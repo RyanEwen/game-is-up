@@ -1,22 +1,8 @@
 import { Router } from 'express'
-import type { Request, Response } from 'express'
 import { subscribeToDashboardInvalidations } from '../lib/dashboard-events.js'
-import { getAuthSession } from '../lib/session.js'
+import { requireSignedInUserId } from '../lib/route-auth.js'
 
 export const eventsRouter = Router()
-
-function requireSignedInUserId(request: Request, response: Response): string | null {
-  const session = getAuthSession(request)
-
-  if (!session) {
-    response.status(401).json({
-      error: 'Authentication required.'
-    })
-    return null
-  }
-
-  return session.userId
-}
 
 eventsRouter.get('/dashboard', (request, response) => {
   const userId = requireSignedInUserId(request, response)

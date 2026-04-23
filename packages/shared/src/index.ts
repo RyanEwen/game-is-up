@@ -1010,5 +1010,6 @@ export type UpsertUserGameAliasRequest = z.infer<typeof upsertUserGameAliasReque
 export type PlayIntentMute = z.infer<typeof playIntentMuteSchema>;
 export type PlayIntentMutesResponse = z.infer<typeof playIntentMutesResponseSchema>;
 
-export * from './debug-dm-simulator'
-export * from './dateTime'
+export * from './debug-dm-simulator.js'
+export * from './dateTime.js'
+export * from './api-errors.js'

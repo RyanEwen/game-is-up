@@ -16,6 +16,7 @@ import type {
 } from '@game-is-up/shared'
 import {
   discordVoiceChannelsResponseSchema,
+  extractErrorMessage,
   playIntentDiscordSpaceDeleteResponseSchema,
   playIntentDiscordSpaceRetryResponseSchema,
   playIntentRecipientResponseResultSchema,
@@ -615,10 +616,7 @@ export function useDashboardPlay({
       if (!response.ok) {
         setPlayIntentNotice({
           tone: 'danger',
-          message:
-            typeof responseBody === 'object' && responseBody && 'error' in responseBody && typeof responseBody.error === 'string'
-              ? responseBody.error
-              : 'Unable to post your call to play right now.'
+          message: extractErrorMessage(responseBody, 'Unable to post your call to play right now.')
         })
         return
       }
@@ -1003,10 +1001,7 @@ export function useDashboardPlay({
       if (!response.ok) {
         setPlayIntentNotice({
           tone: 'danger',
-          message:
-            typeof responseBody === 'object' && responseBody && 'error' in responseBody && typeof responseBody.error === 'string'
-              ? responseBody.error
-              : 'Unable to update your response right now.'
+          message: extractErrorMessage(responseBody, 'Unable to update your response right now.')
         })
         return
       }

@@ -15,6 +15,7 @@ import type {
   UserProfileResponse
 } from '@game-is-up/shared'
 import {
+  extractErrorMessage,
   gameSearchResponseSchema,
   libraryResponseSchema,
   steamLibraryImportPreviewResponseSchema,
@@ -444,10 +445,7 @@ export function useDashboardLibrary({
       if (!response.ok) {
         setActionNotice({
           tone: 'danger',
-          message:
-            typeof responseBody === 'object' && responseBody && 'error' in responseBody && typeof responseBody.error === 'string'
-              ? responseBody.error
-              : 'Unable to load your Steam library right now.'
+          message: extractErrorMessage(responseBody, 'Unable to load your Steam library right now.')
         })
         return null
       }
@@ -508,10 +506,7 @@ export function useDashboardLibrary({
       if (!response.ok) {
         setActionNotice({
           tone: 'danger',
-          message:
-            typeof responseBody === 'object' && responseBody && 'error' in responseBody && typeof responseBody.error === 'string'
-              ? responseBody.error
-              : 'Unable to import those Steam games right now.'
+          message: extractErrorMessage(responseBody, 'Unable to import those Steam games right now.')
         })
         return
       }
@@ -615,10 +610,7 @@ export function useDashboardLibrary({
       if (!response.ok) {
         setActionNotice({
           tone: 'danger',
-          message:
-            typeof responseBody === 'object' && responseBody && 'error' in responseBody && typeof responseBody.error === 'string'
-              ? responseBody.error
-              : 'Unable to add that game right now.'
+          message: extractErrorMessage(responseBody, 'Unable to add that game right now.')
         })
         return
       }

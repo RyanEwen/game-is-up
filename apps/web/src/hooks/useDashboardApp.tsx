@@ -27,6 +27,7 @@ import {
   debugAdminResponseSchema,
   discordServerPreferencesResponseSchema,
   discoveryFeedSchema,
+  extractErrorMessage,
   gameDetailsResponseSchema,
   healthResponseSchema,
   libraryResponseSchema,
@@ -489,11 +490,7 @@ export function useDashboardApp() {
     const responseBody = (await response.json()) as UserProfileResponse | { error?: string }
 
     if (!response.ok) {
-      throw new Error(
-        typeof responseBody === 'object' && responseBody && 'error' in responseBody && typeof responseBody.error === 'string'
-          ? responseBody.error
-          : 'Unable to update your profile right now.'
-      )
+      throw new Error(extractErrorMessage(responseBody, 'Unable to update your profile right now.'))
     }
 
     return userProfileResponseSchema.parse(responseBody)
@@ -612,10 +609,7 @@ export function useDashboardApp() {
       if (!response.ok) {
         setActionNotice({
           tone: 'danger',
-          message:
-            typeof responseBody === 'object' && responseBody && 'error' in responseBody && typeof responseBody.error === 'string'
-              ? responseBody.error
-              : `Unable to add ${title} right now.`
+          message: extractErrorMessage(responseBody, `Unable to add ${title} right now.`)
         })
         return
       }
@@ -662,10 +656,7 @@ export function useDashboardApp() {
       if (!response.ok) {
         setActionNotice({
           tone: 'danger',
-          message:
-            typeof responseBody === 'object' && responseBody && 'error' in responseBody && typeof responseBody.error === 'string'
-              ? responseBody.error
-              : 'Unable to start Steam linking right now.'
+          message: extractErrorMessage(responseBody, 'Unable to start Steam linking right now.')
         })
         return
       }
@@ -961,9 +952,7 @@ export function useDashboardApp() {
         const responseBody = (await response.json()) as GameDetailsResponse | { error?: string }
 
         if (!response.ok) {
-          throw new Error(typeof responseBody === 'object' && responseBody && 'error' in responseBody && typeof responseBody.error === 'string'
-            ? responseBody.error
-            : 'Unable to load game details right now.')
+          throw new Error(extractErrorMessage(responseBody, 'Unable to load game details right now.'))
         }
 
         const parsed = gameDetailsResponseSchema.parse(responseBody)
@@ -1054,10 +1043,7 @@ export function useDashboardApp() {
       if (!response.ok) {
         setActionNotice({
           tone: 'danger',
-          message:
-            typeof responseBody === 'object' && responseBody && 'error' in responseBody && typeof responseBody.error === 'string'
-              ? responseBody.error
-              : 'Unable to update your Discord server network right now.'
+          message: extractErrorMessage(responseBody, 'Unable to update your Discord server network right now.')
         })
         return
       }
@@ -1097,10 +1083,7 @@ export function useDashboardApp() {
       if (!response.ok) {
         setActionNotice({
           tone: 'danger',
-          message:
-            typeof responseBody === 'object' && responseBody && 'error' in responseBody && typeof responseBody.error === 'string'
-              ? responseBody.error
-              : 'Unable to refresh your Discord server list right now.'
+          message: extractErrorMessage(responseBody, 'Unable to refresh your Discord server list right now.')
         })
         return
       }

@@ -33,6 +33,7 @@ import {
 } from '../lib/play-intent-notification-responses.js'
 import { prisma } from '../lib/prisma.js'
 import { getAuthSession } from '../lib/session.js'
+import { getUserAdminStatus, requireSignedInUserId } from '../lib/route-auth.js'
 
 export const playIntentRouter = Router()
 
@@ -42,26 +43,6 @@ const playIntentRecipientResponseInputSchema = z.object({
 
 const muteTargetParamSchema = z.object({ targetUserId: z.string().uuid() })
 const playIntentParamSchema = z.object({ playIntentId: z.string().uuid() })
-
-function requireSignedInUserId(request: Request, response: Response): string | null {
-  const session = getAuthSession(request)
-
-  if (!session) {
-    response.status(401).json({
-      error: 'Authentication required.'
-    })
-    return null
-  }
-
-  return session.userId
-}
-
-async function requireAdminUser(userId: string) {
-  return prisma.user.findUnique({
-    where: { id: userId },
-    select: { isAdmin: true }
-  })
-}
 
 async function handleFeed(request: Request, response: Response, next: (error: unknown) => void) {
   try {
@@ -224,7 +205,7 @@ playIntentRouter.delete('/:playIntentId/admin', async (request, response, next) 
     return
   }
 
-  const requestUser = await requireAdminUser(userId)
+  const requestUser = await getUserAdminStatus(userId)
 
   if (!requestUser?.isAdmin) {
     response.status(403).json({

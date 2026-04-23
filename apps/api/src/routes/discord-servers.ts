@@ -8,7 +8,7 @@ import {
   sendDiscordServerInvitesResponseSchema,
   updateDiscordServerPreferenceRequestSchema
 } from '@game-is-up/shared'
-import { getAuthSession } from '../lib/session.js'
+import { requireSignedInUserId } from '../lib/route-auth.js'
 import {
   buildDiscordServerMembers,
   buildSelectedDiscordVoiceChannels,
@@ -24,19 +24,6 @@ const serverParamsSchema = z.object({
 })
 
 export const discordServersRouter = Router()
-
-function requireSignedInUserId(request: Parameters<typeof getAuthSession>[0], response: { status: (code: number) => { json: (body: { error: string }) => void } }) {
-  const session = getAuthSession(request)
-
-  if (!session) {
-    response.status(401).json({
-      error: 'Authentication required.'
-    })
-    return null
-  }
-
-  return session.userId
-}
 
 discordServersRouter.get('/me', async (request, response, next) => {
   const userId = requireSignedInUserId(request, response)

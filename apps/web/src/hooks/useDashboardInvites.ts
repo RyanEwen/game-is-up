@@ -6,7 +6,7 @@ import type {
   DiscordServerPreferencesResponse,
   SendDiscordServerInvitesResponse
 } from '@game-is-up/shared'
-import { discordServerMembersResponseSchema, sendDiscordServerInvitesResponseSchema } from '@game-is-up/shared'
+import { discordServerMembersResponseSchema, extractErrorMessage, sendDiscordServerInvitesResponseSchema } from '@game-is-up/shared'
 import type { Notice } from '../components/dashboard/types'
 
 const configuredPublicAppUrl = import.meta.env.VITE_PUBLIC_APP_URL
@@ -225,9 +225,7 @@ export function useDashboardInvites({
         }
 
         if (!response.ok) {
-          throw new Error(typeof responseJson === 'object' && responseJson && 'error' in responseJson && typeof responseJson.error === 'string'
-            ? responseJson.error
-            : 'Unable to load Discord members right now.')
+          throw new Error(extractErrorMessage(responseJson, 'Unable to load Discord members right now.'))
         }
 
         setInviteMembersState(discordServerMembersResponseSchema.parse(responseJson))
@@ -355,9 +353,7 @@ export function useDashboardInvites({
       const responseJson = await response.json() as SendDiscordServerInvitesResponse | { error?: string }
 
       if (!response.ok) {
-        throw new Error(typeof responseJson === 'object' && responseJson && 'error' in responseJson && typeof responseJson.error === 'string'
-          ? responseJson.error
-          : 'Unable to send invites right now.')
+        throw new Error(extractErrorMessage(responseJson, 'Unable to send invites right now.'))
       }
 
       const parsed = sendDiscordServerInvitesResponseSchema.parse(responseJson)

@@ -1,5 +1,4 @@
 import { Router } from 'express'
-import type { Request, Response } from 'express'
 import { AuthProvider as PrismaAuthProvider, GameIntentType } from '@prisma/client'
 import {
   gameDetailsResponseSchema,
@@ -28,7 +27,7 @@ import { getNetworkTrendingGames, getObservedLibrarySuggestions } from '../lib/l
 import { backfillPlayIntentNotificationsForUserLibraryChange } from '../lib/play-intents.js'
 import { prisma } from '../lib/prisma.js'
 import { fetchSteamOwnedGames, fetchSteamProfileSummary, isSteamImportConfigured } from '../lib/steam-auth.js'
-import { getAuthSession } from '../lib/session.js'
+import { requireSignedInUserId } from '../lib/route-auth.js'
 import { resolveAvailability } from '../lib/availability.js'
 
 const libraryEntryParamsSchema = z.object({
@@ -45,19 +44,6 @@ const libraryCatalogDetailsParamsSchema = z.object({
 })
 
 export const libraryRouter = Router()
-
-function requireSignedInUserId(request: Request, response: Response): string | null {
-  const session = getAuthSession(request)
-
-  if (!session) {
-    response.status(401).json({
-      error: 'Authentication required.'
-    })
-    return null
-  }
-
-  return session.userId
-}
 
 function toLibraryEntryIntent(intentType: GameIntentType): LibraryEntryIntent {
   switch (intentType) {
