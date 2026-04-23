@@ -674,23 +674,9 @@ export function PlayIntentDetailView() {
                       {libraryWideScopeDescription}
                     </Typography>
                   </Box>
-                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'flex-start', sm: 'center' }}>
-                    <Chip size="sm" color="primary" variant="soft">
-                      {matchingGameCount} {matchingGameCount === 1 ? 'match' : 'matches'}
-                    </Chip>
-                    {canRevealNonOverlappingGames ? (
-                      <Button
-                        size="sm"
-                        variant="plain"
-                        color={showNonOverlappingGames ? 'warning' : 'neutral'}
-                        onClick={() => setShowNonOverlappingGames((currentValue) => !currentValue)}
-                      >
-                        {showNonOverlappingGames
-                          ? 'Hide creator-only games'
-                          : `Show creator-only games (${creatorOnlyGameCount})`}
-                      </Button>
-                    ) : null}
-                  </Stack>
+                  <Chip size="sm" color="primary" variant="soft">
+                    {matchingGameCount} {matchingGameCount === 1 ? 'match' : 'matches'}
+                  </Chip>
                 </Stack>
 
                 {libraryWideScope.games.length > 0 ? (
@@ -729,6 +715,19 @@ export function PlayIntentDetailView() {
                         />
                       ))}
                     </Box>
+                    {canRevealNonOverlappingGames ? (
+                      <Button
+                        size="sm"
+                        variant="plain"
+                        color={showNonOverlappingGames ? 'warning' : 'neutral'}
+                        onClick={() => setShowNonOverlappingGames((currentValue) => !currentValue)}
+                        sx={{ alignSelf: 'flex-start' }}
+                      >
+                        {showNonOverlappingGames
+                          ? 'Hide games that don\'t match'
+                          : `Show games that don't match (${creatorOnlyGameCount})`}
+                      </Button>
+                    ) : null}
                   </Stack>
                 ) : (
                   <EmptyStateCard
