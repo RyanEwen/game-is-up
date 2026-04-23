@@ -35,6 +35,7 @@ import { deletePlayIntentDirectMessages } from './discord-dm-cleanup.js'
 import { toClientGameCoverUrl, toClientAvatarUrl } from './game-media.js'
 import { getInterestedUsersByPlayIntentId } from './play-intent-interested-users.js'
 import {
+  buildDiscordInviteReplyPayload,
   buildPlayIntentDirectMessageHeading,
   buildPlayIntentDirectMessageEmbeds,
   buildPlayIntentNotificationComponents,
@@ -2345,6 +2346,7 @@ export async function upsertCurrentPlayIntent(
 
       return {
           notificationId: notification.id,
+          notificationType: NotificationType.FRIEND_PLAYING,
           discordUserId,
           content: buildPlayIntentDirectMessageHeading(notification.title),
           embeds: [
@@ -2388,6 +2390,7 @@ export async function upsertCurrentPlayIntent(
           ),
           discordDmChannelId: notification.discordDmChannelId,
           discordDmMessageId: notification.discordDmMessageId,
+          inviteUrl: discordSpace?.inviteUrl ?? null,
           recipientResponseDiscordDmChannelId: notification.recipientResponseDiscordDmChannelId,
           recipientResponseDiscordDmMessageId: notification.recipientResponseDiscordDmMessageId,
           sendUpdateReply: notification.sendUpdateReply,
@@ -2458,6 +2461,24 @@ export async function upsertCurrentPlayIntent(
             discordDmMessageId: dmResult.messageId
           }
         })
+
+        const inviteReply = target.notificationType === NotificationType.FRIEND_PLAYING
+          && target.discordUserId
+          && dmResult.channelId
+          && dmResult.messageId
+          ? buildDiscordInviteReplyPayload({
+              discordUserId: target.discordUserId,
+              inviteUrl: target.inviteUrl,
+              replyTo: {
+                channelId: dmResult.channelId,
+                messageId: dmResult.messageId
+              }
+            })
+          : null
+
+        if (inviteReply) {
+          await sendDiscordDirectMessages([inviteReply])
+        }
 
         if (updateReplyContent && target.discordUserId && dmResult.channelId && dmResult.messageId) {
           await sendDiscordDirectMessages([{

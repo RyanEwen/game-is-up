@@ -39,7 +39,7 @@ function normalizeNameSegment(value: string, fallback: string) {
   return normalized.length > 0 ? normalized : fallback
 }
 
-function buildComplementarySpaceNames(playIntent: { id: string; headline: string; user: { displayName: string } }) {
+export function buildComplementarySpaceNames(playIntent: { id: string; headline: string; user: { displayName: string } }) {
   const shortId = playIntent.id.slice(0, 6)
   const titleSegment = normalizeNameSegment(playIntent.headline, 'call-to-play')
   const creatorSegment = normalizeNameSegment(playIntent.user.displayName, 'player')
@@ -47,7 +47,7 @@ function buildComplementarySpaceNames(playIntent: { id: string; headline: string
 
   return {
     roleName: `ctp-${base}`.slice(0, 100),
-    voiceChannelName: `ctp-${creatorSegment}-${base}`.slice(0, 100)
+    voiceChannelName: `${creatorSegment}-${base}`.slice(0, 100)
   }
 }
 

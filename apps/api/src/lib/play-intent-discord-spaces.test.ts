@@ -1,12 +1,25 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { handlePlayIntentDiscordSpaceMemberJoin } from './play-intent-discord-spaces.js'
+import { buildComplementarySpaceNames, handlePlayIntentDiscordSpaceMemberJoin } from './play-intent-discord-spaces.js'
 
 type MemberJoinDependencies = NonNullable<Parameters<typeof handlePlayIntentDiscordSpaceMemberJoin>[1]>
 type MembershipUpsertArgs = Parameters<MemberJoinDependencies['prisma']['discordServerMembership']['upsert']>[0]
 type AccessGrantUpdateArgs = Parameters<MemberJoinDependencies['prisma']['playIntentDiscordSpaceAccessGrant']['update']>[0]
 type SpaceUpdateManyArgs = Parameters<MemberJoinDependencies['prisma']['playIntentDiscordSpace']['updateMany']>[0]
+
+test('temporary Discord voice channel names omit the ctp prefix', () => {
+  const names = buildComplementarySpaceNames({
+    id: 'abcdef123456',
+    headline: 'Friday Night Helldivers',
+    user: {
+      displayName: 'Ryan'
+    }
+  })
+
+  assert.equal(names.roleName, 'ctp-friday-night-helldivers-abcdef')
+  assert.equal(names.voiceChannelName, 'ryan-friday-night-helldivers-abcdef')
+})
 
 test('guild member join upserts membership and clears creator recovery errors after granting access', async () => {
   const membershipUpserts: MembershipUpsertArgs[] = []

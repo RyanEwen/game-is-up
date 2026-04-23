@@ -701,7 +701,8 @@ export function useDashboardApp() {
     applyProfileUpdate,
     setActionNotice,
     setProfileNotice,
-    onStartSteamLink: handleSteamLink
+    onStartSteamLink: handleSteamLink,
+    onAddGameToLibrary: handleAddGameToLibrary
   })
 
   const { playViewProps } = useDashboardPlay({

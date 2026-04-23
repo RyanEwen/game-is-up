@@ -853,6 +853,35 @@ export function buildPlayIntentDirectMessageHeading(
   return buildDiscordMessageHeading(`🎮 ${title}`)
 }
 
+export function buildDiscordInviteReplyPayload(options: {
+  discordUserId: string;
+  inviteUrl: string | null | undefined;
+  replyTo?: DiscordDirectMessagePayload['replyTo'];
+}): DiscordDirectMessagePayload | null {
+  const trimmedInviteUrl = options.inviteUrl?.trim()
+
+  if (!trimmedInviteUrl || !options.replyTo) {
+    return null
+  }
+
+  return {
+    discordUserId: options.discordUserId,
+    content: trimmedInviteUrl,
+    components: [],
+    replyTo: options.replyTo
+  }
+}
+
+function appendDiscordInviteUrl(content: string, inviteUrl: string | null | undefined) {
+  const trimmedInviteUrl = inviteUrl?.trim()
+
+  if (!trimmedInviteUrl) {
+    return content
+  }
+
+  return `${content}\n\n${trimmedInviteUrl}`
+}
+
 function extractLabeledFields(text: string) {
   return text
     .split('\n')
@@ -1375,7 +1404,10 @@ export function buildPlayIntentNotificationPromptPreview(options: {
   }
 
   return {
-    content: buildPlayIntentDirectMessageHeading(options.title),
+    content: appendDiscordInviteUrl(
+      buildPlayIntentDirectMessageHeading(options.title),
+      options.discordSpace?.inviteUrl
+    ),
     embeds: buildPlayIntentDirectMessageEmbeds(
       options.title,
       options.body,
@@ -1389,7 +1421,7 @@ export function buildPlayIntentNotificationPromptPreview(options: {
         intentDetails: options.intentDetails,
         includeUpdateDescription: true,
         summaryStatus: options.summaryStatus,
-        showVoiceChannel: false
+        showVoiceChannel: true
       }
     ),
     components: buildPlayIntentNotificationComponents(
@@ -1904,7 +1936,10 @@ export function buildCreatorPlayIntentSummaryPreview(snapshot: {
   } as CreatorPlayIntentSummarySnapshot
 
   return {
-    content: buildCreatorPlayIntentSummaryHeading(startsAtLabel),
+    content: appendDiscordInviteUrl(
+      buildCreatorPlayIntentSummaryHeading(startsAtLabel),
+      typedSnapshot.discordSpace?.inviteUrl
+    ),
     embeds: buildCreatorPlayIntentSummaryEmbeds(typedSnapshot, currentTime),
     components: buildCreatorPlayIntentSummaryComponents(
       snapshot.id,
@@ -2083,7 +2118,10 @@ async function sendOrEditCreatorPlayIntentSummary(
   const isActive = snapshot.expiresAt > new Date()
   const isScheduled = isScheduledPlayIntentWindow(snapshot.windowStartsAt, new Date())
   const startsAtLabel = formatPlayIntentDateLabel(snapshot.windowStartsAt, snapshot.user.timezoneId)
-  const content = buildCreatorPlayIntentSummaryHeading(startsAtLabel)
+  const content = appendDiscordInviteUrl(
+    buildCreatorPlayIntentSummaryHeading(startsAtLabel),
+    snapshot.discordSpace?.inviteUrl
+  )
   const embeds = buildCreatorPlayIntentSummaryEmbeds(snapshot)
   const components = buildCreatorPlayIntentSummaryComponents(
     playIntentId,
@@ -2092,7 +2130,7 @@ async function sendOrEditCreatorPlayIntentSummary(
     hasCreatorDeletableDiscordSpace(snapshot)
   )
 
-  await syncTrackedDiscordDirectMessage({
+  const trackedResult = await syncTrackedDiscordDirectMessage({
     tracked: {
       channelId: snapshot.creatorDiscordDmChannelId,
       messageId: snapshot.creatorDiscordDmMessageId
@@ -2124,6 +2162,18 @@ async function sendOrEditCreatorPlayIntentSummary(
       })
     }
   })
+
+  if (trackedResult.status === 'sent' && trackedResult.channelId && trackedResult.messageId) {
+    const inviteReply = buildDiscordInviteReplyPayload({
+      discordUserId: creatorDiscordUserId,
+      inviteUrl: snapshot.discordSpace?.inviteUrl,
+      replyTo: buildTrackedDirectMessageReplyReference(trackedResult.channelId, trackedResult.messageId)
+    })
+
+    if (inviteReply) {
+      await sendDiscordDirectMessages([inviteReply])
+    }
+  }
 }
 
 export async function syncCreatorPlayIntentSummaryMessages(
@@ -2569,17 +2619,9 @@ function buildInterestedAcceptedMessage(
         recipientInServer: discordSpace.recipientInServer
       })
     : null
-  const voiceChannelValue = discordSpace
-    ? buildRecipientDiscordSpaceChannelReference({
-        channelUrl: discordSpace.voiceChannelUrl,
-        channelName: discordSpace.voiceChannelName,
-        recipientInServer: discordSpace.recipientInServer
-      })
-    : null
   const complementaryLines = discordSpace
     ? [
         textChannelValue ? `Text channel: ${textChannelValue}` : null,
-        voiceChannelValue ? `Voice channel: ${voiceChannelValue}` : null,
         !discordSpace.recipientInServer && discordSpace.inviteUrl
           ? `Invite link (shareable): ${discordSpace.inviteUrl}`
           : null,
