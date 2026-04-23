@@ -2682,6 +2682,8 @@ function getPassAcknowledgementCopy(mode: PassAcknowledgementMode = 'anonymous')
   return passAcknowledgementCopyByMode[mode]
 }
 
+const passAcknowledgementHeading = '❎ Passed for Now'
+
 function buildPassAcceptedMessage(mode: PassAcknowledgementMode = 'anonymous', creatorLabel?: string | null) {
   const acknowledgementCopy = getPassAcknowledgementCopy(mode)
   const bodyLine = mode === 'creator-notified'
@@ -2689,7 +2691,7 @@ function buildPassAcceptedMessage(mode: PassAcknowledgementMode = 'anonymous', c
     : `You are marked as passing for now. ${acknowledgementCopy.bodyLine ?? 'Passing is anonymous.'}`
 
   return buildDiscordPlainMessage(
-    '❎ Passed for Now',
+    passAcknowledgementHeading,
     [
       bodyLine
     ],
@@ -2758,7 +2760,7 @@ function buildPassResultMessage(message: string, mode: PassAcknowledgementMode =
   const acknowledgementCopy = getPassAcknowledgementCopy(mode)
 
   return buildDiscordPlainMessage(
-    '👍 Passed for Now',
+    passAcknowledgementHeading,
     [
       message
     ],
