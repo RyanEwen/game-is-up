@@ -40,6 +40,7 @@ import {
   buildPlayIntentNotificationComponents,
   buildPlayIntentNotificationPromptPreview,
   buildPlayIntentUpdatedReplyMessage,
+  deleteCreatorResponseSystemNotifications,
   buildGoTimeReminderCopy,
   expirePendingPlayIntentNotifications,
   syncCreatorPlayIntentSummaryMessages
@@ -1855,6 +1856,9 @@ export async function upsertCurrentPlayIntent(
   const removedResolvedNotificationIds = removedRecipientStatuses
     .filter((status) => status.respondedAt != null)
     .map((status) => status.notificationId)
+  const removedResolvedRecipientUserIds = [...priorRecipientStatusByUserId.entries()]
+    .filter(([recipientUserId, status]) => !recipientUserIds.includes(recipientUserId) && status.respondedAt != null)
+    .map(([recipientUserId]) => recipientUserId)
   const renotifiedRecipientUserIds = new Set(recipientUserIds.filter((recipientUserId) => {
     if (!isMeaningfulUpdate || !priorNotifiedRecipientUserIds.has(recipientUserId)) {
       return false
@@ -1936,6 +1940,7 @@ export async function upsertCurrentPlayIntent(
   let activeIntent: ActivePlayIntent | null = null
   let activeIntentId: string | null = null
   let reusedDiscordSpace = false
+  const revokedCreatorResponseRecipientUserIds = new Set<string>(removedResolvedRecipientUserIds)
   const outboundNotifications: Array<{
     id: string;
     userId: string;
@@ -2133,6 +2138,12 @@ export async function upsertCurrentPlayIntent(
         })
       )
 
+      for (const notification of reusedNotifications) {
+        if (notification.requiresFreshResponse) {
+          revokedCreatorResponseRecipientUserIds.add(notification.userId)
+        }
+      }
+
       outboundNotifications.push(...reusedNotifications.map((notification) => ({
         ...notification,
         sendUpdateReply: renotifiedRecipientUserIds.has(notification.userId),
@@ -2264,6 +2275,14 @@ export async function upsertCurrentPlayIntent(
     if (refreshedIntent) {
       activeIntent = serializeActivePlayIntent(refreshedIntent, [])
     }
+  }
+
+  if (activeIntentId && revokedCreatorResponseRecipientUserIds.size > 0) {
+    await deleteCreatorResponseSystemNotifications({
+      playIntentId: activeIntentId,
+      creatorUserId: userId,
+      recipientUserIds: [...revokedCreatorResponseRecipientUserIds]
+    })
   }
 
   let deliveredNotificationCount = 0

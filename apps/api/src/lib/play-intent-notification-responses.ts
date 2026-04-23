@@ -48,6 +48,8 @@ import { buildDiscordChannelUrl } from './discord-channel-urls.js'
 import { getInterestedUsersByPlayIntentId } from './play-intent-interested-users.js'
 import {
   callToPlayEndedSystemNotification,
+  creatorInterestUpdateSystemNotification,
+  creatorInterestWithdrawnSystemNotification,
   formatCreatorInterestUpdateSystemNotification,
   formatCreatorInterestWithdrawnSystemNotification,
   getPlayIntentSystemNotificationDefinitionByTitle
@@ -2814,6 +2816,72 @@ async function upsertCreatorResponseSystemNotification(
       discordDmMessageId: true
     }
   })
+}
+
+export async function deleteCreatorResponseSystemNotifications(options: {
+  playIntentId: string;
+  creatorUserId: string;
+  recipientUserIds: string[];
+}) {
+  const recipientUserIds = [...new Set(options.recipientUserIds)]
+
+  if (recipientUserIds.length === 0) {
+    return
+  }
+
+  const notifications = await prisma.notification.findMany({
+    where: {
+      playIntentId: options.playIntentId,
+      userId: options.creatorUserId,
+      triggeredByUserId: {
+        in: recipientUserIds
+      },
+      type: NotificationType.SYSTEM,
+      title: {
+        in: [
+          creatorInterestUpdateSystemNotification.title,
+          creatorInterestWithdrawnSystemNotification.title
+        ]
+      }
+    },
+    select: {
+      id: true,
+      discordDmChannelId: true,
+      discordDmMessageId: true
+    }
+  })
+
+  if (notifications.length === 0) {
+    return
+  }
+
+  await prisma.notification.deleteMany({
+    where: {
+      id: {
+        in: notifications.map((notification) => notification.id)
+      }
+    }
+  })
+
+  const trackedMessages = new Map<string, { channelId: string; messageId: string }>()
+
+  for (const notification of notifications) {
+    if (!notification.discordDmChannelId || !notification.discordDmMessageId) {
+      continue
+    }
+
+    trackedMessages.set(
+      `${notification.discordDmChannelId}:${notification.discordDmMessageId}`,
+      {
+        channelId: notification.discordDmChannelId,
+        messageId: notification.discordDmMessageId
+      }
+    )
+  }
+
+  await Promise.all(
+    [...trackedMessages.values()].map((message) => deleteDiscordDirectMessage(message))
+  )
 }
 
 async function syncCreatorResponseSystemDirectMessage(options: {

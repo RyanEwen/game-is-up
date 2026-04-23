@@ -107,8 +107,7 @@ export function useDashboardLibrary({
   applyProfileUpdate,
   setActionNotice,
   setProfileNotice,
-  onStartSteamLink,
-  onAddGameToLibrary
+  onStartSteamLink
 }: {
   isSignedIn: boolean;
   steamImportEnabled: boolean;
@@ -128,7 +127,6 @@ export function useDashboardLibrary({
   setActionNotice: Dispatch<SetStateAction<Notice | null>>;
   setProfileNotice: Dispatch<SetStateAction<Notice | null>>;
   onStartSteamLink: () => Promise<void>;
-  onAddGameToLibrary: (game: DashboardLibraryQuickAddGame) => Promise<void>;
 }) {
   const location = useLocation()
   const previousPathnameRef = useRef(location.pathname)
@@ -880,7 +878,7 @@ export function useDashboardLibrary({
     removingLibraryEntryId,
     onEditLibraryEntry: handleEditLibraryEntry,
     onRemoveLibraryEntry: handleRemoveLibraryEntry,
-    onAddGameToLibrary
+    onAddGameToLibrary: openLibraryEditorForGame
   }
 
   return {
