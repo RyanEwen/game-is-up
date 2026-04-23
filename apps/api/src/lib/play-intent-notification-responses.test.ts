@@ -56,7 +56,9 @@ for (const responseChoice of [NotificationResponseChoice.JOIN, NotificationRespo
     const voiceChannelField = embedJson?.fields?.find((field: { name: string; value: string }) => field.name === '🎙 Voice Channel')
 
     assert.ok(voiceChannelField)
-    assert.match(voiceChannelField?.value ?? '', /ryan-friday-night-helldivers-abcdef/)
+    assert.match(voiceChannelField?.value ?? '', /Status: Active/)
+    assert.match(voiceChannelField?.value ?? '', /Text channel:/)
+    assert.match(voiceChannelField?.value ?? '', /Voice channel: .*ryan-friday-night-helldivers-abcdef/)
     assert.match(voiceChannelField?.value ?? '', /https:\/\/discord\.gg\/test-invite/)
   })
 }
@@ -125,6 +127,9 @@ test('creator summary DMs keep the temporary Discord invite URL out of the summa
   const voiceChannelField = embedJson?.fields?.find((field: { name: string; value: string }) => field.name === '🎙 Voice Channel')
 
   assert.ok(voiceChannelField)
+  assert.match(voiceChannelField?.value ?? '', /Status: Active/)
+  assert.match(voiceChannelField?.value ?? '', /Text channel:/)
+  assert.match(voiceChannelField?.value ?? '', /Voice channel:/)
   assert.match(voiceChannelField?.value ?? '', /https:\/\/discord\.gg\/test-invite/)
 })
 

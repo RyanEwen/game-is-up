@@ -981,10 +981,24 @@ function buildRecipientVoiceChannelValue(
       })
     : null
 
+  const textChannelValue = discordSpace
+    ? buildRecipientDiscordSpaceChannelReference({
+        channelUrl: discordSpace.textChannelUrl,
+        channelName: discordSpace.textChannelName,
+        recipientInServer: discordSpace.recipientInServer
+      })
+    : null
+
   return [
-    selectedVoiceChannelValue
-      ?? temporaryVoiceChannelValue
-      ?? (discordSpace ? 'The Discord channel will appear after you join the Game\'s Up Discord server.' : null),
+    discordSpace
+      ? `Status: ${formatDiscordSpaceStatusLabel(discordSpace.status.toUpperCase() as 'ACTIVE' | 'RETAINED' | 'DELETE_REQUESTED')}`
+      : null,
+    textChannelValue
+      ? `Text channel: ${textChannelValue}`
+      : null,
+    selectedVoiceChannelValue || temporaryVoiceChannelValue
+      ? `Voice channel: ${selectedVoiceChannelValue ?? temporaryVoiceChannelValue}`
+      : (discordSpace ? 'Voice channel: The Discord channel will appear after you join the Game\'s Up Discord server.' : null),
     discordSpace?.inviteUrl
       ? `Invite link (shareable): ${discordSpace.inviteUrl}`
       : null

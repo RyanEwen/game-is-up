@@ -2373,7 +2373,8 @@ export async function upsertCurrentPlayIntent(
                   })),
                   note
                 },
-                summaryStatus: startsAt.getTime() > now.getTime() + 60 * 1000 ? 'scheduled' : 'live'
+                summaryStatus: startsAt.getTime() > now.getTime() + 60 * 1000 ? 'scheduled' : 'live',
+                showVoiceChannel: true
               }
             ),
             ...dmGameEmbeds
