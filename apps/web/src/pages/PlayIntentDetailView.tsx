@@ -391,6 +391,10 @@ export function PlayIntentDetailView() {
       : libraryWideScope?.kind === 'shared-library'
         ? 'This call is library-wide, so these are the games that currently match between your library and the creator\'s library.'
         : ''
+  const matchingGameCount = libraryWideScope?.games.length ?? 0
+  const creatorOnlyGameCount = libraryWideScope?.kind === 'shared-library'
+    ? libraryWideScope.nonOverlappingGames.length
+    : 0
   const canRevealNonOverlappingGames = libraryWideScope?.kind === 'shared-library' && libraryWideScope.nonOverlappingGames.length > 0
   const canDeleteDiscordSpace = Boolean(
     isOwnIntent
@@ -672,55 +676,60 @@ export function PlayIntentDetailView() {
                   </Box>
                   <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'flex-start', sm: 'center' }}>
                     <Chip size="sm" color="primary" variant="soft">
-                      {libraryWideScope.totalCount} {libraryWideScope.totalCount === 1 ? 'game' : 'games'}
+                      {matchingGameCount} {matchingGameCount === 1 ? 'match' : 'matches'}
                     </Chip>
                     {canRevealNonOverlappingGames ? (
                       <Button
                         size="sm"
-                        variant="soft"
+                        variant="plain"
                         color={showNonOverlappingGames ? 'warning' : 'neutral'}
                         onClick={() => setShowNonOverlappingGames((currentValue) => !currentValue)}
                       >
                         {showNonOverlappingGames
-                          ? 'Show overlap only'
-                          : `Show non-overlap (${libraryWideScope.nonOverlappingGames.length})`}
+                          ? 'Hide creator-only games'
+                          : `Show creator-only games (${creatorOnlyGameCount})`}
                       </Button>
                     ) : null}
                   </Stack>
                 </Stack>
 
                 {libraryWideScope.games.length > 0 ? (
-                  <Box sx={memberGameGridSx}>
-                    {libraryWideScope.games.map((game) => (
-                      <CompactPersonGameCard
-                        key={game.id}
-                        game={{
-                          gameId: game.id,
-                          title: game.title,
-                          coverUrl: game.coverUrl,
-                          platformLabels: game.platformLabels
-                        }}
-                        canAddToLibrary={playViewProps.isSignedIn}
-                        isInLibrary={playViewProps.libraryGameIds.has(game.id)}
-                        isAddingToLibrary={playViewProps.addingLibraryGameId === game.id}
-                        supportingText={libraryWideScope.kind === 'creator-library' ? 'Covered by this call' : 'Current overlap'}
-                        detailLines={[
-                          libraryWideScope.kind === 'creator-library'
-                            ? 'This title is included because the call covers the creator\'s full active library.'
-                            : 'This title is part of the current overlap between your library and the creator\'s library.',
-                          `Platforms: ${game.platformLabels.join(', ')}`
-                        ]}
-                        badges={buildGameBadges(game.platformLabels)}
-                        footerBadge={libraryWideScope.kind === 'creator-library'
-                          ? {
-                              label: 'Creator library',
-                              color: 'primary'
-                            }
-                          : null}
-                        onAddToLibrary={playViewProps.onAddGameToLibrary}
-                      />
-                    ))}
-                  </Box>
+                  <Stack spacing={1.5}>
+                    {libraryWideScope.kind === 'shared-library' ? (
+                      <Box>
+                        <Typography level="title-sm">Matches with your library</Typography>
+                        <Typography level="body-sm" sx={{ color: 'neutral.400', mt: 0.5 }}>
+                          These are the games you can use right now because they appear in both libraries.
+                        </Typography>
+                      </Box>
+                    ) : null}
+                    <Box sx={memberGameGridSx}>
+                      {libraryWideScope.games.map((game) => (
+                        <CompactPersonGameCard
+                          key={game.id}
+                          game={{
+                            gameId: game.id,
+                            title: game.title,
+                            coverUrl: game.coverUrl,
+                            platformLabels: game.platformLabels
+                          }}
+                          canAddToLibrary={playViewProps.isSignedIn}
+                          isInLibrary={playViewProps.libraryGameIds.has(game.id)}
+                          isAddingToLibrary={playViewProps.addingLibraryGameId === game.id}
+                          supportingText={libraryWideScope.kind === 'creator-library' ? 'Covered by this call' : 'Current overlap'}
+                          detailLines={[
+                            libraryWideScope.kind === 'creator-library'
+                              ? 'This title is included because the call covers the creator\'s full active library.'
+                              : 'This title is part of the current overlap between your library and the creator\'s library.',
+                            `Platforms: ${game.platformLabels.join(', ')}`
+                          ]}
+                          badges={buildGameBadges(game.platformLabels)}
+                          footerBadge={null}
+                          onAddToLibrary={playViewProps.onAddGameToLibrary}
+                        />
+                      ))}
+                    </Box>
+                  </Stack>
                 ) : (
                   <EmptyStateCard
                     title={libraryWideScope.kind === 'creator-library' ? 'No active library titles yet' : 'No shared games yet'}
@@ -730,7 +739,7 @@ export function PlayIntentDetailView() {
 
                 {canRevealNonOverlappingGames && showNonOverlappingGames ? (
                   <Stack spacing={1.5}>
-                    <Typography level="title-sm">Other games in {intent.user.displayName}&apos;s library</Typography>
+                    <Typography level="title-sm">Only in {intent.user.displayName}&apos;s library</Typography>
                     <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
                       These titles are part of the creator&apos;s active library, but they do not currently overlap with yours.
                     </Typography>

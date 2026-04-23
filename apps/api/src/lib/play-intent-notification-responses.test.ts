@@ -8,7 +8,8 @@ import {
   buildDiscordInviteReplyPayload,
   buildCreatorPlayIntentSummaryPreview,
   buildNotificationDirectMessagePreview,
-  buildPlayIntentNotificationPromptPreview
+  buildPlayIntentNotificationPromptPreview,
+  shouldKeepCreatorDiscordInviteReply
 } from './play-intent-notification-responses.js'
 
 for (const responseChoice of [NotificationResponseChoice.JOIN, NotificationResponseChoice.DECLINE] as const) {
@@ -152,6 +153,23 @@ test('temporary Discord invite replies use the invite URL as reply content', () 
       messageId: 'dm-message-1'
     }
   })
+})
+
+test('creator invite replies are only kept while the call is active and has an invite URL', () => {
+  assert.equal(shouldKeepCreatorDiscordInviteReply({
+    isActive: true,
+    inviteUrl: 'https://discord.gg/test-invite'
+  }), true)
+
+  assert.equal(shouldKeepCreatorDiscordInviteReply({
+    isActive: false,
+    inviteUrl: 'https://discord.gg/test-invite'
+  }), false)
+
+  assert.equal(shouldKeepCreatorDiscordInviteReply({
+    isActive: true,
+    inviteUrl: null
+  }), false)
 })
 
 test('the joined acknowledgement DM no longer repeats the voice channel line', () => {

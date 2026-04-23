@@ -18,6 +18,7 @@ import {
   archivePlayIntentDirectMessages,
   buildArchivedAudienceCleanupComponents,
   buildArchivedPlayIntentEmbeds,
+  deleteReplyMessagesReferencingTargets,
   deleteCreatorPlayIntentDirectMessages,
   deleteUserPlayIntentDirectMessages
 } from './discord-dm-cleanup.js'
@@ -2057,6 +2058,44 @@ type CreatorPlayIntentSummarySyncOptions = {
   notifyOnActiveChange?: boolean;
 }
 
+export function shouldKeepCreatorDiscordInviteReply(options: {
+  isActive: boolean;
+  inviteUrl?: string | null;
+}) {
+  return options.isActive && Boolean(options.inviteUrl)
+}
+
+async function deleteUntrackedCreatorSummaryReplies(options: {
+  playIntentId: string;
+  summaryMessage: { channelId: string; messageId: string };
+}) {
+  const preservedTargets = (await prisma.notification.findMany({
+    where: {
+      playIntentId: options.playIntentId,
+      discordDmChannelId: options.summaryMessage.channelId,
+      discordDmMessageId: {
+        not: null
+      }
+    },
+    select: {
+      discordDmChannelId: true,
+      discordDmMessageId: true
+    }
+  })).flatMap((notification) => (
+    notification.discordDmChannelId && notification.discordDmMessageId
+      ? [{
+          channelId: notification.discordDmChannelId,
+          messageId: notification.discordDmMessageId
+        }]
+      : []
+  ))
+
+  await deleteReplyMessagesReferencingTargets({
+    targets: [options.summaryMessage],
+    preservedTargets
+  })
+}
+
 async function sendOrEditCreatorPlayIntentSummary(
   playIntentId: string,
   _options: CreatorPlayIntentSummarySyncOptions = {}
@@ -2120,7 +2159,31 @@ async function sendOrEditCreatorPlayIntentSummary(
     }
   })
 
-  if (trackedResult.status === 'sent' && trackedResult.channelId && trackedResult.messageId) {
+  const summaryMessage = trackedResult.channelId && trackedResult.messageId
+    ? {
+        channelId: trackedResult.channelId,
+        messageId: trackedResult.messageId
+      }
+    : snapshot.creatorDiscordDmChannelId && snapshot.creatorDiscordDmMessageId
+      ? {
+          channelId: snapshot.creatorDiscordDmChannelId,
+          messageId: snapshot.creatorDiscordDmMessageId
+        }
+      : null
+
+  const keepInviteReply = shouldKeepCreatorDiscordInviteReply({
+    isActive,
+    inviteUrl: snapshot.discordSpace?.inviteUrl
+  })
+
+  if (summaryMessage && !keepInviteReply) {
+    await deleteUntrackedCreatorSummaryReplies({
+      playIntentId,
+      summaryMessage
+    })
+  }
+
+  if (keepInviteReply && trackedResult.status === 'sent' && trackedResult.channelId && trackedResult.messageId) {
     const inviteReply = buildDiscordInviteReplyPayload({
       discordUserId: creatorDiscordUserId,
       inviteUrl: snapshot.discordSpace?.inviteUrl,
@@ -3994,9 +4057,13 @@ export async function handleScheduledPlayIntentCheckInInteraction(interaction: B
     })
 
     if (endResult.notificationEnded && notification.playIntentId) {
+      await interaction.deferUpdate()
+
       await expirePendingPlayIntentNotifications([notification.playIntentId], {
         notifyAudienceOnEnd: true
       })
+
+      return
     }
 
     if (!endResult.notificationEnded) {
@@ -4525,6 +4592,8 @@ export async function handleCreatorPlayIntentSummaryInteraction(interaction: But
   }
 
   if (action.action === 'end' && playIntent.expiresAt > new Date()) {
+    await interaction.deferUpdate()
+
     const now = new Date()
 
     await prisma.playIntent.update({
@@ -4540,8 +4609,16 @@ export async function handleCreatorPlayIntentSummaryInteraction(interaction: But
     await expirePendingPlayIntentNotifications([playIntent.id], {
       notifyAudienceOnEnd: true
     })
+    return
   } else if (action.action === 'end') {
-    await syncCreatorPlayIntentSummaryMessages([playIntent.id])
+    await interaction.deferUpdate()
+
+    await markPlayIntentDiscordSpacesRetained([playIntent.id])
+    await archivePlayIntentDirectMessages({
+      playIntentIds: [playIntent.id],
+      replaceRecipientMessages: true
+    })
+    return
   }
 
   const refreshedSnapshot = await getCreatorPlayIntentSummarySnapshot(playIntent.id)
