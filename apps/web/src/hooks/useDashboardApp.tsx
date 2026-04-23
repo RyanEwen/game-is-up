@@ -24,7 +24,6 @@ import { buildApiIssueMessage } from '../components/dashboard/apiIssue'
 import {
   authProvidersResponseSchema,
   authSessionResponseSchema,
-  dashboardInvalidationEventSchema,
   debugAdminResponseSchema,
   discordServerPreferencesResponseSchema,
   discoveryFeedSchema,
@@ -42,6 +41,7 @@ import type { DashboardGameDetailsTarget, DashboardLibraryQuickAddGame, FriendTa
 import { useDashboardInvites } from './useDashboardInvites'
 import { useDashboardLibrary } from './useDashboardLibrary'
 import { useDashboardPlay } from './useDashboardPlay'
+import { useDashboardSseInvalidation } from './useDashboardSseInvalidation'
 import { checkForAppUpdate } from '../lib/appUpdate'
 
 type BeforeInstallPromptEvent = Event & {
@@ -758,37 +758,14 @@ export function useDashboardApp() {
     }
   }, [scheduleDashboardRefreshFromInvalidation])
 
-  useEffect(() => {
-    if (typeof window === 'undefined' || !isSignedIn) {
-      return
-    }
-
-    const eventSource = new EventSource(buildApiUrl('/api/events/dashboard'), {
-      withCredentials: true
-    })
-
-    eventSource.onopen = () => {
-      // A deploy restarts the SSE stream, so checking the service worker here
-      // helps signed-in users pick up the new web bundle promptly after reconnect.
-      checkForAppUpdate()
-    }
-
-    eventSource.onmessage = (messageEvent) => {
-      try {
-        const payload = dashboardInvalidationEventSchema.parse(JSON.parse(messageEvent.data) as unknown)
-
-        if (payload.domains.length > 0) {
-          scheduleDashboardRefreshFromInvalidation()
-        }
-      } catch {
-        // Ignore malformed SSE payloads and rely on the next valid invalidation event.
-      }
-    }
-
-    return () => {
-      eventSource.close()
-    }
-  }, [isSignedIn, scheduleDashboardRefreshFromInvalidation])
+  useDashboardSseInvalidation({
+    enabled: isSignedIn,
+    buildApiUrl,
+    onInvalidation: scheduleDashboardRefreshFromInvalidation,
+    // A deploy restarts the SSE stream, so checking the service worker here
+    // helps signed-in users pick up the new web bundle promptly after reconnect.
+    onOpen: checkForAppUpdate
+  })
 
   useEffect(() => {
     if (!isSignedIn || !browserTimeZoneId || profileSaving) {

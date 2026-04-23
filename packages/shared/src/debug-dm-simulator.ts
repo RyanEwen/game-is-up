@@ -1,3 +1,10 @@
+import {
+  buildAutoPlayInactiveObservationClosedReason,
+  buildDecoratedSectionHeading,
+  buildDiscordNotice,
+  decorateFieldLabel
+} from './discord-formatting.js'
+
 type SimulatorDebugDmPreviewButtonStyle = 'primary' | 'secondary' | 'danger' | 'link'
 
 type SimulatorDebugDmPreviewButton = {
@@ -66,6 +73,21 @@ export type SimulatedScenarioDraft = {
 
 export type SimulatedAutoPlayNotifyScope = 'friends-only' | 'network' | null
 
+/**
+ * Auto-play prompt UI states surfaced by the debug simulator. These do NOT
+ * map 1:1 to the live `DiscordAutoPlayPromptStatus` Prisma enum (which only
+ * tracks `SENT | SKIPPED | FAILED | ACCEPTED | DECLINED | EXPIRED`).
+ *
+ * The simulator adds intermediate UI-only stages so the harness can preview
+ * the whole flow:
+ *   - 'initial'        — the prompt has not been opened yet
+ *   - 'audience'       — audience picker is open
+ *   - 'created'        — a play-intent has been created from the prompt
+ *   - 'created-ended'  — the created play-intent has since ended
+ *   - 'declined'       — maps to live DECLINED
+ *   - 'expired'        — maps to live EXPIRED
+ *   - 'archived'       — the recipient archived the prompt DM
+ */
 export type SimulatedAutoPlayPromptStatus =
   | 'initial'
   | 'audience'
@@ -172,60 +194,8 @@ function buildSimulatorPlainMessage(title: string, bodyLines: string[], trailing
   return blocks.join('\n\n')
 }
 
-function buildSimulatorSubtext(text: string) {
-  const trimmed = text.trim()
-
-  if (trimmed.length === 0) {
-    return ''
-  }
-
-  return trimmed.startsWith('-# ') ? trimmed : `-# ${trimmed}`
-}
-
 function buildSimulatorNotice(title: string, sections: Array<string | null>, subtext?: string | null) {
-  return [
-    title.trim(),
-    ...sections,
-    subtext ? buildSimulatorSubtext(subtext) : null
-  ].filter((part): part is string => Boolean(part)).join('\n\n')
-}
-
-function formatSimulatorPromptFieldName(label: string) {
-  switch (label.trim().toLowerCase()) {
-    case 'game':
-      return '🎮 Game'
-    case 'duration':
-      return '⏰ Duration'
-    case 'audience':
-      return '👥 Audience'
-    case 'reach':
-      return '📬 Reach'
-    case 'status':
-      return '📡 Status'
-    case 'next step':
-      return '🧭 Next Step'
-    default:
-      return label.trim()
-  }
-}
-
-function buildSimulatorPromptSectionHeading(label: string) {
-  switch (label.trim().toLowerCase()) {
-    case 'game':
-      return '### 🎮 Game'
-    case 'duration':
-      return '### ⏰ Duration'
-    case 'audience':
-      return '### 👥 Audience'
-    case 'reach':
-      return '### 📬 Reach'
-    case 'status':
-      return '### 📡 Status'
-    case 'next step':
-      return '### 🧭 Next Step'
-    default:
-      return `### ${label.trim()}`
-  }
+  return buildDiscordNotice(title, sections, subtext)
 }
 
 function buildSimulatorPromptSection(label: string, value: string) {
@@ -235,7 +205,7 @@ function buildSimulatorPromptSection(label: string, value: string) {
     return null
   }
 
-  return `${buildSimulatorPromptSectionHeading(label)}\n${trimmed}`
+  return `${buildDecoratedSectionHeading(label)}\n${trimmed}`
 }
 
 export function formatSimulatorDurationLabel(durationMinutes: number) {
@@ -248,7 +218,7 @@ export function formatSimulatorDurationLabel(durationMinutes: number) {
 }
 
 export function buildSimulatorAutoPlayClosedReason(gameTitle: string) {
-  return `This prompt was closed because we are no longer seeing you in ${gameTitle}.`
+  return buildAutoPlayInactiveObservationClosedReason(gameTitle)
 }
 
 function buildSimulatorTimingLabel(draft: SimulatedScenarioDraft, state: SimulatedLifecycleState) {
@@ -1070,17 +1040,17 @@ function buildSimulatorAutoPlayInitialPreview(
         color: 0x3b82f6,
         fields: [
           {
-            name: formatSimulatorPromptFieldName('Game'),
+            name: decorateFieldLabel('Game'),
             value: draft.gameTitle,
             inline: false
           },
           {
-            name: formatSimulatorPromptFieldName('Reach'),
+            name: decorateFieldLabel('Reach'),
             value: `${draft.networkRecipientCount} people in your network and friends could receive a call to play for it right now.`,
             inline: false
           },
           {
-            name: formatSimulatorPromptFieldName('Next Step'),
+            name: decorateFieldLabel('Next Step'),
             value: 'Pick a duration and I will ask who should receive it.',
             inline: false
           }
@@ -1110,17 +1080,17 @@ function buildSimulatorAutoPlayAudiencePreview(
         color: 0x3b82f6,
         fields: [
           {
-            name: formatSimulatorPromptFieldName('Game'),
+            name: decorateFieldLabel('Game'),
             value: draft.gameTitle,
             inline: false
           },
           {
-            name: formatSimulatorPromptFieldName('Duration'),
+            name: decorateFieldLabel('Duration'),
             value: `Next ${formatSimulatorDurationLabel(durationMinutes)}.`,
             inline: true
           },
           {
-            name: formatSimulatorPromptFieldName('Reach'),
+            name: decorateFieldLabel('Reach'),
             value: `Friends only: ${draft.friendRecipientCount}\nYour network + friends: ${draft.networkRecipientCount}`,
             inline: false
           }
@@ -1148,12 +1118,12 @@ function buildSimulatorAutoPlayDeclinedPreview(
         color: 0xef4444,
         fields: [
           {
-            name: formatSimulatorPromptFieldName('Game'),
+            name: decorateFieldLabel('Game'),
             value: draft.gameTitle,
             inline: false
           },
           {
-            name: formatSimulatorPromptFieldName('Status'),
+            name: decorateFieldLabel('Status'),
             value: `You chose not to create a call to play for ${draft.gameTitle} right now.`,
             inline: false
           }

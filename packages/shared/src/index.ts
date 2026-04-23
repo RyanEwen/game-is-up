@@ -83,6 +83,7 @@ export const steamLibraryImportAccountSchema = z.object({
 export * from './play-intent-update-effects.js'
 export * from './debug-dm-simulator-state.js'
 export * from './debug-dm-simulator-history.js'
+export * from './discord-formatting.js'
 
 export const steamLibraryImportPreviewResponseSchema = z.object({
   status: steamLibraryImportStatusSchema,

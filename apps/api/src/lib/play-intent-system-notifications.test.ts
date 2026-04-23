@@ -2,50 +2,175 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 
 import {
-  formatGroupLaunchedGameSystemNotification,
+  callToPlayEndedSystemNotification,
+  creatorInterestUpdateSystemNotification,
+  creatorInterestWithdrawnSystemNotification,
+  creatorLaunchedGameSystemNotification,
   formatCreatorInterestUpdateSystemNotification,
   formatCreatorInterestWithdrawnSystemNotification,
-  formatVoiceChannelJoinedSystemNotification
+  formatCreatorLaunchedGameSystemNotification,
+  formatGroupLaunchedGameSystemNotification,
+  formatInterestedPlayerLaunchedGameSystemNotification,
+  formatVoiceChannelJoinedSystemNotification,
+  getPlayIntentSystemNotificationDefinitionByTitle,
+  groupLaunchedGameSystemNotification,
+  interestedPlayerLaunchedGameSystemNotification,
+  voiceChannelJoinedSystemNotification
 } from './play-intent-system-notifications.js'
 
-test('creator interest update notifications use the check emoji heading', () => {
+// ---------------------------------------------------------------------------
+// Definition lookup
+// ---------------------------------------------------------------------------
+
+test('getPlayIntentSystemNotificationDefinitionByTitle round-trips every known definition', () => {
+  for (const definition of [
+    callToPlayEndedSystemNotification,
+    voiceChannelJoinedSystemNotification,
+    groupLaunchedGameSystemNotification,
+    creatorLaunchedGameSystemNotification,
+    interestedPlayerLaunchedGameSystemNotification,
+    creatorInterestUpdateSystemNotification,
+    creatorInterestWithdrawnSystemNotification
+  ]) {
+    assert.equal(getPlayIntentSystemNotificationDefinitionByTitle(definition.title), definition)
+  }
+})
+
+test('getPlayIntentSystemNotificationDefinitionByTitle returns null for an unknown title', () => {
+  assert.equal(getPlayIntentSystemNotificationDefinitionByTitle('not a real title'), null)
+})
+
+// ---------------------------------------------------------------------------
+// Creator interest update / withdrawn
+// ---------------------------------------------------------------------------
+
+test('creator interest update notification renders the configured title and body', () => {
   const notification = formatCreatorInterestUpdateSystemNotification({
     recipientDisplayName: 'Sam',
-    recipientLabel: '@Sam',
+    recipientLabel: '<@123>',
     gameTitle: 'Helldivers 2'
   })
 
-  assert.equal(notification.title, '✅ Someone is interested')
+  assert.equal(notification.title, creatorInterestUpdateSystemNotification.title)
+  assert.equal(notification.body, 'Sam is interested in playing Helldivers 2.')
+  assert.equal(notification.discordBody, '<@123> is interested in playing Helldivers 2.')
 })
 
-test('creator pass notifications use the cross-mark emoji heading', () => {
+test('creator interest update notification falls back when no game title is provided', () => {
+  const notification = formatCreatorInterestUpdateSystemNotification({
+    recipientDisplayName: 'Sam',
+    recipientLabel: '<@123>',
+    gameTitle: null
+  })
+
+  assert.equal(notification.body, 'Sam is interested in your call to play.')
+  assert.equal(notification.discordBody, '<@123> is interested in your call to play.')
+})
+
+test('creator interest withdrawn notification renders the configured title and body', () => {
   const notification = formatCreatorInterestWithdrawnSystemNotification({
     recipientDisplayName: 'Sam',
-    recipientLabel: '@Sam',
+    recipientLabel: '<@123>',
     gameTitle: 'Helldivers 2'
   })
 
-  assert.equal(notification.title, '❎ Someone passed')
+  assert.equal(notification.title, creatorInterestWithdrawnSystemNotification.title)
+  assert.equal(notification.body, 'Sam passed on Helldivers 2.')
+  assert.equal(notification.discordBody, '<@123> passed on Helldivers 2.')
 })
 
-test('group game launch notifications use the controller emoji heading', () => {
+test('creator interest withdrawn notification falls back when no game title is provided', () => {
+  const notification = formatCreatorInterestWithdrawnSystemNotification({
+    recipientDisplayName: 'Sam',
+    gameTitle: null
+  })
+
+  assert.equal(notification.body, 'Sam passed on your call to play.')
+  // No recipientLabel → discordBody falls back to the display name.
+  assert.equal(notification.discordBody, 'Sam passed on your call to play.')
+})
+
+// ---------------------------------------------------------------------------
+// Game launched
+// ---------------------------------------------------------------------------
+
+test('creator launched game notification audience copy targets interested players', () => {
+  const notification = formatCreatorLaunchedGameSystemNotification({
+    actorDisplayName: 'Ryan',
+    actorLabel: '<@456>',
+    gameTitle: 'Helldivers 2'
+  })
+
+  assert.equal(notification.title, creatorLaunchedGameSystemNotification.title)
+  assert.equal(notification.body, 'Ryan just launched Helldivers 2 for the active call to play you are interested in.')
+  assert.equal(notification.discordBody, '<@456> just launched Helldivers 2 for the active call to play you are interested in.')
+})
+
+test('group launched game notification audience copy targets the call to play group', () => {
   const notification = formatGroupLaunchedGameSystemNotification({
     actorDisplayName: 'Ryan',
-    actorLabel: '@Ryan',
+    actorLabel: '<@456>',
     gameTitle: 'Helldivers 2'
   })
 
-  assert.equal(notification.title, '🎮 Someone launched the game')
-  assert.match(notification.discordBody, /@Ryan just launched Helldivers 2/)
+  assert.equal(notification.title, groupLaunchedGameSystemNotification.title)
+  assert.equal(notification.body, 'Ryan just launched Helldivers 2 for this call to play.')
+  assert.equal(notification.discordBody, '<@456> just launched Helldivers 2 for this call to play.')
 })
 
-test('voice channel join notifications use the microphone emoji heading', () => {
+test('interested-player launched game notification audience copy targets the creator', () => {
+  const notification = formatInterestedPlayerLaunchedGameSystemNotification({
+    actorDisplayName: 'Ryan',
+    actorLabel: '<@456>',
+    gameTitle: 'Helldivers 2'
+  })
+
+  assert.equal(notification.title, interestedPlayerLaunchedGameSystemNotification.title)
+  assert.equal(notification.body, 'Ryan just launched Helldivers 2 for your active call to play.')
+  assert.equal(notification.discordBody, '<@456> just launched Helldivers 2 for your active call to play.')
+})
+
+test('launched game notifications fall back to the display name when no actor label is provided', () => {
+  const notification = formatGroupLaunchedGameSystemNotification({
+    actorDisplayName: 'Ryan',
+    gameTitle: 'Helldivers 2'
+  })
+
+  assert.equal(notification.body, notification.discordBody)
+  assert.match(notification.discordBody, /^Ryan just launched/)
+})
+
+// ---------------------------------------------------------------------------
+// Voice channel joined
+// ---------------------------------------------------------------------------
+
+test('voice channel join notification names the channel when provided', () => {
   const notification = formatVoiceChannelJoinedSystemNotification({
     actorDisplayName: 'Sam',
-    actorLabel: '@Sam',
+    actorLabel: '<@123>',
     voiceChannelName: 'squad-up'
   })
 
-  assert.equal(notification.title, '🎙 Someone joined the voice channel')
-  assert.match(notification.discordBody, /@Sam just joined the voice channel squad-up/)
+  assert.equal(notification.title, voiceChannelJoinedSystemNotification.title)
+  assert.equal(notification.body, 'Sam just joined the voice channel squad-up for this call to play.')
+  assert.equal(notification.discordBody, '<@123> just joined the voice channel squad-up for this call to play.')
+})
+
+test('voice channel join notification omits the channel name when missing', () => {
+  const notification = formatVoiceChannelJoinedSystemNotification({
+    actorDisplayName: 'Sam',
+    actorLabel: '<@123>',
+    voiceChannelName: null
+  })
+
+  assert.equal(notification.body, 'Sam just joined the voice channel for this call to play.')
+  assert.equal(notification.discordBody, '<@123> just joined the voice channel for this call to play.')
+})
+
+test('voice channel join notification falls back to the display name when no actor label is provided', () => {
+  const notification = formatVoiceChannelJoinedSystemNotification({
+    actorDisplayName: 'Sam'
+  })
+
+  assert.equal(notification.body, notification.discordBody)
 })

@@ -1,177 +1,24 @@
 import type { PlayIntentFeed, PlayIntentPreview } from '@game-is-up/shared'
-import { GameIntentType, NotificationResponseChoice, NotificationType, PlayIntentDiscordSpaceStatus, PlayIntentSelectionMode, PlayIntentScope } from '@prisma/client'
+import { GameIntentType, NotificationResponseChoice, NotificationType, PlayIntentSelectionMode, PlayIntentScope } from '@prisma/client'
 import {
-  buildDiscordServerIconUrl,
   getDiscordMembershipServerIds,
   getMutualDiscoveryAudienceUserIds
 } from './discord-servers.js'
-import { buildDiscordChannelUrl } from './discord-channel-urls.js'
 import { toClientGameCoverUrl, toClientAvatarUrl } from './game-media.js'
 import { getInterestedUsersByPlayIntentId } from './play-intent-interested-users.js'
+import {
+  formatAvailabilityLabel,
+  isPlayIntentVisibleToViewer,
+  isViewerIncludedByPlayIntentAudience,
+  serializeDiscordSpaceSummary,
+  serializeTargetDiscordServers,
+  toNotifyScope,
+  toSelectionMode
+} from './play-intent-serializers.js'
 import { prisma } from './prisma.js'
 import { getViewer } from './demo-viewer.js'
 
 const recentEndedIntentWindowMs = 30 * 24 * 60 * 60 * 1000
-
-function toSelectionMode(selectionMode: PlayIntentSelectionMode): 'library' | 'subset' {
-  return selectionMode === PlayIntentSelectionMode.ENTIRE_LIBRARY ? 'library' : 'subset'
-}
-
-function toNotifyScope(scope: PlayIntentScope): 'friends-only' | 'network' | 'specific-friends' | 'specific-discord-server' {
-  switch (scope) {
-    case PlayIntentScope.SPECIFIC_DISCORD_SERVER:
-      return 'specific-discord-server'
-    case PlayIntentScope.SPECIFIC_FRIENDS:
-      return 'specific-friends'
-    case PlayIntentScope.MUTUAL_FRIENDS:
-      return 'network'
-    default:
-      return 'friends-only'
-  }
-}
-
-function formatAvailabilityLabel(displayName: string, startsAt: Date, now: Date) {
-  return startsAt.getTime() > now.getTime() + 60 * 1000
-    ? `${displayName} is scheduled for ${startsAt.toLocaleString([], {
-        month: 'short',
-        day: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit'
-      })}`
-    : `${displayName} is available now`
-}
-
-function serializeTargetDiscordServer(targetDiscordServer: { id: string; name: string; iconHash: string | null } | null) {
-  if (!targetDiscordServer) {
-    return null
-  }
-
-  return {
-    id: targetDiscordServer.id,
-    name: targetDiscordServer.name,
-    iconUrl: toClientAvatarUrl(buildDiscordServerIconUrl(targetDiscordServer.id, targetDiscordServer.iconHash))
-  }
-}
-
-function serializeTargetDiscordServers(
-  targetDiscordServers: Array<{ server: { id: string; name: string; iconHash: string | null } }>
-) {
-  return targetDiscordServers
-    .map((entry) => serializeTargetDiscordServer(entry.server))
-    .filter((server): server is NonNullable<ReturnType<typeof serializeTargetDiscordServer>> => server !== null)
-}
-
-function isViewerIncludedByPlayIntentAudience({
-  isOwnIntent,
-  scope,
-  isExplicitFriend,
-  isInDiscoveryAudience,
-  isTargetedFriend,
-  isTargetedServer
-}: {
-  isOwnIntent: boolean;
-  scope: PlayIntentScope;
-  isExplicitFriend: boolean;
-  isInDiscoveryAudience: boolean;
-  isTargetedFriend: boolean;
-  isTargetedServer: boolean;
-}) {
-  if (isOwnIntent) {
-    return true
-  }
-
-  switch (scope) {
-    case PlayIntentScope.SPECIFIC_FRIENDS:
-      return isTargetedFriend
-    case PlayIntentScope.SPECIFIC_DISCORD_SERVER:
-      return isTargetedServer
-    case PlayIntentScope.MUTUAL_FRIENDS:
-      return isExplicitFriend || isInDiscoveryAudience
-    default:
-      return isExplicitFriend
-  }
-}
-
-function isPlayIntentVisibleToViewer({
-  isOwnIntent,
-  scope,
-  isExplicitFriend,
-  isInDiscoveryAudience,
-  isTargetedFriend,
-  isTargetedServer
-}: {
-  isOwnIntent: boolean;
-  scope: PlayIntentScope;
-  isExplicitFriend: boolean;
-  isInDiscoveryAudience: boolean;
-  isTargetedFriend: boolean;
-  isTargetedServer: boolean;
-}) {
-  if (isOwnIntent) {
-    return true
-  }
-
-  switch (scope) {
-    case PlayIntentScope.SPECIFIC_FRIENDS:
-      return isExplicitFriend || isInDiscoveryAudience || isTargetedFriend
-    case PlayIntentScope.SPECIFIC_DISCORD_SERVER:
-      return isExplicitFriend || isInDiscoveryAudience || isTargetedServer
-    case PlayIntentScope.MUTUAL_FRIENDS:
-      return isExplicitFriend || isInDiscoveryAudience
-    default:
-      return isExplicitFriend
-  }
-}
-
-function toDiscordSpaceStatus(status: PlayIntentDiscordSpaceStatus) {
-  switch (status) {
-    case PlayIntentDiscordSpaceStatus.PROVISIONING:
-      return 'provisioning'
-    case PlayIntentDiscordSpaceStatus.ACTIVE:
-      return 'active'
-    case PlayIntentDiscordSpaceStatus.RETAINED:
-      return 'retained'
-    case PlayIntentDiscordSpaceStatus.DELETE_REQUESTED:
-      return 'delete-requested'
-    case PlayIntentDiscordSpaceStatus.DELETED:
-      return 'deleted'
-    case PlayIntentDiscordSpaceStatus.PROVISION_FAILED:
-      return 'provision-failed'
-    default:
-      return 'requested'
-  }
-}
-
-function serializeDiscordSpace(space: {
-  serverId: string;
-  status: PlayIntentDiscordSpaceStatus;
-  roleName: string | null;
-  categoryChannelName: string | null;
-  textChannelId: string | null;
-  textChannelName: string | null;
-  voiceChannelId: string | null;
-  voiceChannelName: string | null;
-  inviteUrl: string | null;
-  deleteAfter: Date | null;
-  lastSyncError: string | null;
-} | null): PlayIntentPreview['discordSpace'] {
-  if (!space) {
-    return null
-  }
-
-  return {
-    status: toDiscordSpaceStatus(space.status),
-    serverId: space.serverId,
-    categoryChannelName: space.categoryChannelName,
-    textChannelName: space.textChannelName,
-    textChannelUrl: buildDiscordChannelUrl(space.serverId, space.textChannelId),
-    voiceChannelName: space.voiceChannelName,
-    voiceChannelUrl: buildDiscordChannelUrl(space.serverId, space.voiceChannelId),
-    inviteUrl: space.inviteUrl,
-    deleteAfter: space.deleteAfter?.toISOString() ?? null,
-    lastSyncError: space.lastSyncError
-  }
-}
 
 export async function buildPlayIntentFeed(viewerId?: string | null): Promise<PlayIntentFeed> {
   const viewer = await getViewer(viewerId)
@@ -457,7 +304,7 @@ export async function buildPlayIntentFeed(viewerId?: string | null): Promise<Pla
         note: intent.note,
         voiceChannelId: intent.voiceChannelId,
         voiceChannelName: intent.voiceChannelName,
-        discordSpace: serializeDiscordSpace(intent.discordSpace),
+        discordSpace: serializeDiscordSpaceSummary(intent.discordSpace),
         viewerResponseChoice: recipientNotificationState?.responseChoice ?? null,
         interestedUsers,
         interestedCount: interestedUsers.length,

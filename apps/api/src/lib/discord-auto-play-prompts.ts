@@ -14,6 +14,7 @@ import {
   PlayIntentScope,
   Prisma
 } from '@prisma/client'
+import { buildAutoPlayInactiveObservationClosedReason } from '@game-is-up/shared'
 import {
   deleteDiscordDirectMessage,
   editDiscordDirectMessage,
@@ -24,13 +25,17 @@ import {
 } from './discord-bot-runtime.js'
 import {
   appendOpenInAppButton,
+  buildArchiveCleanupRow,
+  buildDecoratedSectionHeading,
   buildDiscordMessageHeading,
   buildDiscordNotice,
   buildDiscordSection,
-  buildOpenInAppButton
+  buildOpenInAppButton,
+  decorateFieldLabel
 } from './discord-dm-formatting.js'
 import { env } from './env.js'
 import { syncCreatorPlayIntentSummaryMessages } from './play-intent-notification-responses.js'
+import { autoPlayPromptPrefix } from './play-intent-interaction-ids.js'
 import { prisma } from './prisma.js'
 import {
   getPlayIntentRecipientUserIds,
@@ -40,7 +45,6 @@ import {
 
 const autoPlayPromptDurations = [60, 120, 240] as const
 const autoPlayPromptCooldownMinutes = 10
-const autoPlayPromptPrefix = 'auto-play'
 
 type AutoPlayPromptAction =
   | { kind: 'duration'; promptId: string; durationMinutes: number }
@@ -86,14 +90,11 @@ function buildDeclinedPromptRows(promptId: string, options: { forceInteractive?:
     return [buildLinkRow()]
   }
 
-  return appendOpenInAppButton([
-    new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
-      new ButtonBuilder()
-        .setCustomId(`${autoPlayPromptPrefix}:${promptId}:cleanup`)
-        .setLabel('Archive')
-        .setStyle(ButtonStyle.Secondary)
-    )
-  ], buildPlayUrl(), 'Open App')
+  return buildArchiveCleanupRow({
+    archiveCustomId: `${autoPlayPromptPrefix}:${promptId}:cleanup`,
+    openInAppUrl: buildPlayUrl(),
+    openInAppLabel: 'Open App'
+  })
 }
 
 const autoPlayEmbedColors = {
@@ -121,41 +122,11 @@ function buildPromptEmbedFields(fields: Array<{ name: string; value: string | nu
 }
 
 function formatPromptEmbedFieldName(label: string) {
-  switch (label.trim().toLowerCase()) {
-    case 'game':
-      return '🎮 Game'
-    case 'duration':
-      return '⏰ Duration'
-    case 'audience':
-      return '👥 Audience'
-    case 'reach':
-      return '📬 Reach'
-    case 'status':
-      return '📡 Status'
-    case 'next step':
-      return '🧭 Next Step'
-    default:
-      return label.trim()
-  }
+  return decorateFieldLabel(label)
 }
 
 function buildPromptSectionHeading(label: string) {
-  switch (label.trim().toLowerCase()) {
-    case 'game':
-      return '### 🎮 Game'
-    case 'duration':
-      return '### ⏰ Duration'
-    case 'audience':
-      return '### 👥 Audience'
-    case 'reach':
-      return '### 📬 Reach'
-    case 'status':
-      return '### 📡 Status'
-    case 'next step':
-      return '### 🧭 Next Step'
-    default:
-      return `### ${label.trim()}`
-  }
+  return buildDecoratedSectionHeading(label)
 }
 
 function buildPromptSection(label: string, value: string) {
@@ -332,7 +303,7 @@ function buildClosedPromptAnchorPreview(options: {
 }
 
 function buildInactiveObservationClosedReason(gameTitle: string) {
-  return `This prompt was closed because we are no longer seeing you in ${gameTitle}.`
+  return buildAutoPlayInactiveObservationClosedReason(gameTitle)
 }
 
 export function buildClosedAutoPlayPromptReplyMessage(reason: string) {

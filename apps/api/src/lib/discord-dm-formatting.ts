@@ -5,6 +5,9 @@ import {
   type MessageCreateOptions,
   type MessageActionRowComponentBuilder
 } from 'discord.js'
+import { buildDiscordNotice, buildDiscordSubtext } from '@game-is-up/shared'
+
+export { buildDiscordNotice, buildDiscordSubtext }
 
 const discordEmbedSpacer = '\n\u200b'
 
@@ -21,16 +24,6 @@ function normalizeLabel(label: string) {
 
 function includesLabel(labels: readonly string[] | undefined, label: string) {
   return labels?.includes(normalizeLabel(label)) ?? false
-}
-
-export function buildDiscordSubtext(text: string) {
-  const trimmed = text.trim()
-
-  if (trimmed.length === 0) {
-    return ''
-  }
-
-  return trimmed.startsWith('-# ') ? trimmed : `-# ${trimmed}`
 }
 
 export function buildDiscordSection(
@@ -91,14 +84,6 @@ export function buildDiscordBulletSection(label: string, items: string[], resolv
   }
 
   return `${resolveHeading(label)}\n${visibleItems.map((item) => `- ${item}`).join('\n')}`
-}
-
-export function buildDiscordNotice(title: string, sections: Array<string | null>, subtext?: string | null) {
-  return [
-    title.trim(),
-    ...sections,
-    subtext ? buildDiscordSubtext(subtext) : null
-  ].filter((part): part is string => Boolean(part)).join('\n\n')
 }
 
 export function buildDiscordPlainMessage(
@@ -173,4 +158,32 @@ export function appendOpenInAppButton(
     ...rows,
     new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(linkButton)
   ]
+}
+
+// `decorateFieldLabel` and `buildDecoratedSectionHeading` were promoted to
+// the shared package so the debug DM simulator can render the same field
+// labels as the live bot. They are re-exported below for backwards
+// compatibility with existing API call sites.
+export { decorateFieldLabel, buildDecoratedSectionHeading } from '@game-is-up/shared'
+
+// Standard "Archive" + "Open in App" row used by terminal-state DMs across
+// play-intent notifications, creator summaries, and auto-play prompts.
+export function buildArchiveCleanupRow(options: {
+  archiveCustomId: string;
+  openInAppUrl: string;
+  openInAppLabel?: string;
+  extraButtons?: ButtonBuilder[];
+}): ActionRowBuilder<MessageActionRowComponentBuilder>[] {
+  const row = new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId(options.archiveCustomId)
+      .setLabel('Archive')
+      .setStyle(ButtonStyle.Secondary)
+  )
+
+  if (options.extraButtons && options.extraButtons.length > 0) {
+    row.addComponents(...options.extraButtons)
+  }
+
+  return appendOpenInAppButton([row], options.openInAppUrl, options.openInAppLabel)
 }

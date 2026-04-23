@@ -5,7 +5,7 @@ import OpenInNewRoundedIcon from '@mui/icons-material/OpenInNewRounded'
 import ScheduleRoundedIcon from '@mui/icons-material/ScheduleRounded'
 import WestRoundedIcon from '@mui/icons-material/WestRounded'
 import { Avatar, Box, Button, ButtonGroup, Card, Chip, Stack, Typography } from '@mui/joy'
-import { dashboardInvalidationEventSchema, playIntentDetailResponseSchema, type PlayIntentDetail } from '@game-is-up/shared'
+import { playIntentDetailResponseSchema, type PlayIntentDetail } from '@game-is-up/shared'
 import { useNavigate, useParams } from 'react-router-dom'
 import { DiscordSignInCard, EmptyStateCard } from '../components/dashboard/EmptyStateCard'
 import { PlayIntentResponseUserList } from '../components/dashboard/InterestedPlayerList'
@@ -14,6 +14,7 @@ import { PlayIntentGameList } from '../components/dashboard/PlayIntentCard'
 import { formatNotifyScopeLabel, formatPlayIntentTimingSummary, memberGameGridSx } from '../components/dashboard/dashboardUtils'
 import { useDashboardContext } from '../contexts/useDashboardContext'
 import { buildApiUrl } from '../hooks/useDashboardApp'
+import { useDashboardSseInvalidation } from '../hooks/useDashboardSseInvalidation'
 import { formatMonthDayTime } from '../lib/dateTime'
 
 function formatDateTimeLabel(value: string) {
@@ -207,31 +208,15 @@ export function PlayIntentDetailView() {
     ].join(':')
   }, [playIntentId, playViewProps.activePlayIntent, playViewProps.playIntentPreviews])
 
-  useEffect(() => {
-    if (typeof window === 'undefined' || !playViewProps.isSignedIn) {
-      return
-    }
-
-    const eventSource = new EventSource(buildApiUrl('/api/events/dashboard'), {
-      withCredentials: true
-    })
-
-    eventSource.onmessage = (messageEvent) => {
-      try {
-        const payload = dashboardInvalidationEventSchema.parse(JSON.parse(messageEvent.data) as unknown)
-
-        if (payload.domains.includes('play-intents')) {
-          setInvalidationVersion((current) => current + 1)
-        }
-      } catch {
-        // Ignore malformed invalidations and rely on the next valid payload.
+  useDashboardSseInvalidation({
+    enabled: playViewProps.isSignedIn,
+    buildApiUrl,
+    onInvalidation: (domains) => {
+      if (domains.includes('play-intents')) {
+        setInvalidationVersion((current) => current + 1)
       }
     }
-
-    return () => {
-      eventSource.close()
-    }
-  }, [playViewProps.isSignedIn])
+  })
 
   useEffect(() => {
     if (!playIntentId) {

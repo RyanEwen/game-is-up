@@ -10,7 +10,6 @@ import {
 } from '@prisma/client'
 import { getViewer } from './demo-viewer.js'
 import {
-  buildDiscordServerIconUrl,
   getDiscordMembershipServerIds,
   getMutualDiscoveryAudienceUserIds
 } from './discord-servers.js'
@@ -21,142 +20,18 @@ import {
   getPassedUsersByPlayIntentId,
   type PlayIntentResponseUser
 } from './play-intent-interested-users.js'
+import {
+  formatAvailabilityLabel,
+  isPlayIntentVisibleToViewer,
+  isViewerIncludedByPlayIntentAudience,
+  serializeTargetDiscordServers,
+  toDiscordSpaceStatus,
+  toNotifyScope,
+  toSelectionMode
+} from './play-intent-serializers.js'
 import { prisma } from './prisma.js'
 
 const discordSpaceGrantFailureMessage = 'Some Discord channel access grants could not be applied. Check that the Game\'s Up bot can manage roles in the Discord server.'
-
-function toSelectionMode(selectionMode: PlayIntentSelectionMode): 'library' | 'subset' {
-  return selectionMode === PlayIntentSelectionMode.ENTIRE_LIBRARY ? 'library' : 'subset'
-}
-
-function toNotifyScope(scope: PlayIntentScope): 'friends-only' | 'network' | 'specific-friends' | 'specific-discord-server' {
-  switch (scope) {
-    case PlayIntentScope.SPECIFIC_DISCORD_SERVER:
-      return 'specific-discord-server'
-    case PlayIntentScope.SPECIFIC_FRIENDS:
-      return 'specific-friends'
-    case PlayIntentScope.MUTUAL_FRIENDS:
-      return 'network'
-    default:
-      return 'friends-only'
-  }
-}
-
-function formatAvailabilityLabel(displayName: string, startsAt: Date, now: Date) {
-  return startsAt.getTime() > now.getTime() + 60 * 1000
-    ? `${displayName} is scheduled for ${startsAt.toLocaleString([], {
-        month: 'short',
-        day: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit'
-      })}`
-    : `${displayName} is available now`
-}
-
-function serializeTargetDiscordServer(targetDiscordServer: { id: string; name: string; iconHash: string | null } | null) {
-  if (!targetDiscordServer) {
-    return null
-  }
-
-  return {
-    id: targetDiscordServer.id,
-    name: targetDiscordServer.name,
-    iconUrl: toClientAvatarUrl(buildDiscordServerIconUrl(targetDiscordServer.id, targetDiscordServer.iconHash))
-  }
-}
-
-function serializeTargetDiscordServers(
-  targetDiscordServers: Array<{ server: { id: string; name: string; iconHash: string | null } }>
-) {
-  return targetDiscordServers
-    .map((entry) => serializeTargetDiscordServer(entry.server))
-    .filter((server): server is NonNullable<ReturnType<typeof serializeTargetDiscordServer>> => server !== null)
-}
-
-function isViewerIncludedByPlayIntentAudience({
-  isOwnIntent,
-  hasDirectNotification,
-  scope,
-  isExplicitFriend,
-  isInDiscoveryAudience,
-  isTargetedFriend,
-  isTargetedServer
-}: {
-  isOwnIntent: boolean;
-  hasDirectNotification: boolean;
-  scope: PlayIntentScope;
-  isExplicitFriend: boolean;
-  isInDiscoveryAudience: boolean;
-  isTargetedFriend: boolean;
-  isTargetedServer: boolean;
-}) {
-  if (isOwnIntent || hasDirectNotification) {
-    return true
-  }
-
-  switch (scope) {
-    case PlayIntentScope.SPECIFIC_FRIENDS:
-      return isTargetedFriend
-    case PlayIntentScope.SPECIFIC_DISCORD_SERVER:
-      return isTargetedServer
-    case PlayIntentScope.MUTUAL_FRIENDS:
-      return isExplicitFriend || isInDiscoveryAudience
-    default:
-      return isExplicitFriend
-  }
-}
-
-function isPlayIntentVisibleToViewer({
-  isOwnIntent,
-  hasDirectNotification,
-  scope,
-  isExplicitFriend,
-  isInDiscoveryAudience,
-  isTargetedFriend,
-  isTargetedServer
-}: {
-  isOwnIntent: boolean;
-  hasDirectNotification: boolean;
-  scope: PlayIntentScope;
-  isExplicitFriend: boolean;
-  isInDiscoveryAudience: boolean;
-  isTargetedFriend: boolean;
-  isTargetedServer: boolean;
-}) {
-  if (isOwnIntent || hasDirectNotification) {
-    return true
-  }
-
-  switch (scope) {
-    case PlayIntentScope.SPECIFIC_FRIENDS:
-      return isExplicitFriend || isInDiscoveryAudience || isTargetedFriend
-    case PlayIntentScope.SPECIFIC_DISCORD_SERVER:
-      return isExplicitFriend || isInDiscoveryAudience || isTargetedServer
-    case PlayIntentScope.MUTUAL_FRIENDS:
-      return isExplicitFriend || isInDiscoveryAudience
-    default:
-      return isExplicitFriend
-  }
-}
-
-function toDiscordSpaceStatus(status: PlayIntentDiscordSpaceStatus) {
-  switch (status) {
-    case PlayIntentDiscordSpaceStatus.PROVISIONING:
-      return 'provisioning'
-    case PlayIntentDiscordSpaceStatus.ACTIVE:
-      return 'active'
-    case PlayIntentDiscordSpaceStatus.RETAINED:
-      return 'retained'
-    case PlayIntentDiscordSpaceStatus.DELETE_REQUESTED:
-      return 'delete-requested'
-    case PlayIntentDiscordSpaceStatus.DELETED:
-      return 'deleted'
-    case PlayIntentDiscordSpaceStatus.PROVISION_FAILED:
-      return 'provision-failed'
-    default:
-      return 'requested'
-  }
-}
 
 function serializeDiscordSpace(space: {
   serverId: string;

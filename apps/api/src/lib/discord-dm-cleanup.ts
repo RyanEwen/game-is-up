@@ -15,17 +15,19 @@ import {
   type NotificationDmReferenceUpdate
 } from './discord-dm-cleanup-reference-updates.js'
 import { collectReplyMessageIdsForCleanup } from './discord-dm-cleanup-thread.js'
-import { appendOpenInAppButton, buildDiscordMessageHeading, buildOpenInAppButton } from './discord-dm-formatting.js'
+import { buildArchiveCleanupRow, buildDiscordMessageHeading, buildOpenInAppButton, decorateFieldLabel } from './discord-dm-formatting.js'
 import { buildClientPlayIntentUrl, buildClientPlayUrl } from './play-intent-urls.js'
 import { callToPlayEndedSystemNotification } from './play-intent-system-notifications.js'
 import { formatPlayIntentWindowLabel } from './play-intent-time-format.js'
 import { prisma } from './prisma.js'
+import {
+  creatorPlayIntentSummaryPrefix,
+  playIntentNotificationPrefix
+} from './play-intent-interaction-ids.js'
 
 const discordDmRetentionMs = 12 * 60 * 60 * 1000
 const discordDmCleanupSweepPageLimit = 100
 const discordDmCleanupSweepMessageCap = 500
-const playIntentNotificationPrefix = 'play-intent-response'
-const creatorPlayIntentSummaryPrefix = 'creator-play-intent-summary'
 const archivedPlayIntentNotificationTypes = [
   NotificationType.FRIEND_PLAYING,
   NotificationType.SCHEDULED_PLAY_INTENT_REMINDER,
@@ -80,24 +82,6 @@ function buildOpenInAppRow(playIntentId?: string) {
   )
 }
 
-function buildArchivedCreatorDeleteSpaceButton(playIntentId: string) {
-  return new ButtonBuilder()
-    .setCustomId(`${creatorPlayIntentSummaryPrefix}:${playIntentId}:delete-space`)
-    .setLabel('Delete Discord channel')
-    .setStyle(ButtonStyle.Danger)
-}
-
-function hasArchivedCreatorDeletableDiscordSpace(playIntent: {
-  discordSpace?: {
-    status: 'REQUESTED' | 'PROVISIONING' | 'ACTIVE' | 'RETAINED' | 'DELETE_REQUESTED' | 'DELETED' | 'PROVISION_FAILED';
-  } | null;
-}) {
-  return playIntent.discordSpace != null
-    && playIntent.discordSpace.status !== 'DELETED'
-    && playIntent.discordSpace.status !== 'REQUESTED'
-    && playIntent.discordSpace.status !== 'PROVISIONING'
-}
-
 export function buildArchivedAudienceCleanupComponents(
   notificationId: string,
   options: {
@@ -109,14 +93,10 @@ export function buildArchivedAudienceCleanupComponents(
     return [buildOpenInAppRow(options.playIntentId)]
   }
 
-  return appendOpenInAppButton([
-    new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
-      new ButtonBuilder()
-        .setCustomId(`${playIntentNotificationPrefix}:${notificationId}:cleanup`)
-        .setLabel('Archive')
-        .setStyle(ButtonStyle.Secondary)
-    )
-  ], buildPlayAppUrl(options.playIntentId))
+  return buildArchiveCleanupRow({
+    archiveCustomId: `${playIntentNotificationPrefix}:${notificationId}:cleanup`,
+    openInAppUrl: buildPlayAppUrl(options.playIntentId)
+  })
 }
 
 export function buildArchivedCreatorCleanupComponents(
@@ -129,20 +109,18 @@ export function buildArchivedCreatorCleanupComponents(
     return [buildOpenInAppRow(playIntentId)]
   }
 
-  const row = new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
-    new ButtonBuilder()
-      .setCustomId(`${creatorPlayIntentSummaryPrefix}:${playIntentId}:cleanup`)
-      .setLabel('Archive')
-      .setStyle(ButtonStyle.Secondary)
-  )
-
-  if (options.hasDeletableDiscordSpace) {
-    row.addComponents(buildArchivedCreatorDeleteSpaceButton(playIntentId))
-  }
-
-  return appendOpenInAppButton([
-    row
-  ], buildPlayAppUrl(playIntentId))
+  return buildArchiveCleanupRow({
+    archiveCustomId: `${creatorPlayIntentSummaryPrefix}:${playIntentId}:cleanup`,
+    openInAppUrl: buildPlayAppUrl(playIntentId),
+    extraButtons: options.hasDeletableDiscordSpace
+      ? [
+          new ButtonBuilder()
+            .setCustomId(`${creatorPlayIntentSummaryPrefix}:${playIntentId}:delete-space`)
+            .setLabel('Delete Discord channel')
+            .setStyle(ButtonStyle.Danger)
+        ]
+      : undefined
+  })
 }
 
 function summarizeArchivedPlayIntentGames(playIntent: {
@@ -205,18 +183,9 @@ export function buildArchivedPlayIntentEmbeds(summaryBody: string) {
       }
 
       const label = labeledMatch[1].trim()
-      const emojiLabel = label.toLowerCase() === 'creator'
-        ? '👤 Creator'
-        : label.toLowerCase() === 'games'
-          ? '🎯 Games'
-          : label.toLowerCase() === 'when'
-            ? '⏰ When'
-            : label.toLowerCase() === 'status'
-              ? '📡 Status'
-              : label
 
       return [{
-        name: emojiLabel,
+        name: decorateFieldLabel(label),
         value: labeledMatch[2].trim(),
         inline: false
       }]
@@ -247,12 +216,17 @@ export function buildArchivedCreatorPlayIntentPreview(
   timezoneId: string
 ) {
   const summary = buildArchivedPlayIntentSummary(playIntent, timezoneId)
+  const discordSpaceStatus = playIntent.discordSpace?.status
+  const hasDeletableDiscordSpace = discordSpaceStatus != null
+    && discordSpaceStatus !== 'DELETED'
+    && discordSpaceStatus !== 'REQUESTED'
+    && discordSpaceStatus !== 'PROVISIONING'
 
   return {
     content: '',
     embeds: buildArchivedPlayIntentEmbeds(summary.body),
     components: buildArchivedCreatorCleanupComponents(playIntentId, {
-      hasDeletableDiscordSpace: hasArchivedCreatorDeletableDiscordSpace(playIntent)
+      hasDeletableDiscordSpace
     })
   }
 }
@@ -1302,6 +1276,24 @@ export async function deleteSettledDiscordDirectMessagesForUser(userId: string) 
   }
 }
 
+/**
+ * Archives play-intent DMs across all terminal states. The flows that converge
+ * here are intentional, not a refactor opportunity:
+ *
+ * - Time-based archival sweep: called from the periodic cleanup with
+ *   `deliveredBefore` to retire DMs older than `discordDmRetentionMs`.
+ * - Manual end / scheduled end: called with `playIntentIds` after a creator
+ *   ends a call or the scheduler expires it. `replaceRecipientMessages: true`
+ *   replaces recipient invites with the archived summary so the recipient gets
+ *   a fresh DM bump; `false` (default) edits in place for quiet expiry.
+ * - Expired pending notifications: called from `expirePendingPlayIntentNotifications`
+ *   for play intents whose window passed without a creator confirmation.
+ *
+ * The recipient-visible difference between these modes is purely whether the
+ * DM is replaced (new message + ping) or edited in place (quiet update). Add a
+ * new flag here rather than forking the function if a future requirement needs
+ * to diverge further.
+ */
 export async function archivePlayIntentDirectMessages(options: {
   playIntentIds?: string[];
   deliveredBefore?: Date;

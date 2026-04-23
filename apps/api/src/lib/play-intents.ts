@@ -25,7 +25,6 @@ import {
 import { env } from './env.js'
 import { publishPlayIntentInvalidation } from './dashboard-events.js'
 import {
-  buildDiscordServerIconUrl,
   getSelectedDiscordServerIds,
   getMutualDiscoveryAudienceUserIds,
   getTargetDiscordServersAudienceUserIds
@@ -34,6 +33,10 @@ import { editDiscordDirectMessage, sendDiscordDirectMessages } from './discord-b
 import { deletePlayIntentDirectMessages } from './discord-dm-cleanup.js'
 import { toClientGameCoverUrl, toClientAvatarUrl } from './game-media.js'
 import { getInterestedUsersByPlayIntentId } from './play-intent-interested-users.js'
+import {
+  serializeDiscordSpaceSummary,
+  serializeTargetDiscordServers
+} from './play-intent-serializers.js'
 import {
   buildDiscordInviteReplyPayload,
   buildPlayIntentDirectMessageHeading,
@@ -53,7 +56,6 @@ import {
   provisionPlayIntentDiscordSpaceByPlayIntentId,
   type PlayIntentDiscordSpaceRecipientContext
 } from './play-intent-discord-spaces.js'
-import { buildDiscordChannelUrl } from './discord-channel-urls.js'
 import { prisma } from './prisma.js'
 import { formatPlayIntentDurationLabel, formatPlayIntentWindowLabel } from './play-intent-time-format.js'
 
@@ -523,76 +525,6 @@ async function findOverlappingOwnedPlayIntent(options: {
   })
 }
 
-function serializeTargetDiscordServer(targetDiscordServer: { id: string; name: string; iconHash: string | null } | null) {
-  if (!targetDiscordServer) {
-    return null
-  }
-
-  return {
-    id: targetDiscordServer.id,
-    name: targetDiscordServer.name,
-    iconUrl: toClientAvatarUrl(buildDiscordServerIconUrl(targetDiscordServer.id, targetDiscordServer.iconHash))
-  }
-}
-
-function serializeTargetDiscordServers(
-  targetDiscordServers: Array<{ server: { id: string; name: string; iconHash: string | null } }>
-) {
-  return targetDiscordServers
-    .map((entry) => serializeTargetDiscordServer(entry.server))
-    .filter((server): server is NonNullable<ReturnType<typeof serializeTargetDiscordServer>> => server !== null)
-}
-
-function toClientDiscordSpaceStatus(status: PlayIntentDiscordSpaceStatus) {
-  switch (status) {
-    case PlayIntentDiscordSpaceStatus.PROVISIONING:
-      return 'provisioning'
-    case PlayIntentDiscordSpaceStatus.ACTIVE:
-      return 'active'
-    case PlayIntentDiscordSpaceStatus.RETAINED:
-      return 'retained'
-    case PlayIntentDiscordSpaceStatus.DELETE_REQUESTED:
-      return 'delete-requested'
-    case PlayIntentDiscordSpaceStatus.DELETED:
-      return 'deleted'
-    case PlayIntentDiscordSpaceStatus.PROVISION_FAILED:
-      return 'provision-failed'
-    default:
-      return 'requested'
-  }
-}
-
-function serializeDiscordSpace(space: {
-  serverId: string;
-  status: PlayIntentDiscordSpaceStatus;
-  roleName: string | null;
-  categoryChannelName: string | null;
-  textChannelId: string | null;
-  textChannelName: string | null;
-  voiceChannelId: string | null;
-  voiceChannelName: string | null;
-  inviteUrl: string | null;
-  deleteAfter: Date | null;
-  lastSyncError: string | null;
-} | null): ActivePlayIntent['discordSpace'] {
-  if (!space) {
-    return null
-  }
-
-  return {
-    status: toClientDiscordSpaceStatus(space.status),
-    serverId: space.serverId,
-    categoryChannelName: space.categoryChannelName,
-    textChannelName: space.textChannelName,
-    textChannelUrl: buildDiscordChannelUrl(space.serverId, space.textChannelId),
-    voiceChannelName: space.voiceChannelName,
-    voiceChannelUrl: buildDiscordChannelUrl(space.serverId, space.voiceChannelId),
-    inviteUrl: space.inviteUrl,
-    deleteAfter: space.deleteAfter?.toISOString() ?? null,
-    lastSyncError: space.lastSyncError
-  }
-}
-
 function serializeActivePlayIntent(intent: {
   id: string;
   headline: string;
@@ -647,7 +579,7 @@ function serializeActivePlayIntent(intent: {
     note: intent.note,
     voiceChannelId: intent.voiceChannelId,
     voiceChannelName: intent.voiceChannelName,
-    discordSpace: serializeDiscordSpace(intent.discordSpace),
+    discordSpace: serializeDiscordSpaceSummary(intent.discordSpace),
     windowStartsAt: intent.windowStartsAt.toISOString(),
     windowEndsAt: intent.windowEndsAt.toISOString(),
     expiresAt: intent.expiresAt.toISOString(),

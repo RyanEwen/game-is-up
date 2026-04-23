@@ -36,12 +36,14 @@ import {
 import { publishPlayIntentInvalidation } from './dashboard-events.js'
 import {
   appendOpenInAppButton,
+  buildDecoratedSectionHeading,
   buildDiscordBulletSection,
   buildDiscordMessageHeading,
   buildDiscordPlainMessage,
   buildDiscordSection,
   buildDiscordSubtext,
   buildOpenInAppButton,
+  decorateFieldLabel,
   formatLabeledDiscordLines
 } from './discord-dm-formatting.js'
 import { toClientGameCoverUrl } from './game-media.js'
@@ -69,11 +71,12 @@ import {
 } from './play-intent-recipient-response-transition.js'
 import { prisma } from './prisma.js'
 import { formatPlayIntentDateLabel, formatPlayIntentWindowLabel } from './play-intent-time-format.js'
-
-const playIntentNotificationPrefix = 'play-intent-response'
-const playIntentMutePrefix = 'play-intent-mute'
-const scheduledPlayIntentCheckInPrefix = 'scheduled-play-intent-check-in'
-const creatorPlayIntentSummaryPrefix = 'creator-play-intent-summary'
+import {
+  creatorPlayIntentSummaryPrefix,
+  playIntentMutePrefix,
+  playIntentNotificationPrefix,
+  scheduledPlayIntentCheckInPrefix
+} from './play-intent-interaction-ids.js'
 
 type PlayIntentNotificationAction = {
   notificationId: string;
@@ -712,35 +715,7 @@ function buildScheduledCheckInResponseRow(notificationId: string) {
 }
 
 function buildDirectMessageSectionHeading(label: string) {
-  switch (label.trim().toLowerCase()) {
-    case 'creator':
-      return '### 👤 Creator'
-    case 'title':
-      return '### 📝 Title'
-    case 'games':
-      return '### 🎯 Games'
-    case 'timing':
-    case 'when':
-      return '### ⏰ Timing'
-    case 'audience':
-      return '### 👥 Audience'
-    case 'window':
-      return '### 🗓 Window'
-    case 'voice channel':
-      return '### 🎙 Voice Channel'
-    case 'interest':
-      return '### 👥 Interest'
-    case 'status':
-      return '### 📡 Status'
-    case 'note':
-      return '### 🗒 Note'
-    case 'confirmed interested':
-      return '### 🙋 Interested Players'
-    case 'reach':
-      return '### 📬 Reach'
-    default:
-      return `### ${label.trim()}`
-  }
+  return buildDecoratedSectionHeading(label)
 }
 
 const directMessageLineFormatting = {
@@ -805,38 +780,7 @@ function buildDiscordEmbedFields(fields: DiscordEmbedFieldInput[]) {
 }
 
 function formatPlayIntentEmbedFieldName(label: string) {
-  switch (label.trim().toLowerCase()) {
-    case 'creator':
-      return '👤 Creator'
-    case 'title':
-      return '📝 Title'
-    case 'games':
-      return '🎯 Games'
-    case 'timing':
-    case 'when':
-      return '⏰ Timing'
-    case 'audience':
-      return '👥 Audience'
-    case 'window':
-      return '🗓 Window'
-    case 'voice channel':
-      return '🎙 Voice Channel'
-    case 'interest':
-      return '👥 Interest'
-    case 'status':
-      return '📡 Status'
-    case 'note':
-      return '🗒 Note'
-    case 'interested players':
-    case 'confirmed interested':
-      return '🙋 Interested Players'
-    case 'responses':
-      return '🧾 Responses'
-    case 'reach':
-      return '📬 Reach'
-    default:
-      return label.trim()
-  }
+  return decorateFieldLabel(label)
 }
 
 export function buildPlayIntentDirectMessageHeading(

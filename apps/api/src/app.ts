@@ -3,20 +3,22 @@ import express from 'express'
 import type { NextFunction, Request, Response } from 'express'
 import helmet from 'helmet'
 import { clientBootstrapSchema } from '@game-is-up/shared'
-import { aliasesRouter } from './routes/aliases.js'
-import { authRouter } from './routes/auth.js'
-import { debugRouter } from './routes/debug.js'
-import { discoveryRouter } from './routes/discovery.js'
-import { discordServersRouter } from './routes/discord-servers.js'
-import { eventsRouter } from './routes/events.js'
-import { friendsRouter } from './routes/friends.js'
-import { healthRouter } from './routes/health.js'
+import {
+  aliasesRouter,
+  authRouter,
+  debugRouter,
+  discordServersRouter,
+  discoveryRouter,
+  eventsRouter,
+  friendsRouter,
+  healthRouter,
+  libraryRouter,
+  mediaRouter,
+  playIntentRouter,
+  profileRouter
+} from './routes/index.js'
 import { getAllowedClientOrigins, getApiOrigin } from './lib/origin.js'
 import { HttpError } from './lib/http-error.js'
-import { libraryRouter } from './routes/library.js'
-import { mediaRouter } from './routes/media.js'
-import { playIntentRouter } from './routes/play-intents.js'
-import { profileRouter } from './routes/profile.js'
 
 export const app = express()
 
