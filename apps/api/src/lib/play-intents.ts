@@ -332,7 +332,7 @@ export function buildPlayIntentNotificationCopy(
     const title = isScheduled ? `${senderDisplayName} scheduled a call to play` : `${senderDisplayName} is looking to play`
     const body = [
       updatedReason,
-      'Games: Any game in their library.',
+      'Games: Any game in their library that is also in yours.',
       timingLine
     ].filter((line): line is string => Boolean(line)).join('\n')
 

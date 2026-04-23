@@ -44,13 +44,13 @@ export const interestedPlayerLaunchedGameSystemNotification = createPlayIntentSy
 
 export const creatorInterestUpdateSystemNotification = createPlayIntentSystemNotificationDefinition(
   'creator-interest-update',
-  'Someone is interested',
+  '✅ Someone is interested',
   'none'
 )
 
 export const creatorInterestWithdrawnSystemNotification = createPlayIntentSystemNotificationDefinition(
   'creator-interest-withdrawn',
-  'Someone passed',
+  '❎ Someone passed',
   'none'
 )
 

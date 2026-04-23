@@ -552,16 +552,7 @@ async function deliverScheduledGoTimeAudienceNotifications(options: {
               discordSpace: discordSpaceRecipientContexts.get(createdNotification.userId) ?? null
             }),
         embeds: undefined,
-        components: buildPlayIntentNotificationComponents(
-          createdNotification.id,
-          playIntent.userId,
-          playIntent.user.displayName,
-          null,
-          createdNotification.type,
-          {
-            playIntentId: playIntent.id
-          }
-        ),
+        components: [],
         replyTo: createdNotification.replyToInviteMessageId
           ? {
               channelId: createdNotification.replyToInviteChannelId,
@@ -935,7 +926,7 @@ function summarizePlayIntentGames(
   selectedGameTitles: string[] = []
 ) {
   if (selectionMode === 'ENTIRE_LIBRARY' || selectionMode === 'library') {
-    return 'Any game in their library.'
+    return 'Any game in their library that is also in yours.'
   }
 
   const titles = [...selectedGameTitles].sort((left, right) => left.localeCompare(right))
@@ -1070,11 +1061,10 @@ export function buildGoTimeReminderReplyMessage(options: {
   return buildDiscordPlainMessage(
     buildDiscordMessageHeading('⏰ Go Time'),
     [
-      `${creatorLabel} confirmed this session is still on.`,
-      'Use the buttons below if you want in.'
+      `${creatorLabel} confirmed this session is still on.`
     ],
     {
-      trailingSubtext: 'The original invite above has the full details.'
+      trailingSubtext: 'See original invite above for details or to change your response.'
     }
   )
 }
@@ -1090,10 +1080,10 @@ export function buildGoTimeConfirmedReplyMessage(options: {
     : 'The creator'
 
   return buildDiscordPlainMessage(
-    buildDiscordMessageHeading('🎮 Go Time'),
+    buildDiscordMessageHeading('⏰ Go Time'),
     [
       `${creatorLabel} confirmed the session is starting now.`,
-      'The original invite above has the full details.'
+      'See original invite above for details or to change your response.'
     ],
     {}
   )
@@ -1365,18 +1355,7 @@ export function buildPlayIntentNotificationPromptPreview(options: {
         voiceChannel: options.voiceChannel,
         discordSpace: options.discordSpace
       }),
-      components: buildPlayIntentNotificationComponents(
-        options.notificationId,
-        options.creatorUserId ?? undefined,
-        options.creatorDisplayName ?? undefined,
-        options.responseChoice,
-        options.notificationType,
-        {
-          forceInteractive: true,
-          playIntentId: options.playIntentId,
-          responseCustomIdBuilder: options.responseCustomIdBuilder
-        }
-      )
+      components: []
     }
   }
 
@@ -1386,18 +1365,7 @@ export function buildPlayIntentNotificationPromptPreview(options: {
         creatorDiscordUserId: options.creatorDiscordUserId,
         creatorDisplayName: options.creatorDisplayName
       }),
-      components: buildPlayIntentNotificationComponents(
-        options.notificationId,
-        options.creatorUserId ?? undefined,
-        options.creatorDisplayName ?? undefined,
-        options.responseChoice,
-        options.notificationType,
-        {
-          forceInteractive: true,
-          playIntentId: options.playIntentId,
-          responseCustomIdBuilder: options.responseCustomIdBuilder
-        }
-      )
+      components: []
     }
   }
 
@@ -2655,7 +2623,7 @@ function buildPassAcceptedMessage(mode: PassAcknowledgementMode = 'anonymous') {
   const acknowledgementCopy = getPassAcknowledgementCopy(mode)
 
   return buildDiscordPlainMessage(
-    '👍 Passed for Now',
+    '❎ Passed for Now',
     [
       'You are marked as passing for now.',
       acknowledgementCopy.bodyLine

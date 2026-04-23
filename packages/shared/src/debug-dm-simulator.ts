@@ -659,7 +659,7 @@ export function buildSimulatorAudienceFollowUpPreview(
               'If you change your mind you can switch to "Pass" later.'
             )
           : buildSimulatorPlainMessage(
-              '👍 Passed for Now',
+              '❎ Passed for Now',
               [
                 'You are marked as passing for now.',
                 'Passing is anonymous.'
@@ -674,10 +674,10 @@ export function buildSimulatorAudienceFollowUpPreview(
     if (state.audienceResponse === 'interested') {
       return {
         content: buildSimulatorPlainMessage(
-          '🎮 Go Time',
+          '⏰ Go Time',
           [
             `${draft.creatorName} confirmed the session is starting now.`,
-            'The original invite above has the full details.'
+            'See original invite above for details or to change your response.'
           ]
         ),
         embeds: [],
@@ -688,7 +688,7 @@ export function buildSimulatorAudienceFollowUpPreview(
     if (state.audienceResponse === 'pass') {
       return {
         content: buildSimulatorPlainMessage(
-          '👍 Passed for Now',
+          '❎ Passed for Now',
           [
             'You are marked as passing for now.',
             'Passing is anonymous.'
@@ -704,10 +704,9 @@ export function buildSimulatorAudienceFollowUpPreview(
       content: buildSimulatorPlainMessage(
         '⏰ Go Time',
         [
-          `${draft.creatorName} confirmed this session is still on.`,
-          'Use the buttons below if you want in.'
+          `${draft.creatorName} confirmed this session is still on.`
         ],
-        'The original invite above has the full details.'
+        'See original invite above for details or to change your response.'
       ),
       embeds: [],
       buttonRows: []
@@ -722,7 +721,7 @@ export function buildSimulatorAudienceFollowUpPreview(
           'If you change your mind you can switch to "Pass" later.'
         )
       : buildSimulatorPlainMessage(
-          '👍 Passed for Now',
+          '❎ Passed for Now',
           [
             'You are marked as passing for now.',
             'Passing is anonymous.'
@@ -803,7 +802,7 @@ export function buildSimulatorCreatorFollowUpPreview(
 
   return {
     content: buildSimulatorPlainMessage(
-      state.audienceResponse === 'interested' ? 'Someone is interested' : 'Someone passed',
+      state.audienceResponse === 'interested' ? '✅ Someone is interested' : '❎ Someone passed',
       [
         state.audienceResponse === 'interested'
           ? `@${draft.audienceName} is interested in playing ${draft.gameTitle}.`
@@ -895,7 +894,7 @@ export function buildSimulatedDmMessages(
         'This is the retained audience-side acknowledgement or go-time reply beneath the original invite.',
         'Meaningful call edits should add separate “Call Updated” replies without replacing this message. If the call ends before the recipient answers, this becomes the ended notice; otherwise the invite above carries the ended state on its own.'
       ],
-      isInteractive: state.stage === 'confirmed' && state.audienceResponse !== 'pass'
+      isInteractive: false
     })
   }
 

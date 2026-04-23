@@ -118,7 +118,7 @@ function summarizeGameTitles(
   games: Array<{ game: { title: string; coverUrl: string | null } }>
 ) {
   if (selectionMode === PlayIntentSelectionMode.ENTIRE_LIBRARY) {
-    return 'Any game in their library.'
+    return 'Any game in their library that is also in yours.'
   }
 
   const titles = games

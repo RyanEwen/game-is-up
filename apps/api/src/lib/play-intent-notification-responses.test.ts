@@ -177,5 +177,60 @@ test('the joined acknowledgement DM no longer repeats the voice channel line', (
   })
 
   assert.doesNotMatch(preview.content, /Voice channel:/)
+  assert.match(preview.content, /^✅ You're In/m)
   assert.match(preview.content, /Text channel:/)
 })
+
+test('go-time confirmed previews use the clock emoji heading', () => {
+  const preview = buildPlayIntentNotificationPromptPreview({
+    notificationId: 'notification-1',
+    playIntentId: 'play-intent-1',
+    notificationType: NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED,
+    title: 'Call to Play',
+    body: 'Games: Helldivers 2\nWhen: Tonight',
+    creatorDiscordUserId: 'discord-creator-1',
+    creatorDisplayName: 'Ryan'
+  })
+
+  assert.match(preview.content, /^⏰ Go Time/m)
+  assert.doesNotMatch(preview.content, /^🎮 Go Time/m)
+})
+
+test('pass acknowledgements use the cross-mark emoji heading', () => {
+  const preview = buildNotificationDirectMessagePreview({
+    notificationId: 'notification-1',
+    notificationType: NotificationType.FRIEND_PLAYING,
+    title: 'Call to Play',
+    body: 'Games: Helldivers 2\nWhen: Tonight',
+    responseChoice: NotificationResponseChoice.DECLINE,
+    creatorDisplayName: 'Ryan',
+    creatorDiscordUserId: 'discord-creator-1',
+    playIntentIsActive: true,
+    renderSurface: 'response'
+  })
+
+  assert.match(preview.content, /^❎ Passed for Now/m)
+  assert.doesNotMatch(preview.content, /^👎 Passed for Now/m)
+})
+
+for (const notificationType of [
+  NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED,
+  NotificationType.SCHEDULED_PLAY_INTENT_REMINDER
+] as const) {
+  test(`scheduled ${notificationType.toLowerCase()} previews keep go-time replies non-interactive`, () => {
+    const preview = buildPlayIntentNotificationPromptPreview({
+      notificationId: 'notification-1',
+      playIntentId: 'play-intent-1',
+      notificationType,
+      title: 'Call to Play',
+      body: 'Games: Helldivers 2\nWhen: Tonight',
+      creatorUserId: 'creator-1',
+      creatorDiscordUserId: 'discord-creator-1',
+      creatorDisplayName: 'Ryan'
+    })
+
+    assert.deepEqual(preview.components, [])
+    assert.match(preview.content, /See original invite above for details or to change your response\./)
+    assert.doesNotMatch(preview.content, /Use the buttons below if you want in\./)
+  })
+}
