@@ -6,6 +6,7 @@ import {
   type MessageActionRowComponentBuilder,
   type MessageCreateOptions
 } from 'discord.js'
+import { formatDiscordDirectMessageContent } from './discord-dm-formatting.js'
 
 function toDebugButtonStyle(style: number | undefined): DebugDmPreview['buttonRows'][number][number]['style'] {
   switch (style) {
@@ -26,7 +27,7 @@ export function buildDebugDmPreview(
   embeds: MessageCreateOptions['embeds'] = []
 ): DebugDmPreview {
   return {
-    content,
+    content: formatDiscordDirectMessageContent(content, embeds),
     embeds: (embeds ?? []).map((embed) => {
       const serializedEmbed = (typeof embed === 'object' && embed != null && 'toJSON' in embed && typeof embed.toJSON === 'function'
         ? embed.toJSON()

@@ -1550,7 +1550,9 @@ export function buildNotificationDirectMessagePreview(options: {
     return {
       content: buildDiscordMessageHeading('🛑 Call to Play Ended'),
       embeds: buildArchivedPlayIntentEmbeds(previewBody),
-        components: buildArchivedAudienceCleanupComponents(options.notificationId)
+      components: buildArchivedAudienceCleanupComponents(options.notificationId, {
+        playIntentId: options.playIntentId
+      })
     }
   }
 

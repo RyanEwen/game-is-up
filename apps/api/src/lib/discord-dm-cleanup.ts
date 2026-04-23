@@ -17,7 +17,7 @@ import {
 } from './discord-dm-cleanup-reference-updates.js'
 import { collectReplyMessageIdsForCleanup } from './discord-dm-cleanup-thread.js'
 import { appendOpenInAppButton, buildDiscordMessageHeading, buildDiscordPlainMessage, buildOpenInAppButton } from './discord-dm-formatting.js'
-import { env } from './env.js'
+import { buildClientPlayIntentUrl, buildClientPlayUrl } from './play-intent-urls.js'
 import { callToPlayEndedSystemNotification } from './play-intent-system-notifications.js'
 import { formatPlayIntentWindowLabel } from './play-intent-time-format.js'
 import { prisma } from './prisma.js'
@@ -71,17 +71,13 @@ type DirectMessageTarget = {
   messageId: string;
 }
 
-function buildPlayUrl() {
-  try {
-    return new URL('/play', env.CLIENT_ORIGIN).toString()
-  } catch {
-    return env.CLIENT_ORIGIN
-  }
+function buildPlayAppUrl(playIntentId?: string) {
+  return playIntentId ? buildClientPlayIntentUrl(playIntentId) : buildClientPlayUrl()
 }
 
-function buildOpenInAppRow() {
+function buildOpenInAppRow(playIntentId?: string) {
   return new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
-    buildOpenInAppButton(buildPlayUrl(), 'Open in App')
+    buildOpenInAppButton(buildPlayAppUrl(playIntentId), 'Open in App')
   )
 }
 
@@ -107,10 +103,11 @@ export function buildArchivedAudienceCleanupComponents(
   notificationId: string,
   options: {
     forceInteractive?: boolean;
+    playIntentId?: string;
   } = {}
 ) {
   if (!(options.forceInteractive ?? supportsDiscordInteractiveMessages())) {
-    return [buildOpenInAppRow()]
+    return [buildOpenInAppRow(options.playIntentId)]
   }
 
   return appendOpenInAppButton([
@@ -120,7 +117,7 @@ export function buildArchivedAudienceCleanupComponents(
         .setLabel('Archive')
         .setStyle(ButtonStyle.Secondary)
     )
-  ], buildPlayUrl())
+  ], buildPlayAppUrl(options.playIntentId))
 }
 
 export function buildArchivedCreatorCleanupComponents(
@@ -130,7 +127,7 @@ export function buildArchivedCreatorCleanupComponents(
   } = {}
 ) {
   if (!supportsDiscordInteractiveMessages()) {
-    return [buildOpenInAppRow()]
+    return [buildOpenInAppRow(playIntentId)]
   }
 
   const row = new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
@@ -146,7 +143,7 @@ export function buildArchivedCreatorCleanupComponents(
 
   return appendOpenInAppButton([
     row
-  ], buildPlayUrl())
+  ], buildPlayAppUrl(playIntentId))
 }
 
 function summarizeArchivedPlayIntentGames(playIntent: {
@@ -243,8 +240,8 @@ export function buildArchivedPlayIntentReplyMessage() {
   )
 }
 
-export function buildArchivedPlayIntentReplyComponents() {
-  return [buildOpenInAppRow()]
+export function buildArchivedPlayIntentReplyComponents(playIntentId?: string) {
+  return [buildOpenInAppRow(playIntentId)]
 }
 
 export function buildArchivedCreatorPlayIntentPreview(
@@ -1700,7 +1697,9 @@ export async function archivePlayIntentDirectMessages(options: {
           candidates,
           buildDiscordMessageHeading('🛑 Call to Play Ended'),
           archiveEmbeds,
-          (candidate) => buildArchivedAudienceCleanupComponents(candidateNotificationIds.get(candidate.messageId) ?? '')
+          (candidate) => buildArchivedAudienceCleanupComponents(candidateNotificationIds.get(candidate.messageId) ?? '', {
+            playIntentId: playIntent.id
+          })
         )
 
         if (!keptMessageId) {
@@ -1715,7 +1714,7 @@ export async function archivePlayIntentDirectMessages(options: {
             {
               discordUserId: recipientDiscordUserId,
               content: buildArchivedPlayIntentReplyMessage(),
-              components: buildArchivedPlayIntentReplyComponents(),
+              components: buildArchivedPlayIntentReplyComponents(playIntent.id),
               replyTo: {
                 channelId: keptCandidate.channelId,
                 messageId: keptCandidate.messageId
@@ -1801,7 +1800,9 @@ export async function archivePlayIntentDirectMessages(options: {
         candidates,
         buildDiscordMessageHeading('🛑 Call to Play Ended'),
         archiveEmbeds,
-        (candidate) => buildArchivedAudienceCleanupComponents(candidateNotificationIds.get(candidate.messageId) ?? '')
+        (candidate) => buildArchivedAudienceCleanupComponents(candidateNotificationIds.get(candidate.messageId) ?? '', {
+          playIntentId: playIntent.id
+        })
       )
 
       if (!keptMessageId) {

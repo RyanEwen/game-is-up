@@ -1,5 +1,6 @@
 import { REST, Routes, type Client, type MessageCreateOptions } from 'discord.js'
 import { env } from './env.js'
+import { formatDiscordDirectMessageContent } from './discord-dm-formatting.js'
 
 export type DiscordBotMode = 'off' | 'rest' | 'gateway'
 
@@ -325,7 +326,7 @@ export async function sendDiscordDirectMessages(messages: DiscordDirectMessagePa
       const channel = await createDiscordDirectMessageChannel(message.discordUserId)
       const sentMessage = await discordBotRest.post(Routes.channelMessages(channel.id), {
         body: {
-          content: message.content,
+          content: formatDiscordDirectMessageContent(message.content, message.embeds),
           components: toDiscordApiComponents(message.components),
           embeds: toDiscordApiEmbeds(message.embeds),
           message_reference: toDiscordApiMessageReference(message.replyTo, channel.id)
@@ -387,7 +388,7 @@ export async function editDiscordDirectMessage(message: DiscordDirectMessageEdit
   try {
     await discordBotRest.patch(Routes.channelMessage(message.channelId, message.messageId), {
       body: {
-        content: message.content,
+        content: formatDiscordDirectMessageContent(message.content, message.embeds),
         components: toDiscordApiComponents(message.components) ?? [],
         embeds: toDiscordApiEmbeds(message.embeds) ?? []
       }

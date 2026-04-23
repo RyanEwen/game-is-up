@@ -2,8 +2,11 @@ import {
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
+  type MessageCreateOptions,
   type MessageActionRowComponentBuilder
 } from 'discord.js'
+
+const discordEmbedSpacer = '\n\u200b'
 
 type DiscordHeadingResolver = (label: string) => string
 
@@ -126,6 +129,21 @@ export function buildDiscordMessageHeading(title: string) {
   }
 
   return trimmed.replace(/^###\s+/u, '')
+}
+
+export function formatDiscordDirectMessageContent(
+  content: string,
+  embeds?: MessageCreateOptions['embeds']
+) {
+  const trimmed = content.trim()
+
+  if (trimmed.length === 0) {
+    return ''
+  }
+
+  return embeds && embeds.length > 0
+    ? `${trimmed}${discordEmbedSpacer}`
+    : trimmed
 }
 
 export function buildOpenInAppButton(url: string, label = 'Open in App') {

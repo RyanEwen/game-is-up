@@ -107,9 +107,6 @@ async function loadProvisionableSpace(spaceId: string) {
         }
       },
       accessGrants: {
-        where: {
-          revokedAt: null
-        },
         include: {
           user: {
             select: {
@@ -316,6 +313,16 @@ async function addRoleToMember(serverId: string, discordUserId: string, roleId: 
   await rest.put(Routes.guildMemberRole(serverId, discordUserId, roleId))
 }
 
+async function removeRoleFromMember(serverId: string, discordUserId: string, roleId: string) {
+  const rest = getDiscordBotRest()
+
+  if (!rest) {
+    throw new Error('Discord member role removal needs the bot token to be configured.')
+  }
+
+  await rest.delete(Routes.guildMemberRole(serverId, discordUserId, roleId))
+}
+
 type DiscordRoleGrantResult = {
   ok: boolean;
   reason: 'granted' | 'member-missing' | 'role-missing' | 'missing-access' | 'missing-permissions' | 'invalid-request' | 'unknown-error';
@@ -407,6 +414,19 @@ async function tryGrantRoleToMember(serverId: string, discordUserId: string, rol
   }
 }
 
+async function tryRemoveRoleFromMember(serverId: string, discordUserId: string, roleId: string): Promise<DiscordRoleGrantResult> {
+  try {
+    await removeRoleFromMember(serverId, discordUserId, roleId)
+    return {
+      ok: true,
+      reason: 'granted',
+      message: null
+    }
+  } catch (error) {
+    return describeDiscordRoleGrantError(error)
+  }
+}
+
 async function deleteRole(serverId: string, roleId: string | null | undefined) {
   if (!roleId) {
     return
@@ -477,6 +497,52 @@ async function syncGrantedMembers(space: NonNullable<ProvisionableSpace>) {
   for (const grant of space.accessGrants) {
     const isCreatorGrant = grant.source === 'CREATOR'
     const discordUserId = grant.user.identities[0]?.providerUserId ?? null
+
+    if (grant.revokedAt) {
+      let roleRevokeResult: DiscordRoleGrantResult = {
+        ok: false,
+        reason: 'member-missing',
+        message: null
+      }
+
+      if (discordUserId && grant.roleGrantedAt) {
+        roleRevokeResult = await tryRemoveRoleFromMember(space.serverId, discordUserId, space.roleId)
+
+        if (!roleRevokeResult.ok && roleRevokeResult.reason !== 'member-missing' && roleRevokeResult.reason !== 'role-missing') {
+          hadGrantErrors = true
+          console.error('Failed to revoke complementary Discord space role', {
+            spaceId: space.id,
+            userId: grant.userId,
+            discordUserId,
+            reason: roleRevokeResult.reason,
+            error: roleRevokeResult.message
+          })
+        }
+      }
+
+      await prisma.playIntentDiscordSpaceAccessGrant.update({
+        where: {
+          spaceId_userId: {
+            spaceId: space.id,
+            userId: grant.userId
+          }
+        },
+        data: {
+          inServer: membershipSet.has(grant.userId),
+          roleGrantedAt: (
+            !discordUserId
+            || roleRevokeResult.ok
+            || roleRevokeResult.reason === 'member-missing'
+            || roleRevokeResult.reason === 'role-missing'
+          )
+            ? null
+            : grant.roleGrantedAt
+        }
+      })
+
+      continue
+    }
+
     const hadRoleBefore = grant.roleGrantedAt != null
     let roleGrantResult: DiscordRoleGrantResult = {
       ok: false,

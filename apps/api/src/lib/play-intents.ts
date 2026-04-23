@@ -172,6 +172,57 @@ function buildDiscordSpaceAccessGrantCreates(creatorUserId: string, audienceUser
   return [...grants.values()]
 }
 
+async function syncUpdatedDiscordSpaceAccessGrants(
+  transaction: Prisma.TransactionClient,
+  options: {
+    spaceId: string;
+    creatorUserId: string;
+    audienceUserIds: string[];
+  }
+) {
+  const desiredGrants = buildDiscordSpaceAccessGrantCreates(options.creatorUserId, options.audienceUserIds)
+  const desiredUserIds = desiredGrants.map((grant) => grant.userId)
+
+  await transaction.playIntentDiscordSpaceAccessGrant.updateMany({
+    where: {
+      spaceId: options.spaceId,
+      revokedAt: null,
+      userId: {
+        notIn: desiredUserIds
+      }
+    },
+    data: {
+      revokedAt: new Date()
+    }
+  })
+
+  for (const grant of desiredGrants) {
+    const updatedGrant = await transaction.playIntentDiscordSpaceAccessGrant.updateMany({
+      where: {
+        spaceId: options.spaceId,
+        userId: grant.userId
+      },
+      data: {
+        source: grant.source,
+        revokedAt: null
+      }
+    })
+
+    if (updatedGrant.count > 0) {
+      continue
+    }
+
+    await transaction.playIntentDiscordSpaceAccessGrant.create({
+      data: {
+        spaceId: options.spaceId,
+        userId: grant.userId,
+        source: grant.source,
+        inServer: grant.inServer
+      }
+    })
+  }
+}
+
 function toClientNotifyScope(scope: PlayIntentScope): PlayIntentNotifyScope {
   switch (scope) {
     case PlayIntentScope.SPECIFIC_DISCORD_SERVER:
@@ -1703,7 +1754,8 @@ export async function upsertCurrentPlayIntent(
           note: true,
           discordSpace: {
             select: {
-              id: true
+              id: true,
+              status: true
             }
           },
           games: {
@@ -1844,6 +1896,7 @@ export async function upsertCurrentPlayIntent(
 
   let activeIntent: ActivePlayIntent | null = null
   let activeIntentId: string | null = null
+  let reusedDiscordSpace = false
   const outboundNotifications: Array<{
     id: string;
     userId: string;
@@ -1873,6 +1926,12 @@ export async function upsertCurrentPlayIntent(
       })
     }
 
+    const shouldReuseDiscordSpace = Boolean(
+      payload.createDiscordSpace
+      && latestSupersededIntent?.discordSpace
+      && latestSupersededIntent.discordSpace.status !== PlayIntentDiscordSpaceStatus.DELETED
+    )
+
     const createdIntent = await transaction.playIntent.create({
       data: {
         userId,
@@ -1881,7 +1940,7 @@ export async function upsertCurrentPlayIntent(
         note,
         voiceChannelId: payload.voiceChannelId ?? null,
         voiceChannelName: payload.voiceChannelName ?? null,
-        discordSpace: payload.createDiscordSpace && env.DISCORD_SERVER_ID
+        discordSpace: payload.createDiscordSpace && env.DISCORD_SERVER_ID && !shouldReuseDiscordSpace
           ? {
               create: {
                 serverId: env.DISCORD_SERVER_ID,
@@ -1923,6 +1982,33 @@ export async function upsertCurrentPlayIntent(
       },
       include: activePlayIntentInclude
     })
+
+    if (shouldReuseDiscordSpace && latestSupersededIntent?.discordSpace) {
+      reusedDiscordSpace = true
+
+      await transaction.playIntentDiscordSpace.update({
+        where: {
+          id: latestSupersededIntent.discordSpace.id
+        },
+        data: {
+          playIntentId: createdIntent.id,
+          status: latestSupersededIntent.discordSpace.status === PlayIntentDiscordSpaceStatus.RETAINED
+            || latestSupersededIntent.discordSpace.status === PlayIntentDiscordSpaceStatus.DELETE_REQUESTED
+            ? PlayIntentDiscordSpaceStatus.ACTIVE
+            : latestSupersededIntent.discordSpace.status,
+          deleteAfter: null,
+          deleteRequestedAt: null,
+          deletedAt: null,
+          lastSyncError: null
+        }
+      })
+
+      await syncUpdatedDiscordSpaceAccessGrants(transaction, {
+        spaceId: latestSupersededIntent.discordSpace.id,
+        creatorUserId: userId,
+        audienceUserIds: discordSpaceAudienceGrantUserIds
+      })
+    }
 
     if (reusedRecipientUserIds.length > 0) {
       const reusedNotifications = await Promise.all(
@@ -2055,6 +2141,19 @@ export async function upsertCurrentPlayIntent(
       activeIntentId,
       outboundRecipientUserIds
     )
+
+    if (reusedDiscordSpace) {
+      const refreshedIntent = await prisma.playIntent.findUnique({
+        where: {
+          id: activeIntentId
+        },
+        include: activePlayIntentInclude
+      })
+
+      if (refreshedIntent) {
+        activeIntent = serializeActivePlayIntent(refreshedIntent, [])
+      }
+    }
   }
 
   let deliveredNotificationCount = 0
