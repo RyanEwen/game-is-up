@@ -46,6 +46,8 @@ export type SimulatedLifecycleState = {
   audienceResponse: SimulatedAudienceResponse;
   creatorCheckInState: SimulatedCreatorCheckInState;
   hasGoTimeBroadcast: boolean;
+  hasVoiceChannelActivity: boolean;
+  hasGameLaunchActivity: boolean;
   latestAudienceUpdateFields: string[] | null;
   latestAudienceUpdateRequiresFreshResponse: boolean;
   creatorThreadArchived: boolean;
@@ -106,6 +108,13 @@ export const simulatedDmActionIds = {
   creatorEnd: 'simulated:creator:end',
   creatorCleanup: 'simulated:creator:cleanup',
   audienceCleanup: 'simulated:audience:cleanup'
+} as const
+
+export const simulatedLifecycleShortcutActionIds = {
+  creatorJoinedVoice: 'simulated:event:creator-joined-voice',
+  audienceJoinedVoice: 'simulated:event:audience-joined-voice',
+  creatorLaunchedGame: 'simulated:event:creator-launched-game',
+  audienceLaunchedGame: 'simulated:event:audience-launched-game'
 } as const
 
 const simulatedAutoPlayPromptId = 'simulated-auto-play-prompt'
@@ -410,6 +419,8 @@ export function buildInitialSimulatorHistory(options: {
     audienceResponse: null,
     creatorCheckInState: null,
     hasGoTimeBroadcast: false,
+    hasVoiceChannelActivity: false,
+    hasGameLaunchActivity: false,
     latestAudienceUpdateFields: null,
     latestAudienceUpdateRequiresFreshResponse: false,
     creatorThreadArchived: false,
@@ -808,6 +819,38 @@ export function buildSimulatorCreatorFollowUpPreview(
           ? `@${draft.audienceName} is interested in playing ${draft.gameTitle}.`
           : `@${draft.audienceName} passed on ${draft.gameTitle}.`
       ]
+    ),
+    embeds: [],
+    buttonRows: []
+  }
+}
+
+export function buildSimulatorVoiceChannelActivityReplyPreview(options: {
+  actorName: string;
+  voiceChannelName?: string | null;
+}): SimulatorDebugDmPreview {
+  const channelLabel = options.voiceChannelName ? `the voice channel ${options.voiceChannelName}` : 'the voice channel'
+
+  return {
+    content: buildSimulatorPlainMessage(
+      '🎙 Someone joined the voice channel',
+      [`@${options.actorName} just joined ${channelLabel} for this call to play.`],
+      'The retained call summary above still has the latest details.'
+    ),
+    embeds: [],
+    buttonRows: []
+  }
+}
+
+export function buildSimulatorLaunchedGameActivityReplyPreview(options: {
+  actorName: string;
+  gameTitle: string;
+}): SimulatorDebugDmPreview {
+  return {
+    content: buildSimulatorPlainMessage(
+      '🎮 Someone launched the game',
+      [`@${options.actorName} just launched ${options.gameTitle} for this call to play.`],
+      'The retained call summary above still has the latest details.'
     ),
     embeds: [],
     buttonRows: []

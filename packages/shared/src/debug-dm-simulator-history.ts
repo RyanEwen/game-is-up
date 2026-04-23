@@ -1,7 +1,9 @@
 import {
   buildSimulatedAutoPlayDmMessages,
   buildSimulatedDmMessages,
+  buildSimulatorLaunchedGameActivityReplyPreview,
   buildSimulatorUpdatedReplyPreview,
+  buildSimulatorVoiceChannelActivityReplyPreview,
   type SimulatedDmMessage
 } from './debug-dm-simulator.js'
 import {
@@ -80,6 +82,62 @@ function buildSimulatedAudienceUpdateReplyMessages(history: SimulatedLifecycleEn
     }))
 }
 
+function buildSimulatedCreatorActivityReplyMessages(history: SimulatedLifecycleEntryWithAction[]) {
+  const latestEntry = history[history.length - 1]
+
+  if (!latestEntry || latestEntry.stateSnapshot.stage === 'ended' || latestEntry.stateSnapshot.creatorThreadArchived) {
+    return []
+  }
+
+  return history
+    .filter((entry) => entry.action === 'audience-joined-voice' || entry.action === 'audience-launched-game')
+    .map<SimulatedDmMessage>((entry) => ({
+      id: `creator-activity-${entry.id}`,
+      label: entry.action === 'audience-joined-voice' ? 'Creator voice activity reply' : 'Creator game activity reply',
+      preview: entry.action === 'audience-joined-voice'
+        ? buildSimulatorVoiceChannelActivityReplyPreview({
+            actorName: entry.draftSnapshot.audienceName
+          })
+        : buildSimulatorLaunchedGameActivityReplyPreview({
+            actorName: entry.draftSnapshot.audienceName,
+            gameTitle: entry.draftSnapshot.gameTitle
+          }),
+      explanation: [
+        'This dangling reply notifies the creator when an interested audience member starts joining or launching the live session.',
+        'It should disappear with the rest of the dangling thread replies once the call ends.'
+      ],
+      isInteractive: false
+    }))
+}
+
+function buildSimulatedAudienceActivityReplyMessages(history: SimulatedLifecycleEntryWithAction[]) {
+  const latestEntry = history[history.length - 1]
+
+  if (!latestEntry || latestEntry.stateSnapshot.stage === 'ended' || latestEntry.stateSnapshot.audienceThreadArchived) {
+    return []
+  }
+
+  return history
+    .filter((entry) => entry.action === 'creator-joined-voice' || entry.action === 'creator-launched-game')
+    .map<SimulatedDmMessage>((entry) => ({
+      id: `audience-activity-${entry.id}`,
+      label: entry.action === 'creator-joined-voice' ? 'Audience voice activity reply' : 'Audience game activity reply',
+      preview: entry.action === 'creator-joined-voice'
+        ? buildSimulatorVoiceChannelActivityReplyPreview({
+            actorName: entry.draftSnapshot.creatorName
+          })
+        : buildSimulatorLaunchedGameActivityReplyPreview({
+            actorName: entry.draftSnapshot.creatorName,
+            gameTitle: entry.draftSnapshot.gameTitle
+          }),
+      explanation: [
+        'This dangling reply notifies interested audience members when the creator starts joining or launching the live session.',
+        'It should disappear with the rest of the dangling thread replies once the call ends.'
+      ],
+      isInteractive: false
+    }))
+}
+
 export function buildSimulatedCallToPlayMessagesForHistory(history: SimulatedLifecycleEntryWithAction[]) {
   const latestEntry = history[history.length - 1]
 
@@ -103,8 +161,12 @@ export function buildSimulatedCallToPlayMessagesForHistory(history: SimulatedLif
   )
 
   return {
-    ...messages,
-    audienceMessages: [...messages.audienceMessages, ...buildSimulatedAudienceUpdateReplyMessages(history)]
+    creatorMessages: [...messages.creatorMessages, ...buildSimulatedCreatorActivityReplyMessages(history)],
+    audienceMessages: [
+      ...messages.audienceMessages,
+      ...buildSimulatedAudienceUpdateReplyMessages(history),
+      ...buildSimulatedAudienceActivityReplyMessages(history)
+    ]
   }
 }
 

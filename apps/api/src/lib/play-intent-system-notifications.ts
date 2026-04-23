@@ -6,7 +6,7 @@ type PlayIntentSystemNotificationDefinition = {
   componentMode: PlayIntentSystemNotificationComponentMode;
 }
 
-type SystemNotificationCopy = {
+export type SystemNotificationCopy = {
   title: string;
   body: string;
   discordBody: string;
@@ -28,6 +28,18 @@ export const callToPlayEndedSystemNotification = createPlayIntentSystemNotificat
   'call-to-play-ended',
   'Call to play ended',
   'archived-cleanup'
+)
+
+export const voiceChannelJoinedSystemNotification = createPlayIntentSystemNotificationDefinition(
+  'voice-channel-joined',
+  '🎙 Someone joined the voice channel',
+  'none'
+)
+
+export const groupLaunchedGameSystemNotification = createPlayIntentSystemNotificationDefinition(
+  'group-launched-game',
+  '🎮 Someone launched the game',
+  'none'
 )
 
 export const creatorLaunchedGameSystemNotification = createPlayIntentSystemNotificationDefinition(
@@ -56,6 +68,8 @@ export const creatorInterestWithdrawnSystemNotification = createPlayIntentSystem
 
 const playIntentSystemNotificationDefinitions = [
   callToPlayEndedSystemNotification,
+  voiceChannelJoinedSystemNotification,
+  groupLaunchedGameSystemNotification,
   creatorLaunchedGameSystemNotification,
   interestedPlayerLaunchedGameSystemNotification,
   creatorInterestUpdateSystemNotification,
@@ -68,6 +82,12 @@ const playIntentSystemNotificationByTitle = new Map(
 
 function formatLaunchedGameBody(actorLabel: string, gameTitle: string, audienceContext: string) {
   return `${actorLabel} just launched ${gameTitle} for ${audienceContext}.`
+}
+
+function formatVoiceChannelBody(actorLabel: string, voiceChannelName: string | null | undefined) {
+  const channelLabel = voiceChannelName ? `the voice channel ${voiceChannelName}` : 'the voice channel'
+
+  return `${actorLabel} just joined ${channelLabel} for this call to play.`
 }
 
 function formatInterestBody(subjectLabel: string, gameTitle: string | null, activeVerb: string, fallbackTarget: string) {
@@ -96,6 +116,41 @@ export function formatCreatorLaunchedGameSystemNotification(options: {
       options.actorLabel ?? options.actorDisplayName,
       options.gameTitle,
       'the active call to play you are interested in'
+    )
+  }
+}
+
+export function formatGroupLaunchedGameSystemNotification(options: {
+  actorDisplayName: string;
+  actorLabel?: string;
+  gameTitle: string;
+}): SystemNotificationCopy {
+  return {
+    title: groupLaunchedGameSystemNotification.title,
+    body: formatLaunchedGameBody(
+      options.actorDisplayName,
+      options.gameTitle,
+      'this call to play'
+    ),
+    discordBody: formatLaunchedGameBody(
+      options.actorLabel ?? options.actorDisplayName,
+      options.gameTitle,
+      'this call to play'
+    )
+  }
+}
+
+export function formatVoiceChannelJoinedSystemNotification(options: {
+  actorDisplayName: string;
+  actorLabel?: string;
+  voiceChannelName?: string | null;
+}): SystemNotificationCopy {
+  return {
+    title: voiceChannelJoinedSystemNotification.title,
+    body: formatVoiceChannelBody(options.actorDisplayName, options.voiceChannelName),
+    discordBody: formatVoiceChannelBody(
+      options.actorLabel ?? options.actorDisplayName,
+      options.voiceChannelName
     )
   }
 }

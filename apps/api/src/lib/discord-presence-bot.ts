@@ -11,7 +11,8 @@ import {
   Partials,
   type GatewayMessageCreateDispatchData,
   type MessageActionRowComponentBuilder,
-  type Presence
+  type Presence,
+  type VoiceState
 } from 'discord.js'
 import { DiscordActivityType } from '@prisma/client'
 import {
@@ -45,6 +46,7 @@ import {
 } from './discord-direct-message-commands.js'
 import { handlePlayIntentDiscordSpaceMemberJoin } from './play-intent-discord-spaces.js'
 import { handleDiscordSlashCommand, registerDiscordSlashCommands } from './discord-slash-commands.js'
+import { maybeSendPlayIntentVoiceChannelJoinNotifications } from './play-intent-launch-notifications.js'
 
 type DiscordGuildMemberSummary = {
   id: string;
@@ -646,6 +648,22 @@ async function handlePresenceUpdate(presence: Presence) {
   }
 }
 
+async function handleVoiceStateUpdate(previousState: VoiceState, nextState: VoiceState) {
+  if (previousState.channelId === nextState.channelId || !nextState.channelId || nextState.member?.user.bot) {
+    return
+  }
+
+  try {
+    await maybeSendPlayIntentVoiceChannelJoinNotifications({
+      discordUserId: nextState.id,
+      channelId: nextState.channelId,
+      channelName: nextState.channel?.name ?? null
+    })
+  } catch (error) {
+    console.error('Failed to record Discord voice channel join update', error)
+  }
+}
+
 export async function listDiscordGuildMembers(serverId: string): Promise<{
   serverId: string;
   serverName: string;
@@ -878,6 +896,7 @@ export async function startDiscordPresenceBot() {
     intents: [
       GatewayIntentBits.Guilds,
       GatewayIntentBits.GuildPresences,
+      GatewayIntentBits.GuildVoiceStates,
       GatewayIntentBits.GuildMembers,
       GatewayIntentBits.DirectMessages
     ],
@@ -946,6 +965,10 @@ export async function startDiscordPresenceBot() {
 
   client.on('presenceUpdate', (_oldPresence, newPresence) => {
     void handlePresenceUpdate(newPresence)
+  })
+
+  client.on(Events.VoiceStateUpdate, (oldState, newState) => {
+    void handleVoiceStateUpdate(oldState, newState)
   })
 
   client.on('guildCreate', () => {

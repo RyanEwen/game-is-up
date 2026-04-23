@@ -25,6 +25,10 @@ export type SimulatedLifecycleAction =
   | 'audience-interested'
   | 'audience-pass'
   | 'audience-mute'
+  | 'creator-joined-voice'
+  | 'audience-joined-voice'
+  | 'creator-launched-game'
+  | 'audience-launched-game'
   | 'creator-check-in-confirmed'
   | 'creator-start-now'
   | 'creator-end'
@@ -77,6 +81,11 @@ type SimulatedAutoPlayResolvedAction =
   | { action: 'auto-play-archived' }
   | { action: 'creator-end' }
 
+type SimulatedPreviewLifecycleAction = Exclude<
+  SimulatedLifecycleAction,
+  'session-created' | 'scenario-updated' | 'scheduled-start-reached'
+>
+
 const simulatedLifecycleActionByCustomId = {
   [simulatedDmActionIds.creatorConfirmCheckIn]: 'creator-check-in-confirmed',
   [simulatedDmActionIds.audienceInterested]: 'audience-interested',
@@ -86,7 +95,7 @@ const simulatedLifecycleActionByCustomId = {
   [simulatedDmActionIds.creatorEnd]: 'creator-end',
   [simulatedDmActionIds.creatorCleanup]: 'creator-archived',
   [simulatedDmActionIds.audienceCleanup]: 'audience-archived'
-} as const satisfies Record<string, Exclude<SimulatedLifecycleAction, 'session-created'>>
+} as const satisfies Record<string, SimulatedPreviewLifecycleAction>
 
 function normalizeSimulatorText(value: string) {
   return value.trim()
@@ -114,6 +123,8 @@ function snapshotSimulatorLifecycleState(
     audienceResponse: state.audienceResponse,
     creatorCheckInState: state.creatorCheckInState,
     hasGoTimeBroadcast: state.hasGoTimeBroadcast,
+    hasVoiceChannelActivity: state.hasVoiceChannelActivity,
+    hasGameLaunchActivity: state.hasGameLaunchActivity,
     latestAudienceUpdateFields: state.latestAudienceUpdateFields ? [...state.latestAudienceUpdateFields] : null,
     latestAudienceUpdateRequiresFreshResponse: state.latestAudienceUpdateRequiresFreshResponse,
     creatorThreadArchived: state.creatorThreadArchived,
@@ -254,7 +265,7 @@ function appendHistoryEntry<
   } as State
 }
 
-function mapSimulatorCustomIdToAction(customId: string): Exclude<SimulatedLifecycleAction, 'session-created'> | null {
+function mapSimulatorCustomIdToAction(customId: string): SimulatedPreviewLifecycleAction | null {
   return simulatedLifecycleActionByCustomId[customId as keyof typeof simulatedLifecycleActionByCustomId] ?? null
 }
 
@@ -347,6 +358,54 @@ function resolveSimulatorLifecycleTransition(
     case 'audience-mute':
       actor = 'audience'
       summary = `${draft.audienceName} muted ${draft.creatorName} in the simulator.`
+      break
+    case 'creator-joined-voice':
+      if (currentState.stage !== 'confirmed' || currentState.audienceResponse !== 'interested' || currentState.hasVoiceChannelActivity) {
+        return null
+      }
+
+      nextState = {
+        ...nextState,
+        hasVoiceChannelActivity: true
+      }
+      actor = 'creator'
+      summary = `${draft.creatorName} joined the voice channel.`
+      break
+    case 'audience-joined-voice':
+      if (currentState.stage !== 'confirmed' || currentState.audienceResponse !== 'interested' || currentState.hasVoiceChannelActivity) {
+        return null
+      }
+
+      nextState = {
+        ...nextState,
+        hasVoiceChannelActivity: true
+      }
+      actor = 'audience'
+      summary = `${draft.audienceName} joined the voice channel.`
+      break
+    case 'creator-launched-game':
+      if (currentState.stage !== 'confirmed' || currentState.audienceResponse !== 'interested' || currentState.hasGameLaunchActivity) {
+        return null
+      }
+
+      nextState = {
+        ...nextState,
+        hasGameLaunchActivity: true
+      }
+      actor = 'creator'
+      summary = `${draft.creatorName} launched ${draft.gameTitle}.`
+      break
+    case 'audience-launched-game':
+      if (currentState.stage !== 'confirmed' || currentState.audienceResponse !== 'interested' || currentState.hasGameLaunchActivity) {
+        return null
+      }
+
+      nextState = {
+        ...nextState,
+        hasGameLaunchActivity: true
+      }
+      actor = 'audience'
+      summary = `${draft.audienceName} launched ${draft.gameTitle}.`
       break
     case 'creator-check-in-confirmed':
       if (currentState.stage !== 'check-in' || currentState.creatorCheckInState !== 'pending') {
@@ -602,6 +661,15 @@ export function applySimulatorPreviewAction(
     return currentState
   }
 
+  return applySimulatorLifecycleAction(currentState, action, draft, now)
+}
+
+export function applySimulatorLifecycleAction(
+  currentState: SimulatedLifecycleStateWithActions,
+  action: SimulatedPreviewLifecycleAction,
+  draft: SimulatedScenarioDraft,
+  now = new Date()
+) {
   const transition = resolveSimulatorLifecycleTransition(currentState, action, draft)
 
   if (!transition) {

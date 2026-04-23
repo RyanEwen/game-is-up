@@ -33,6 +33,7 @@ import type {
 import {
   applyAutoPlayObservationEnded,
   applyAutoPlayPreviewAction,
+  applySimulatorLifecycleAction,
   applyScheduledStartReached,
   applySimulatorPreviewAction,
   applySimulatorScenarioChanges,
@@ -656,6 +657,18 @@ export function DmLifecycleSimulatorDialog({
     })
   }
 
+  const handleLifecycleShortcutAction = (
+    action: 'creator-joined-voice' | 'audience-joined-voice' | 'creator-launched-game' | 'audience-launched-game'
+  ) => {
+    setState((currentState) => {
+      if (!currentState || !committedDraft) {
+        return currentState
+      }
+
+      return applySimulatorLifecycleAction(currentState, action, committedDraft)
+    })
+  }
+
   const handleAutoPlayObservationEnded = () => {
     setAutoPlayState((currentState) => {
       if (!currentState || !committedAutoPlayDraft) {
@@ -718,7 +731,7 @@ export function DmLifecycleSimulatorDialog({
         infoLines: [
           'The creator keeps one retained summary message that updates in place.',
           'Scheduled calls can also produce a separate go-time check-in prompt before the creator confirms the session is still on.',
-          'Separate creator replies should only announce audience changes such as interest or pass.'
+          'Separate creator replies should only announce audience changes or other live-session activity such as launches and voice joins.'
         ],
         emptyTitle: state?.creatorThreadArchived ? 'Creator thread archived' : 'No creator thread yet',
         emptyBody: state?.creatorThreadArchived
@@ -747,7 +760,7 @@ export function DmLifecycleSimulatorDialog({
         badgeLabel: committedDraft?.audienceName ?? 'Audience',
         infoLines: [
           'The invite stays as the anchor for the whole audience lifecycle.',
-          'Meaningful call edits add fresh “Call Updated” replies under the invite while the acknowledgement reply remains separate.',
+          'Meaningful call edits and live-session nudges add fresh replies under the invite while the acknowledgement reply remains separate.',
           'The acknowledgement and go-time reply should stay retained, while update replies stack as a trail beneath the anchor.'
         ],
         emptyTitle: state?.audienceThreadArchived ? 'Audience thread archived' : 'No audience thread yet',
@@ -897,7 +910,46 @@ export function DmLifecycleSimulatorDialog({
                         >
                           Scheduled start reached
                         </Button>
+                        <Button
+                          size="sm"
+                          variant="soft"
+                          color="primary"
+                          disabled={!hasCtpScenario || state?.stage !== 'confirmed' || state?.audienceResponse !== 'interested' || state?.hasVoiceChannelActivity === true}
+                          onClick={() => handleLifecycleShortcutAction('creator-joined-voice')}
+                        >
+                          Creator joined voice
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="soft"
+                          color="primary"
+                          disabled={!hasCtpScenario || state?.stage !== 'confirmed' || state?.audienceResponse !== 'interested' || state?.hasVoiceChannelActivity === true}
+                          onClick={() => handleLifecycleShortcutAction('audience-joined-voice')}
+                        >
+                          Audience joined voice
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="soft"
+                          color="success"
+                          disabled={!hasCtpScenario || state?.stage !== 'confirmed' || state?.audienceResponse !== 'interested' || state?.hasGameLaunchActivity === true}
+                          onClick={() => handleLifecycleShortcutAction('creator-launched-game')}
+                        >
+                          Creator launched game
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="soft"
+                          color="success"
+                          disabled={!hasCtpScenario || state?.stage !== 'confirmed' || state?.audienceResponse !== 'interested' || state?.hasGameLaunchActivity === true}
+                          onClick={() => handleLifecycleShortcutAction('audience-launched-game')}
+                        >
+                          Audience launched game
+                        </Button>
                       </Stack>
+                      <Typography level="body-xs" sx={{ color: 'neutral.500' }}>
+                        Use these debug-only shortcuts to simulate live-session replies that are triggered by Discord presence or voice activity rather than DM buttons.
+                      </Typography>
                     </Stack>
                     <Divider />
                     <Stack direction="row" spacing={0.75} sx={{ flexWrap: 'wrap' }}>
@@ -921,6 +973,12 @@ export function DmLifecycleSimulatorDialog({
                       </Chip>
                       <Chip size="sm" variant="soft" color={state?.audienceResponse === 'interested' ? 'primary' : state?.audienceResponse === 'pass' ? 'warning' : 'neutral'}>
                         {state?.audienceResponse == null ? 'No audience reply yet' : `Audience: ${state.audienceResponse}`}
+                      </Chip>
+                      <Chip size="sm" variant="soft" color={state?.hasVoiceChannelActivity ? 'primary' : 'neutral'}>
+                        {state?.hasVoiceChannelActivity ? 'Voice activity sent' : 'No voice activity yet'}
+                      </Chip>
+                      <Chip size="sm" variant="soft" color={state?.hasGameLaunchActivity ? 'success' : 'neutral'}>
+                        {state?.hasGameLaunchActivity ? 'Launch activity sent' : 'No launch activity yet'}
                       </Chip>
                     </Stack>
                   </>

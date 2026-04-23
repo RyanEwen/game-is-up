@@ -61,3 +61,49 @@ test('collectReplyMessageIdsForCleanup returns no messages without a bot identit
 
   assert.deepEqual(replyMessageIds, [])
 })
+
+test('collectReplyMessageIdsForCleanup includes live activity replies beneath creator and audience anchors', () => {
+  const replyMessageIds = collectReplyMessageIdsForCleanup({
+    botUserId: 'bot-1',
+    referencedMessageIds: ['creator-summary', 'audience-invite'],
+    messages: [
+      {
+        id: 'creator-voice-activity',
+        timestamp: new Date().toISOString(),
+        authorId: 'bot-1',
+        referencedMessageId: 'creator-summary'
+      },
+      {
+        id: 'creator-launch-activity',
+        timestamp: new Date().toISOString(),
+        authorId: 'bot-1',
+        referencedMessageId: 'creator-summary'
+      },
+      {
+        id: 'audience-voice-activity',
+        timestamp: new Date().toISOString(),
+        authorId: 'bot-1',
+        referencedMessageId: 'audience-invite'
+      },
+      {
+        id: 'audience-launch-activity',
+        timestamp: new Date().toISOString(),
+        authorId: 'bot-1',
+        referencedMessageId: 'audience-invite'
+      },
+      {
+        id: 'non-thread-message',
+        timestamp: new Date().toISOString(),
+        authorId: 'bot-1',
+        referencedMessageId: 'different-anchor'
+      }
+    ]
+  })
+
+  assert.deepEqual(replyMessageIds, [
+    'creator-voice-activity',
+    'creator-launch-activity',
+    'audience-voice-activity',
+    'audience-launch-activity'
+  ])
+})
