@@ -29,6 +29,15 @@ for (const responseChoice of [NotificationResponseChoice.JOIN, NotificationRespo
         channelName: 'ryan-friday-night-helldivers-abcdef',
         recipientSharesServer: true
       },
+      discordSpace: {
+        status: 'active',
+        recipientInServer: true,
+        textChannelName: 'general',
+        textChannelUrl: 'https://discord.com/channels/1/2',
+        voiceChannelName: 'ryan-friday-night-helldivers-abcdef',
+        voiceChannelUrl: 'https://discord.com/channels/1/3',
+        inviteUrl: 'https://discord.gg/test-invite'
+      },
       intentDetails: {
         headline: 'Friday Night Helldivers',
         selectionMode: 'library',
@@ -47,11 +56,12 @@ for (const responseChoice of [NotificationResponseChoice.JOIN, NotificationRespo
     const voiceChannelField = embedJson?.fields?.find((field: { name: string; value: string }) => field.name === '🎙 Voice Channel')
 
     assert.ok(voiceChannelField)
-    assert.equal(voiceChannelField?.value, 'ryan-friday-night-helldivers-abcdef')
+    assert.match(voiceChannelField?.value ?? '', /ryan-friday-night-helldivers-abcdef/)
+    assert.match(voiceChannelField?.value ?? '', /https:\/\/discord\.gg\/test-invite/)
   })
 }
 
-test('audience invite summaries inline the temporary Discord invite URL in the summary content', () => {
+test('audience invite summaries keep the temporary Discord invite URL out of the summary content', () => {
   const preview = buildPlayIntentNotificationPromptPreview({
     notificationId: 'notification-1',
     playIntentId: 'play-intent-1',
@@ -70,10 +80,10 @@ test('audience invite summaries inline the temporary Discord invite URL in the s
     }
   })
 
-  assert.match(preview.content, /https:\/\/discord\.gg\/test-invite/)
+  assert.doesNotMatch(preview.content, /https:\/\/discord\.gg\/test-invite/)
 })
 
-test('creator summary DMs inline the temporary Discord invite URL in the summary content', () => {
+test('creator summary DMs keep the temporary Discord invite URL out of the summary content', () => {
   const preview = buildCreatorPlayIntentSummaryPreview({
     id: 'play-intent-1',
     headline: 'Friday Night Helldivers',
@@ -104,7 +114,18 @@ test('creator summary DMs inline the temporary Discord invite URL in the summary
     currentTime: new Date('2026-04-25T19:30:00.000Z')
   })
 
-  assert.match(preview.content, /https:\/\/discord\.gg\/test-invite/)
+  assert.doesNotMatch(preview.content, /https:\/\/discord\.gg\/test-invite/)
+
+  assert.ok(preview.embeds)
+
+  const firstEmbed = preview.embeds[0]
+  const embedJson = (firstEmbed && typeof firstEmbed === 'object' && 'toJSON' in firstEmbed && typeof firstEmbed.toJSON === 'function'
+    ? firstEmbed.toJSON()
+    : firstEmbed) as unknown as APIEmbed | undefined
+  const voiceChannelField = embedJson?.fields?.find((field: { name: string; value: string }) => field.name === '🎙 Voice Channel')
+
+  assert.ok(voiceChannelField)
+  assert.match(voiceChannelField?.value ?? '', /https:\/\/discord\.gg\/test-invite/)
 })
 
 test('temporary Discord invite replies use the invite URL as reply content', () => {

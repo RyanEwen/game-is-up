@@ -872,16 +872,6 @@ export function buildDiscordInviteReplyPayload(options: {
   }
 }
 
-function appendDiscordInviteUrl(content: string, inviteUrl: string | null | undefined) {
-  const trimmedInviteUrl = inviteUrl?.trim()
-
-  if (!trimmedInviteUrl) {
-    return content
-  }
-
-  return `${content}\n\n${trimmedInviteUrl}`
-}
-
 function extractLabeledFields(text: string) {
   return text
     .split('\n')
@@ -983,25 +973,19 @@ function buildRecipientVoiceChannelValue(
       : voiceChannel.channelName
     : null
 
-  if (selectedVoiceChannelValue) {
-    return selectedVoiceChannelValue
-  }
-
-  if (!discordSpace) {
-    return null
-  }
-
-  const temporaryVoiceChannelValue = buildRecipientDiscordSpaceChannelReference({
-    channelUrl: discordSpace.voiceChannelUrl,
-    channelName: discordSpace.voiceChannelName,
-    recipientInServer: discordSpace.recipientInServer
-  })
+  const temporaryVoiceChannelValue = discordSpace
+    ? buildRecipientDiscordSpaceChannelReference({
+        channelUrl: discordSpace.voiceChannelUrl,
+        channelName: discordSpace.voiceChannelName,
+        recipientInServer: discordSpace.recipientInServer
+      })
+    : null
 
   return [
-    temporaryVoiceChannelValue
-      ? temporaryVoiceChannelValue
-      : 'The Discord channel will appear after you join the Game\'s Up Discord server.',
-    !discordSpace.recipientInServer && discordSpace.inviteUrl
+    selectedVoiceChannelValue
+      ?? temporaryVoiceChannelValue
+      ?? (discordSpace ? 'The Discord channel will appear after you join the Game\'s Up Discord server.' : null),
+    discordSpace?.inviteUrl
       ? `Invite link (shareable): ${discordSpace.inviteUrl}`
       : null
   ].filter((part): part is string => Boolean(part)).join('\n') || null
@@ -1404,10 +1388,7 @@ export function buildPlayIntentNotificationPromptPreview(options: {
   }
 
   return {
-    content: appendDiscordInviteUrl(
-      buildPlayIntentDirectMessageHeading(options.title),
-      options.discordSpace?.inviteUrl
-    ),
+    content: buildPlayIntentDirectMessageHeading(options.title),
     embeds: buildPlayIntentDirectMessageEmbeds(
       options.title,
       options.body,
@@ -1936,10 +1917,7 @@ export function buildCreatorPlayIntentSummaryPreview(snapshot: {
   } as CreatorPlayIntentSummarySnapshot
 
   return {
-    content: appendDiscordInviteUrl(
-      buildCreatorPlayIntentSummaryHeading(startsAtLabel),
-      typedSnapshot.discordSpace?.inviteUrl
-    ),
+    content: buildCreatorPlayIntentSummaryHeading(startsAtLabel),
     embeds: buildCreatorPlayIntentSummaryEmbeds(typedSnapshot, currentTime),
     components: buildCreatorPlayIntentSummaryComponents(
       snapshot.id,
@@ -2118,10 +2096,7 @@ async function sendOrEditCreatorPlayIntentSummary(
   const isActive = snapshot.expiresAt > new Date()
   const isScheduled = isScheduledPlayIntentWindow(snapshot.windowStartsAt, new Date())
   const startsAtLabel = formatPlayIntentDateLabel(snapshot.windowStartsAt, snapshot.user.timezoneId)
-  const content = appendDiscordInviteUrl(
-    buildCreatorPlayIntentSummaryHeading(startsAtLabel),
-    snapshot.discordSpace?.inviteUrl
-  )
+  const content = buildCreatorPlayIntentSummaryHeading(startsAtLabel)
   const embeds = buildCreatorPlayIntentSummaryEmbeds(snapshot)
   const components = buildCreatorPlayIntentSummaryComponents(
     playIntentId,
