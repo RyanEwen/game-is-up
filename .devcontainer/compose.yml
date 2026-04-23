@@ -8,6 +8,11 @@ services:
     working_dir: /workspace/game-is-up
     volumes:
       - ..:/workspace/game-is-up:cached
+      # Bind-mount the host user's SSH directory so private keys (e.g. the
+      # production deploy key) survive devcontainer rebuilds. Mounted as
+      # cached read-write so `known_hosts` updates inside the container
+      # propagate back to the host.
+      - ${HOME}/.ssh:/home/node/.ssh:cached
     ports:
       - "4000:4000"
       - "5173:5173"

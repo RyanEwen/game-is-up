@@ -16,7 +16,7 @@ Requirements:
 - Do not ask for confirmation before committing unless the prompt invocation explicitly requests a confirmation step, review-only pause, dry run only, or message approval.
 - Treat the prompt invocation as approval to run `git push` after a successful commit unless the invocation explicitly says not to push.
 - Treat the prompt invocation as approval to deploy after a successful push unless the invocation explicitly says not to deploy.
-- Use the production SSH deploy path by default: `npm run deploy:prod:ssh -- --ssh-key /home/node/.ssh/game-is-up-prod`.
+- Use the production SSH deploy path by default: `npm run deploy:prod:ssh -- --ssh-key /home/node/.ssh/id_ed25519`.
 - If the prompt invocation explicitly requests `push`, include the push step even when the deploy command could also push.
 - If the prompt invocation explicitly requests deploy args such as `--skip-cache-purge`, `--dry-run`, `--host`, `--repo-path`, or `--branch`, pass them through to the deploy command.
 
