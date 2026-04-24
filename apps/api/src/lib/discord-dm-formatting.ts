@@ -1,3 +1,12 @@
+/**
+ * Discord DM payload formatting helpers used by every bot-emitted message.
+ *
+ * Builds embed payloads, button rows, decorated section headings, bullet
+ * lists, and quoted/subtext lines. The shared `decorateFieldLabel` /
+ * `buildDecoratedSectionHeading` functions live in `@game-is-up/shared` so
+ * the live bot output and the debug DM simulator stay aligned.
+ */
+
 import {
   ActionRowBuilder,
   ButtonBuilder,

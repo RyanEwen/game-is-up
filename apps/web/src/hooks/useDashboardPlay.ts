@@ -1,3 +1,14 @@
+/**
+ * Play-page data and actions hook used by `useDashboardApp`.
+ *
+ * Loads the play-intent feed and the audience pickers (friends, opted-in
+ * Discord servers), exposes the create / edit / end / delete flows including
+ * the optimistic transitions for quiet (title-only) edits versus substantive
+ * edits, and surfaces interest toggles for recipients on someone else's
+ * call. Discord-space provisioning state is mirrored locally so the play
+ * detail view can show progress while the API is still creating channels.
+ */
+
 import type { Dispatch, SetStateAction } from 'react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type {

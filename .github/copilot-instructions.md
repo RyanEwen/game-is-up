@@ -12,6 +12,20 @@
 - Keep modules focused and small. If a route starts mixing transport, validation, and business rules, split it.
 - Use ASCII unless a file already needs Unicode.
 
+## Documentation
+
+- Non-trivial modules (anything more than a few lines or anything that owns product behavior) should carry a short JSDoc header at the top of the file describing what the module owns and any non-obvious invariants. Keep it factual.
+- Exported symbols whose behavior is not obvious from the name and signature deserve a brief JSDoc. Internal helpers can stay uncommented unless the implementation is surprising.
+- It is fine (and encouraged) to add or improve docstrings on existing modules you touch, even when the user request did not specifically ask for documentation.
+
+## Shared Helpers (do not duplicate)
+
+- Auth on Express routes: `requireSignedInUserId` and `getUserAdminStatus` from `apps/api/src/lib/route-auth.ts`. Do not re-derive session lookups in routes.
+- Media proxy endpoints: build with `createMediaHandler` from `apps/api/src/lib/media-handler.ts` rather than open-coding cache + token + content-type wiring.
+- Browser-side API URL construction: `buildApiUrl` and `buildAbsoluteApiUrl` from `apps/web/src/lib/apiUrl.ts`. Browser env access goes through `apps/web/src/lib/browserEnv.ts`.
+- Error message extraction from API responses: `extractErrorMessage` from `@game-is-up/shared`.
+- Auto-dismissing notice/banner state in dashboard hooks: `useTimedNotice` from `apps/web/src/hooks/useTimedNotice.ts`.
+
 ## Build And Validation
 
 - Use the devcontainer for local development when possible.

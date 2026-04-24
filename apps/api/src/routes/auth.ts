@@ -1,3 +1,12 @@
+/**
+ * `/api/auth` — authentication entry points and the signed-in user surface.
+ *
+ * Owns the Discord OAuth round-trip (login, callback, link), the Steam OpenID
+ * round-trip, sign-out, and the `/me` endpoint that the web app polls to
+ * resolve the current session, connected providers, Discord-graph
+ * capabilities, and any persisted invite attribution.
+ */
+
 import { Router } from 'express'
 import {
   authProvidersResponseSchema,

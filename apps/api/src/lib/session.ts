@@ -1,3 +1,12 @@
+/**
+ * Cookie-based session and OAuth state management.
+ *
+ * Issues HMAC-signed payloads (using `SESSION_SECRET`) for the auth session
+ * cookie, the Discord OAuth state cookie, and the Steam-link state cookie.
+ * All comparisons are timing-safe; sessions expire after 30 days and OAuth
+ * state cookies after 10 minutes to limit replay surface.
+ */
+
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto'
 import type { Request, Response } from 'express'
 import type { AuthProvider } from '@game-is-up/shared'

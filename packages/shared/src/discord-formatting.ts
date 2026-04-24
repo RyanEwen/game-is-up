@@ -1,11 +1,14 @@
-// Markdown primitives that are safe to use in either Discord DM payloads or
-// the debug DM simulator. Keep this file dependency-free so it can be imported
-// from both the API runtime and the web/shared simulator code.
+/**
+ * Markdown primitives shared between live Discord DM payloads and the debug DM
+ * simulator. Keep this file dependency-free so it can be imported from both
+ * the API runtime and the web/shared simulator code.
+ *
+ * The decoration map is the single source of truth for emoji + label styling
+ * applied to play-intent and auto-play-prompt fields across embed builders,
+ * section headings, and debug DM previews. Add new labels here rather than
+ * duplicating switch statements in feature-specific formatters.
+ */
 
-// Single source of truth for emoji + label decoration applied to play-intent
-// and auto-play-prompt fields across embed builders, section headings, and
-// debug DM previews. Add new labels here rather than duplicating switch
-// statements in feature-specific formatters.
 const fieldDecorations: Record<string, { emoji: string; displayLabel: string }> = {
   'creator': { emoji: '👤', displayLabel: 'Creator' },
   'title': { emoji: '📝', displayLabel: 'Title' },
@@ -27,22 +30,38 @@ const fieldDecorations: Record<string, { emoji: string; displayLabel: string }> 
   'next step': { emoji: '🧭', displayLabel: 'Next Step' }
 }
 
+/**
+ * Decorate a known field label with its canonical emoji prefix. Falls back to
+ * the trimmed input when the label is not registered, so unknown values pass
+ * through cleanly instead of silently disappearing.
+ */
 export function decorateFieldLabel(label: string): string {
   const trimmed = label.trim()
   const decoration = fieldDecorations[trimmed.toLowerCase()]
   return decoration ? `${decoration.emoji} ${decoration.displayLabel}` : trimmed
 }
 
+/**
+ * Build a Discord-style `### Heading` line that uses the same decoration table
+ * as `decorateFieldLabel`, so embed sections and notice headings stay aligned.
+ */
 export function buildDecoratedSectionHeading(label: string): string {
   return `### ${decorateFieldLabel(label)}`
 }
 
-// Shared copy used both by the live auto-play prompt cleanup flow and the
-// debug simulator preview so the two stay in lock-step when wording changes.
+/**
+ * Canonical wording for an auto-play prompt that closed because the bot no
+ * longer sees the recipient playing the observed game. Shared between live
+ * cleanup and the debug simulator so the two never drift out of lock-step.
+ */
 export function buildAutoPlayInactiveObservationClosedReason(gameTitle: string): string {
   return `This prompt was closed because we are no longer seeing you in ${gameTitle}.`
 }
 
+/**
+ * Wrap a single line of text in Discord's `-#` subtext marker. Returns an
+ * empty string for blank input so callers can join arrays without filtering.
+ */
 export function buildDiscordSubtext(text: string): string {
   const trimmed = text.trim()
 
@@ -53,6 +72,11 @@ export function buildDiscordSubtext(text: string): string {
   return trimmed.startsWith('-# ') ? trimmed : `-# ${trimmed}`
 }
 
+/**
+ * Compose a title-plus-sections-plus-subtext Discord notice payload. Null or
+ * empty sections are dropped so callers can pass conditional content without
+ * worrying about extra blank lines.
+ */
 export function buildDiscordNotice(
   title: string,
   sections: Array<string | null>,

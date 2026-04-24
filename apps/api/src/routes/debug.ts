@@ -1,3 +1,12 @@
+/**
+ * `/api/debug` — admin-only diagnostics surface.
+ *
+ * Returns a serialized snapshot of bot state, recent notifications, recent
+ * play-intent lifecycle events, recent errors, and DM previews so the web
+ * debug view can inspect live system state without a separate dashboard.
+ * All endpoints in this router require an admin user.
+ */
+
 import { Router } from 'express'
 import { buildDebugAdminSnapshot } from '../lib/debug-admin.js'
 import { getAuthSession } from '../lib/session.js'

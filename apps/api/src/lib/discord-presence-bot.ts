@@ -1,3 +1,15 @@
+/**
+ * Long-lived Discord gateway client that backs presence observations,
+ * interactive button/select/slash dispatch, and DM message-delivery commands.
+ *
+ * The repository deliberately runs at most one gateway-mode instance per bot
+ * token; other environments share the token in REST-only mode (see
+ * `discord-bot-runtime.ts`). This module owns connect/reconnect, listener
+ * registration, member-cache hydration, and routing inbound interactions to
+ * the per-feature handlers (slash commands, DM commands, prompt buttons,
+ * recipient response buttons, creator action buttons).
+ */
+
 import {
   ActionRowBuilder,
   ActivityType,

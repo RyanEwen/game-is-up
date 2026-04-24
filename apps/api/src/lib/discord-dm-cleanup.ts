@@ -1,3 +1,15 @@
+/**
+ * Tracked Discord DM cleanup, archive, and reference-update flows.
+ *
+ * The bot retains anchor DMs for both creator summaries and per-recipient
+ * invite threads so quiet edits land in place and substantive changes can
+ * cleanly replace the right message. This module is the central place where
+ * those anchors are archived, reference-updated when a play intent rotates
+ * its tracked message, and swept of dangling bot-authored replies. The
+ * archive flow honors a 12-hour retention window before destructive cleanup
+ * and exposes an explicit creator action button once a thread goes stale.
+ */
+
 import { AuthProvider, NotificationType } from '@prisma/client'
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, type MessageActionRowComponentBuilder } from 'discord.js'
 import { NotificationResponseChoice } from '@prisma/client'

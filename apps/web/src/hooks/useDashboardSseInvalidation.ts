@@ -1,3 +1,11 @@
+/**
+ * SSE wiring that turns server-pushed invalidation events into refetch calls.
+ *
+ * Subscribes to `/api/events`, validates frames against the shared schema,
+ * and invokes the registered per-domain refresh callbacks so the dashboard
+ * stays current without per-tab polling.
+ */
+
 import { useEffect } from 'react'
 import { dashboardInvalidationEventSchema, type DashboardInvalidationDomain } from '@game-is-up/shared'
 

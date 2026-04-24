@@ -1,3 +1,9 @@
+/**
+ * `/api/health` — unauthenticated liveness probe used by Docker, monitors,
+ * and the web client's reconnect logic. Returns the canonical health envelope
+ * so Compose-level health checks and the SSE reconnect path share one shape.
+ */
+
 import { Router } from 'express'
 import { healthResponseSchema } from '@game-is-up/shared'
 

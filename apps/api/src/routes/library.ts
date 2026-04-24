@@ -1,3 +1,12 @@
+/**
+ * `/api/library` — the viewer's game library + catalog lookups + Steam import.
+ *
+ * Owns CRUD for library entries, catalog search delegating to the configured
+ * provider (RAWG today), per-entry game-details lookups, and the Steam owned-
+ * games import preview/commit flow. Library writes also backfill notification
+ * rows for any still-active calls to play that newly apply to the viewer.
+ */
+
 import { Router } from 'express'
 import { AuthProvider as PrismaAuthProvider, GameIntentType } from '@prisma/client'
 import {

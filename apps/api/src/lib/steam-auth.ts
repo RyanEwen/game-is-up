@@ -1,3 +1,13 @@
+/**
+ * Steam OpenID + Web API integration.
+ *
+ * Owns the Steam login redirect, the OpenID claim verification on callback,
+ * persistence of the linked `UserSteamIdentity`, and the `IPlayerService`
+ * fetches that back the Steam library import preview. Distinguishes between
+ * configuration errors, rate-limit responses, and missing-profile failures
+ * so the import UI can render targeted messages.
+ */
+
 import { AuthProvider as PrismaAuthProvider } from '@prisma/client'
 import { prisma } from './prisma.js'
 import { env } from './env.js'

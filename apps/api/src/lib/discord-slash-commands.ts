@@ -1,3 +1,14 @@
+/**
+ * Discord guild slash commands owned by the gateway-mode bot.
+ *
+ * Defines the command builders registered with Discord, plus the handlers for
+ * server-adoption and discovery shortcuts (invite flows, member roster, list
+ * of active calls to play visible to that server). Invite shortcuts route
+ * through a dedicated web invite landing page that preserves server and
+ * inviter context across Discord OAuth instead of falling into the generic
+ * app shell.
+ */
+
 import {
   ActionRowBuilder,
   ButtonBuilder,

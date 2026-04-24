@@ -1,3 +1,15 @@
+/**
+ * Builds the visibility-aware feed of active and recently-ended calls to play.
+ *
+ * Includes broad-network creators visible to the viewer plus targeted calls
+ * (specific-friends, specific-discord-server) that explicitly include the
+ * viewer, applies audience-side mutes, and keeps recently-ended calls in the
+ * payload for a short history window so the Play page can render them with
+ * their own status. Each preview is enriched with lightweight
+ * interested-user identity data so the web app does not need a second
+ * lookup for that summary.
+ */
+
 import type { PlayIntentFeed, PlayIntentPreview } from '@game-is-up/shared'
 import { GameIntentType, NotificationResponseChoice, NotificationType, PlayIntentSelectionMode, PlayIntentScope } from '@prisma/client'
 import {

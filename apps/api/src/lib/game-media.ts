@@ -1,3 +1,15 @@
+/**
+ * On-disk cache and signed-token wrapper for external media.
+ *
+ * The API never hands a third-party CDN URL to the browser. This module hashes
+ * the upstream URL into a base64url token, fetches and disk-caches the bytes
+ * under `$TMPDIR/game-is-up/game-media-cache/`, and serves them through
+ * `/api/media/<type>/<token>`. Per-type TTL applies (game covers are
+ * effectively immutable, avatars are re-fetched after 7 days). RAWG covers
+ * additionally support self-healing: a stored 404 triggers a fresh URL
+ * lookup against the persisted catalog id and a single retry before failing.
+ */
+
 import { createHash } from 'node:crypto'
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'

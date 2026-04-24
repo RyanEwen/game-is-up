@@ -1,3 +1,13 @@
+/**
+ * Builds the rich `PlayIntentDetail` payload backing the `/play/:id` deep
+ * link and the in-app "Open details" action. Expands a library-wide call
+ * into the explicit overlapping games for the viewer, optionally exposes the
+ * creator's non-overlapping active library titles, surfaces interested- and
+ * passed-user identities (passed identities only on `specific-friends`
+ * calls), and enriches Discord-space info with the viewer's current access
+ * state so the web view can describe what they are or are not invited to.
+ */
+
 import type { PlayIntentDetail, PlayIntentExpandedGame } from '@game-is-up/shared'
 import {
   GameIntentType,

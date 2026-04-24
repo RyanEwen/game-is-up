@@ -1,3 +1,14 @@
+/**
+ * Startup maintenance pass that consolidates duplicate `Game` rows.
+ *
+ * Older title-decoration splits (e.g. trademark suffix variants) can leave
+ * separate rows that should collapse to a single canonical title. This module
+ * picks a canonical row using catalog source preference, reference counts,
+ * and decoration cleanliness, then migrates dependent interests,
+ * notifications, and observations onto the canonical row before retiring the
+ * duplicates.
+ */
+
 import { GameIntentType } from '@prisma/client'
 import { normalizeGameTitleForMatch } from './game-catalog.js'
 import { prisma } from './prisma.js'

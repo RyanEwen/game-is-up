@@ -1,3 +1,14 @@
+/**
+ * Development-only seed helpers that retarget the demo network onto an admin.
+ *
+ * When an admin signs in locally, the seeded sample friends and the seeded
+ * server-scoped or targeted calls to play are rebound to that admin's real
+ * Discord network where possible so discovery and play-intent flows can be
+ * exercised end-to-end without exposing demo data to signed-out or non-admin
+ * users. Skipped outside dev environments and for accounts that already match
+ * a seeded handle.
+ */
+
 import { prisma } from './prisma.js'
 import { env } from './env.js'
 import { getDiscordBotPresentServerIds } from './discord-presence-bot.js'

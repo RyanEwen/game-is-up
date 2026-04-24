@@ -1,3 +1,15 @@
+/**
+ * Top-level dashboard data hook composed by `Dashboard.tsx`.
+ *
+ * Owns the dashboard's bootstrap fetch, the per-route data loaders
+ * (overview, play, library, invites), Server-Sent Event invalidation wiring,
+ * notice/banner state, and the cross-cutting actions (sign-out, route
+ * synchronization, focus refetches). Sub-hooks `useDashboardPlay`,
+ * `useDashboardLibrary`, and `useDashboardInvites` are composed inside this
+ * hook so views see one consolidated API surface rather than juggling
+ * several smaller hooks.
+ */
+
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type {
   ActivePlayIntent,

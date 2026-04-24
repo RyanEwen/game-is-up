@@ -1,4 +1,25 @@
+/**
+ * Shared HTTP, SSE, and serialization contracts for Game's Up.
+ *
+ * Both the Express API and the Vite web app import from this module to keep
+ * request/response shapes in lock-step. The schemas below are organized into
+ * thematic sections (auth, library, Steam import, game catalog, Discord
+ * servers, play intents, discovery, debug, dashboard SSE, server env, aliases,
+ * mutes) followed by a single block of inferred TypeScript types and
+ * re-exports for the supporting submodules. See `ARCHITECTURE.md` for the
+ * higher-level product context behind these shapes.
+ *
+ * When adding a schema, prefer adding it inside the section it belongs to
+ * rather than appending to the bottom of the file, and define the matching
+ * `export type Foo = z.infer<typeof fooSchema>` next to the existing type
+ * block so the contract surface stays scannable.
+ */
+
 import { z } from 'zod'
+
+// ---------------------------------------------------------------------------
+// Identity, auth, and shared primitives
+// ---------------------------------------------------------------------------
 
 export const authProviderSchema = z.enum(['discord', 'steam'])
 export const discordBotModeSchema = z.enum(['off', 'rest', 'gateway'])
@@ -14,6 +35,10 @@ export const availabilityWindowSchema = z.object({
 })
 
 export const libraryEntryIntentSchema = z.enum(['wishlist', 'interested', 'playing-now'])
+
+// ---------------------------------------------------------------------------
+// Game catalog match + library entries
+// ---------------------------------------------------------------------------
 
 export const catalogGameMatchSchema = z.object({
   source: catalogProviderSchema,
@@ -61,6 +86,10 @@ export const libraryResponseSchema = z.object({
 })
 
 export const steamLibraryImportStatusSchema = z.enum(['not-linked', 'ready', 'unavailable'])
+
+// ---------------------------------------------------------------------------
+// Steam library import flow
+// ---------------------------------------------------------------------------
 
 export const steamLibraryImportGameSchema = z.object({
   sourceId: z.string().trim().min(1).max(96),
@@ -253,6 +282,10 @@ export const upsertLibraryEntryRequestSchema = z.object({
   catalogMatch: catalogGameMatchSchema.optional()
 })
 
+// ---------------------------------------------------------------------------
+// Play intents (composer, audience, scheduling, Discord-space provisioning)
+// ---------------------------------------------------------------------------
+
 export const playIntentSelectionModeSchema = z.enum(['library', 'subset'])
 export const playIntentNotifyScopeSchema = z.enum(['network', 'friends-only', 'specific-friends', 'specific-discord-server'])
 
@@ -392,6 +425,19 @@ export const playIntentDiscordSpaceRetryResponseSchema = z.object({
   message: z.string().min(1)
 })
 
+/**
+ * Composer payload used to create or edit a call to play. The `superRefine`
+ * block enforces the inter-field rules that pure shape validation cannot:
+ *
+ * - Exactly one of `durationMinutes` or `endAt` must be provided.
+ * - `targetUserIds` is required for and exclusive to the `specific-friends`
+ *   audience scope.
+ * - `targetDiscordServerIds` is required for and exclusive to the
+ *   `specific-discord-server` audience scope.
+ * - A temporary Discord space (`createDiscordSpace`) and an existing voice
+ *   channel selection are mutually exclusive.
+ * - Voice channel id and name must be provided together or not at all.
+ */
 export const upsertPlayIntentRequestSchema = z.object({
   playIntentId: z.string().uuid().optional(),
   title: z.string().trim().max(80).optional(),
@@ -471,6 +517,10 @@ export const upsertPlayIntentResponseSchema = z.object({
   notifiedFriendCount: z.number().int().nonnegative()
 })
 
+// ---------------------------------------------------------------------------
+// Discovery feed
+// ---------------------------------------------------------------------------
+
 export const discoveryPersonGameSchema = z.object({
   id: z.string().uuid(),
   title: z.string().min(1),
@@ -543,6 +593,10 @@ export const discoveryFeedSchema = z.object({
   games: z.array(discoveryGameSchema),
   people: z.array(discoveryPersonSchema)
 })
+
+// ---------------------------------------------------------------------------
+// Health, auth providers, authenticated user, profile, session
+// ---------------------------------------------------------------------------
 
 export const healthResponseSchema = z.object({
   status: z.literal('ok'),
@@ -643,6 +697,10 @@ export const authSessionResponseSchema = z.object({
   inviteAttribution: authSessionInviteAttributionSchema.nullable(),
   connectedProviders: z.array(authProviderSchema).default([])
 })
+
+// ---------------------------------------------------------------------------
+// Admin debug snapshot (bot state, recent prompts, lifecycle events, errors)
+// ---------------------------------------------------------------------------
 
 export const debugDiscordBotStateSchema = z.object({
   mode: discordBotModeSchema,
@@ -832,6 +890,11 @@ export const debugAdminResponseSchema = z.object({
   recentErrors: z.array(debugErrorLogSchema)
 })
 
+// ---------------------------------------------------------------------------
+// User-defined aliases (per-platform handles, per-game preferred titles) and
+// audience-side mutes that suppress notifications from a specific creator.
+// ---------------------------------------------------------------------------
+
 export const userPlatformAliasSchema = z.object({
   id: z.string().uuid(),
   platform: z.string().min(1).max(32),
@@ -871,6 +934,10 @@ export const playIntentMuteSchema = z.object({
 export const playIntentMutesResponseSchema = z.object({
   mutes: z.array(playIntentMuteSchema)
 })
+
+// ---------------------------------------------------------------------------
+// Client bootstrap, dashboard SSE invalidation envelope, and server env
+// ---------------------------------------------------------------------------
 
 export const clientBootstrapSchema = z.object({
   appName: z.string(),
@@ -914,6 +981,11 @@ export const serverEnvSchema = z.object({
   RAWG_API_KEY: z.string().optional(),
   ADMIN_HANDLES: z.string().optional()
 })
+
+// ---------------------------------------------------------------------------
+// Inferred TypeScript types for every schema above. New schemas should add
+// their `z.infer` line here so the contract surface stays scannable.
+// ---------------------------------------------------------------------------
 
 export type AuthProvider = z.infer<typeof authProviderSchema>;
 export type PlatformLabel = z.infer<typeof platformLabelSchema>;

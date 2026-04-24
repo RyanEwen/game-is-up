@@ -1,3 +1,12 @@
+/**
+ * `/api/profile` — the viewer's own profile fields.
+ *
+ * Currently exposes a `GET /me` and a partial-update `PATCH /me` for fields
+ * that the web profile page can edit (timezone id, default availability copy,
+ * Discord auto-prompt opt-in). Any update publishes a dashboard invalidation
+ * so other tabs pick up the change.
+ */
+
 import { Router } from 'express'
 import { updateUserProfileRequestSchema, userProfileResponseSchema } from '@game-is-up/shared'
 import { publishDashboardInvalidation } from '../lib/dashboard-events.js'

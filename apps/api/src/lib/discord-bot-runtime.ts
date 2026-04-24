@@ -1,3 +1,13 @@
+/**
+ * Shared Discord runtime entry point used by both bot modes.
+ *
+ * Exposes message-send / message-edit / message-delete primitives that
+ * transparently use the discord.js gateway client when this process is the
+ * gateway owner, and fall back to direct REST calls otherwise. In the
+ * dev-only no-token mode it emits to the in-process DM simulator so every
+ * downstream feature can run end-to-end without a live Discord connection.
+ */
+
 import { REST, Routes, type Client, type MessageCreateOptions } from 'discord.js'
 import { env } from './env.js'
 import { formatDiscordDirectMessageContent } from './discord-dm-formatting.js'

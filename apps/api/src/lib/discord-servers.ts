@@ -1,3 +1,13 @@
+/**
+ * Service-layer helpers for `/api/discord-servers`.
+ *
+ * Reads the current viewer's persisted Discord guild memberships, refreshes
+ * them on demand using the stored Discord refresh token, lists members for an
+ * opted-in shared server (used by invite flows), persists per-server
+ * preferences and selected voice channels, and formats outbound invitation
+ * messages with sender context so they read naturally inside Discord.
+ */
+
 import type { DiscordServerMembersResponse, DiscordServerPreferencesResponse } from '@game-is-up/shared'
 import { AuthProvider as PrismaAuthProvider } from '@prisma/client'
 import { prisma } from './prisma.js'

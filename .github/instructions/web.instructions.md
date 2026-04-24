@@ -14,3 +14,11 @@ description: "Use when working in the Vite web app, Joy UI components, PWA shell
 - When changing the Game's Up PWA icon assets or icon references, keep `apps/web/vite.config.ts` and `apps/web/index.html` aligned and bump the shared icon version query string so installed clients are forced to fetch the updated icon URLs.
 - Keep the admin DM preview surfaces aligned with live Discord output. If the API adds or changes DM copy, embeds, buttons, or preview fields, update the web debug surfaces in the same change so the read-only previews continue to render supported message states correctly.
 - Only show the PWA install CTA when the browser can actually install the app: wait for `beforeinstallprompt` on Chromium, use the manual fallback only on iOS Safari, and avoid generic install buttons in unsupported or already-installed browsers.
+
+## Shared Helpers
+
+- Build API URLs through `buildApiUrl` and `buildAbsoluteApiUrl` in `apps/web/src/lib/apiUrl.ts`. Do not concatenate base URLs inline.
+- Read browser env (Vite `import.meta.env`) through `apps/web/src/lib/browserEnv.ts` so server-render contexts and tests can stub it.
+- Extract API error messages with `extractErrorMessage` from `@game-is-up/shared` instead of repeating ad-hoc shape checks.
+- Auto-dismissing notice/banner state in dashboard hooks goes through `useTimedNotice` in `apps/web/src/hooks/useTimedNotice.ts`.
+- Dashboard data flow is composed in `useDashboardApp.tsx` from the play / library / invites sub-hooks; new dashboard surfaces should attach there rather than instantiating their own duplicate fetchers.

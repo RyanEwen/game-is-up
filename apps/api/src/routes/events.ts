@@ -1,3 +1,12 @@
+/**
+ * `/api/events` — Server-Sent Events stream for dashboard invalidation.
+ *
+ * Signed-in dashboard tabs subscribe to a single SSE connection here and
+ * receive low-detail invalidation envelopes (`{ domains: [...] }`) when shared
+ * state changes elsewhere in the system. The web client uses those envelopes
+ * to debounce a normal HTTP refetch of affected dashboard slices.
+ */
+
 import { Router } from 'express'
 import { subscribeToDashboardInvalidations } from '../lib/dashboard-events.js'
 import { requireSignedInUserId } from '../lib/route-auth.js'

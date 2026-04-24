@@ -1,3 +1,14 @@
+/**
+ * `/api/media/*` — token-keyed media proxy for external CDN assets.
+ *
+ * The API rewrites every external image URL (RAWG covers, Steam CDN game
+ * headers, Discord/Steam avatars) to one of these endpoints before sending it
+ * to the client, so the browser never talks to third-party CDNs directly. Each
+ * handler is built from `createMediaHandler` and only differs in fetcher,
+ * cache policy, and 404 copy. See `lib/game-media.ts` for the cache layer and
+ * `lib/media-handler.ts` for the shared parse/etag/304 flow.
+ */
+
 import { Router } from 'express'
 import { getCachedRawgGameMedia, getCachedSteamGameMedia, getCachedAvatarMedia } from '../lib/game-media.js'
 import { createMediaHandler } from '../lib/media-handler.js'

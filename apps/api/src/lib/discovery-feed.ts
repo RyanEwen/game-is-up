@@ -1,3 +1,14 @@
+/**
+ * Builds the discovery feed payload returned by `/api/discovery`.
+ *
+ * The product model is friends-first: candidates come from explicit follow
+ * links plus opted-in shared Discord servers. This module merges per-person
+ * library entries, availability windows, recent Discord activity
+ * observations, and platform overlap into a single `DiscoveryFeed` shape
+ * along with the trending-game roll-up that drives the secondary discovery
+ * grid.
+ */
+
 import type { DiscoveryFeed, DiscoveryGame, DiscoveryGamePlayer, DiscoveryPerson } from '@game-is-up/shared'
 import { GameIntentType } from '@prisma/client'
 import { getLatestDiscordActivitiesForUsers } from './discord-activity.js'

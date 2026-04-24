@@ -1,3 +1,14 @@
+/**
+ * Discord auto-play prompts driven by presence observations.
+ *
+ * When the gateway-owning bot sees a linked user start a game we may DM them a
+ * one-tap prompt to broadcast that as a call to play. This module owns prompt
+ * creation, per-user cooldown enforcement, the prompt button-response flow
+ * (which can synthesize a brand-new play intent at the chosen audience scope),
+ * and the closed-state retention pattern (the original prompt DM stays as the
+ * anchor; the closure reason is sent as a reply rather than replacing it).
+ */
+
 import {
   ActionRowBuilder,
   ButtonBuilder,

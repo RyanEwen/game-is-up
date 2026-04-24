@@ -1,3 +1,14 @@
+/**
+ * RAWG catalog provider implementation.
+ *
+ * Owns the typed wrapper over RAWG's search and game-detail endpoints,
+ * including the response zod schemas, gameplay classification heuristics
+ * (single-player only / multiplayer / co-op based on tags + categories),
+ * description HTML stripping, and platform-label normalization. Other modules
+ * call into here when they need fresh catalog data; the persistence layer
+ * lives in `game-catalog.ts`.
+ */
+
 import type { GameDetails, GameDetailsGameplay } from '@game-is-up/shared'
 import { z } from 'zod'
 import { env } from './env.js'

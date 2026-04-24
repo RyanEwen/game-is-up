@@ -1,3 +1,13 @@
+/**
+ * Plain text DM command surface exposed by the gateway-mode bot.
+ *
+ * Linked users can DM the bot for lightweight control: status checks, ending
+ * an active call to play, toggling auto-play prompts, and removing settled
+ * bot-authored DM history. Replies are emitted as transient messages with
+ * dismiss buttons so the linked user's DM history stays uncluttered after a
+ * command finishes.
+ */
+
 import {
   ActionRowBuilder,
   ButtonBuilder,

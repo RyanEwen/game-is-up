@@ -1,3 +1,13 @@
+/**
+ * `/api/discord-servers` — Discord-server preferences and per-server members.
+ *
+ * Reads the viewer's opted-in shared servers (used by discovery and play-intent
+ * audience scopes), refreshes the live Discord server list via the stored
+ * Discord refresh token, lists members for invite flows, and persists
+ * per-server preferences and selected voice channels. Slash-command driven
+ * server invites also funnel through this router.
+ */
+
 import { Router } from 'express'
 import { z } from 'zod'
 import {

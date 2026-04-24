@@ -1,3 +1,12 @@
+/**
+ * `/api/discovery` — friends-first discovery feed.
+ *
+ * Returns the discovery payload (people + games + interest overlap) for the
+ * viewer based on explicit follows plus opted-in shared Discord servers. The
+ * heavy lifting lives in `lib/discovery-feed.ts`; this router is intentionally
+ * thin transport + validation only.
+ */
+
 import { Router } from 'express'
 import { Prisma } from '@prisma/client'
 import { discoveryFeedSchema } from '@game-is-up/shared'

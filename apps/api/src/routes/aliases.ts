@@ -1,3 +1,15 @@
+/**
+ * `/api/aliases` — user-defined display overrides.
+ *
+ * Platforms: per-user, per-platform handles (e.g. Steam name, Xbox gamertag)
+ * surfaced wherever we render the platform-specific identity for that user.
+ * Games: per-user preferred title for a specific game in their library, used
+ * to override the canonical catalog title in lists and Discord embeds.
+ *
+ * Both kinds use upsert semantics keyed by `(userId, platform)` and
+ * `(userId, gameId)` respectively, with `deleteMany` clearing an alias.
+ */
+
 import { Router } from 'express'
 import { z } from 'zod'
 import {

@@ -1,3 +1,15 @@
+/**
+ * One-time live-activity nudges for active calls to play.
+ *
+ * When the presence stream observes someone in the live group launching the
+ * planned game (or joining the associated voice channel), this module fires a
+ * threaded reply under the retained call anchor so other recipients see the
+ * activity. Audience-side nudges are gated to recipients who already
+ * expressed interest, while creator-side nudges can still reflect audience
+ * activity. Advisory locks prevent duplicate notifications when concurrent
+ * presence events race for the same play intent + recipient pair.
+ */
+
 import {
   AuthProvider,
   NotificationType,

@@ -1,3 +1,15 @@
+/**
+ * Discord presence observation persistence.
+ *
+ * Records per-Discord-identity activity rows when the gateway-mode bot sees a
+ * user playing a game, deduplicated by (name, application id, type, started
+ * at) so the same session doesn't fragment the observation set. Other modules
+ * read these rows to power library suggestions, discovery enrichment, and
+ * the auto-play prompt trigger flow. Observations are kept even for users
+ * who are not (yet) Game's Up members so the data can attach later if they
+ * sign up.
+ */
+
 import type { DiscoveryPerson } from '@game-is-up/shared'
 import { AuthProvider, DiscordActivityType, type Prisma } from '@prisma/client'
 import {

@@ -1,3 +1,13 @@
+/**
+ * Optional temporary Discord spaces (category + text + voice) attached to a
+ * play intent. Owns provisioning, per-user access grants, post-call retention
+ * (a short window before background deletion), retry-on-failure semantics, and
+ * the legacy backfill path for older voice-only spaces. Access state is
+ * modeled explicitly so the API can describe whether a recipient already
+ * belongs to the server, has been invited, or should be granted access if
+ * they accept later.
+ */
+
 import { AuthProvider, PlayIntentDiscordSpaceAccessSource, PlayIntentDiscordSpaceStatus } from '@prisma/client'
 import { ChannelType, OverwriteType, PermissionFlagsBits, Routes } from 'discord.js'
 import { publishPlayIntentInvalidation } from './dashboard-events.js'

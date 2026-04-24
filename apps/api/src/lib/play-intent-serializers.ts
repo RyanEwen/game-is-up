@@ -1,3 +1,11 @@
+/**
+ * Conversions between Prisma play-intent enums and the shared client types.
+ *
+ * Also exposes visibility-aware Discord-space and target-server serializers
+ * so the API only reveals channel URLs and access state that the viewer is
+ * actually entitled to see.
+ */
+
 import { PlayIntentDiscordSpaceStatus, PlayIntentScope, PlayIntentSelectionMode } from '@prisma/client'
 import { buildDiscordChannelUrl } from './discord-channel-urls.js'
 import { buildDiscordServerIconUrl } from './discord-servers.js'

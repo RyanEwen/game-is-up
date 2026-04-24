@@ -1,3 +1,14 @@
+/**
+ * Game catalog reads and writes against the shared `Game` table.
+ *
+ * Owns title-driven canonicalization (normalizes diacritics and storefront
+ * decorations like ™ / ® so Steam imports, manual entry, and Discord
+ * activity observations all converge on one row), creation-from-catalog-match
+ * flows for RAWG and Steam, and slug deduplication. The maintenance pass in
+ * `game-catalog-maintenance.ts` consolidates older duplicates into the
+ * canonical row chosen here.
+ */
+
 import type { CatalogGameMatch, GameSearchResult } from '@game-is-up/shared'
 import { prisma } from './prisma.js'
 import { resolveStoredGameCoverUrl, toClientGameCoverUrl } from './game-media.js'

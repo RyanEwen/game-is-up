@@ -1,3 +1,13 @@
+/**
+ * Drives the in-app debug DM lifecycle simulator on the admin debug page.
+ *
+ * Holds the simulated state machine inputs (recipient response, prompt
+ * confirmation, scheduled check-in, archive cleanup) and produces the same
+ * payloads the live bot would emit by delegating to the shared simulator in
+ * `@game-is-up/shared`. Used to inspect message rendering without firing
+ * real Discord traffic.
+ */
+
 import { useEffect, useState } from 'react'
 import type {
   SimulatedAutoPlayPromptDraft,

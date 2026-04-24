@@ -1,3 +1,12 @@
+/**
+ * System notification copy + component spec for play-intent lifecycle events.
+ *
+ * Defines the canonical body text and the set of interactive components for
+ * each event kind (voice join, game launch, interest change, end-of-call,
+ * archive cleanup) so the bot, the in-app DM simulator, and the debug
+ * snapshot all render the same wording.
+ */
+
 type PlayIntentSystemNotificationComponentMode = 'none' | 'link' | 'archived-cleanup'
 
 type PlayIntentSystemNotificationDefinition = {

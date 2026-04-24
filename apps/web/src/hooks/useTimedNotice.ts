@@ -1,3 +1,8 @@
+/**
+ * Auto-dismisses a `Notice` after a TTL, keeping the dashboard banners
+ * disposable without requiring callers to manage their own timers.
+ */
+
 import type { Dispatch, SetStateAction } from 'react'
 import { useEffect } from 'react'
 import type { Notice } from '../components/dashboard/types'

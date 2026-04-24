@@ -1,3 +1,18 @@
+/**
+ * `/api/play-intents` — calls-to-play CRUD, audience responses, mutes, and the
+ * temporary-Discord-space side flow.
+ *
+ * This is the busiest route module in the system and intentionally talks
+ * directly to the play-intent service layer in `lib/play-intents.ts`,
+ * `lib/play-intent-detail.ts`, `lib/play-intent-feed.ts`, and friends. Quiet
+ * edits (title-only) deliberately skip recipient re-notification; substantive
+ * edits trigger audience-response invalidation as defined by
+ * `shouldInvalidatePlayIntentAudienceResponse` in `@game-is-up/shared`.
+ *
+ * Several endpoints are admin-gated (force delete, retry/delete a Discord
+ * space on behalf of another user) via `getUserAdminStatus`.
+ */
+
 import { Router } from 'express'
 import type { Request, Response } from 'express'
 import { Prisma } from '@prisma/client'

@@ -1,3 +1,13 @@
+/**
+ * Pure helpers that classify play-intent edits.
+ *
+ * The API uses these to decide which audience-side responses must be reset
+ * (substantive timing or game-list changes) versus which edits are quiet
+ * (note-only, audience-only, or temporary-Discord-channel-only). Keeping the
+ * comparison logic in shared lets the web composer preview the same outcome
+ * without round-tripping the server.
+ */
+
 export const playIntentUpdatedFieldLabels = [
   'time',
   'game selection',
@@ -46,6 +56,11 @@ function areSamePlayIntentUpdateKeys(
   return normalizedLeft.every((value, index) => value === normalizedRight[index])
 }
 
+/**
+ * Diff two play-intent snapshots and return the human-readable field labels
+ * that changed. Order is stable across calls so the labels can be rendered
+ * directly into notification copy.
+ */
 export function resolvePlayIntentUpdatedFields(
   previous: PlayIntentUpdateComparison,
   next: PlayIntentUpdateComparison
@@ -75,12 +90,23 @@ export function resolvePlayIntentUpdatedFields(
   return updatedFields
 }
 
+/**
+ * Build the one-line summary used in audience- and creator-facing update
+ * notifications. Empty input falls back to a generic phrase so the surface
+ * never renders an empty change list.
+ */
 export function buildPlayIntentUpdatedFieldsSummary(updatedFields: readonly string[]) {
   return updatedFields.length > 0
     ? `Updated the call to play: ${updatedFields.join(', ')} changed.`
     : 'Updated the call to play details.'
 }
 
+/**
+ * True when at least one updated field is substantive enough that previously
+ * collected audience responses (interested / pass) should be invalidated.
+ * Quiet edits (note, audience-only, temporary Discord channel) preserve the
+ * existing responses.
+ */
 export function shouldInvalidatePlayIntentAudienceResponse(updatedFields: readonly string[]) {
   return updatedFields.some((field) => invalidatingAudienceResponseUpdatedFields.has(field as PlayIntentUpdatedField))
 }

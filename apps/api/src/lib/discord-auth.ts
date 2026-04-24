@@ -1,3 +1,13 @@
+/**
+ * Discord OAuth provider implementation.
+ *
+ * Handles the authorize URL, code exchange, profile + guild fetches, and
+ * upsert of the corresponding `User` and `UserDiscordIdentity` rows. Stores
+ * the OAuth refresh token so a signed-in user can later refresh their guild
+ * membership list from the Network page without redoing the full OAuth
+ * round-trip unless Discord has revoked the grant.
+ */
+
 import { AuthProvider as PrismaAuthProvider } from '@prisma/client'
 import { prisma } from './prisma.js'
 import { env } from './env.js'

@@ -1,3 +1,12 @@
+/**
+ * `/api/friends` — one-way follow links between app users.
+ *
+ * The product model uses directional favorites rather than mutual friendship,
+ * so an upsert-based add and a delete-based remove keep the schema simple.
+ * Both endpoints publish a dashboard invalidation so the viewer's other tabs
+ * (and the followed user's discovery rank) refresh promptly.
+ */
+
 import { Router } from 'express'
 import { z } from 'zod'
 import { publishDashboardInvalidation } from '../lib/dashboard-events.js'

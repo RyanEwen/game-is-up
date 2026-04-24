@@ -1,3 +1,12 @@
+/**
+ * Invites + Network page hook used by `useDashboardApp`.
+ *
+ * Backs the friends list, the per-server discovery preferences, the Discord
+ * invite flow, and the manual-add fallback. Composes the audience eligibility
+ * data that `useDashboardPlay` needs when building targeted call-to-play
+ * audiences so both surfaces read from the same shape.
+ */
+
 import type { Dispatch, SetStateAction } from 'react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type {

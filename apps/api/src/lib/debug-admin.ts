@@ -1,3 +1,13 @@
+/**
+ * Builds the admin-only debug snapshot consumed by `/api/debug/admin`.
+ *
+ * Aggregates bot state, recent play intents, lifecycle events, notification
+ * delivery records, auto-play prompts, recent errors, and serialized DM
+ * previews into a single read-only response. The DM previews are produced by
+ * the same payload builders the live bot uses, so the web debug view inspects
+ * actual current output rather than a separate emulator surface.
+ */
+
 import { debugAdminResponseSchema } from '@game-is-up/shared'
 import {
   AuthProvider,

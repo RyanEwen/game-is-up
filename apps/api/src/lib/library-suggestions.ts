@@ -1,3 +1,13 @@
+/**
+ * Library-page suggestion sources.
+ *
+ * Surfaces titles the bot has observed the viewer playing on Discord that
+ * are not yet in their library, plus a network-trending roll-up over a
+ * 14-day lookback. Falls back to seeded development data when the live
+ * observation set is sparse so dev environments still demonstrate the
+ * feature.
+ */
+
 import type { LibrarySuggestedGame, LibraryTrendingGame } from '@game-is-up/shared'
 import { AuthProvider } from '@prisma/client'
 import { env } from './env.js'

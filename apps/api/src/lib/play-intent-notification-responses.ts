@@ -1,3 +1,15 @@
+/**
+ * Recipient-side response handling for call-to-play DM prompts.
+ *
+ * Owns the full lifecycle for the audience response flow: parsing the custom
+ * id from a Discord button click, applying the chosen response transition
+ * (interested / pass / decline / join) to the notification row, refreshing
+ * the recipient's tracked DM, fanning a creator-facing acknowledgement DM,
+ * and resetting state when a substantive play-intent edit invalidates prior
+ * responses. Also handles the scheduled go-time check-in flow that converts a
+ * prior 'interested' response into 'join' once the call actually starts.
+ */
+
 import {
   ActionRowBuilder,
   ButtonBuilder,

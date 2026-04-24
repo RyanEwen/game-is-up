@@ -1,3 +1,13 @@
+/**
+ * Library-page data and actions hook used by `useDashboardApp`.
+ *
+ * Loads the persisted library, the suggestion + trending sections, and the
+ * Steam-import preview. Owns the search-and-add flow against the shared game
+ * catalog (including diacritic-tolerant matching), the platform-tag editor,
+ * the per-game intent toggles (own / wishlist / hide), and refresh
+ * invalidations triggered by SSE.
+ */
+
 import type { Dispatch, SetStateAction } from 'react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type {

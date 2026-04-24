@@ -1,3 +1,13 @@
+/**
+ * Per-game detail payload composer.
+ *
+ * Aggregates the canonical row from the database with classification,
+ * gameplay, media, and store-link sections, applying a 30-minute TTL on the
+ * RAWG-derived enrichment so detail views stay snappy without thrashing the
+ * upstream API. Description copy is truncated and metadata strings are
+ * deduplicated before serialization.
+ */
+
 import type { GameDetails, GameDetailsGameplay } from '@game-is-up/shared'
 import { prisma } from './prisma.js'
 import { toClientGameCoverUrl } from './game-media.js'

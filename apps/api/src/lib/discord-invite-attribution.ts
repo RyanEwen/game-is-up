@@ -1,3 +1,13 @@
+/**
+ * Persists `InviteAttribution` records and the helpers used to read them.
+ *
+ * Slash-command and web invite landings carry server + inviter context
+ * through Discord OAuth so the first sign-in can attribute the new account
+ * to its source. Recent attributions are deduplicated within a 24-hour
+ * window so a user re-clicking an invite during onboarding does not double
+ * credit the inviter.
+ */
+
 import { AuthProvider as PrismaAuthProvider, DiscordInviteAttributionKind } from '@prisma/client'
 import { env } from './env.js'
 import { prisma } from './prisma.js'

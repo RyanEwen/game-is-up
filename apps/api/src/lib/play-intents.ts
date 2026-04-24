@@ -1,3 +1,15 @@
+/**
+ * Play-intent service layer used by the `/api/play-intents` route module.
+ *
+ * Owns creation, edits, deletion, and the in-process side effects (audience
+ * fan-out, library backfill, mute-aware filtering, dashboard invalidation,
+ * Discord DM and embed updates). Enforces the no-overlapping-active-windows
+ * rule for a single creator, validates the audience scope rules that
+ * `upsertPlayIntentRequestSchema` cannot express alone, and decides which
+ * downstream notifications must replace versus edit-in-place based on the
+ * shared `resolvePlayIntentUpdatedFields` helper.
+ */
+
 import type {
   ActivePlayIntent,
   PlayIntentNotifyScope,

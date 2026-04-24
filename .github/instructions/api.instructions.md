@@ -13,3 +13,9 @@ description: "Use when working in the Express API, route modules, service logic,
 - When changing any Discord DM content, components, embeds, or branching states, update the live runtime payload builders, any serialized debug preview builders, the shared preview serialization/schema, and the web DM preview renderer together so read-only debug previews stay aligned with real bot output.
 - When adding a new DM flow or a materially new DM state, make sure the debug snapshot still exposes the relevant preview payloads from real runtime data where the admin web surfaces depend on them.
 - Keep cleanup-specific or archived DM/embed builders close to the cleanup modules that own them. Pulling those builders back into play-intent response modules can create avoidable runtime dependency cycles.
+
+## Shared Helpers
+
+- Authentication on Express routes goes through `requireSignedInUserId` and `getUserAdminStatus` in `apps/api/src/lib/route-auth.ts`. Routes should not re-derive session lookups inline.
+- Media proxy endpoints (game covers, avatars, anything cached and token-wrapped) should use the `createMediaHandler` factory in `apps/api/src/lib/media-handler.ts` rather than open-coding cache, token decoding, or content-type wiring.
+- Each route file should carry a short JSDoc module header describing what it owns. Service modules in `src/lib` should do the same plus document any non-obvious invariants (cooldowns, retention windows, dedup keys, locking).
