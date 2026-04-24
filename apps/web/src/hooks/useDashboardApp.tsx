@@ -1,4 +1,3 @@
-import type { Dispatch, SetStateAction } from 'react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type {
   ActivePlayIntent,
@@ -43,19 +42,16 @@ import { useDashboardInvites } from './useDashboardInvites'
 import { useDashboardLibrary } from './useDashboardLibrary'
 import { useDashboardPlay } from './useDashboardPlay'
 import { useDashboardSseInvalidation } from './useDashboardSseInvalidation'
+import { useTimedNotice } from './useTimedNotice'
 import { checkForAppUpdate } from '../lib/appUpdate'
+import { buildAbsoluteApiUrl, buildApiUrl } from '../lib/apiUrl'
+import {
+  type BeforeInstallPromptEvent,
+  getBrowserTimeZoneId,
+  getInstallSupport,
+  getIsInstalledBrowserApp
+} from '../lib/browserEnv'
 
-type BeforeInstallPromptEvent = Event & {
-  prompt: () => Promise<void>;
-  userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
-};
-
-type NavigatorWithStandalone = Navigator & {
-  standalone?: boolean;
-};
-
-const configuredApiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim()
-const apiBaseUrl = configuredApiBaseUrl != null ? configuredApiBaseUrl.replace(/\/$/, '') : ''
 const apiReconnectPollMs = 5000
 const emptyLibraryEntries: LibraryResponse['entries'] = []
 const inviteAttributionOnboardingWindowMs = 14 * 24 * 60 * 60 * 1000
@@ -84,98 +80,6 @@ const initialState: LoadState = {
   library: null,
   playIntents: null,
   error: null
-}
-
-function useTimedNotice(notice: Notice | null, setNotice: Dispatch<SetStateAction<Notice | null>>) {
-  useEffect(() => {
-    if (!notice) {
-      return
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      setNotice(null)
-    }, 5000)
-
-    return () => {
-      window.clearTimeout(timeoutId)
-    }
-  }, [notice, setNotice])
-}
-
-function getBrowserTimeZoneId(): string | null {
-  try {
-    const timezoneId = Intl.DateTimeFormat().resolvedOptions().timeZone?.trim()
-
-    return timezoneId ? timezoneId : null
-  } catch {
-    return null
-  }
-}
-
-export function buildApiUrl(path: string): string {
-  if (!apiBaseUrl) {
-    if (typeof window === 'undefined') {
-      return path
-    }
-
-    return new URL(path, window.location.origin).toString()
-  }
-
-  return `${apiBaseUrl}${path}`
-}
-
-function buildAbsoluteApiUrl(path: string): string {
-  if (typeof window !== 'undefined') {
-    return new URL(buildApiUrl(path), window.location.origin).toString()
-  }
-
-  return buildApiUrl(path)
-}
-
-function getIsDiscordInAppBrowser(): boolean {
-  if (typeof window === 'undefined') {
-    return false
-  }
-
-  return /discord/i.test(window.navigator.userAgent)
-}
-
-function getInstallSupport(installPromptEvent: BeforeInstallPromptEvent | null): 'prompt' | 'ios-manual' | null {
-  if (typeof window === 'undefined') {
-    return null
-  }
-
-  if (getIsDiscordInAppBrowser()) {
-    return null
-  }
-
-  if (installPromptEvent) {
-    return 'prompt'
-  }
-
-  const userAgent = window.navigator.userAgent.toLowerCase()
-  const isiOS = /iphone|ipad|ipod/.test(userAgent)
-  const isSafari = /safari/.test(userAgent) && !/crios|fxios|edgios|chrome|android/.test(userAgent)
-
-  if (isiOS && isSafari) {
-    return 'ios-manual'
-  }
-
-  return null
-}
-
-function getIsInstalledBrowserApp(): boolean {
-  if (typeof window === 'undefined') {
-    return false
-  }
-
-  const navigator = window.navigator as NavigatorWithStandalone
-
-  return navigator.standalone === true
-    || window.matchMedia('(display-mode: standalone)').matches
-    || window.matchMedia('(display-mode: window-controls-overlay)').matches
-    || window.matchMedia('(display-mode: minimal-ui)').matches
-    || window.matchMedia('(display-mode: fullscreen)').matches
 }
 
 export function useDashboardApp() {

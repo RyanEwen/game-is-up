@@ -13,7 +13,7 @@ import { CompactPersonGameCard } from '../components/dashboard/PersonCard'
 import { PlayIntentGameList } from '../components/dashboard/PlayIntentCard'
 import { formatNotifyScopeLabel, formatPlayIntentTimingSummary, memberGameGridSx } from '../components/dashboard/dashboardUtils'
 import { useDashboardContext } from '../contexts/useDashboardContext'
-import { buildApiUrl } from '../hooks/useDashboardApp'
+import { buildApiUrl } from '../lib/apiUrl'
 import { useDashboardSseInvalidation } from '../hooks/useDashboardSseInvalidation'
 import { formatMonthDayTime } from '../lib/dateTime'
 

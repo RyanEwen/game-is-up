@@ -16,7 +16,7 @@ import { sectionScrollMarginTop } from '../components/dashboard/SectionNav.const
 import { formatLibraryIntentLabel, libraryEntryGridSx } from '../components/dashboard/dashboardUtils'
 import type { DashboardLibraryQuickAddGame } from '../components/dashboard/types'
 import { useDashboardContext } from '../contexts/useDashboardContext'
-import { buildApiUrl } from '../hooks/useDashboardApp'
+import { buildApiUrl } from '../lib/apiUrl'
 
 const steamImportPlatformOptions = ['PC', 'Xbox', 'PlayStation', 'Switch', 'Mobile', 'macOS', 'Linux'] as const
 const steamImportListMinHeight = 280
