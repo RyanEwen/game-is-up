@@ -5,7 +5,6 @@
   "type": "module",
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "predev": "npm run build --workspace @game-is-up/shared",
     "dev": "tsx watch src/index.ts",
     "test": "node --import tsx --test src/**/*.test.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json",

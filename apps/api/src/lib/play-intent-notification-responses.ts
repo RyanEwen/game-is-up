@@ -140,6 +140,8 @@ type ResolvablePlayIntentNotification = {
   playIntent: {
     id: string;
     scope: PlayIntentScope;
+    selectionMode: 'ENTIRE_LIBRARY' | 'SELECTED_GAMES';
+    _count: { games: number };
     user: {
       id: string;
       displayName: string;
@@ -918,7 +920,7 @@ function buildRecipientVoiceChannelValue(
   const selectedVoiceChannelValue = voiceChannel?.channelName
     ? voiceChannel.channelId && voiceChannel.recipientSharesServer
       ? `<#${voiceChannel.channelId}>`
-      : voiceChannel.channelName
+      : `#${voiceChannel.channelName}`
     : null
 
   const temporaryVoiceChannelValue = discordSpace
@@ -3206,11 +3208,14 @@ async function applyRecipientResponseToPlayIntentNotification(options: {
   const discordSpace = (await getPlayIntentDiscordSpaceRecipientContexts(playIntent.id, [notification.userId]))
     .get(notification.userId) ?? null
 
+  const playIntentCoversSingleGame = playIntent.selectionMode === 'SELECTED_GAMES' && playIntent._count.games === 1
+  const responseGameTitle = playIntentCoversSingleGame ? notification.game?.title ?? null : null
+
   if (response === NotificationResponseChoice.DECLINE) {
     const creatorNotificationCopy = buildCreatorPassNotification({
       recipientDisplayName: notification.user.displayName,
       recipientDiscordUserId: notification.user.identities?.[0]?.providerUserId ?? null,
-      gameTitle: notification.game?.title ?? null
+      gameTitle: responseGameTitle
     })
     const shouldCreateCreatorPassNotification = responseTransition.shouldCreateCreatorSystemNotification
 
@@ -3293,7 +3298,7 @@ async function applyRecipientResponseToPlayIntentNotification(options: {
   const creatorNotificationCopy = buildCreatorInterestedNotification({
     recipientDisplayName: notification.user.displayName,
     recipientDiscordUserId: notification.user.identities?.[0]?.providerUserId ?? null,
-    gameTitle: notification.game?.title ?? null
+    gameTitle: responseGameTitle
   })
 
   const creatorStatusNotification = responseTransition.shouldCreateCreatorSystemNotification
@@ -3406,7 +3411,11 @@ export async function respondToPlayIntentFromWeb(options: {
         select: {
           id: true,
           scope: true,
+          selectionMode: true,
           expiresAt: true,
+          _count: {
+            select: { games: true }
+          },
           user: {
             select: {
               id: true,
@@ -4175,6 +4184,9 @@ export async function handlePlayIntentNotificationInteraction(interaction: Butto
             voiceChannelId: true,
             voiceChannelName: true,
             expiresAt: true,
+            _count: {
+              select: { games: true }
+            },
             user: {
               select: {
                 id: true,
@@ -4287,6 +4299,10 @@ export async function handlePlayIntentNotificationInteraction(interaction: Butto
             select: {
               id: true,
               scope: true,
+              selectionMode: true,
+              _count: {
+                select: { games: true }
+              },
               user: {
                 select: {
                   id: true,

@@ -160,6 +160,15 @@ export const theme = extendTheme({
       defaultProps: {
         useFlexGap: true
       }
+    },
+    JoyModalDialog: {
+      styleOverrides: {
+        root: {
+          backgroundColor: '#0f1726',
+          borderColor: '#304159',
+          boxShadow: 'none'
+        }
+      }
     }
   },
   colorSchemes: {
