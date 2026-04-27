@@ -190,21 +190,14 @@ That script:
 
 Default SSH deployment values are:
 
-- host: `deploy@server.example`
+- host: `deploy-host`
 - port: `22`
 - repo path: `/srv/game-is-up`
 - branch: `main`
 
-Override them with flags such as `--host`, `--port`, `--repo-path`, `--branch`, `--compose-file`, and `--ssh-key`, or with the env vars `DEPLOY_SSH_HOST`, `DEPLOY_SSH_PORT`, `DEPLOY_REPO_PATH`, `DEPLOY_GIT_BRANCH`, `DEPLOY_COMPOSE_FILES`, and `DEPLOY_SSH_KEY`. Pass `--compose-file` multiple times when you need an exact Compose stack, for example `--compose-file compose.yml --compose-file compose.prod.yml`. If you need to bypass the post-deploy purge for an emergency rollout, pass `--skip-cache-purge`.
+Override them with flags such as `--host`, `--port`, `--repo-path`, `--branch`, and `--compose-file`, or with the env vars `DEPLOY_SSH_HOST`, `DEPLOY_SSH_PORT`, `DEPLOY_REPO_PATH`, `DEPLOY_GIT_BRANCH`, and `DEPLOY_COMPOSE_FILES`. Pass `--compose-file` multiple times when you need an exact Compose stack, for example `--compose-file compose.yml --compose-file compose.prod.yml`. If you need to bypass the post-deploy purge for an emergency rollout, pass `--skip-cache-purge`.
 
-If you omit `--ssh-key`, the deploy script falls back to your normal SSH authentication setup, which may use your default key or prompt for a password.
-
-If you want a dedicated deployment key, create one locally and add the public key to `~/.ssh/authorized_keys` for the deploy user on the server:
-
-```bash
-ssh-keygen -t ed25519 -f ~/.ssh/game-is-up-prod
-npm run deploy:prod:ssh -- --push --ssh-key ~/.ssh/game-is-up-prod
-```
+The devcontainer now bind-mounts your local `.ssh` directory, so this deploy path uses your normal SSH config and host aliases directly. With the default host of `deploy-host`, any configured user, key selection, and host-specific settings come from your mounted SSH config rather than deploy-script flags.
 
 The public container runs unprivileged Nginx on internal port `8080`, and Docker maps host port `8080` to it by default. Nginx proxies `/api/*` to the API container so browser clients can stay same-origin in production.
 

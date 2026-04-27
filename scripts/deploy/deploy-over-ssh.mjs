@@ -11,13 +11,12 @@ function parseArgs(argv) {
     branch: process.env.DEPLOY_GIT_BRANCH?.trim() || 'main',
     composeFiles: parseComposeFiles(process.env.DEPLOY_COMPOSE_FILES),
     dryRun: false,
-    host: process.env.DEPLOY_SSH_HOST?.trim() || 'deploy@server.example',
+    host: process.env.DEPLOY_SSH_HOST?.trim() || 'deploy-host',
     port: process.env.DEPLOY_SSH_PORT?.trim() || '22',
     push: false,
     repoPath: process.env.DEPLOY_REPO_PATH?.trim() || '/srv/game-is-up',
     skipCachePurge: false,
-    skipValidate: false,
-    sshKeyPath: process.env.DEPLOY_SSH_KEY?.trim() || undefined
+    skipValidate: false
   }
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -128,22 +127,6 @@ function parseArgs(argv) {
       continue
     }
 
-    if (argument === '--ssh-key') {
-      const value = argv[index + 1]
-      if (!value) {
-        throw new Error('Missing value for --ssh-key.')
-      }
-
-      options.sshKeyPath = value
-      index += 1
-      continue
-    }
-
-    if (argument.startsWith('--ssh-key=')) {
-      options.sshKeyPath = argument.slice('--ssh-key='.length)
-      continue
-    }
-
     throw new Error(`Unknown argument: ${argument}`)
   }
 
@@ -151,7 +134,7 @@ function parseArgs(argv) {
 }
 
 function printHelp() {
-  process.stdout.write(`Usage: npm run deploy:prod:ssh -- [options]\n\nOptions:\n  --push                Push local HEAD to origin/<branch> before deploying\n  --skip-validate       Skip local npm run validate before deployment\n  --skip-cache-purge    Skip the post-deploy Cloudflare cache purge\n  --host <value>        SSH host, default deploy@server.example\n  --port <value>        SSH port, default 22\n  --repo-path <path>    Remote repo path, default /srv/game-is-up\n  --branch <name>       Git branch to deploy, default main\n  --compose-file <path> Repeatable Docker Compose file override; defaults to compose.yml and auto-adds compose.prod.yml when present on the server\n  --ssh-key <path>      SSH private key to use for the connection\n  --dry-run             Print the planned commands without running them\n  --help                Show this message\n`)
+  process.stdout.write(`Usage: npm run deploy:prod:ssh -- [options]\n\nOptions:\n  --push                Push local HEAD to origin/<branch> before deploying\n  --skip-validate       Skip local npm run validate before deployment\n  --skip-cache-purge    Skip the post-deploy Cloudflare cache purge\n  --host <value>        SSH host, default deploy-host\n  --port <value>        SSH port, default 22\n  --repo-path <path>    Remote repo path, default /srv/game-is-up\n  --branch <name>       Git branch to deploy, default main\n  --compose-file <path> Repeatable Docker Compose file override; defaults to compose.yml and auto-adds compose.prod.yml when present on the server\n  --dry-run             Print the planned commands without running them\n  --help                Show this message\n`)
 }
 
 function parseComposeFiles(value) {
@@ -254,10 +237,6 @@ function main() {
   const remoteDeployCommand = buildRemoteDeployCommand(options)
   const remoteShellCommand = `bash -lc ${shellQuote(remoteDeployCommand)}`
   const sshArgs = ['-p', options.port]
-
-  if (options.sshKeyPath) {
-    sshArgs.push('-i', options.sshKeyPath)
-  }
 
   sshArgs.push(options.host, remoteShellCommand)
 
