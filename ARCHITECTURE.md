@@ -53,10 +53,10 @@ Prisma migrations are now the source of truth for schema changes. Development us
 
 Play intent is represented as a call-to-play aggregate rather than a single game field.
 
-- `ENTIRE_LIBRARY`: the user is open to any game already in their active library.
-- `SELECTED_GAMES`: the user explicitly picks a subset of games.
+- New or edited calls to play currently require `SELECTED_GAMES`: the user explicitly picks a subset of 1 to 5 games.
+- Legacy `ENTIRE_LIBRARY` rows can still exist in stored data and detail surfaces until they are edited or retired.
 
-This keeps the schema aligned with the product requirement that users can say “I’m up for anything tonight” without creating one event per game.
+The persisted schema still carries both enum values so older rows and Discord/history surfaces remain readable while new write paths stay narrowed to explicit game picks.
 
 Play intents can notify either explicit followed users only, a specific hand-picked set of followed users, the broader discovery audience formed by opted-in shared Discord servers plus explicit followed users, or one or more specific opted-in Discord servers that narrow that broader discovery audience down to selected shared servers.
 
@@ -74,7 +74,7 @@ Feed previews now also expose a lightweight status (`active` or `ended`) plus an
 
 The Play-intent feed query itself must include not only broad network creators but also targeted calls that explicitly include the viewer, such as specific-friends or selected-server calls. That keeps the server-side visibility model authoritative while still allowing the web client to do lightweight `appliesToViewer` filtering without dropping visible calls before they reach the page.
 
-Play intents also expose a dedicated detail contract in `packages/shared` and a corresponding API detail builder in `apps/api`. The web app uses that richer payload for `/play/:playIntentId`, which is the deep-link target for specific Discord DM buttons and for the in-app Open details action on Play cards. That detail view can expand library-wide calls into an explicit list of current overlapping games and can also reveal the creator's non-overlapping active library titles as a separate section, so recipients can understand what "any game in library" means for their own account before responding.
+Play intents also expose a dedicated detail contract in `packages/shared` and a corresponding API detail builder in `apps/api`. The web app uses that richer payload for `/play/:playIntentId`, which is the deep-link target for specific Discord DM buttons and for the in-app Open details action on Play cards. That detail view can still expand legacy library-wide calls into an explicit list of current overlapping games, and current calls continue to show their chosen titles directly.
 
 Play intents can also attach an optional temporary Discord space in the Game's Up Discord server. That state is modeled explicitly as a `PlayIntentDiscordSpace` row plus per-user access grants so the API can track who already belongs to the server, who has already been invited, and who should receive access if they join later. The current provisioning flow creates a dedicated category with paired text and voice channels, posts an opening message in the text channel, and startup maintenance backfills still-active legacy spaces that only had the older voice-only shape before refreshing tracked Discord DMs.
 
@@ -82,7 +82,7 @@ Scheduled calls to play now add a second-stage check-in flow. The audience is st
 
 Creators also receive a persistent Discord DM summary for each live call to play. Major lifecycle changes can still replace that DM with a fresh message so Discord sends a notification, but audience response updates now edit the existing summary in place because the creator also receives a separate response-notification DM. Those creator-facing update DMs should reply to the tracked summary message when possible so multiple live calls remain visually distinguishable inside Discord. Quiet expiry or archive cleanup also falls back to edit-in-place behavior. In the gateway-owning environment it can expose creator-only actions such as ending the call directly from Discord while active, deleting the retained temporary Discord channel after the call ends, then switching to an archive action after the retained summary has gone stale. That retained creator summary is also the cleanup anchor for the thread, so archiving it should remove the summary and any bot-authored replies hanging beneath it.
 
-The Play composer is modeled as a step-based web flow for basics, audience, timing, and details. Its audience model no longer has a separate self-only test-send branch; instead the API and shared contracts stay focused on the real notification scopes.
+The Play composer is modeled as a step-based web flow for basics, audience, timing, and details. Its audience model no longer has a separate self-only test-send branch, and its basics step now requires the creator to choose up to five specific games instead of targeting the whole library; the API and shared contracts stay focused on the real notification scopes.
 
 For targeted friend calls, the detail contract now also includes passed-user identities in addition to interested-user identities. That data is only exposed for `specific-friends` calls so the web detail view can show who passed without broadening pass visibility for other audience scopes.
 

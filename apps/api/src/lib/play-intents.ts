@@ -20,6 +20,7 @@ import type {
   UpsertPlayIntentResponse
 } from '@game-is-up/shared'
 import {
+  maximumPlayIntentGameSelectionCount,
   resolvePlayIntentUpdatedFields,
   shouldInvalidatePlayIntentAudienceResponse
 } from '@game-is-up/shared'
@@ -1555,14 +1556,16 @@ export async function upsertCurrentPlayIntent(
     throw new PlayIntentValidationError('Choose either an existing voice channel or a temporary Discord channel.')
   }
 
-  const selectedEntries = payload.selectionMode === 'library'
-    ? libraryEntries
-    : libraryEntries.filter((entry) => payload.gameIds.includes(entry.gameId))
+  const selectedEntries = libraryEntries.filter((entry) => payload.gameIds.includes(entry.gameId))
 
   selectedEntries.sort((left, right) => left.game.title.localeCompare(right.game.title))
 
-  if (payload.selectionMode === 'subset' && payload.gameIds.length === 0) {
-    throw new PlayIntentValidationError('Pick at least one game before posting a selected-games call to play.')
+  if (payload.gameIds.length === 0) {
+    throw new PlayIntentValidationError('Pick at least one game before posting a call to play.')
+  }
+
+  if (payload.gameIds.length > maximumPlayIntentGameSelectionCount) {
+    throw new PlayIntentValidationError(`Pick up to ${maximumPlayIntentGameSelectionCount} games for a call to play.`)
   }
 
   if (selectedEntries.length === 0) {
@@ -1571,7 +1574,7 @@ export async function upsertCurrentPlayIntent(
 
   const selectedGameIds = selectedEntries.map((entry) => entry.gameId)
   const selectedTitles = selectedEntries.map((entry) => entry.game.title)
-  const dmGameEmbeds = payload.selectionMode === 'subset' && selectedEntries.length > 0 && selectedEntries.length < 12
+  const dmGameEmbeds = selectedEntries.length > 0 && selectedEntries.length < 12
     ? buildPlayIntentGameEmbeds(selectedEntries.map((entry) => ({
         title: entry.game.title,
         coverUrl: entry.game.coverUrl
@@ -1990,11 +1993,9 @@ export async function upsertCurrentPlayIntent(
                   create: targetFriendCreates
                 }
               : undefined,
-            games: payload.selectionMode === 'library'
-              ? undefined
-              : {
-                  create: selectedGameCreates
-                }
+            games: {
+              create: selectedGameCreates
+            }
           },
           include: activePlayIntentInclude
             })

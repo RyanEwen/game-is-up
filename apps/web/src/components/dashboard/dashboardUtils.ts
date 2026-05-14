@@ -182,7 +182,7 @@ export function formatNotifyScopeDescription(scope: PlayIntentPreview['notifySco
 }
 
 export function formatPlayIntentSelectionModeLabel(selectionMode: PlayIntentSelectionMode): string {
-  return selectionMode === 'library' ? 'Any game in my library' : 'Only selected games'
+  return selectionMode === 'library' ? 'Any game in my library' : 'Selected games'
 }
 
 export function formatPlayIntentDurationLabel(durationMinutes: number): string {

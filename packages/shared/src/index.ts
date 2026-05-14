@@ -288,6 +288,7 @@ export const upsertLibraryEntryRequestSchema = z.object({
 
 export const playIntentSelectionModeSchema = z.enum(['library', 'subset'])
 export const playIntentNotifyScopeSchema = z.enum(['network', 'friends-only', 'specific-friends', 'specific-discord-server'])
+export const maximumPlayIntentGameSelectionCount = 5
 
 export const playIntentDiscordSpaceStatusSchema = z.enum([
   'requested',
@@ -434,6 +435,8 @@ export const playIntentDiscordSpaceRetryResponseSchema = z.object({
  *   audience scope.
  * - `targetDiscordServerIds` is required for and exclusive to the
  *   `specific-discord-server` audience scope.
+ * - New or edited calls to play must target a selected subset of 1 to 5
+ *   games from the creator's library.
  * - A temporary Discord space (`createDiscordSpace`) and an existing voice
  *   channel selection are mutually exclusive.
  * - Voice channel id and name must be provided together or not at all.
@@ -441,7 +444,7 @@ export const playIntentDiscordSpaceRetryResponseSchema = z.object({
 export const upsertPlayIntentRequestSchema = z.object({
   playIntentId: z.string().uuid().optional(),
   title: z.string().trim().max(80).optional(),
-  selectionMode: playIntentSelectionModeSchema,
+  selectionMode: z.literal('subset'),
   notifyScope: playIntentNotifyScopeSchema,
   includeSelf: z.boolean().optional().default(false),
   createDiscordSpace: z.boolean().optional().default(false),
@@ -451,7 +454,7 @@ export const upsertPlayIntentRequestSchema = z.object({
   startAt: z.string().datetime().optional(),
   durationMinutes: z.number().int().min(15).max(1440).optional(),
   endAt: z.string().datetime().optional(),
-  gameIds: z.array(z.string().uuid()).default([]),
+  gameIds: z.array(z.string().uuid()).min(1).max(maximumPlayIntentGameSelectionCount),
   targetUserIds: z.array(z.string().uuid()).max(25).default([]),
   targetDiscordServerIds: z.array(z.string().trim().min(1).max(64)).max(25).default([])
 }).superRefine((value, context) => {

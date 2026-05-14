@@ -10,14 +10,13 @@ import type {
   DiscordVoiceChannel,
   DiscoveryPerson,
   LibraryEntry,
-  PlayIntentNotifyScope,
-  PlayIntentSelectionMode
+  PlayIntentNotifyScope
 } from '@game-is-up/shared'
+import { maximumPlayIntentGameSelectionCount } from '@game-is-up/shared'
 import {
   formatPlayIntentDurationLabel,
   formatNotifyScopeDescription,
   formatNotifyScopeLabel,
-  formatPlayIntentSelectionModeLabel,
   maximumPlayIntentDurationMinutes,
   minimumPlayIntentDurationMinutes,
   playIntentPresetDurations
@@ -362,8 +361,6 @@ export function PlayIntentComposerCard({
   onTogglePlayIntentTargetDiscordServer,
   selectedPlayIntentTargetUserIds,
   onTogglePlayIntentTargetUser,
-  playIntentSelectionMode,
-  onPlayIntentSelectionModeChange,
   libraryEntries,
   selectedPlayIntentGameIds,
   onTogglePlayIntentGame,
@@ -413,8 +410,6 @@ export function PlayIntentComposerCard({
   onTogglePlayIntentTargetDiscordServer: (serverId: string) => void;
   selectedPlayIntentTargetUserIds: string[];
   onTogglePlayIntentTargetUser: (userId: string) => void;
-  playIntentSelectionMode: PlayIntentSelectionMode;
-  onPlayIntentSelectionModeChange: (mode: PlayIntentSelectionMode) => void;
   libraryEntries: LibraryEntry[];
   selectedPlayIntentGameIds: string[];
   onTogglePlayIntentGame: (gameId: string) => void;
@@ -504,7 +499,7 @@ export function PlayIntentComposerCard({
   const selectedVoiceChannel = playIntentVoiceChannelOptions.find((channel) => channel.id === playIntentVoiceChannelId) ?? null
   const scheduledStartLabel = formatDraftDateTime(playIntentStartAtInput)
   const specificEndLabel = formatDraftDateTime(playIntentEndAtInput)
-  const basicsNeedsAttention = playIntentSelectionMode === 'subset' && selectedGameTitles.length === 0
+  const basicsNeedsAttention = selectedGameTitles.length === 0
   const audienceNeedsAttention = Boolean(playIntentFilteredAudienceMessage)
     || (playIntentNotifyScope === 'specific-friends' && selectedFriends.length === 0)
     || (playIntentNotifyScope === 'specific-discord-server' && selectedServers.length === 0)
@@ -516,7 +511,7 @@ export function PlayIntentComposerCard({
       playIntentTitle.trim() ? 'primary' : 'neutral',
       playIntentTitle.trim() ? 'soft' : 'outlined'
     ),
-    createSummaryChip('selection-mode', formatPlayIntentSelectionModeLabel(playIntentSelectionMode))
+    createSummaryChip('selection-mode', 'Selected games')
   ]
   const audienceSummaryChips: ComposerSummaryChip[] = [
     createSummaryChip(
@@ -541,17 +536,15 @@ export function PlayIntentComposerCard({
     )
   ]
 
-  if (playIntentSelectionMode === 'subset') {
-    basicsSummaryChips.push(
-      createSummaryChip(
-        'selection-count',
-        selectedGameTitles.length > 0
-          ? `${selectedGameTitles.length} selected game${selectedGameTitles.length === 1 ? '' : 's'}`
-          : 'No games selected yet',
-        selectedGameTitles.length > 0 ? 'success' : 'warning'
-      )
+  basicsSummaryChips.push(
+    createSummaryChip(
+      'selection-count',
+      selectedGameTitles.length > 0
+        ? `${selectedGameTitles.length} of ${maximumPlayIntentGameSelectionCount} selected`
+        : 'No games selected yet',
+      selectedGameTitles.length > 0 ? 'success' : 'warning'
     )
-  }
+  )
 
   if (playIntentNotifyScope === 'specific-friends') {
     if (selectedFriends.length > 0) {
@@ -600,11 +593,9 @@ export function PlayIntentComposerCard({
   const stepSummaries: Record<ComposerStepId, { hasAttention: boolean; summaryText: string; summaryChips: ComposerSummaryChip[] }> = {
     basics: {
       hasAttention: basicsNeedsAttention,
-      summaryText: playIntentSelectionMode === 'library'
-        ? 'This call will match against anything in your library.'
-        : selectedGameTitles.length > 0
-          ? `Focused on ${selectedGameTitles.slice(0, 3).join(', ')}${selectedGameTitles.length > 3 ? ` and ${selectedGameTitles.length - 3} more.` : '.'}`
-          : 'Pick one or more games to narrow the audience to a specific subset.',
+      summaryText: selectedGameTitles.length > 0
+        ? `Focused on ${selectedGameTitles.slice(0, 3).join(', ')}${selectedGameTitles.length > 3 ? ` and ${selectedGameTitles.length - 3} more.` : '.'}`
+        : `Pick between 1 and ${maximumPlayIntentGameSelectionCount} games for this call to play.`,
       summaryChips: basicsSummaryChips
     },
     audience: {
@@ -687,39 +678,35 @@ export function PlayIntentComposerCard({
 
             <Stack spacing={1}>
               <Typography level="title-sm">What are you up for?</Typography>
-              <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-                {(['library', 'subset'] as const).map((selectionMode) => (
-                  <Button
-                    key={selectionMode}
-                    size="sm"
-                    variant={playIntentSelectionMode === selectionMode ? 'solid' : 'soft'}
-                    color={playIntentSelectionMode === selectionMode ? 'primary' : 'neutral'}
-                    onClick={() => onPlayIntentSelectionModeChange(selectionMode)}
-                  >
-                    {formatPlayIntentSelectionModeLabel(selectionMode)}
-                  </Button>
-                ))}
-              </Stack>
+              <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
+                Choose between 1 and {maximumPlayIntentGameSelectionCount} games from your library. Calls to play no longer target your whole library at once.
+              </Typography>
             </Stack>
 
-            {playIntentSelectionMode === 'subset' ? (
-              <Stack spacing={1}>
-                <Typography level="title-sm">Pick games</Typography>
-                <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-                  {libraryEntries.map((entry) => (
+            <Stack spacing={1}>
+              <Typography level="title-sm">Pick games</Typography>
+              <Typography level="body-xs" sx={{ color: selectedGameTitles.length > 0 ? 'primary.200' : 'neutral.400' }}>
+                {selectedGameTitles.length} / {maximumPlayIntentGameSelectionCount} selected
+              </Typography>
+              <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+                {libraryEntries.map((entry) => {
+                  const selected = selectedPlayIntentGameIds.includes(entry.gameId)
+
+                  return (
                     <Button
                       key={entry.id}
                       size="sm"
-                      variant={selectedPlayIntentGameIds.includes(entry.gameId) ? 'solid' : 'soft'}
-                      color={selectedPlayIntentGameIds.includes(entry.gameId) ? 'primary' : 'neutral'}
+                      variant={selected ? 'solid' : 'soft'}
+                      color={selected ? 'primary' : 'neutral'}
+                      disabled={!selected && selectedPlayIntentGameIds.length >= maximumPlayIntentGameSelectionCount}
                       onClick={() => onTogglePlayIntentGame(entry.gameId)}
                     >
                       {entry.title}
                     </Button>
-                  ))}
-                </Stack>
+                  )
+                })}
               </Stack>
-            ) : null}
+            </Stack>
           </Stack>
         )
       case 'audience':

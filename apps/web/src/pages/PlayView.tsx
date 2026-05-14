@@ -8,8 +8,7 @@ import type {
   DiscoveryPerson,
   LibraryEntry,
   PlayIntentNotifyScope,
-  PlayIntentPreview,
-  PlayIntentSelectionMode
+  PlayIntentPreview
 } from '@game-is-up/shared'
 import { DashboardApiIssueCard } from '../components/dashboard/DashboardApiIssueCard'
 import { EmptyStateCard } from '../components/dashboard/EmptyStateCard'
@@ -176,8 +175,6 @@ function PlayViewContent({
   onTogglePlayIntentTargetDiscordServer,
   selectedPlayIntentTargetUserIds,
   onTogglePlayIntentTargetUser,
-  playIntentSelectionMode,
-  onPlayIntentSelectionModeChange,
   libraryEntries,
   selectedPlayIntentGameIds,
   onTogglePlayIntentGame,
@@ -237,8 +234,6 @@ function PlayViewContent({
   onTogglePlayIntentTargetDiscordServer: (serverId: string) => void;
   selectedPlayIntentTargetUserIds: string[];
   onTogglePlayIntentTargetUser: (userId: string) => void;
-  playIntentSelectionMode: PlayIntentSelectionMode;
-  onPlayIntentSelectionModeChange: (mode: PlayIntentSelectionMode) => void;
   libraryEntries: LibraryEntry[];
   selectedPlayIntentGameIds: string[];
   onTogglePlayIntentGame: (gameId: string) => void;
@@ -366,8 +361,6 @@ function PlayViewContent({
               onTogglePlayIntentTargetDiscordServer={onTogglePlayIntentTargetDiscordServer}
               selectedPlayIntentTargetUserIds={selectedPlayIntentTargetUserIds}
               onTogglePlayIntentTargetUser={onTogglePlayIntentTargetUser}
-              playIntentSelectionMode={playIntentSelectionMode}
-              onPlayIntentSelectionModeChange={onPlayIntentSelectionModeChange}
               libraryEntries={libraryEntries}
               selectedPlayIntentGameIds={selectedPlayIntentGameIds}
               onTogglePlayIntentGame={onTogglePlayIntentGame}

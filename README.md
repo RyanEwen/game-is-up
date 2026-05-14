@@ -268,7 +268,7 @@ This repo now treats Prisma migrations as the source of truth for schema changes
 29. Discord invite links now open a dedicated invite landing page, preserve server and inviter context through Discord OAuth, and can attribute a first accepted sign-in back to the originating Discord invite.
 30. Admin debug now includes an invite-attribution section so recent accepted invite flows can be verified without querying the database directly.
 31. The Play view keeps recently ended calls to play visible as ended cards, shows whether each call currently applies to your library, and lets the viewer switch between 1 day, 1 week, and 1 month history windows.
-32. Calls to play now also have dedicated `/play/:playIntentId` detail pages. Discord DMs can deep-link straight into a specific call, Play cards expose a `Details` action, and library-wide calls expand the actual game options on that page so recipients can review what overlaps are in scope before they respond.
+32. Calls to play now also have dedicated `/play/:playIntentId` detail pages. Discord DMs can deep-link straight into a specific call, Play cards expose a `Details` action, and legacy library-wide calls still expand the actual game options on that page so recipients can review what overlaps are in scope before they respond.
 33. Discovery-based play-intent visibility can now include both explicit friends and users from the Discord servers you opted into discovery.
 34. Discovery remains based on opted-in shared Discord servers plus explicit in-app friendships. The Discord friend-list import path has been removed.
 35. Discord is still the only sign-in path in this scaffold.
@@ -315,8 +315,7 @@ Users can also set one profile-level "when do you usually play" note and let ind
 
 Users are not limited to one active call to play. They can keep multiple active calls as long as those availability windows do not overlap. Each call can target:
 
-- any game in the user library
-- a selected subset of games
+- a selected subset of 1 to 5 games
 
 Calls to play can also control who sees them:
 

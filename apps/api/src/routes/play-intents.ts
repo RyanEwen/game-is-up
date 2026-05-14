@@ -126,6 +126,13 @@ playIntentRouter.put('/me', async (request, response, next) => {
 
     response.json(upsertPlayIntentResponseSchema.parse(result))
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      response.status(400).json({
+        error: error.issues[0]?.message ?? 'Invalid call-to-play payload.'
+      })
+      return
+    }
+
     if (error instanceof PlayIntentValidationError) {
       response.status(400).json({
         error: error.message
