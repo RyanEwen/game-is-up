@@ -96,6 +96,20 @@ function toComposerPlayIntent(intent: ActivePlayIntent | PlayIntentDetail): Acti
   }
 }
 
+function buildPlayIntentResponseToastMessage(result: PlayIntentRecipientResponseResult) {
+  const creatorWasNotified = result.message.includes('has been notified')
+
+  if (result.responseChoice === 'interested') {
+    return creatorWasNotified
+      ? 'You are marked as interested. The creator has been notified.'
+      : 'You are marked as interested.'
+  }
+
+  return creatorWasNotified
+    ? 'You are marked as passing for now. The creator has been notified.'
+    : 'You are marked as passing for now.'
+}
+
 export type DashboardPlayViewProps = {
   isSignedIn: boolean;
   isAdmin: boolean;
@@ -1020,7 +1034,7 @@ export function useDashboardPlay({
       const parsed = playIntentRecipientResponseResultSchema.parse(responseBody)
       setPlayIntentNotice({
         tone: 'success',
-        message: parsed.message
+        message: buildPlayIntentResponseToastMessage(parsed)
       })
       await loadDashboard()
     } catch (error) {
