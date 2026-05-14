@@ -69,6 +69,12 @@ export const creatorInterestUpdateSystemNotification = createPlayIntentSystemNot
   'none'
 )
 
+export const audienceInterestUpdateSystemNotification = createPlayIntentSystemNotificationDefinition(
+  'audience-interest-update',
+  '✅ Another player is interested',
+  'none'
+)
+
 export const creatorInterestWithdrawnSystemNotification = createPlayIntentSystemNotificationDefinition(
   'creator-interest-withdrawn',
   '❎ Someone passed',
@@ -82,6 +88,7 @@ const playIntentSystemNotificationDefinitions = [
   creatorLaunchedGameSystemNotification,
   interestedPlayerLaunchedGameSystemNotification,
   creatorInterestUpdateSystemNotification,
+  audienceInterestUpdateSystemNotification,
   creatorInterestWithdrawnSystemNotification
 ]
 
@@ -202,6 +209,28 @@ export function formatCreatorInterestUpdateSystemNotification(options: {
       options.gameTitle,
       'is interested in playing',
       'is interested in your call to play'
+    )
+  }
+}
+
+export function formatAudienceInterestUpdateSystemNotification(options: {
+  recipientDisplayName: string;
+  recipientLabel?: string;
+  gameTitle: string | null;
+}): SystemNotificationCopy {
+  return {
+    title: audienceInterestUpdateSystemNotification.title,
+    body: formatInterestBody(
+      options.recipientDisplayName,
+      options.gameTitle,
+      'is interested in playing',
+      'is interested in this call to play'
+    ),
+    discordBody: formatInterestBody(
+      options.recipientLabel ?? options.recipientDisplayName,
+      options.gameTitle,
+      'is interested in playing',
+      'is interested in this call to play'
     )
   }
 }

@@ -2,9 +2,11 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 
 import {
+  audienceInterestUpdateSystemNotification,
   callToPlayEndedSystemNotification,
   creatorInterestUpdateSystemNotification,
   creatorInterestWithdrawnSystemNotification,
+  formatAudienceInterestUpdateSystemNotification,
   creatorLaunchedGameSystemNotification,
   formatCreatorInterestUpdateSystemNotification,
   formatCreatorInterestWithdrawnSystemNotification,
@@ -30,6 +32,7 @@ test('getPlayIntentSystemNotificationDefinitionByTitle round-trips every known d
     creatorLaunchedGameSystemNotification,
     interestedPlayerLaunchedGameSystemNotification,
     creatorInterestUpdateSystemNotification,
+    audienceInterestUpdateSystemNotification,
     creatorInterestWithdrawnSystemNotification
   ]) {
     assert.equal(getPlayIntentSystemNotificationDefinitionByTitle(definition.title), definition)
@@ -88,6 +91,29 @@ test('creator interest withdrawn notification falls back when no game title is p
   assert.equal(notification.body, 'Sam passed on your call to play.')
   // No recipientLabel → discordBody falls back to the display name.
   assert.equal(notification.discordBody, 'Sam passed on your call to play.')
+})
+
+test('audience interest update notification renders the configured title and body', () => {
+  const notification = formatAudienceInterestUpdateSystemNotification({
+    recipientDisplayName: 'Sam',
+    recipientLabel: '<@123>',
+    gameTitle: 'Helldivers 2'
+  })
+
+  assert.equal(notification.title, audienceInterestUpdateSystemNotification.title)
+  assert.equal(notification.body, 'Sam is interested in playing Helldivers 2.')
+  assert.equal(notification.discordBody, '<@123> is interested in playing Helldivers 2.')
+})
+
+test('audience interest update notification falls back when no game title is provided', () => {
+  const notification = formatAudienceInterestUpdateSystemNotification({
+    recipientDisplayName: 'Sam',
+    recipientLabel: '<@123>',
+    gameTitle: null
+  })
+
+  assert.equal(notification.body, 'Sam is interested in this call to play.')
+  assert.equal(notification.discordBody, '<@123> is interested in this call to play.')
 })
 
 // ---------------------------------------------------------------------------
