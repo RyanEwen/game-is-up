@@ -16,6 +16,22 @@ const recipientResponseNotificationTypes = [
   NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED
 ] as NotificationType[]
 
+const autoPromptInterestLeadMinutes = 10
+
+/**
+ * Returns true when a user is already committed to a call to play that is live
+ * now or will start within the prompt suppression lead window.
+ */
+export function isInterestedPlayIntentWindowBlockingAutoPrompt(
+  windowStartsAt: Date,
+  windowEndsAt: Date,
+  referenceTime: Date,
+  leadMinutes = autoPromptInterestLeadMinutes
+) {
+  return windowEndsAt > referenceTime
+    && windowStartsAt <= new Date(referenceTime.getTime() + leadMinutes * 60 * 1000)
+}
+
 async function getResponseUsersByPlayIntentId(playIntentIds: string[], responseChoice: NotificationResponseChoice) {
   const uniquePlayIntentIds = [...new Set(playIntentIds.filter(Boolean))]
 
@@ -93,6 +109,41 @@ async function getResponseUsersByPlayIntentId(playIntentIds: string[], responseC
 
 export async function getInterestedUsersByPlayIntentId(playIntentIds: string[]) {
   return getResponseUsersByPlayIntentId(playIntentIds, NotificationResponseChoice.JOIN)
+}
+
+/**
+ * Returns whether the user already answered "I'm interested" on a recipient
+ * notification for a call to play that is active now or starts soon.
+ */
+export async function hasInterestedPlayIntentBlockingAutoPrompt(
+  userId: string,
+  referenceTime: Date,
+  leadMinutes = autoPromptInterestLeadMinutes
+) {
+  const latestAllowedStartAt = new Date(referenceTime.getTime() + leadMinutes * 60 * 1000)
+
+  const notification = await prisma.notification.findFirst({
+    where: {
+      userId,
+      responseChoice: NotificationResponseChoice.JOIN,
+      type: {
+        in: recipientResponseNotificationTypes
+      },
+      playIntent: {
+        windowEndsAt: {
+          gt: referenceTime
+        },
+        windowStartsAt: {
+          lte: latestAllowedStartAt
+        }
+      }
+    },
+    select: {
+      id: true
+    }
+  })
+
+  return notification != null
 }
 
 export async function getPassedUsersByPlayIntentId(playIntentIds: string[]) {

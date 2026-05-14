@@ -45,6 +45,7 @@ import {
   decorateFieldLabel
 } from './discord-dm-formatting.js'
 import { env } from './env.js'
+import { hasInterestedPlayIntentBlockingAutoPrompt } from './play-intent-interested-users.js'
 import { syncCreatorPlayIntentSummaryMessages } from './play-intent-notification-responses.js'
 import { autoPlayPromptPrefix } from './play-intent-interaction-ids.js'
 import { prisma } from './prisma.js'
@@ -813,8 +814,9 @@ export async function maybeSendDiscordAutoPlayPromptForObservation(observationId
     return
   }
 
-  const minimumPromptEndsAt = new Date(Date.now() + minimumPlayIntentDurationMinutes * 60 * 1000)
-  const [activeIntent, libraryEntry, discordIdentity] = await Promise.all([
+  const now = new Date()
+  const minimumPromptEndsAt = new Date(now.getTime() + minimumPlayIntentDurationMinutes * 60 * 1000)
+  const [activeIntent, interestedInBlockingIntent, libraryEntry, discordIdentity] = await Promise.all([
     prisma.playIntent.findFirst({
       where: {
         userId: observation.userId,
@@ -822,7 +824,7 @@ export async function maybeSendDiscordAutoPlayPromptForObservation(observationId
           lt: minimumPromptEndsAt
         },
         windowEndsAt: {
-          gt: new Date()
+          gt: now
         }
       },
       select: {
@@ -833,6 +835,7 @@ export async function maybeSendDiscordAutoPlayPromptForObservation(observationId
         }
       }
     }),
+    hasInterestedPlayIntentBlockingAutoPrompt(observation.userId, now),
     prisma.userGameInterest.findFirst({
       where: {
         userId: observation.userId,
@@ -870,6 +873,17 @@ export async function maybeSendDiscordAutoPlayPromptForObservation(observationId
       detail: activeIntent.selectionMode === 'SELECTED_GAMES' && activeIntent.games.some((entry) => entry.gameId === gameId)
         ? 'Skipped because you already have an overlapping call to play covering this game.'
         : 'Skipped because the user already has an overlapping call to play.'
+    })
+    return
+  }
+
+  if (interestedInBlockingIntent) {
+    await createSkippedPrompt({
+      observationId,
+      userId: observation.userId,
+      gameId,
+      sourceServerId: observation.sourceServerId,
+      detail: 'Skipped because the user is already marked interested in a call to play that is active now or starts within the next 10 minutes.'
     })
     return
   }
