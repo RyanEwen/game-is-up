@@ -292,6 +292,28 @@ async function tryDeleteDirectMessage(channelId: string, messageId: string) {
   return result.status === 'deleted'
 }
 
+async function deletePromptDirectMessageThread(options: {
+  promptId?: string;
+  channelId: string;
+  messageId: string;
+}) {
+  await deleteReplyMessagesReferencingTargets({
+    targets: [{
+      channelId: options.channelId,
+      messageId: options.messageId
+    }]
+  })
+
+  const deleted = await tryDeleteDirectMessage(options.channelId, options.messageId)
+
+  if (!deleted || !options.promptId) {
+    return deleted
+  }
+
+  await clearPromptDmReferences([options.promptId])
+  return true
+}
+
 export async function deleteReplyMessagesReferencingTargets(options: {
   targets: DirectMessageTarget[];
   preservedTargets?: DirectMessageTarget[];
@@ -1249,7 +1271,6 @@ export async function deleteSettledDiscordDirectMessagesForUser(userId: string) 
     Promise.all(recipientPlayIntentIds.map((playIntentId) => deleteUserPlayIntentDirectMessages(playIntentId, userId)))
   ])
 
-  const promptIdsToClear: string[] = []
   let promptDeletedCount = 0
   let promptAttemptedCount = 0
 
@@ -1260,15 +1281,16 @@ export async function deleteSettledDiscordDirectMessagesForUser(userId: string) 
 
     promptAttemptedCount += 1
 
-    if (!(await tryDeleteDirectMessage(prompt.discordDmChannelId, prompt.discordDmMessageId))) {
+    if (!(await deletePromptDirectMessageThread({
+      promptId: prompt.id,
+      channelId: prompt.discordDmChannelId,
+      messageId: prompt.discordDmMessageId
+    }))) {
       continue
     }
 
     promptDeletedCount += 1
-    promptIdsToClear.push(prompt.id)
   }
-
-  await clearPromptDmReferences(promptIdsToClear)
 
   const trackedDirectMessageState = await collectTrackedDirectMessageStateForUser(userId, now)
   const pruneResult = await pruneTrackedDirectMessagesForUser(trackedDirectMessageState)
@@ -1759,21 +1781,20 @@ async function deleteExpiredPromptDirectMessages(cutoff: Date) {
     }
   })
 
-  const promptIdsToClear: string[] = []
-
   for (const prompt of prompts) {
     if (!prompt.discordDmChannelId || !prompt.discordDmMessageId) {
       continue
     }
 
-    if (!(await tryDeleteDirectMessage(prompt.discordDmChannelId, prompt.discordDmMessageId))) {
+    if (!(await deletePromptDirectMessageThread({
+      promptId: prompt.id,
+      channelId: prompt.discordDmChannelId,
+      messageId: prompt.discordDmMessageId
+    }))) {
       continue
     }
-
-    promptIdsToClear.push(prompt.id)
   }
 
-  await clearPromptDmReferences(promptIdsToClear)
 }
 
 export async function sweepOldDiscordDirectMessages() {
