@@ -91,7 +91,7 @@ export const headerActionFilterStackSx = {
 } as const
 
 export const headerActionFilterButtonSx = {
-  width: '100%'
+  width: { xs: '100%', sm: 'auto' }
 } as const
 
 export const headerFilterControlMatchActionWidthSx = {

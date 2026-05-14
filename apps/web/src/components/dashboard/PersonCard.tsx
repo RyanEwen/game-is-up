@@ -1,4 +1,6 @@
 import { Box, Button, Card, Chip, Sheet, Stack, Typography } from '@mui/joy'
+import KeyboardArrowDownRoundedIcon from '@mui/icons-material/KeyboardArrowDownRounded'
+import KeyboardArrowRightRoundedIcon from '@mui/icons-material/KeyboardArrowRightRounded'
 import type { DiscoveryPerson } from '@game-is-up/shared'
 import { DashboardDeferredImage } from './DashboardDeferredImage'
 import { FriendActionPopover } from './FriendActionPopover'
@@ -180,7 +182,9 @@ export function PersonCard({
   libraryGameIds,
   addingLibraryGameId,
   hideChildCards = false,
+  isCollapsed = false,
   isPending,
+  onToggleCollapsed,
   onToggleFriend,
   onAddToLibrary,
   isMuted = false,
@@ -196,7 +200,9 @@ export function PersonCard({
   addingLibraryGameId: string | null;
   removingLibraryEntryId: string | null;
   hideChildCards?: boolean;
+  isCollapsed?: boolean;
   isPending: boolean;
+  onToggleCollapsed?: () => void;
   onToggleFriend: (target: FriendTarget) => Promise<void>;
   onAddToLibrary: (game: DashboardLibraryQuickAddGame) => Promise<void>;
   onRemoveLibraryEntry: (entryId: string) => Promise<void>;
@@ -284,6 +290,30 @@ export function PersonCard({
             </>
           )}
         </Button>
+
+        {!hideChildCards && onToggleCollapsed ? (
+          <Button
+            size="sm"
+            variant="soft"
+            color="neutral"
+            onClick={onToggleCollapsed}
+            startDecorator={isCollapsed ? <KeyboardArrowRightRoundedIcon /> : <KeyboardArrowDownRoundedIcon />}
+            sx={{
+              alignSelf: 'flex-start',
+              flexShrink: 0,
+              borderRadius: 'xl',
+              whiteSpace: 'nowrap',
+              minHeight: '1.75rem',
+              minWidth: { xs: '1.75rem', sm: 'auto' },
+              px: { xs: 0.625, sm: 1.25 },
+              fontSize: 'xs',
+              fontWeight: 'md',
+              lineHeight: 1
+            }}
+          >
+            {isCollapsed ? 'Expand' : 'Collapse'}
+          </Button>
+        ) : null}
       </Stack>
 
       <Box
@@ -319,7 +349,7 @@ export function PersonCard({
         ) : null}
       </Box>
 
-      {!hideChildCards && person.discordActivity ? (
+      {!hideChildCards && !isCollapsed && person.discordActivity ? (
         <Sheet
           variant="soft"
           sx={{
@@ -344,7 +374,7 @@ export function PersonCard({
         </Sheet>
       ) : null}
 
-      {!hideChildCards ? (
+      {!hideChildCards && !isCollapsed ? (
         <Box>
           {person.games.length > 0 ? (
             <Box sx={memberGameGridSx}>

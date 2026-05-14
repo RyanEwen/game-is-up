@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import KeyboardArrowDownRoundedIcon from '@mui/icons-material/KeyboardArrowDownRounded'
+import KeyboardArrowRightRoundedIcon from '@mui/icons-material/KeyboardArrowRightRounded'
 import { Box, Button, DialogContent, DialogTitle, Option, Select, Stack, Typography } from '@mui/joy'
 import type { DiscordServerPreference, DiscoveryPerson } from '@game-is-up/shared'
 import { DashboardModal } from '../components/dashboard/DashboardModal'
@@ -84,12 +86,15 @@ function FriendsViewContent({
   const [isAddFriendsModalOpen, setIsAddFriendsModalOpen] = useState(false)
   const [addFriendsServerFilterId, setAddFriendsServerFilterId] = useState('')
   const [friendSort, setFriendSort] = useState<FriendSort>('matching-games')
+  const [collapsedFriendIds, setCollapsedFriendIds] = useState<ReadonlySet<string>>(() => new Set())
   const sortedFriends = sortPeople(friends, friendSort, libraryGameIds)
   const filteredAddableFriends = addFriendsServerFilterId
     ? addableFriends.filter((person) => person.mutualServerIds.includes(addFriendsServerFilterId))
     : addableFriends
   const activeAddFriendsServer = selectedDiscoveryServers.find((server) => server.id === addFriendsServerFilterId) ?? null
   const sortedAddableFriends = sortPeople(filteredAddableFriends, friendSort, libraryGameIds)
+  const hasFriends = friends.length > 0
+  const allFriendsCollapsed = hasFriends && friends.every((friend) => collapsedFriendIds.has(friend.id))
 
   if (error) {
     return <DashboardApiIssueCard error={error} />
@@ -128,16 +133,31 @@ function FriendsViewContent({
   const friendHeaderControls = isSignedIn || friendSortControl ? (
     <Stack spacing={1} alignItems="stretch" sx={headerActionFilterStackSx}>
       {isSignedIn ? (
-        <Button
-          color="primary"
-          onClick={() => {
-            setAddFriendsServerFilterId('')
-            setIsAddFriendsModalOpen(true)
-          }}
-          sx={headerActionFilterButtonSx}
-        >
-          Add friends
-        </Button>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+          <Button
+            color="primary"
+            onClick={() => {
+              setAddFriendsServerFilterId('')
+              setIsAddFriendsModalOpen(true)
+            }}
+            sx={headerActionFilterButtonSx}
+          >
+            Add friends
+          </Button>
+          {hasFriends ? (
+            <Button
+              variant="soft"
+              color="neutral"
+              onClick={() => {
+                setCollapsedFriendIds(allFriendsCollapsed ? new Set() : new Set(friends.map((friend) => friend.id)))
+              }}
+              startDecorator={allFriendsCollapsed ? <KeyboardArrowDownRoundedIcon /> : <KeyboardArrowRightRoundedIcon />}
+              sx={headerActionFilterButtonSx}
+            >
+              {allFriendsCollapsed ? 'Expand all' : 'Collapse all'}
+            </Button>
+          ) : null}
+        </Stack>
       ) : null}
       {friendSortControl}
     </Stack>
@@ -167,7 +187,21 @@ function FriendsViewContent({
               libraryEntryIdsByGameId={libraryEntryIdsByGameId}
               addingLibraryGameId={addingLibraryGameId}
               removingLibraryEntryId={removingLibraryEntryId}
+              isCollapsed={collapsedFriendIds.has(person.id)}
               isPending={friendPendingId === person.id}
+              onToggleCollapsed={() => {
+                setCollapsedFriendIds((current) => {
+                  const next = new Set(current)
+
+                  if (next.has(person.id)) {
+                    next.delete(person.id)
+                  } else {
+                    next.add(person.id)
+                  }
+
+                  return next
+                })
+              }}
               onToggleFriend={onToggleFriend}
               onAddToLibrary={onAddGameToLibrary}
               onRemoveLibraryEntry={onRemoveLibraryEntry}
