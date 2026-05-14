@@ -32,17 +32,18 @@ Recommended steps:
 1. Run `git diff --stat` and `git diff --cached --stat`.
 2. Inspect the changed files and stage the intended commit set with `git add -A`.
 3. Review the documentation scope above and update any affected files.
-4. Explicitly confirm when no documentation updates are needed.
-5. Draft a commit message in imperative mood with a short subject line.
-6. If the change is non-trivial, add a short body that explains why.
-7. If the prompt invocation explicitly requests a pause or review, show the proposed message and stop before `git commit`.
-8. Otherwise, show the message you are using and run `git commit` without waiting.
-9. Run `git push` after the commit succeeds unless the invocation explicitly disables pushing.
-10. Run the production deploy command after the push succeeds unless the invocation explicitly disables deployment.
-11. Summarize the exact push and deploy commands that were used, along with any remote validation signals or errors.
+4. Run the relevant validation for the staged change set before `git commit`; prefer targeted checks first and use `npm run validate` when the scope is broad or cross-cutting.
+5. Explicitly confirm when no documentation updates are needed.
+6. Draft a commit message in imperative mood with a short subject line.
+7. If the change is non-trivial, add a short body that explains why.
+8. If the prompt invocation explicitly requests a pause or review, show the proposed message and stop before `git commit`.
+9. Otherwise, show the message you are using and run `git commit` without waiting.
+10. Run `git push` after the commit succeeds unless the invocation explicitly disables pushing.
+11. Run the production deploy command after the push succeeds unless the invocation explicitly disables deployment.
+12. Summarize the exact push and deploy commands that were used, along with any remote validation signals or errors.
 
 Notes:
-- This repository already runs validation in the Git commit workflow. If the commit hook fails, fix the issue and retry.
+- Validation is not enforced by a Git commit hook. Run the appropriate checks before committing. The deploy script still runs local `npm run validate` by default unless `--skip-validate` is passed.
 - If docs were updated as part of the same change, reflect that in the commit message when it improves clarity.
 - Prefer pushing with `git push origin HEAD` unless the current branch or remote requirement makes a different push target clearer.
 - Prefer deploying after the push rather than relying on the deploy script's `--push` flag, unless the prompt invocation explicitly asks for that mode.

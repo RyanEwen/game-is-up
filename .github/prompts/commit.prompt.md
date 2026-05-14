@@ -29,16 +29,17 @@ Recommended steps:
 1. Run `git diff --stat` and `git diff --cached --stat`.
 2. Inspect the changed files and stage the intended commit set with `git add -A`.
 3. Review the documentation scope above and update any affected files.
-4. Explicitly confirm when no documentation updates are needed.
-5. Draft a commit message in imperative mood with a short subject line.
-6. If the change is non-trivial, add a short body that explains why.
-7. If the user explicitly asked to confirm or review before committing, show the proposed message and pause for confirmation or adjustment.
-8. Otherwise, show the message you are using and run `git commit` without waiting for confirmation.
-9. If the prompt invocation explicitly includes `push`, run `git push` after the commit succeeds.
-10. Otherwise, if the user wants to push, ask again and only then run `git push`.
+4. Run the relevant validation for the staged change set before `git commit`; prefer targeted checks first and use `npm run validate` when the scope is broad or cross-cutting.
+5. Explicitly confirm when no documentation updates are needed.
+6. Draft a commit message in imperative mood with a short subject line.
+7. If the change is non-trivial, add a short body that explains why.
+8. If the user explicitly asked to confirm or review before committing, show the proposed message and pause for confirmation or adjustment.
+9. Otherwise, show the message you are using and run `git commit` without waiting for confirmation.
+10. If the prompt invocation explicitly includes `push`, run `git push` after the commit succeeds.
+11. Otherwise, if the user wants to push, ask again and only then run `git push`.
 
 Notes:
-- This repository already runs validation in the Git commit workflow. If the commit hook fails, fix the issue and retry.
+- Validation is not enforced by a Git commit hook. Run the appropriate checks before committing and fix any failures first.
 - If docs were updated as part of the same change, reflect that in the commit message when it improves clarity.
 - Treat phrases such as `confirm first`, `ask before committing`, `show me the message first`, or `review before commit` in the invocation as explicit requests to pause before `git commit`.
 - Treat an explicit `push` request in the prompt invocation as approval to push without a second confirmation step.

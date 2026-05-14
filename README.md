@@ -306,7 +306,6 @@ Users can also set one profile-level "when do you usually play" note and let ind
 
 ## Repository automation
 
-- `.husky/pre-commit` runs the validation suite before commits.
 - `.github/copilot-instructions.md` defines workspace-wide coding guidance.
 - `.github/instructions/` scopes additional guidance by area.
 - `.github/prompts/` adds reusable prompts for vertical-slice work, provider adapters, commit workflow, and documentation audits.
