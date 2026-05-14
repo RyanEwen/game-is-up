@@ -675,16 +675,8 @@ export function PlayIntentComposerCard({
                 }}
               />
             </Stack>
-
             <Stack spacing={1}>
-              <Typography level="title-sm">What are you up for?</Typography>
-              <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
-                Choose between 1 and {maximumPlayIntentGameSelectionCount} games from your library. Calls to play no longer target your whole library at once.
-              </Typography>
-            </Stack>
-
-            <Stack spacing={1}>
-              <Typography level="title-sm">Pick games</Typography>
+              <Typography level="title-sm">Game(s) you're up for playing</Typography>
               <Typography level="body-xs" sx={{ color: selectedGameTitles.length > 0 ? 'primary.200' : 'neutral.400' }}>
                 {selectedGameTitles.length} / {maximumPlayIntentGameSelectionCount} selected
               </Typography>

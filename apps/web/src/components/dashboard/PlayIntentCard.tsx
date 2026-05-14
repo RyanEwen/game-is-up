@@ -85,10 +85,16 @@ export function PlayIntentGameList({
 
 export function PlayIntentCard({
   intent,
-  onOpenDetails
+  onOpenDetails,
+  canDeleteDiscordSpace = false,
+  isDeletingDiscordSpace = false,
+  onDeleteDiscordSpace
 }: {
   intent: PlayIntentPreview;
   onOpenDetails: (playIntentId: string) => void;
+  canDeleteDiscordSpace?: boolean;
+  isDeletingDiscordSpace?: boolean;
+  onDeleteDiscordSpace?: (playIntentId: string) => Promise<void>;
 }) {
   const isLibraryWide = intent.selectionMode === 'library'
   const isEnded = intent.status === 'ended'
@@ -222,16 +228,30 @@ export function PlayIntentCard({
         ) : null}
         </Stack>
 
-        <Button
-          variant="soft"
-          color="neutral"
-          size="sm"
-          endDecorator={<EastRoundedIcon fontSize="small" />}
-          onClick={() => onOpenDetails(intent.id)}
-          sx={actionButtonSx}
-        >
-          View details
-        </Button>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+          {canDeleteDiscordSpace && onDeleteDiscordSpace ? (
+            <Button
+              variant="outlined"
+              color="danger"
+              size="sm"
+              disabled={isDeletingDiscordSpace}
+              onClick={() => void onDeleteDiscordSpace(intent.id)}
+              sx={{ ...actionButtonSx, backgroundColor: 'transparent' }}
+            >
+              {isDeletingDiscordSpace ? 'Removing Discord channel...' : 'Remove Discord channel'}
+            </Button>
+          ) : null}
+          <Button
+            variant="soft"
+            color="neutral"
+            size="sm"
+            endDecorator={<EastRoundedIcon fontSize="small" />}
+            onClick={() => onOpenDetails(intent.id)}
+            sx={actionButtonSx}
+          >
+            View details
+          </Button>
+        </Stack>
       </Stack>
     </Card>
   )

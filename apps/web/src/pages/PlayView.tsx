@@ -157,6 +157,7 @@ function DiscordAutomationCard({
 function PlayViewContent({
   error,
   isSignedIn,
+  currentUserId,
   discordAutoPromptPlayIntent,
   discordAutoPromptPlayIntentSaving,
   activePlayIntent,
@@ -209,6 +210,8 @@ function PlayViewContent({
   playIntentSaving,
   onSavePlayIntent,
   onClearPlayIntent,
+  playIntentDiscordSpaceDeletePendingIntentId,
+  onDeletePlayIntentDiscordSpace,
   playIntentPreviews,
   onToggleDiscordAutoPromptPlayIntent
   ,
@@ -216,6 +219,7 @@ function PlayViewContent({
 }: {
   error: string | null;
   isSignedIn: boolean;
+  currentUserId: string | null;
   discordAutoPromptPlayIntent: boolean;
   discordAutoPromptPlayIntentSaving: boolean;
   activePlayIntent: ActivePlayIntent | null;
@@ -268,6 +272,8 @@ function PlayViewContent({
   playIntentSaving: boolean;
   onSavePlayIntent: () => Promise<void>;
   onClearPlayIntent: () => Promise<void>;
+  playIntentDiscordSpaceDeletePendingIntentId: string | null;
+  onDeletePlayIntentDiscordSpace: (playIntentId: string) => Promise<void>;
   playIntentPreviews: PlayIntentPreview[];
   onToggleDiscordAutoPromptPlayIntent: (nextEnabled: boolean) => Promise<void>;
   openPlayIntentDetails: (playIntentId: string) => void;
@@ -307,6 +313,15 @@ function PlayViewContent({
   )
   const filteredActivePlayIntentPreviews = activePlayIntentPreviews.filter((intent) => activeAudienceFilter === 'all' || intent.appliesToViewer)
   const filteredEndedPlayIntentPreviews = windowedEndedPlayIntentPreviews.filter((intent) => endedAudienceFilter === 'all' || intent.appliesToViewer)
+  const canDeleteDiscordSpace = (intent: PlayIntentPreview) => Boolean(
+    currentUserId
+    && currentUserId === intent.user.id
+    && intent.status === 'ended'
+    && intent.discordSpace
+    && intent.discordSpace.status !== 'requested'
+    && intent.discordSpace.status !== 'provisioning'
+    && intent.discordSpace.status !== 'deleted'
+  )
   const activeHeaderControls = isSignedIn ? (
     <Stack spacing={1} alignItems="stretch" sx={headerActionFilterStackSx}>
       <Button color="primary" onClick={openPlayIntentComposer} sx={headerActionFilterButtonSx}>
@@ -418,6 +433,9 @@ function PlayViewContent({
                   key={intent.id}
                   intent={intent}
                   onOpenDetails={openPlayIntentDetails}
+                  canDeleteDiscordSpace={canDeleteDiscordSpace(intent)}
+                  isDeletingDiscordSpace={playIntentDiscordSpaceDeletePendingIntentId === intent.id}
+                  onDeleteDiscordSpace={onDeletePlayIntentDiscordSpace}
                 />
               ))}
             </Stack>
@@ -467,6 +485,9 @@ function PlayViewContent({
                 key={intent.id}
                 intent={intent}
                 onOpenDetails={openPlayIntentDetails}
+                canDeleteDiscordSpace={canDeleteDiscordSpace(intent)}
+                isDeletingDiscordSpace={playIntentDiscordSpaceDeletePendingIntentId === intent.id}
+                onDeleteDiscordSpace={onDeletePlayIntentDiscordSpace}
               />
             ))}
           </Stack>
@@ -516,12 +537,13 @@ function PlayViewContent({
 
 export function PlayView() {
   const navigate = useNavigate()
-  const { playViewProps, debugViewProps } = useDashboardContext()
+  const { playViewProps, debugViewProps, overviewViewProps } = useDashboardContext()
 
   return (
     <PlayViewContent
       {...playViewProps}
       {...debugViewProps}
+      currentUserId={overviewViewProps.session?.authenticated ? overviewViewProps.session.user?.id ?? null : null}
       openPlayIntentDetails={(playIntentId) => navigate(`/play/${playIntentId}`)}
     />
   )
