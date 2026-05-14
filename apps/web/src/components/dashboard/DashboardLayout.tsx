@@ -224,11 +224,11 @@ export const DashboardLayout = ({
                   aria-hidden="true"
                   sx={{
                     gridArea: 'logo',
-                    width: { xs: 50, md: 128 },
-                    height: { xs: 50, md: 128 },
+                    width: { xs: 40, md: 96 },
+                    height: { xs: 40, md: 96 },
                     flexShrink: 0,
-                    borderRadius: { xs: '14px', md: '28px' },
-                    p: { xs: 0.6, md: 1 },
+                    borderRadius: { xs: '12px', md: '22px' },
+                    p: { xs: 0.5, md: 0.85 },
                     display: 'grid',
                     placeItems: 'center',
                     overflow: 'hidden',
@@ -257,7 +257,7 @@ export const DashboardLayout = ({
                   sx={{
                     gridArea: 'title',
                     minWidth: 0,
-                    fontSize: { xs: '2.4rem', md: '4rem' },
+                    fontSize: { xs: '1.9rem', md: '3rem' },
                     alignSelf: 'start'
                   }}
                 >
