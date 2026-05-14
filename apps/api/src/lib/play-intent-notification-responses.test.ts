@@ -199,6 +199,74 @@ test('the joined acknowledgement DM no longer repeats the voice channel line', (
   assert.match(preview.content, /Text channel:/)
 })
 
+test('non-member audience notification summaries keep temporary Discord channels inside the embed only', () => {
+  const preview = buildNotificationDirectMessagePreview({
+    notificationId: 'notification-1',
+    playIntentId: 'play-intent-1',
+    notificationType: NotificationType.FRIEND_PLAYING,
+    title: 'Call to Play',
+    body: 'Games: Helldivers 2\nWhen: Tonight',
+    creatorDisplayName: 'Ryan',
+    creatorDiscordUserId: 'discord-creator-1',
+    playIntentIsActive: true,
+    discordSpace: {
+      status: 'active',
+      recipientInServer: false,
+      textChannelName: 'general',
+      textChannelUrl: 'https://discord.com/channels/1/2',
+      voiceChannelName: 'ryan-friday-night-helldivers-abcdef',
+      voiceChannelUrl: 'https://discord.com/channels/1/3',
+      inviteUrl: 'https://discord.gg/test-invite'
+    }
+  })
+
+  assert.ok(preview.embeds)
+
+  const firstEmbed = preview.embeds[0]
+  const embedJson = (firstEmbed && typeof firstEmbed === 'object' && 'toJSON' in firstEmbed && typeof firstEmbed.toJSON === 'function'
+    ? firstEmbed.toJSON()
+    : firstEmbed) as unknown as APIEmbed | undefined
+  const voiceChannelField = embedJson?.fields?.find((field: { name: string; value: string }) => field.name === '🎙 Voice Channel')
+
+  assert.ok(voiceChannelField)
+  assert.match(voiceChannelField?.value ?? '', /Temporary Discord channel: This call uses a temporary Discord channel\. Use the invite to access it\./)
+  assert.match(voiceChannelField?.value ?? '', /https:\/\/discord\.gg\/test-invite/)
+  assert.match(voiceChannelField?.value ?? '', /Text channel: general/)
+  assert.match(voiceChannelField?.value ?? '', /Voice channel: ryan-friday-night-helldivers-abcdef/)
+  assert.doesNotMatch(voiceChannelField?.value ?? '', /Text channel: https:\/\/discord\.com\/channels\/1\/2/)
+  assert.doesNotMatch(voiceChannelField?.value ?? '', /Voice channel: https:\/\/discord\.com\/channels\/1\/3/)
+})
+
+test('non-member join acknowledgements point recipients to the invite instead of channel links', () => {
+  const preview = buildNotificationDirectMessagePreview({
+    notificationId: 'notification-1',
+    notificationType: NotificationType.FRIEND_PLAYING,
+    title: 'Call to Play',
+    body: 'Games: Helldivers 2\nWhen: Tonight',
+    responseChoice: NotificationResponseChoice.JOIN,
+    creatorDisplayName: 'Ryan',
+    creatorDiscordUserId: 'discord-creator-1',
+    playIntentIsActive: true,
+    discordSpace: {
+      status: 'active',
+      recipientInServer: false,
+      textChannelName: 'general',
+      textChannelUrl: 'https://discord.com/channels/1/2',
+      voiceChannelName: 'ryan-friday-night-helldivers-abcdef',
+      voiceChannelUrl: 'https://discord.com/channels/1/3',
+      inviteUrl: 'https://discord.gg/test-invite'
+    },
+    renderSurface: 'response'
+  })
+
+  assert.match(preview.content, /Temporary Discord channel: This call uses a temporary Discord channel\. Use the invite to access it\./)
+  assert.match(preview.content, /Invite link \(shareable\): https:\/\/discord\.gg\/test-invite/)
+  assert.match(preview.content, /Join the server from the invite above to access it\./)
+  assert.doesNotMatch(preview.content, /Text channel: https:\/\/discord\.com\/channels\/1\/2/)
+  assert.doesNotMatch(preview.content, /Text channel: general/)
+  assert.doesNotMatch(preview.content, /Voice channel: ryan-friday-night-helldivers-abcdef/)
+})
+
 test('go-time confirmed previews use the clock emoji heading', () => {
   const preview = buildPlayIntentNotificationPromptPreview({
     notificationId: 'notification-1',

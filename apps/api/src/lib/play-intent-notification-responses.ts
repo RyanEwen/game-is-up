@@ -913,6 +913,10 @@ function buildRecipientDiscordSpaceChannelReference(options: {
   return options.channelName ?? options.channelUrl ?? null
 }
 
+function buildRecipientDiscordSpacePendingAccessLine() {
+  return 'Temporary Discord channel: This call uses a temporary Discord channel. Use the invite to access it.'
+}
+
 function buildRecipientVoiceChannelValue(
   voiceChannel?: { channelId: string | null; channelName: string | null; recipientSharesServer: boolean } | null,
   discordSpace?: PlayIntentDiscordSpaceRecipientContext | null
@@ -943,12 +947,15 @@ function buildRecipientVoiceChannelValue(
     discordSpace
       ? `Status: ${formatDiscordSpaceStatusLabel(discordSpace.status.toUpperCase() as 'ACTIVE' | 'RETAINED' | 'DELETE_REQUESTED')}`
       : null,
+    discordSpace && !discordSpace.recipientInServer
+      ? buildRecipientDiscordSpacePendingAccessLine()
+      : null,
     textChannelValue
       ? `Text channel: ${textChannelValue}`
       : null,
     selectedVoiceChannelValue || temporaryVoiceChannelValue
       ? `Voice channel: ${selectedVoiceChannelValue ?? temporaryVoiceChannelValue}`
-      : (discordSpace ? 'Voice channel: The Discord channel will appear after you join the Game\'s Up Discord server.' : null),
+      : null,
     discordSpace?.inviteUrl
       ? `Invite link (shareable): ${discordSpace.inviteUrl}`
       : null
@@ -2218,8 +2225,10 @@ export async function refreshTrackedCreatorPlayIntentSummaryMessages() {
 
 export async function refreshTrackedPlayIntentNotificationDirectMessages(options: {
   playIntentIds?: string[];
+  userIds?: string[];
 } = {}) {
   const targetPlayIntentIds = options.playIntentIds?.filter((playIntentId): playIntentId is string => Boolean(playIntentId)) ?? []
+  const targetUserIds = options.userIds?.filter((userId): userId is string => Boolean(userId)) ?? []
   const notifications = await prisma.notification.findMany({
     where: {
       discordDmChannelId: {
@@ -2232,6 +2241,13 @@ export async function refreshTrackedPlayIntentNotificationDirectMessages(options
         ? {
             playIntentId: {
               in: targetPlayIntentIds
+            }
+          }
+        : {}),
+      ...(targetUserIds.length > 0
+        ? {
+            userId: {
+              in: targetUserIds
             }
           }
         : {})
@@ -2599,12 +2615,14 @@ function buildInterestedAcceptedMessage(
     : null
   const complementaryLines = discordSpace
     ? [
-        textChannelValue ? `Text channel: ${textChannelValue}` : null,
+        !discordSpace.recipientInServer
+          ? buildRecipientDiscordSpacePendingAccessLine()
+          : (textChannelValue ? `Text channel: ${textChannelValue}` : null),
         !discordSpace.recipientInServer && discordSpace.inviteUrl
           ? `Invite link (shareable): ${discordSpace.inviteUrl}`
           : null,
         !discordSpace.recipientInServer && discordSpace.inviteUrl
-          ? 'The Discord channel will appear after you join.'
+          ? 'Join the server from the invite above to access it.'
           : null
       ]
     : []

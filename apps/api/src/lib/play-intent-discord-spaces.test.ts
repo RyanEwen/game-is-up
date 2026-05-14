@@ -112,6 +112,7 @@ test('guild member join upserts membership and clears creator recovery errors af
   const accessGrantUpdates: AccessGrantUpdateArgs[] = []
   const spaceErrorClears: SpaceUpdateManyArgs[] = []
   let invalidationCount = 0
+  const refreshedUserIds: string[][] = []
 
   const dependencies = {
     discordServerId: 'guild-1',
@@ -157,6 +158,9 @@ test('guild member join upserts membership and clears creator recovery errors af
     }),
     publishPlayIntentInvalidation: () => {
       invalidationCount += 1
+    },
+    refreshTrackedRecipientDirectMessages: async (userIds: string[]) => {
+      refreshedUserIds.push(userIds)
     }
   } as unknown as MemberJoinDependencies
 
@@ -202,6 +206,7 @@ test('guild member join upserts membership and clears creator recovery errors af
   }])
 
   assert.equal(invalidationCount, 1)
+  assert.deepEqual(refreshedUserIds, [['user-1']])
 })
 
 test('guild member join returns early for other servers', async () => {

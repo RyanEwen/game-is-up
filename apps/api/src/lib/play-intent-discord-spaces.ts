@@ -447,6 +447,7 @@ type PlayIntentDiscordSpaceMemberJoinDependencies = {
   fetchGuildInviteUses: typeof fetchGuildInviteUses;
   tryGrantRoleToMember: typeof tryGrantRoleToMember;
   publishPlayIntentInvalidation: typeof publishPlayIntentInvalidation;
+  refreshTrackedRecipientDirectMessages?: (userIds: string[]) => Promise<void>;
 }
 
 const defaultPlayIntentDiscordSpaceMemberJoinDependencies: PlayIntentDiscordSpaceMemberJoinDependencies = {
@@ -454,7 +455,11 @@ const defaultPlayIntentDiscordSpaceMemberJoinDependencies: PlayIntentDiscordSpac
   prisma,
   fetchGuildInviteUses,
   tryGrantRoleToMember,
-  publishPlayIntentInvalidation
+  publishPlayIntentInvalidation,
+  refreshTrackedRecipientDirectMessages: async (userIds) => {
+    const { refreshTrackedPlayIntentNotificationDirectMessages } = await import('./play-intent-notification-responses.js')
+    await refreshTrackedPlayIntentNotificationDirectMessages({ userIds })
+  }
 }
 
 function getDiscordApiErrorCode(error: unknown) {
@@ -1242,6 +1247,7 @@ export async function handlePlayIntentDiscordSpaceMemberJoin(options: {
 
   let changed = false
   const creatorResolvedSpaceIds = new Set<string>()
+  let joinedUserId: string | null = null
 
   const [identity, spaces, inviteUses] = await Promise.all([
     database.userIdentity.findUnique({
@@ -1276,6 +1282,8 @@ export async function handlePlayIntentDiscordSpaceMemberJoin(options: {
   ])
 
   if (identity) {
+    joinedUserId = identity.userId
+
     await database.discordServerMembership.upsert({
       where: {
         userId_serverId: {
@@ -1405,6 +1413,10 @@ export async function handlePlayIntentDiscordSpaceMemberJoin(options: {
 
   if (changed) {
     dependencies.publishPlayIntentInvalidation()
+
+    if (joinedUserId && dependencies.refreshTrackedRecipientDirectMessages) {
+      await dependencies.refreshTrackedRecipientDirectMessages([joinedUserId])
+    }
   }
 
   for (const space of spaces) {
