@@ -43,6 +43,44 @@ test('go-time follow-up replies stay non-interactive while the invite anchor rem
   assert.match(followUp.preview.content, /See original invite above for details or to change your response\./)
 })
 
+test('audience invite previews include scheduled and right-now timing in the heading', () => {
+  const scheduledInvite = buildSimulatedDmMessages(draft, {
+    stage: 'scheduled',
+    audienceResponse: null,
+    creatorCheckInState: null,
+    hasGoTimeBroadcast: false,
+    hasVoiceChannelActivity: false,
+    hasGameLaunchActivity: false,
+    latestAudienceUpdateFields: null,
+    latestAudienceUpdateRequiresFreshResponse: false,
+    creatorThreadArchived: false,
+    audienceThreadArchived: false,
+    history: [],
+    nextEntryId: 1
+  }).audienceMessages.find((message) => message.id === 'audience-anchor')
+
+  const immediateInvite = buildSimulatedDmMessages(draft, {
+    stage: 'confirmed',
+    audienceResponse: null,
+    creatorCheckInState: null,
+    hasGoTimeBroadcast: false,
+    hasVoiceChannelActivity: false,
+    hasGameLaunchActivity: false,
+    latestAudienceUpdateFields: null,
+    latestAudienceUpdateRequiresFreshResponse: false,
+    creatorThreadArchived: false,
+    audienceThreadArchived: false,
+    history: [],
+    nextEntryId: 1
+  }).audienceMessages.find((message) => message.id === 'audience-anchor')
+
+  assert.ok(scheduledInvite)
+  assert.match(scheduledInvite.preview.content, /^🎮 Ryan scheduled Helldivers 2 Tonight$/m)
+
+  assert.ok(immediateInvite)
+  assert.match(immediateInvite.preview.content, /^🎮 Ryan wants to play Helldivers 2 \(right now!\)$/m)
+})
+
 test('go-time reminder replies use the original-invite guidance copy', () => {
   const { audienceMessages } = buildSimulatedDmMessages(draft, {
     stage: 'confirmed',

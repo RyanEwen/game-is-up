@@ -4,6 +4,7 @@ import test from 'node:test'
 import {
   formatPlayIntentDateLabel,
   formatPlayIntentDurationLabel,
+  formatPlayIntentTimeLabel,
   formatPlayIntentWindowLabel
 } from './play-intent-time-format.js'
 
@@ -78,6 +79,13 @@ test('formatPlayIntentDateLabel collapses :00 minutes from the rendered time', (
   const date = new Date('2026-04-01T17:00:00.000Z')
 
   assert.match(formatPlayIntentDateLabel(date, 'Etc/UTC'), /at 5pm$/)
+})
+
+test('formatPlayIntentTimeLabel renders a compact localized time label', () => {
+  const date = new Date('2026-04-01T20:30:00.000Z')
+
+  assert.equal(formatPlayIntentTimeLabel(date, 'Etc/UTC'), '8:30pm')
+  assert.equal(formatPlayIntentTimeLabel(new Date('2026-04-01T17:00:00.000Z'), 'Etc/UTC'), '5pm')
 })
 
 test('formatPlayIntentWindowLabel combines the date label with a duration label', () => {

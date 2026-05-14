@@ -165,6 +165,12 @@ function buildSimulatorOpenInAppButtons(): SimulatorDebugDmPreview['buttonRows']
   ]]
 }
 
+function buildSimulatorAudienceInviteHeading(draft: SimulatedScenarioDraft, state: SimulatedLifecycleState) {
+  return state.stage === 'scheduled'
+    ? `🎮 ${draft.creatorName} scheduled ${draft.gameTitle} ${draft.scheduledForLabel}`
+    : `🎮 ${draft.creatorName} wants to play ${draft.gameTitle} (right now!)`
+}
+
 function buildSimulatorArchiveButtons(customId: string): SimulatorDebugDmPreview['buttonRows'] {
   return [[
     {
@@ -510,9 +516,7 @@ export function buildSimulatorAudienceInvitePreview(
   const isEnded = state.stage === 'ended'
 
   return {
-    content: state.stage === 'scheduled'
-      ? `🎮 ${draft.creatorName} scheduled ${draft.gameTitle}`
-      : `🎮 ${draft.creatorName} wants to play ${draft.gameTitle}`,
+    content: buildSimulatorAudienceInviteHeading(draft, state),
     embeds: [
       {
         title: null,

@@ -5,6 +5,10 @@ function resolvePlayIntentTimezoneId(timezoneId: string | null | undefined) {
   return normalizeTimezoneId(timezoneId) ?? 'Etc/UTC'
 }
 
+function findDateTimePartValue(parts: Intl.DateTimeFormatPart[], type: Intl.DateTimeFormatPartTypes) {
+  return parts.find((part) => part.type === type)?.value ?? ''
+}
+
 function formatOrdinalDay(dayOfMonth: number) {
   const remainderHundred = dayOfMonth % 100
 
@@ -43,17 +47,29 @@ export function formatPlayIntentDateLabel(date: Date, timezoneId: string | null 
     hour: 'numeric',
     minute: '2-digit',
     hour12: true
-  }, 'en-US')
+  }, 'en-US') as Intl.DateTimeFormatPart[]
 
-  const weekday = parts.find((part) => part.type === 'weekday')?.value ?? ''
-  const month = parts.find((part) => part.type === 'month')?.value ?? ''
-  const day = Number(parts.find((part) => part.type === 'day')?.value ?? '0')
-  const hour = parts.find((part) => part.type === 'hour')?.value ?? ''
-  const minute = parts.find((part) => part.type === 'minute')?.value ?? ''
-  const dayPeriod = (parts.find((part) => part.type === 'dayPeriod')?.value ?? '').toLowerCase()
-  const timeLabel = minute === '00' ? `${hour}${dayPeriod}` : `${hour}:${minute}${dayPeriod}`
+  const weekday = findDateTimePartValue(parts, 'weekday')
+  const month = findDateTimePartValue(parts, 'month')
+  const day = Number(findDateTimePartValue(parts, 'day') || '0')
+  const timeLabel = formatPlayIntentTimeLabel(date, timezoneId)
 
   return `${weekday} ${month} ${formatOrdinalDay(day)} at ${timeLabel}`
+}
+
+export function formatPlayIntentTimeLabel(date: Date, timezoneId: string | null | undefined) {
+  const normalizedTimezoneId = resolvePlayIntentTimezoneId(timezoneId)
+  const parts = formatDateTimeToParts(date, {
+    timeZone: normalizedTimezoneId,
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true
+  }, 'en-US') as Intl.DateTimeFormatPart[]
+
+  const hour = findDateTimePartValue(parts, 'hour')
+  const minute = findDateTimePartValue(parts, 'minute')
+  const dayPeriod = findDateTimePartValue(parts, 'dayPeriod').toLowerCase()
+  return minute === '00' ? `${hour}${dayPeriod}` : `${hour}:${minute}${dayPeriod}`
 }
 
 export function formatPlayIntentWindowLabel(

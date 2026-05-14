@@ -12,6 +12,7 @@ import { AuthProvider, PlayIntentDiscordSpaceAccessSource, PlayIntentDiscordSpac
 import { ChannelType, OverwriteType, PermissionFlagsBits, Routes } from 'discord.js'
 import { publishPlayIntentInvalidation } from './dashboard-events.js'
 import { buildDiscordChannelUrl } from './discord-channel-urls.js'
+import { getDiscordBotClient } from './discord-bot-runtime.js'
 import { env } from './env.js'
 import { getDiscordBotRest } from './discord-bot-runtime.js'
 import { prisma } from './prisma.js'
@@ -40,11 +41,19 @@ const complementarySpaceActiveStatuses: PlayIntentDiscordSpaceStatus[] = [
   PlayIntentDiscordSpaceStatus.RETAINED,
   PlayIntentDiscordSpaceStatus.DELETE_REQUESTED
 ]
-const complementarySpaceRetentionMs = 7 * 24 * 60 * 60 * 1000
+const complementarySpaceRetentionMs = 24 * 60 * 60 * 1000
 const discordSpaceGrantFailureMessage = 'Some Discord channel access grants could not be applied. Check that the Game\'s Up bot can manage roles in the Discord server.'
 const discordSpaceCreatorMissingIdentityMessage = 'The call-to-play creator no longer has a linked Discord account, so the temporary Discord channel access could not be granted.'
 const discordSpaceCreatorJoinServerMessage = 'The call-to-play creator is not currently in the Game\'s Up Discord server. Join the server to reveal the temporary Discord channel.'
 const discordSpaceCreatorGrantFailureMessage = 'The call-to-play creator could not be granted the temporary Discord channel role. Check that the Game\'s Up bot can manage roles in the Discord server.'
+
+export function resolveComplementarySpaceDeleteAfter(baseTime: Date, lastActiveAt: Date | null = null) {
+  const anchorTime = lastActiveAt && lastActiveAt.getTime() > baseTime.getTime()
+    ? lastActiveAt.getTime()
+    : baseTime.getTime()
+
+  return new Date(anchorTime + complementarySpaceRetentionMs)
+}
 
 function normalizeNameSegment(value: string, fallback: string) {
   const normalized = value
@@ -68,17 +77,24 @@ function normalizeCategorySegment(value: string, fallback: string) {
 export function buildComplementarySpaceNames(playIntent: { id: string; headline: string; user: { displayName: string } }) {
   const shortId = playIntent.id.slice(0, 6)
   const titleSegment = normalizeNameSegment(playIntent.headline, 'call-to-play')
-  const creatorSegment = normalizeNameSegment(playIntent.user.displayName, 'player')
   const categoryTitleSegment = normalizeCategorySegment(playIntent.headline, 'Call to Play')
   const categoryCreatorSegment = normalizeCategorySegment(playIntent.user.displayName, 'Player')
   const base = `${titleSegment}-${shortId}`.slice(0, 42)
 
   return {
     roleName: `ctp-${base}`.slice(0, 100),
-    categoryName: `${categoryCreatorSegment} ${categoryTitleSegment} ${shortId}`.slice(0, 100),
+    categoryName: `${categoryTitleSegment} by ${categoryCreatorSegment} ${shortId}`.slice(0, 100),
     textChannelName: `chat-${base}`.slice(0, 100),
-    voiceChannelName: `${creatorSegment}-${base}`.slice(0, 100)
+    voiceChannelName: `voice-${base}`.slice(0, 100)
   }
+}
+
+export function buildComplementarySpaceWelcomeMessage(playIntent: { headline: string; user: { displayName: string } }) {
+  return [
+    `Welcome to ${playIntent.headline} by ${playIntent.user.displayName}.`,
+    'Use this chat and the matching voice channel to coordinate.',
+    'This temporary chat and voice channel will be automatically deleted 24 hours after the last message or active voice user.'
+  ].join('\n\n')
 }
 
 function isUnknownDiscordResourceError(error: unknown) {
@@ -214,9 +230,84 @@ async function loadDeletableSpace(spaceId: string) {
       inviteCode: true,
       categoryChannelId: true,
       textChannelId: true,
-      voiceChannelId: true
+      voiceChannelId: true,
+      lastActiveAt: true
     }
   })
+}
+
+async function hasActiveVoiceUsersInDiscordSpaceChannel(channelId: string | null | undefined) {
+  if (!channelId) {
+    return false
+  }
+
+  const client = getDiscordBotClient()
+
+  if (!client) {
+    return false
+  }
+
+  const channel = await client.channels.fetch(channelId).catch(() => null)
+
+  if (!channel || !channel.isVoiceBased()) {
+    return false
+  }
+
+  return channel.members.some((member) => !member.user.bot)
+}
+
+export async function markPlayIntentDiscordSpaceChannelActivity(channelIds: string[], occurredAt = new Date()) {
+  const uniqueChannelIds = [...new Set(channelIds.filter(Boolean))]
+
+  if (uniqueChannelIds.length === 0) {
+    return
+  }
+
+  const matchingChannels = {
+    OR: [
+      {
+        textChannelId: {
+          in: uniqueChannelIds
+        }
+      },
+      {
+        voiceChannelId: {
+          in: uniqueChannelIds
+        }
+      }
+    ]
+  }
+
+  await prisma.playIntentDiscordSpace.updateMany({
+    where: {
+      deletedAt: null,
+      status: {
+        in: complementarySpaceActiveStatuses
+      },
+      ...matchingChannels
+    },
+    data: {
+      lastActiveAt: occurredAt
+    }
+  })
+
+  const retainedSpaces = await prisma.playIntentDiscordSpace.updateMany({
+    where: {
+      deletedAt: null,
+      status: {
+        in: [PlayIntentDiscordSpaceStatus.RETAINED, PlayIntentDiscordSpaceStatus.DELETE_REQUESTED]
+      },
+      ...matchingChannels
+    },
+    data: {
+      lastActiveAt: occurredAt,
+      deleteAfter: resolveComplementarySpaceDeleteAfter(occurredAt, occurredAt)
+    }
+  })
+
+  if (retainedSpaces.count > 0) {
+    publishPlayIntentInvalidation()
+  }
 }
 
 function findLegacyBackfillCandidateSpaces() {
@@ -331,6 +422,20 @@ async function createChannel(serverId: string, options: {
     id: channel.id,
     name: 'name' in channel && typeof channel.name === 'string' ? channel.name : options.name
   }
+}
+
+async function sendChannelMessage(channelId: string, content: string) {
+  const rest = getDiscordBotRest()
+
+  if (!rest) {
+    throw new Error('Discord channel messaging needs the bot token to be configured.')
+  }
+
+  await rest.post(Routes.channelMessages(channelId), {
+    body: {
+      content
+    }
+  })
 }
 
 async function deleteChannel(channelId: string | null | undefined) {
@@ -877,7 +982,7 @@ export async function markPlayIntentDiscordSpacesRetained(playIntentIds: string[
     return
   }
 
-  const retainedSpaces = await prisma.playIntentDiscordSpace.updateMany({
+  const retainedSpaces = await prisma.playIntentDiscordSpace.findMany({
     where: {
       playIntentId: {
         in: uniquePlayIntentIds
@@ -893,13 +998,25 @@ export async function markPlayIntentDiscordSpacesRetained(playIntentIds: string[
         ]
       }
     },
-    data: {
-      status: PlayIntentDiscordSpaceStatus.RETAINED,
-      deleteAfter: new Date(baseTime.getTime() + complementarySpaceRetentionMs)
+    select: {
+      id: true,
+      lastActiveAt: true
     }
   })
 
-  if (retainedSpaces.count > 0) {
+  for (const space of retainedSpaces) {
+    await prisma.playIntentDiscordSpace.update({
+      where: {
+        id: space.id
+      },
+      data: {
+        status: PlayIntentDiscordSpaceStatus.RETAINED,
+        deleteAfter: resolveComplementarySpaceDeleteAfter(baseTime, space.lastActiveAt)
+      }
+    })
+  }
+
+  if (retainedSpaces.length > 0) {
     publishPlayIntentInvalidation()
   }
 }
@@ -963,7 +1080,7 @@ async function deletePlayIntentDiscordSpace(spaceId: string) {
       where: { id: space.id },
       data: {
         status: PlayIntentDiscordSpaceStatus.RETAINED,
-        deleteAfter: new Date(Date.now() + complementarySpaceRetentionMs),
+        deleteAfter: resolveComplementarySpaceDeleteAfter(new Date(), space.lastActiveAt),
         lastSyncError: error instanceof Error ? error.message : 'Unknown complementary Discord space delete error.'
       }
     })
@@ -1028,6 +1145,7 @@ export async function provisionPlayIntentDiscordSpace(spaceId: string) {
 
   try {
     const names = buildComplementarySpaceNames(space.playIntent)
+    const welcomeMessage = buildComplementarySpaceWelcomeMessage(space.playIntent)
     const resetLegacyChannels = await resetLegacyProvisioningChannels(space)
     const role = space.roleId
       ? { id: space.roleId, name: space.roleName ?? names.roleName }
@@ -1073,6 +1191,8 @@ export async function provisionPlayIntentDiscordSpace(spaceId: string) {
           textChannelName: textChannel.name
         }
       })
+
+      await sendChannelMessage(textChannel.id, welcomeMessage)
     }
     const voiceChannel = !resetLegacyChannels && space.voiceChannelId
       ? { id: space.voiceChannelId, name: space.voiceChannelName ?? names.voiceChannelName }
@@ -1210,8 +1330,12 @@ export async function sweepBackfillLegacyPlayIntentDiscordSpaces(options: {
   }
 }
 
-export async function sweepDeleteDuePlayIntentDiscordSpaces() {
-  const dueSpaces = await prisma.playIntentDiscordSpace.findMany({
+export async function sweepDeleteDuePlayIntentDiscordSpaces(options: {
+  findDueSpaces?: () => Promise<Array<{ id: string; voiceChannelId: string | null }>>;
+  hasActiveVoiceUsers?: (voiceChannelId: string | null) => Promise<boolean>;
+  deleteSpace?: (spaceId: string) => Promise<unknown>;
+} = {}) {
+  const dueSpaces = await (options.findDueSpaces ?? (() => prisma.playIntentDiscordSpace.findMany({
     where: {
       deletedAt: null,
       deleteAfter: {
@@ -1222,16 +1346,21 @@ export async function sweepDeleteDuePlayIntentDiscordSpaces() {
       }
     },
     select: {
-      id: true
+      id: true,
+      voiceChannelId: true
     },
     take: 10,
     orderBy: {
       deleteAfter: 'asc'
     }
-  })
+  })))()
 
   for (const space of dueSpaces) {
-    await deletePlayIntentDiscordSpace(space.id)
+    if (await (options.hasActiveVoiceUsers ?? hasActiveVoiceUsersInDiscordSpaceChannel)(space.voiceChannelId)) {
+      continue
+    }
+
+    await (options.deleteSpace ?? deletePlayIntentDiscordSpace)(space.id)
   }
 }
 

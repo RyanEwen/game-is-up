@@ -4,10 +4,13 @@ import test from 'node:test'
 import { PlayIntentDiscordSpaceStatus } from '@prisma/client'
 
 import {
+  buildComplementarySpaceWelcomeMessage,
   buildComplementarySpaceNames,
   handlePlayIntentDiscordSpaceMemberJoin,
+  resolveComplementarySpaceDeleteAfter,
   shouldBackfillLegacyPlayIntentDiscordSpace,
-  sweepBackfillLegacyPlayIntentDiscordSpaces
+  sweepBackfillLegacyPlayIntentDiscordSpaces,
+  sweepDeleteDuePlayIntentDiscordSpaces
 } from './play-intent-discord-spaces.js'
 
 type MemberJoinDependencies = NonNullable<Parameters<typeof handlePlayIntentDiscordSpaceMemberJoin>[1]>
@@ -15,7 +18,7 @@ type MembershipUpsertArgs = Parameters<MemberJoinDependencies['prisma']['discord
 type AccessGrantUpdateArgs = Parameters<MemberJoinDependencies['prisma']['playIntentDiscordSpaceAccessGrant']['update']>[0]
 type SpaceUpdateManyArgs = Parameters<MemberJoinDependencies['prisma']['playIntentDiscordSpace']['updateMany']>[0]
 
-test('temporary Discord channel names keep the role slug but expose a human-readable category', () => {
+test('temporary Discord channel names use consistent prefixes and category phrasing', () => {
   const names = buildComplementarySpaceNames({
     id: 'abcdef123456',
     headline: 'Friday Night Helldivers',
@@ -25,9 +28,32 @@ test('temporary Discord channel names keep the role slug but expose a human-read
   })
 
   assert.equal(names.roleName, 'ctp-friday-night-helldivers-abcdef')
-  assert.equal(names.categoryName, 'Ryan Friday Night Helldivers abcdef')
+  assert.equal(names.categoryName, 'Friday Night Helldivers by Ryan abcdef')
   assert.equal(names.textChannelName, 'chat-friday-night-helldivers-abcdef')
-  assert.equal(names.voiceChannelName, 'ryan-friday-night-helldivers-abcdef')
+  assert.equal(names.voiceChannelName, 'voice-friday-night-helldivers-abcdef')
+})
+
+test('temporary Discord text channels open with the welcome and cleanup guidance', () => {
+  const message = buildComplementarySpaceWelcomeMessage({
+    headline: 'Friday Night Helldivers',
+    user: {
+      displayName: 'Ryan'
+    }
+  })
+
+  assert.match(message, /Welcome to Friday Night Helldivers by Ryan\./)
+  assert.match(message, /Use this chat and the matching voice channel to coordinate\./)
+  assert.match(message, /automatically deleted 24 hours after the last message or active voice user\./)
+})
+
+test('retained Discord spaces delete 24 hours after the latest activity', () => {
+  const baseTime = new Date('2026-05-14T12:00:00.000Z')
+  const earlierActivity = new Date('2026-05-14T11:00:00.000Z')
+  const laterActivity = new Date('2026-05-14T15:30:00.000Z')
+
+  assert.equal(resolveComplementarySpaceDeleteAfter(baseTime).toISOString(), '2026-05-15T12:00:00.000Z')
+  assert.equal(resolveComplementarySpaceDeleteAfter(baseTime, earlierActivity).toISOString(), '2026-05-15T12:00:00.000Z')
+  assert.equal(resolveComplementarySpaceDeleteAfter(baseTime, laterActivity).toISOString(), '2026-05-15T15:30:00.000Z')
 })
 
 test('legacy Discord-space backfill only targets active voice-backed spaces missing category or text channels', () => {
@@ -105,6 +131,30 @@ test('legacy Discord-space backfill reprovisions only the missing-channel candid
   })
 
   assert.deepEqual(reprovisionedSpaceIds, ['space-1'])
+})
+
+test('delete sweep skips due spaces while retained voice members are still active', async () => {
+  const deletedSpaceIds: string[] = []
+
+  await sweepDeleteDuePlayIntentDiscordSpaces({
+    findDueSpaces: async () => ([
+      {
+        id: 'space-1',
+        voiceChannelId: 'voice-1'
+      },
+      {
+        id: 'space-2',
+        voiceChannelId: 'voice-2'
+      }
+    ]),
+    hasActiveVoiceUsers: async (voiceChannelId) => voiceChannelId === 'voice-1',
+    deleteSpace: async (spaceId) => {
+      deletedSpaceIds.push(spaceId)
+      return { status: 'deleted' as const }
+    }
+  })
+
+  assert.deepEqual(deletedSpaceIds, ['space-2'])
 })
 
 test('guild member join upserts membership and clears creator recovery errors after granting access', async () => {

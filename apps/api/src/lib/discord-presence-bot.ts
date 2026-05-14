@@ -56,7 +56,10 @@ import {
   handleDiscordDirectMessageCommand,
   handleDiscordDirectMessagePayload
 } from './discord-direct-message-commands.js'
-import { handlePlayIntentDiscordSpaceMemberJoin } from './play-intent-discord-spaces.js'
+import {
+  handlePlayIntentDiscordSpaceMemberJoin,
+  markPlayIntentDiscordSpaceChannelActivity
+} from './play-intent-discord-spaces.js'
 import { handleDiscordSlashCommand, registerDiscordSlashCommands } from './discord-slash-commands.js'
 import { maybeSendPlayIntentVoiceChannelJoinNotifications } from './play-intent-launch-notifications.js'
 
@@ -661,11 +664,20 @@ async function handlePresenceUpdate(presence: Presence) {
 }
 
 async function handleVoiceStateUpdate(previousState: VoiceState, nextState: VoiceState) {
-  if (previousState.channelId === nextState.channelId || !nextState.channelId || nextState.member?.user.bot) {
+  if (previousState.channelId === nextState.channelId || nextState.member?.user.bot || previousState.member?.user.bot) {
     return
   }
 
   try {
+    await markPlayIntentDiscordSpaceChannelActivity([
+      previousState.channelId ?? '',
+      nextState.channelId ?? ''
+    ])
+
+    if (!nextState.channelId) {
+      return
+    }
+
     await maybeSendPlayIntentVoiceChannelJoinNotifications({
       discordUserId: nextState.id,
       channelId: nextState.channelId,
@@ -907,6 +919,7 @@ export async function startDiscordPresenceBot() {
   const client = new Client({
     intents: [
       GatewayIntentBits.Guilds,
+      GatewayIntentBits.GuildMessages,
       GatewayIntentBits.GuildPresences,
       GatewayIntentBits.GuildVoiceStates,
       GatewayIntentBits.GuildMembers,
@@ -1045,7 +1058,18 @@ export async function startDiscordPresenceBot() {
   })
 
   client.on(Events.MessageCreate, (message) => {
-    if (!message.author.bot && !message.inGuild() && !claimDiscordDirectMessage(message.id)) {
+    if (message.author.bot) {
+      return
+    }
+
+    if (message.inGuild()) {
+      void markPlayIntentDiscordSpaceChannelActivity([message.channelId]).catch((error) => {
+        console.error('Failed to record Discord channel activity', error)
+      })
+      return
+    }
+
+    if (!claimDiscordDirectMessage(message.id)) {
       return
     }
 

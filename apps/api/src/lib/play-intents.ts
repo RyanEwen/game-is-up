@@ -69,7 +69,7 @@ import {
   type PlayIntentDiscordSpaceRecipientContext
 } from './play-intent-discord-spaces.js'
 import { prisma } from './prisma.js'
-import { formatPlayIntentDurationLabel, formatPlayIntentWindowLabel } from './play-intent-time-format.js'
+import { formatPlayIntentDurationLabel, formatPlayIntentTimeLabel, formatPlayIntentWindowLabel } from './play-intent-time-format.js'
 
 export class PlayIntentValidationError extends Error {}
 
@@ -330,6 +330,9 @@ export function buildPlayIntentNotificationCopy(
   updatedFields: string[] = []
 ) {
   const isScheduled = startsAt.getTime() > now.getTime() + 60 * 1000
+  const titleTimingSuffix = isScheduled
+    ? ` at ${formatPlayIntentTimeLabel(startsAt, recipientTimezoneId)}`
+    : ' (right now!)'
   const windowLabel = formatPlayIntentWindowLabel(
     startsAt,
     new Date(startsAt.getTime() + durationMinutes * 60 * 1000),
@@ -343,7 +346,9 @@ export function buildPlayIntentNotificationCopy(
     : `When: In the next ${formatPlayIntentDurationLabel(durationMinutes)}.`
 
   if (selectionMode === 'library') {
-    const title = isScheduled ? `${senderDisplayName} scheduled a call to play` : `${senderDisplayName} is looking to play`
+    const title = isScheduled
+      ? `${senderDisplayName} scheduled a call to play${titleTimingSuffix}`
+      : `${senderDisplayName} is looking to play${titleTimingSuffix}`
     const body = [
       updatedReason,
       'Games: Any game in their library that is also in yours.',
@@ -358,8 +363,8 @@ export function buildPlayIntentNotificationCopy(
 
   const summarizedTitles = summarizeTitles(selectedTitles)
   const title = isScheduled
-    ? `${senderDisplayName} scheduled ${summarizedTitles}`
-    : `${senderDisplayName} wants to play ${summarizedTitles}`
+    ? `${senderDisplayName} scheduled ${summarizedTitles}${titleTimingSuffix}`
+    : `${senderDisplayName} wants to play ${summarizedTitles}${titleTimingSuffix}`
   const body = [updatedReason, timingLine].filter((line): line is string => Boolean(line)).join('\n')
 
   return {

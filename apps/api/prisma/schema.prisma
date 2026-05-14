@@ -365,6 +365,7 @@ model PlayIntentDiscordSpace {
   inviteUseCount      Int                         @default(0)
   inviteUrl           String?
   provisionedAt       DateTime?
+  lastActiveAt        DateTime?
   deleteAfter         DateTime?
   deleteRequestedAt   DateTime?
   deletedAt           DateTime?
