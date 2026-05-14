@@ -133,7 +133,11 @@ function FriendsViewContent({
   const friendHeaderControls = isSignedIn || friendSortControl ? (
     <Stack spacing={1} alignItems="stretch" sx={headerActionFilterStackSx}>
       {isSignedIn ? (
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+        <Stack
+          direction={{ xs: 'column', sm: 'row' }}
+          spacing={1}
+          sx={{ width: '100%', justifyContent: { xs: 'stretch', sm: 'flex-end' } }}
+        >
           <Button
             color="primary"
             onClick={() => {
