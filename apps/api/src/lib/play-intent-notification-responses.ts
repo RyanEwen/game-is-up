@@ -3407,6 +3407,10 @@ export async function respondToPlayIntentFromWeb(options: {
       userId: true,
       gameId: true,
       responseChoice: true,
+      discordDmChannelId: true,
+      discordDmMessageId: true,
+      recipientResponseDiscordDmChannelId: true,
+      recipientResponseDiscordDmMessageId: true,
       user: {
         select: {
           displayName: true,
@@ -3467,6 +3471,26 @@ export async function respondToPlayIntentFromWeb(options: {
   const result = await applyRecipientResponseToPlayIntentNotification({
     notification,
     response: options.response
+  })
+
+  const recipientDiscordUserId = notification.user.identities?.[0]?.providerUserId ?? null
+
+  if (recipientDiscordUserId) {
+    await syncRecipientResponseFollowUpDirectMessage({
+      notificationId: notification.id,
+      discordUserId: recipientDiscordUserId,
+      content: result.discordContent ?? result.content,
+      channelId: notification.recipientResponseDiscordDmChannelId,
+      messageId: notification.recipientResponseDiscordDmMessageId,
+      replyTo: buildTrackedDirectMessageReplyReference(
+        notification.discordDmChannelId,
+        notification.discordDmMessageId
+      )
+    })
+  }
+
+  await refreshTrackedPlayIntentNotificationDirectMessages({
+    playIntentIds: [notification.playIntent.id]
   })
 
   return {
