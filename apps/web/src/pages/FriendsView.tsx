@@ -1,14 +1,17 @@
 import { useState } from 'react'
 import KeyboardArrowDownRoundedIcon from '@mui/icons-material/KeyboardArrowDownRounded'
 import KeyboardArrowRightRoundedIcon from '@mui/icons-material/KeyboardArrowRightRounded'
-import { Box, Button, DialogContent, DialogTitle, Option, Select, Stack, Typography } from '@mui/joy'
-import type { DiscordServerPreference, DiscoveryPerson } from '@game-is-up/shared'
+import { Avatar, Box, Button, Card, Chip, DialogContent, DialogTitle, Input, Option, Select, Stack, Typography } from '@mui/joy'
+import type { DiscordServerPreference, DiscoveryPerson, FriendsList } from '@game-is-up/shared'
+import { maximumFriendsListMemberCount } from '@game-is-up/shared'
 import { DashboardModal } from '../components/dashboard/DashboardModal'
 import { DashboardApiIssueCard } from '../components/dashboard/DashboardApiIssueCard'
 import { DiscordServerPicker } from '../components/dashboard/DiscordServerPicker'
 import { EmptyStateCard } from '../components/dashboard/EmptyStateCard'
 import { LibraryEditorCard } from '../components/dashboard/LibraryEditorCard'
 import { PersonCard } from '../components/dashboard/PersonCard'
+import { SectionNav } from '../components/dashboard/SectionNav'
+import { sectionScrollMarginTop } from '../components/dashboard/SectionNav.constants'
 import {
   buildHeaderFilterSelectSx,
   headerActionFilterButtonSx,
@@ -51,6 +54,10 @@ function FriendsViewContent({
   isSignedIn,
   friends,
   addableFriends,
+  friendsLists,
+  friendsListMutationPending,
+  onSaveFriendsList,
+  onDeleteFriendsList,
   selectedDiscoveryServers,
   noDiscoveryServersSelected,
   libraryGameIds,
@@ -69,6 +76,10 @@ function FriendsViewContent({
   isSignedIn: boolean;
   friends: DiscoveryPerson[];
   addableFriends: DiscoveryPerson[];
+  friendsLists: FriendsList[];
+  friendsListMutationPending: boolean;
+  onSaveFriendsList: (input: { listId?: string; name: string; friendUserIds: string[] }) => Promise<boolean>;
+  onDeleteFriendsList: (listId: string) => Promise<boolean>;
   selectedDiscoveryServers: DiscordServerPreference[];
   noDiscoveryServersSelected: boolean;
   libraryGameIds: ReadonlySet<string>;
@@ -87,6 +98,10 @@ function FriendsViewContent({
   const [addFriendsServerFilterId, setAddFriendsServerFilterId] = useState('')
   const [friendSort, setFriendSort] = useState<FriendSort>('matching-games')
   const [collapsedFriendIds, setCollapsedFriendIds] = useState<ReadonlySet<string>>(() => new Set())
+  const [isListModalOpen, setIsListModalOpen] = useState(false)
+  const [editingListId, setEditingListId] = useState<string | null>(null)
+  const [listNameInput, setListNameInput] = useState('')
+  const [selectedListMemberIds, setSelectedListMemberIds] = useState<ReadonlySet<string>>(() => new Set())
   const sortedFriends = sortPeople(friends, friendSort, libraryGameIds)
   const filteredAddableFriends = addFriendsServerFilterId
     ? addableFriends.filter((person) => person.mutualServerIds.includes(addFriendsServerFilterId))
@@ -95,6 +110,71 @@ function FriendsViewContent({
   const sortedAddableFriends = sortPeople(filteredAddableFriends, friendSort, libraryGameIds)
   const hasFriends = friends.length > 0
   const allFriendsCollapsed = hasFriends && friends.every((friend) => collapsedFriendIds.has(friend.id))
+  const friendSections = [
+    {
+      id: 'friends-section',
+      label: 'Friends',
+      ariaLabel: 'Friends section',
+      count: friends.length
+    },
+    {
+      id: 'friends-lists-section',
+      label: 'Lists',
+      ariaLabel: 'Friends lists section',
+      count: friendsLists.length
+    }
+  ]
+
+  const sortedListFriends = [...friends].sort((left, right) => left.displayName.localeCompare(right.displayName))
+  const trimmedListName = listNameInput.trim()
+  const canSaveList = trimmedListName.length > 0
+    && selectedListMemberIds.size > 0
+    && selectedListMemberIds.size <= maximumFriendsListMemberCount
+    && !friendsListMutationPending
+
+  function openCreateListModal() {
+    setEditingListId(null)
+    setListNameInput('')
+    setSelectedListMemberIds(new Set())
+    setIsListModalOpen(true)
+  }
+
+  function openEditListModal(list: FriendsList) {
+    setEditingListId(list.id)
+    setListNameInput(list.name)
+    setSelectedListMemberIds(new Set(list.members.map((member) => member.id)))
+    setIsListModalOpen(true)
+  }
+
+  function toggleListMember(friendId: string) {
+    setSelectedListMemberIds((current) => {
+      const next = new Set(current)
+
+      if (next.has(friendId)) {
+        next.delete(friendId)
+      } else {
+        next.add(friendId)
+      }
+
+      return next
+    })
+  }
+
+  async function handleSaveList() {
+    if (!canSaveList) {
+      return
+    }
+
+    const saved = await onSaveFriendsList({
+      listId: editingListId ?? undefined,
+      name: trimmedListName,
+      friendUserIds: [...selectedListMemberIds]
+    })
+
+    if (saved) {
+      setIsListModalOpen(false)
+    }
+  }
 
   if (error) {
     return <DashboardApiIssueCard error={error} />
@@ -169,6 +249,8 @@ function FriendsViewContent({
 
   return (
     <Stack spacing={3}>
+      <SectionNav aria-label="Friends sections" mb={0} sections={friendSections} />
+
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }}>
         <Box>
           <Typography level="h2">Friends</Typography>
@@ -179,54 +261,144 @@ function FriendsViewContent({
         {friendHeaderControls}
       </Stack>
 
-      {friends.length > 0 ? (
-        <Stack spacing={2}>
-          {sortedFriends.map((person) => (
-            <PersonCard
-              key={person.id}
-              person={person}
-              canManage={isSignedIn}
-              canAddToLibrary={isSignedIn}
-              libraryGameIds={libraryGameIds}
-              libraryEntryIdsByGameId={libraryEntryIdsByGameId}
-              addingLibraryGameId={addingLibraryGameId}
-              removingLibraryEntryId={removingLibraryEntryId}
-              isCollapsed={collapsedFriendIds.has(person.id)}
-              isPending={friendPendingId === person.id}
-              onToggleCollapsed={() => {
-                setCollapsedFriendIds((current) => {
-                  const next = new Set(current)
+      <Box id="friends-section" sx={{ scrollMarginTop: sectionScrollMarginTop }}>
+        {friends.length > 0 ? (
+          <Stack spacing={2}>
+            {sortedFriends.map((person) => (
+              <PersonCard
+                key={person.id}
+                person={person}
+                canManage={isSignedIn}
+                canAddToLibrary={isSignedIn}
+                libraryGameIds={libraryGameIds}
+                libraryEntryIdsByGameId={libraryEntryIdsByGameId}
+                addingLibraryGameId={addingLibraryGameId}
+                removingLibraryEntryId={removingLibraryEntryId}
+                isCollapsed={collapsedFriendIds.has(person.id)}
+                isPending={friendPendingId === person.id}
+                onToggleCollapsed={() => {
+                  setCollapsedFriendIds((current) => {
+                    const next = new Set(current)
 
-                  if (next.has(person.id)) {
-                    next.delete(person.id)
-                  } else {
-                    next.add(person.id)
-                  }
+                    if (next.has(person.id)) {
+                      next.delete(person.id)
+                    } else {
+                      next.add(person.id)
+                    }
 
-                  return next
-                })
-              }}
-              onToggleFriend={onToggleFriend}
-              onAddToLibrary={onAddGameToLibrary}
-              onRemoveLibraryEntry={onRemoveLibraryEntry}
-              isMuted={mutedPlayIntentUserIds.has(person.id)}
-              onMute={onMutePlayIntentUser}
-              onUnmute={onUnmutePlayIntentUser}
-            />
-          ))}
-        </Stack>
-      ) : (
-        <EmptyStateCard
-          title={isSignedIn ? 'No friends added yet' : 'Friends will appear here'}
-          body={
-            noDiscoveryServersSelected
-              ? 'Select at least one Discord server to form your network so you can discover people and add friends.'
-              : isSignedIn
-                ? 'Add friends from your network and they will show up here.'
-                : 'Sign in to form your network and start adding friends.'
-          }
-        />
-      )}
+                    return next
+                  })
+                }}
+                onToggleFriend={onToggleFriend}
+                onAddToLibrary={onAddGameToLibrary}
+                onRemoveLibraryEntry={onRemoveLibraryEntry}
+                isMuted={mutedPlayIntentUserIds.has(person.id)}
+                onMute={onMutePlayIntentUser}
+                onUnmute={onUnmutePlayIntentUser}
+              />
+            ))}
+          </Stack>
+        ) : (
+          <EmptyStateCard
+            title={isSignedIn ? 'No friends added yet' : 'Friends will appear here'}
+            body={
+              noDiscoveryServersSelected
+                ? 'Select at least one Discord server to form your network so you can discover people and add friends.'
+                : isSignedIn
+                  ? 'Add friends from your network and they will show up here.'
+                  : 'Sign in to form your network and start adding friends.'
+            }
+          />
+        )}
+      </Box>
+
+      {isSignedIn ? (
+        <Box id="friends-lists-section" sx={{ scrollMarginTop: sectionScrollMarginTop }}>
+          <Stack spacing={2}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }}>
+            <Box>
+              <Typography level="h3">Friends lists</Typography>
+              <Typography level="body-sm" sx={{ color: 'neutral.300', mt: 0.5 }}>
+                Group friends into reusable lists you can target when posting a call to play.
+              </Typography>
+            </Box>
+            <Button
+              color="primary"
+              variant="soft"
+              disabled={!hasFriends}
+              onClick={openCreateListModal}
+              sx={headerActionFilterButtonSx}
+            >
+              New list
+            </Button>
+          </Stack>
+
+            {friendsLists.length > 0 ? (
+              <Stack spacing={1.5}>
+                {friendsLists.map((list) => (
+                  <Card key={list.id} variant="soft" sx={{ p: 2 }}>
+                    <Stack spacing={1.5}>
+                      <Stack direction="row" spacing={1.5} justifyContent="space-between" alignItems="flex-start">
+                        <Box>
+                          <Typography level="title-md">{list.name}</Typography>
+                          <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
+                            {list.memberCount} {list.memberCount === 1 ? 'friend' : 'friends'}
+                          </Typography>
+                        </Box>
+                        <Stack direction="row" spacing={1}>
+                          <Button
+                            size="sm"
+                            variant="soft"
+                            color="neutral"
+                            disabled={friendsListMutationPending}
+                            onClick={() => openEditListModal(list)}
+                          >
+                            Edit
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="soft"
+                            color="danger"
+                            disabled={friendsListMutationPending}
+                            onClick={() => { void onDeleteFriendsList(list.id) }}
+                          >
+                            Delete
+                          </Button>
+                        </Stack>
+                      </Stack>
+                      {list.members.length > 0 ? (
+                        <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+                          {list.members.map((member) => (
+                            <Chip
+                              key={member.id}
+                              size="sm"
+                              variant="soft"
+                              startDecorator={<Avatar src={member.avatarUrl ?? undefined} alt={member.displayName} size="sm" variant="soft" />}
+                            >
+                              {member.displayName}
+                            </Chip>
+                          ))}
+                        </Stack>
+                      ) : (
+                        <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
+                          No current friends remain in this list.
+                        </Typography>
+                      )}
+                    </Stack>
+                  </Card>
+                ))}
+              </Stack>
+            ) : (
+              <EmptyStateCard
+                title="No friends lists yet"
+                body={hasFriends
+                  ? 'Create a list to quickly target the same group of friends when posting a call to play.'
+                  : 'Add friends first, then group them into reusable lists.'}
+              />
+            )}
+          </Stack>
+        </Box>
+      ) : null}
 
       {isSignedIn ? (
         <DashboardModal open={isAddFriendsModalOpen} onClose={() => setIsAddFriendsModalOpen(false)} width="min(96vw, 860px)">
@@ -310,6 +482,78 @@ function FriendsViewContent({
                     : 'Everyone in your network is already on your friends list.'}
               />
             )}
+          </DialogContent>
+        </DashboardModal>
+      ) : null}
+
+      {isSignedIn ? (
+        <DashboardModal open={isListModalOpen} onClose={() => setIsListModalOpen(false)} width="min(96vw, 680px)">
+          <DialogTitle sx={{ pr: 6 }}>{editingListId ? 'Edit friends list' : 'New friends list'}</DialogTitle>
+          <DialogContent
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 2,
+              pr: 0.5,
+              overscrollBehavior: 'contain',
+              WebkitOverflowScrolling: 'touch'
+            }}
+          >
+            <Stack spacing={1}>
+              <Typography level="title-sm">List name</Typography>
+              <Input
+                placeholder="e.g. Tuesday crew"
+                value={listNameInput}
+                onChange={(event) => setListNameInput(event.target.value)}
+                slotProps={{ input: { maxLength: 60 } }}
+              />
+            </Stack>
+
+            <Stack spacing={1}>
+              <Typography level="title-sm">Members</Typography>
+              <Typography level="body-xs" sx={{ color: selectedListMemberIds.size > 0 ? 'primary.200' : 'neutral.400' }}>
+                {selectedListMemberIds.size} / {maximumFriendsListMemberCount} selected
+              </Typography>
+              {sortedListFriends.length > 0 ? (
+                <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+                  {sortedListFriends.map((friend) => {
+                    const isSelected = selectedListMemberIds.has(friend.id)
+
+                    return (
+                      <Button
+                        key={friend.id}
+                        size="sm"
+                        variant={isSelected ? 'solid' : 'soft'}
+                        color={isSelected ? 'primary' : 'neutral'}
+                        disabled={!isSelected && selectedListMemberIds.size >= maximumFriendsListMemberCount}
+                        startDecorator={<Avatar src={friend.avatarUrl ?? undefined} alt={friend.displayName} size="sm" variant="soft" />}
+                        onClick={() => toggleListMember(friend.id)}
+                      >
+                        {friend.displayName}
+                      </Button>
+                    )
+                  })}
+                </Stack>
+              ) : (
+                <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
+                  Add friends first to build a list.
+                </Typography>
+              )}
+            </Stack>
+
+            <Stack direction="row" spacing={1} justifyContent="flex-end">
+              <Button variant="soft" color="neutral" onClick={() => setIsListModalOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                color="primary"
+                disabled={!canSaveList}
+                loading={friendsListMutationPending}
+                onClick={() => { void handleSaveList() }}
+              >
+                {editingListId ? 'Save list' : 'Create list'}
+              </Button>
+            </Stack>
           </DialogContent>
         </DashboardModal>
       ) : null}

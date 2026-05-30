@@ -6,6 +6,7 @@ import type {
   DiscordServerPreference,
   DiscordVoiceChannel,
   DiscoveryPerson,
+  FriendsList,
   LibraryEntry,
   PlayIntentNotifyScope,
   PlayIntentPreview
@@ -176,6 +177,9 @@ function PlayViewContent({
   onTogglePlayIntentTargetDiscordServer,
   selectedPlayIntentTargetUserIds,
   onTogglePlayIntentTargetUser,
+  friendsLists,
+  selectedPlayIntentFriendsListId,
+  onPlayIntentFriendsListChange,
   libraryEntries,
   selectedPlayIntentGameIds,
   onTogglePlayIntentGame,
@@ -238,6 +242,9 @@ function PlayViewContent({
   onTogglePlayIntentTargetDiscordServer: (serverId: string) => void;
   selectedPlayIntentTargetUserIds: string[];
   onTogglePlayIntentTargetUser: (userId: string) => void;
+  friendsLists: FriendsList[];
+  selectedPlayIntentFriendsListId: string | null;
+  onPlayIntentFriendsListChange: (listId: string | null) => void;
   libraryEntries: LibraryEntry[];
   selectedPlayIntentGameIds: string[];
   onTogglePlayIntentGame: (gameId: string) => void;
@@ -376,6 +383,9 @@ function PlayViewContent({
               onTogglePlayIntentTargetDiscordServer={onTogglePlayIntentTargetDiscordServer}
               selectedPlayIntentTargetUserIds={selectedPlayIntentTargetUserIds}
               onTogglePlayIntentTargetUser={onTogglePlayIntentTargetUser}
+              friendsLists={friendsLists}
+              selectedPlayIntentFriendsListId={selectedPlayIntentFriendsListId}
+              onPlayIntentFriendsListChange={onPlayIntentFriendsListChange}
               libraryEntries={libraryEntries}
               selectedPlayIntentGameIds={selectedPlayIntentGameIds}
               onTogglePlayIntentGame={onTogglePlayIntentGame}

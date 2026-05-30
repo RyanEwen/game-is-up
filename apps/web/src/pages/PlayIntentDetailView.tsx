@@ -913,7 +913,7 @@ export function PlayIntentDetailView() {
                 ) : null}
               </Box>
 
-              {intent.notifyScope === 'specific-friends' ? (
+              {intent.notifyScope === 'specific-friends' || intent.notifyScope === 'friends-list' ? (
                 <Box sx={{ pt: 2, borderTop: '1px solid', borderColor: 'neutral.700' }}>
                   <PlayIntentResponseUserList
                     users={intent.passedUsers}

@@ -233,6 +233,8 @@ function toClientNotifyScope(scope: PlayIntentScope | null) {
       return 'specific-discord-server'
     case PlayIntentScope.SPECIFIC_FRIENDS:
       return 'specific-friends'
+    case PlayIntentScope.SPECIFIC_FRIENDS_LIST:
+      return 'friends-list'
     default:
       return 'network'
   }

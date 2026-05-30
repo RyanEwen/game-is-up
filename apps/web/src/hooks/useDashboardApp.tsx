@@ -23,6 +23,7 @@ import type {
   GameDetailsResponse,
   DiscoveryPerson,
   DiscoveryPersonGame,
+  FriendsList,
   HealthResponse,
   LibraryEntry,
   LibraryResponse,
@@ -36,9 +37,12 @@ import {
   authProvidersResponseSchema,
   authSessionResponseSchema,
   debugAdminResponseSchema,
+  deleteFriendsListResponseSchema,
   discordServerPreferencesResponseSchema,
   discoveryFeedSchema,
   extractErrorMessage,
+  friendsListResponseSchema,
+  friendsListsResponseSchema,
   gameDetailsResponseSchema,
   healthResponseSchema,
   libraryResponseSchema,
@@ -75,6 +79,7 @@ type LoadState = {
   debugAdmin: DebugAdminResponse | null;
   discordServers: DiscordServerPreferencesResponse | null;
   discovery: DiscoveryFeed | null;
+  friendsLists: FriendsList[];
   health: HealthResponse | null;
   library: LibraryResponse | null;
   playIntents: PlayIntentFeed | null;
@@ -88,6 +93,7 @@ const initialState: LoadState = {
   debugAdmin: null,
   discordServers: null,
   discovery: null,
+  friendsLists: [],
   health: null,
   library: null,
   playIntents: null,
@@ -105,6 +111,7 @@ export function useDashboardApp() {
   const [installPromptEvent, setInstallPromptEvent] = useState<BeforeInstallPromptEvent | null>(null)
   const [installPromptPending, setInstallPromptPending] = useState(false)
   const [friendPendingId, setFriendPendingId] = useState<string | null>(null)
+  const [friendsListMutationPending, setFriendsListMutationPending] = useState(false)
   const [addingLibraryGameId, setAddingLibraryGameId] = useState<string | null>(null)
   const [discordServerRefreshPending, setDiscordServerRefreshPending] = useState(false)
   const [serverPreferencePendingId, setServerPreferencePendingId] = useState<string | null>(null)
@@ -168,6 +175,7 @@ export function useDashboardApp() {
   const currentUsualAvailability = state.library?.usualAvailability ?? state.session?.user?.usualAvailability ?? null
   const friendPeople = [...discoveryPeople].filter((person) => person.isFriend).sort((left, right) => left.displayName.localeCompare(right.displayName))
   const addableFriendPeople = [...discoveryPeople].filter((person) => person.friendEligible).sort((left, right) => left.displayName.localeCompare(right.displayName))
+  const friendsLists = state.friendsLists
   const latestInviteAttribution = state.session?.inviteAttribution ?? null
   const latestInviteAcceptedAt = latestInviteAttribution ? new Date(latestInviteAttribution.acceptedAt).getTime() : 0
   const hasRecentInviteAttribution = latestInviteAttribution != null
@@ -300,11 +308,12 @@ export function useDashboardApp() {
 
       const parsedSession = authSessionResponseSchema.parse(sessionJson)
 
-      const [discoveryResponse, playIntentsResponse, libraryResponse, currentPlayIntentResponse, debugResponse] = await Promise.all([
+      const [discoveryResponse, playIntentsResponse, libraryResponse, currentPlayIntentResponse, friendsListsResponse, debugResponse] = await Promise.all([
         fetch(buildApiUrl('/api/discovery/feed'), requestInit),
         fetch(buildApiUrl('/api/play-intents/feed'), requestInit),
         parsedSession.authenticated ? fetch(buildApiUrl('/api/library/me'), requestInit) : Promise.resolve(null),
         parsedSession.authenticated ? fetch(buildApiUrl('/api/play-intents/me'), requestInit) : Promise.resolve(null),
+        parsedSession.authenticated ? fetch(buildApiUrl('/api/friends-lists'), requestInit) : Promise.resolve(null),
         parsedSession.authenticated && parsedSession.user?.isAdmin ? fetch(buildApiUrl('/api/debug/admin'), requestInit) : Promise.resolve(null)
       ])
 
@@ -339,6 +348,12 @@ export function useDashboardApp() {
         'Discord servers'
       )
 
+      const friendsListsState = await readOptionalJson(
+        friendsListsResponse,
+        (friendsListsJson) => friendsListsResponseSchema.parse(friendsListsJson),
+        'Friends lists'
+      )
+
       if (debugResponse) {
         if (debugResponse.ok) {
           try {
@@ -360,6 +375,7 @@ export function useDashboardApp() {
         debugAdmin,
         discordServers,
         discovery: discoveryFeedSchema.parse(discoveryJson),
+        friendsLists: friendsListsState?.lists ?? [],
         playIntents: playIntentFeedSchema.parse(playIntentsJson),
         library,
         error: null
@@ -620,6 +636,7 @@ export function useDashboardApp() {
     libraryEntries,
     discoveryPeople,
     playIntentFriendOptions,
+    friendsLists,
     playIntentDiscordServerOptions,
     playIntentPreviews: state.playIntents?.intents ?? [],
     loadDashboard,
@@ -938,6 +955,95 @@ export function useDashboardApp() {
     }
   }, [loadDashboard])
 
+  const handleSaveFriendsList = useCallback(async (input: { listId?: string; name: string; friendUserIds: string[] }): Promise<boolean> => {
+    setFriendsListMutationPending(true)
+    setActionNotice(null)
+
+    try {
+      const isUpdate = Boolean(input.listId)
+      const response = await fetch(
+        buildApiUrl(isUpdate ? `/api/friends-lists/${input.listId}` : '/api/friends-lists'),
+        {
+          method: isUpdate ? 'PUT' : 'POST',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            name: input.name,
+            friendUserIds: input.friendUserIds
+          })
+        }
+      )
+
+      const responseBody = (await response.json()) as { error?: string }
+
+      if (!response.ok) {
+        setActionNotice({
+          tone: 'danger',
+          message: extractErrorMessage(responseBody, 'Unable to save that friends list right now.')
+        })
+        return false
+      }
+
+      const parsed = friendsListResponseSchema.parse(responseBody)
+      setActionNotice({
+        tone: 'success',
+        message: isUpdate
+          ? `Updated the "${parsed.list.name}" friends list.`
+          : `Created the "${parsed.list.name}" friends list.`
+      })
+      await loadDashboard()
+      return true
+    } catch (error) {
+      setActionNotice({
+        tone: 'danger',
+        message: error instanceof Error ? error.message : 'Unable to save that friends list right now.'
+      })
+      return false
+    } finally {
+      setFriendsListMutationPending(false)
+    }
+  }, [loadDashboard])
+
+  const handleDeleteFriendsList = useCallback(async (listId: string): Promise<boolean> => {
+    setFriendsListMutationPending(true)
+    setActionNotice(null)
+
+    try {
+      const response = await fetch(buildApiUrl(`/api/friends-lists/${listId}`), {
+        method: 'DELETE',
+        credentials: 'include'
+      })
+
+      const responseBody = (await response.json()) as { error?: string }
+
+      if (!response.ok) {
+        setActionNotice({
+          tone: 'danger',
+          message: extractErrorMessage(responseBody, 'Unable to delete that friends list right now.')
+        })
+        return false
+      }
+
+      const parsed = deleteFriendsListResponseSchema.parse(responseBody)
+      setActionNotice({
+        tone: parsed.status === 'deleted' ? 'success' : 'danger',
+        message: parsed.message
+      })
+      await loadDashboard()
+      return parsed.status === 'deleted'
+    } catch (error) {
+      setActionNotice({
+        tone: 'danger',
+        message: error instanceof Error ? error.message : 'Unable to delete that friends list right now.'
+      })
+      return false
+    } finally {
+      setFriendsListMutationPending(false)
+    }
+  }, [loadDashboard])
+
   const handleToggleDiscordServer = useCallback(async (serverId: string, nextSelected: boolean) => {
     setServerPreferencePendingId(serverId)
     setActionNotice(null)
@@ -1135,6 +1241,10 @@ export function useDashboardApp() {
       isSignedIn,
       friends: friendPeople,
       addableFriends: addableFriendPeople,
+      friendsLists,
+      friendsListMutationPending,
+      onSaveFriendsList: handleSaveFriendsList,
+      onDeleteFriendsList: handleDeleteFriendsList,
       selectedDiscoveryServers: playIntentDiscordServerOptions,
       noDiscoveryServersSelected,
       libraryGameIds,

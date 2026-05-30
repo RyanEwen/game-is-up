@@ -9,6 +9,7 @@ import type {
   DiscordServerPreference,
   DiscordVoiceChannel,
   DiscoveryPerson,
+  FriendsList,
   LibraryEntry,
   PlayIntentNotifyScope
 } from '@game-is-up/shared'
@@ -189,6 +190,9 @@ export function PlayIntentComposerCard({
   onTogglePlayIntentTargetDiscordServer,
   selectedPlayIntentTargetUserIds,
   onTogglePlayIntentTargetUser,
+  friendsLists,
+  selectedPlayIntentFriendsListId,
+  onPlayIntentFriendsListChange,
   libraryEntries,
   selectedPlayIntentGameIds,
   onTogglePlayIntentGame,
@@ -238,6 +242,9 @@ export function PlayIntentComposerCard({
   onTogglePlayIntentTargetDiscordServer: (serverId: string) => void;
   selectedPlayIntentTargetUserIds: string[];
   onTogglePlayIntentTargetUser: (userId: string) => void;
+  friendsLists: FriendsList[];
+  selectedPlayIntentFriendsListId: string | null;
+  onPlayIntentFriendsListChange: (listId: string | null) => void;
   libraryEntries: LibraryEntry[];
   selectedPlayIntentGameIds: string[];
   onTogglePlayIntentGame: (gameId: string) => void;
@@ -323,10 +330,12 @@ export function PlayIntentComposerCard({
     .filter((entry) => selectedPlayIntentGameIds.includes(entry.gameId))
     .map((entry) => entry.title)
   const selectedFriends = playIntentFriendOptions.filter((friend) => selectedPlayIntentTargetUserIds.includes(friend.id))
+  const selectedFriendsList = friendsLists.find((list) => list.id === selectedPlayIntentFriendsListId) ?? null
   const selectedServers = playIntentDiscordServerOptions.filter((server) => selectedPlayIntentTargetDiscordServerIds.includes(server.id))
   const basicsNeedsAttention = selectedGameTitles.length === 0
   const audienceNeedsAttention = Boolean(playIntentFilteredAudienceMessage)
     || (playIntentNotifyScope === 'specific-friends' && selectedFriends.length === 0)
+    || (playIntentNotifyScope === 'friends-list' && !selectedPlayIntentFriendsListId)
     || (playIntentNotifyScope === 'specific-discord-server' && selectedServers.length === 0)
   const timingNeedsAttention = playIntentStartHasError || playIntentTimingHasError
 
@@ -421,7 +430,7 @@ export function PlayIntentComposerCard({
             <Stack spacing={1}>
               <Typography level="title-sm">Who do you want to target?</Typography>
               <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-                {(['network', 'specific-discord-server', 'friends-only', 'specific-friends'] as const).map((scope) => (
+                {(['network', 'specific-discord-server', 'friends-only', 'specific-friends', 'friends-list'] as const).map((scope) => (
                   <Button
                     key={scope}
                     size="sm"
@@ -429,6 +438,7 @@ export function PlayIntentComposerCard({
                     color={playIntentNotifyScope === scope ? 'primary' : 'neutral'}
                     disabled={
                       (scope === 'specific-friends' && playIntentFriendOptions.length === 0)
+                      || (scope === 'friends-list' && friendsLists.length === 0)
                       || (scope === 'specific-discord-server' && playIntentDiscordServerOptions.length === 0)
                     }
                     onClick={() => onPlayIntentNotifyScopeChange(scope)}
@@ -500,6 +510,75 @@ export function PlayIntentComposerCard({
               ) : (
                 <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
                   Add friends first to target a specific audience.
+                </Typography>
+              )
+            ) : null}
+
+            {playIntentNotifyScope === 'friends-list' ? (
+              friendsLists.length > 0 ? (
+                <Stack spacing={1}>
+                  <Typography level="body-xs" sx={{ color: 'neutral.300' }}>
+                    Choose a saved friends list. Its members are captured when you post, so later edits to the list will not change this call to play.
+                  </Typography>
+                  <Select
+                    value={selectedPlayIntentFriendsListId}
+                    placeholder="Select a friends list"
+                    onChange={(_event, value) => onPlayIntentFriendsListChange(value)}
+                  >
+                    {friendsLists.map((list) => (
+                      <Option key={list.id} value={list.id}>
+                        {list.name} ({list.memberCount})
+                      </Option>
+                    ))}
+                  </Select>
+                  {selectedFriendsList ? (
+                    <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+                      {selectedFriendsList.members.map((member) => (
+                        <Chip
+                          key={member.id}
+                          size="sm"
+                          variant="soft"
+                          startDecorator={<Avatar src={member.avatarUrl ?? undefined} alt={member.displayName} size="sm" variant="soft" />}
+                        >
+                          {member.displayName}
+                        </Chip>
+                      ))}
+                    </Stack>
+                  ) : null}
+                  {playIntentTargetedAudienceWarningMessage && playIntentUnmatchedTargetUsers.length > 0 ? (
+                    <Card
+                      color="warning"
+                      variant="soft"
+                      sx={{
+                        p: 1.5,
+                        border: '1px solid',
+                        borderColor: 'warning.700',
+                        boxShadow: 'none'
+                      }}
+                    >
+                      <Stack spacing={1}>
+                        <Typography level="title-sm">Some friends in this list will not receive this call</Typography>
+                        <Typography level="body-sm">{playIntentTargetedAudienceWarningMessage}</Typography>
+                        <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+                          {playIntentUnmatchedTargetUsers.map((friend) => (
+                            <Chip
+                              key={friend.id}
+                              size="sm"
+                              color="warning"
+                              variant="soft"
+                              startDecorator={<Avatar src={friend.avatarUrl ?? undefined} alt={friend.displayName} size="sm" variant="soft" />}
+                            >
+                              {friend.displayName}
+                            </Chip>
+                          ))}
+                        </Stack>
+                      </Stack>
+                    </Card>
+                  ) : null}
+                </Stack>
+              ) : (
+                <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
+                  Create a friends list first to target it here.
                 </Typography>
               )
             ) : null}

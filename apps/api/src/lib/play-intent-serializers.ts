@@ -17,12 +17,14 @@ export function toSelectionMode(selectionMode: PlayIntentSelectionMode): 'librar
 
 export function toNotifyScope(
   scope: PlayIntentScope
-): 'friends-only' | 'network' | 'specific-friends' | 'specific-discord-server' {
+): 'friends-only' | 'network' | 'specific-friends' | 'friends-list' | 'specific-discord-server' {
   switch (scope) {
     case PlayIntentScope.SPECIFIC_DISCORD_SERVER:
       return 'specific-discord-server'
     case PlayIntentScope.SPECIFIC_FRIENDS:
       return 'specific-friends'
+    case PlayIntentScope.SPECIFIC_FRIENDS_LIST:
+      return 'friends-list'
     case PlayIntentScope.MUTUAL_FRIENDS:
       return 'network'
     default:
@@ -156,6 +158,7 @@ export function isViewerIncludedByPlayIntentAudience({
 
   switch (scope) {
     case PlayIntentScope.SPECIFIC_FRIENDS:
+    case PlayIntentScope.SPECIFIC_FRIENDS_LIST:
       return isTargetedFriend
     case PlayIntentScope.SPECIFIC_DISCORD_SERVER:
       return isTargetedServer
@@ -181,6 +184,7 @@ export function isPlayIntentVisibleToViewer({
 
   switch (scope) {
     case PlayIntentScope.SPECIFIC_FRIENDS:
+    case PlayIntentScope.SPECIFIC_FRIENDS_LIST:
       return isExplicitFriend || isInDiscoveryAudience || isTargetedFriend
     case PlayIntentScope.SPECIFIC_DISCORD_SERVER:
       return isExplicitFriend || isInDiscoveryAudience || isTargetedServer

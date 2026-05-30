@@ -11,6 +11,7 @@ import {
   discoveryRouter,
   eventsRouter,
   friendsRouter,
+  friendsListsRouter,
   healthRouter,
   libraryRouter,
   mediaRouter,
@@ -61,6 +62,7 @@ app.use('/api/discord-servers', discordServersRouter)
 app.use('/api/discovery', discoveryRouter)
 app.use('/api/events', eventsRouter)
 app.use('/api/friends', friendsRouter)
+app.use('/api/friends-lists', friendsListsRouter)
 app.use('/api/library', libraryRouter)
 app.use('/api/media', mediaRouter)
 app.use('/api/play-intents', playIntentRouter)

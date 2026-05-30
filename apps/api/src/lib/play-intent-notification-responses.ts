@@ -212,7 +212,7 @@ type CreatorPlayIntentSummarySnapshot = {
   headline: string;
   note: string;
   selectionMode: 'ENTIRE_LIBRARY' | 'SELECTED_GAMES';
-  scope: 'FRIENDS_ONLY' | 'MUTUAL_FRIENDS' | 'SPECIFIC_FRIENDS' | 'SPECIFIC_DISCORD_SERVER';
+  scope: 'FRIENDS_ONLY' | 'MUTUAL_FRIENDS' | 'SPECIFIC_FRIENDS' | 'SPECIFIC_FRIENDS_LIST' | 'SPECIFIC_DISCORD_SERVER';
   windowStartsAt: Date;
   windowEndsAt: Date;
   expiresAt: Date;
@@ -864,7 +864,7 @@ function summarizePlayIntentAudience(
     return `Discord servers ${names.slice(0, 4).join(', ')} +${names.length - 4} more`
   }
 
-  if (scope === 'SPECIFIC_FRIENDS') {
+  if (scope === 'SPECIFIC_FRIENDS' || scope === 'SPECIFIC_FRIENDS_LIST') {
     const names = targetFriends
       .map((entry) => buildDiscordUserLabel(entry.friendUser.displayName, entry.friendUser.identities?.[0]?.providerUserId))
       .sort((left, right) => left.localeCompare(right))
@@ -1823,7 +1823,7 @@ export function buildCreatorPlayIntentSummaryPreview(snapshot: {
   headline: string;
   note: string;
   selectionMode: 'ENTIRE_LIBRARY' | 'SELECTED_GAMES';
-  scope: 'FRIENDS_ONLY' | 'MUTUAL_FRIENDS' | 'SPECIFIC_FRIENDS' | 'SPECIFIC_DISCORD_SERVER';
+  scope: 'FRIENDS_ONLY' | 'MUTUAL_FRIENDS' | 'SPECIFIC_FRIENDS' | 'SPECIFIC_FRIENDS_LIST' | 'SPECIFIC_DISCORD_SERVER';
   windowStartsAt: Date;
   windowEndsAt: Date;
   expiresAt: Date;
@@ -2694,7 +2694,7 @@ const passAcknowledgementCopyByMode = {
 } as const satisfies Record<PassAcknowledgementMode, { bodyLine: string | null; subtext: string }>
 
 function getPassAcknowledgementMode(scope: PlayIntentScope | null | undefined): PassAcknowledgementMode {
-  return scope === PlayIntentScope.SPECIFIC_FRIENDS ? 'creator-notified' : 'anonymous'
+  return scope === PlayIntentScope.SPECIFIC_FRIENDS || scope === PlayIntentScope.SPECIFIC_FRIENDS_LIST ? 'creator-notified' : 'anonymous'
 }
 
 function getPassAcknowledgementCopy(mode: PassAcknowledgementMode = 'anonymous') {

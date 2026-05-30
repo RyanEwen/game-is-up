@@ -16,6 +16,7 @@ import type {
   DiscordServerPreference,
   DiscordVoiceChannel,
   DiscoveryPerson,
+  FriendsList,
   LibraryEntry,
   PlayIntentDetail,
   PlayIntentNotifyScope,
@@ -82,6 +83,7 @@ function toComposerPlayIntent(intent: ActivePlayIntent | PlayIntentDetail): Acti
     notifyScope: intent.notifyScope,
     targetServers: intent.targetServers,
     targetedFriends: intent.targetedFriends,
+    targetFriendsListId: intent.targetFriendsListId,
     platforms: intent.platforms,
     games: intent.games,
     note: intent.note,
@@ -131,6 +133,9 @@ export type DashboardPlayViewProps = {
   onTogglePlayIntentTargetDiscordServer: (serverId: string) => void;
   selectedPlayIntentTargetUserIds: string[];
   onTogglePlayIntentTargetUser: (userId: string) => void;
+  friendsLists: FriendsList[];
+  selectedPlayIntentFriendsListId: string | null;
+  onPlayIntentFriendsListChange: (listId: string | null) => void;
   libraryEntries: LibraryEntry[];
   selectedPlayIntentGameIds: string[];
   onTogglePlayIntentGame: (gameId: string) => void;
@@ -193,6 +198,7 @@ export function useDashboardPlay({
   libraryEntries,
   discoveryPeople,
   playIntentFriendOptions,
+  friendsLists,
   playIntentDiscordServerOptions,
   playIntentPreviews,
   loadDashboard,
@@ -205,6 +211,7 @@ export function useDashboardPlay({
   libraryEntries: LibraryEntry[];
   discoveryPeople: DiscoveryPerson[];
   playIntentFriendOptions: Array<Pick<DiscoveryPerson, 'id' | 'handle' | 'displayName' | 'avatarUrl'>>;
+  friendsLists: FriendsList[];
   playIntentDiscordServerOptions: DiscordServerPreference[];
   playIntentPreviews: PlayIntentPreview[];
   loadDashboard: () => Promise<void>;
@@ -228,6 +235,7 @@ export function useDashboardPlay({
   const [selectedPlayIntentGameIds, setSelectedPlayIntentGameIds] = useState<string[]>([])
   const [selectedPlayIntentTargetDiscordServerIds, setSelectedPlayIntentTargetDiscordServerIds] = useState<string[]>([])
   const [selectedPlayIntentTargetUserIds, setSelectedPlayIntentTargetUserIds] = useState<string[]>([])
+  const [selectedPlayIntentFriendsListId, setSelectedPlayIntentFriendsListId] = useState<string | null>(null)
   const [mutedPlayIntentUserIds, setMutedPlayIntentUserIds] = useState<Set<string>>(new Set())
   const [playIntentResponsePendingIntentId, setPlayIntentResponsePendingIntentId] = useState<string | null>(null)
   const [playIntentDiscordSpaceRetryPendingIntentId, setPlayIntentDiscordSpaceRetryPendingIntentId] = useState<string | null>(null)
@@ -254,6 +262,7 @@ export function useDashboardPlay({
     setSelectedPlayIntentGameIds([])
     setSelectedPlayIntentTargetDiscordServerIds([])
     setSelectedPlayIntentTargetUserIds([])
+    setSelectedPlayIntentFriendsListId(null)
   }, [])
 
   const populatePlayIntentComposer = useCallback((intent: ActivePlayIntent) => {
@@ -288,6 +297,7 @@ export function useDashboardPlay({
     setSelectedPlayIntentGameIds(intent.games.map((game) => game.id))
     setSelectedPlayIntentTargetDiscordServerIds(intent.targetServers.map((server) => server.id))
     setSelectedPlayIntentTargetUserIds(intent.targetedFriends.map((friend) => friend.id))
+    setSelectedPlayIntentFriendsListId(intent.targetFriendsListId ?? null)
   }, [])
 
   const canPostPlayIntent = libraryEntries.length > 0
@@ -295,7 +305,13 @@ export function useDashboardPlay({
   const currentPlayIntentGameIdSet = selectedPlayIntentGameIdSet
   const selectedPlayIntentTargetUserIdSet = new Set<string>(selectedPlayIntentTargetUserIds)
   const friendDiscoveryPeople = discoveryPeople.filter((person) => person.isFriend)
-  const targetedDiscoveryPeople = friendDiscoveryPeople.filter((person) => selectedPlayIntentTargetUserIdSet.has(person.id))
+  const selectedFriendsList = friendsLists.find((list) => list.id === selectedPlayIntentFriendsListId) ?? null
+  const friendsListMemberIdSet = new Set<string>(selectedFriendsList?.members.map((member) => member.id) ?? [])
+  const friendsListTargetedDiscoveryPeople = friendDiscoveryPeople.filter((person) => friendsListMemberIdSet.has(person.id))
+  const effectiveTargetedDiscoveryPeople = playIntentNotifyScope === 'friends-list'
+    ? friendsListTargetedDiscoveryPeople
+    : friendDiscoveryPeople.filter((person) => selectedPlayIntentTargetUserIdSet.has(person.id))
+  const targetedDiscoveryPeople = effectiveTargetedDiscoveryPeople
   const unmatchedTargetedDiscoveryPeople = targetedDiscoveryPeople.filter((person) => !personHasGameOverlap(person, currentPlayIntentGameIdSet))
   const networkRecipientsForCurrentSelection = discoveryPeople.filter((person) => personHasGameOverlap(person, currentPlayIntentGameIdSet))
   const friendRecipientsForCurrentSelection = friendDiscoveryPeople.filter((person) => personHasGameOverlap(person, currentPlayIntentGameIdSet))
@@ -304,7 +320,7 @@ export function useDashboardPlay({
     ? networkRecipientsForCurrentSelection
     : playIntentNotifyScope === 'friends-only'
       ? friendRecipientsForCurrentSelection
-      : playIntentNotifyScope === 'specific-friends'
+      : playIntentNotifyScope === 'specific-friends' || playIntentNotifyScope === 'friends-list'
         ? targetedRecipientsForCurrentSelection
         : []
   const currentRecipientCount = currentRecipients.length
@@ -314,8 +330,10 @@ export function useDashboardPlay({
       ? 'your friends list'
       : playIntentNotifyScope === 'specific-friends'
         ? 'the friends you selected'
-        : 'that Discord server'
-  const playIntentTargetedAudienceWarningMessage = playIntentNotifyScope === 'specific-friends'
+        : playIntentNotifyScope === 'friends-list'
+          ? 'the friends list you selected'
+          : 'that Discord server'
+  const playIntentTargetedAudienceWarningMessage = (playIntentNotifyScope === 'specific-friends' || playIntentNotifyScope === 'friends-list')
     && currentRecipientCount > 0
     && unmatchedTargetedDiscoveryPeople.length > 0
     ? unmatchedTargetedDiscoveryPeople.length === 1
@@ -330,13 +348,15 @@ export function useDashboardPlay({
         ? `Choose no more than ${maximumPlayIntentGameSelectionCount} games for a call to play.`
     : playIntentNotifyScope === 'specific-friends' && selectedPlayIntentTargetUserIds.length === 0
       ? 'You must choose at least one friend before posting a friend-specific call to play.'
+      : playIntentNotifyScope === 'friends-list' && !selectedPlayIntentFriendsListId
+        ? 'Choose a friends list before posting a friends-list call to play.'
       : playIntentNotifyScope === 'specific-discord-server' && selectedPlayIntentTargetDiscordServerIds.length === 0
         ? 'You must choose at least one Discord server before posting a server-specific call to play.'
         : playIntentNotifyScope === 'specific-discord-server'
           ? null
           : currentRecipientCount > 0
             ? null
-            : playIntentNotifyScope === 'specific-friends' && friendRecipientsForCurrentSelection.length > 0
+            : (playIntentNotifyScope === 'specific-friends' || playIntentNotifyScope === 'friends-list') && friendRecipientsForCurrentSelection.length > 0
               ? 'None of the friends you selected are a match for the selected games. Choose different games, friends or widen the audience.'
               : playIntentNotifyScope === 'friends-only' && networkRecipientsForCurrentSelection.length > 0
                 ? 'None of your friends are a match right now for the selected games. Choose different games, friends, or widen the audience.'
@@ -569,6 +589,14 @@ export function useDashboardPlay({
       return
     }
 
+    if (playIntentNotifyScope === 'friends-list' && !selectedPlayIntentFriendsListId) {
+      setPlayIntentNotice({
+        tone: 'danger',
+        message: 'Choose a friends list before posting a friends-list call to play.'
+      })
+      return
+    }
+
     if (playIntentNotifyScope === 'specific-discord-server' && selectedPlayIntentTargetDiscordServerIds.length === 0) {
       setPlayIntentNotice({
         tone: 'danger',
@@ -639,6 +667,7 @@ export function useDashboardPlay({
           voiceChannelName: playIntentVoiceMode === 'existing' ? playIntentVoiceChannelName.trim() || undefined : undefined,
           gameIds: selectedPlayIntentGameIds,
           targetUserIds: playIntentNotifyScope === 'specific-friends' ? selectedPlayIntentTargetUserIds : [],
+          targetFriendsListId: playIntentNotifyScope === 'friends-list' ? (selectedPlayIntentFriendsListId ?? undefined) : undefined,
           targetDiscordServerIds: playIntentNotifyScope === 'specific-discord-server'
             ? selectedPlayIntentTargetDiscordServerIds
             : []
@@ -709,6 +738,7 @@ export function useDashboardPlay({
     selectedPlayIntentGameIds,
     selectedPlayIntentTargetDiscordServerIds,
     selectedPlayIntentTargetUserIds,
+    selectedPlayIntentFriendsListId,
     setPlayIntentNotice,
     composerPlayIntent
   ])
@@ -839,6 +869,11 @@ export function useDashboardPlay({
 
   const handlePlayIntentNotifyScopeChange = useCallback((scope: PlayIntentNotifyScope) => {
     setPlayIntentNotifyScope(scope)
+    setPlayIntentNotice(null)
+  }, [setPlayIntentNotice])
+
+  const handlePlayIntentFriendsListChange = useCallback((listId: string | null) => {
+    setSelectedPlayIntentFriendsListId(listId)
     setPlayIntentNotice(null)
   }, [setPlayIntentNotice])
 
@@ -1174,6 +1209,9 @@ export function useDashboardPlay({
     onTogglePlayIntentTargetDiscordServer: handleTogglePlayIntentTargetDiscordServer,
     selectedPlayIntentTargetUserIds,
     onTogglePlayIntentTargetUser: handleTogglePlayIntentTargetUser,
+    friendsLists,
+    selectedPlayIntentFriendsListId,
+    onPlayIntentFriendsListChange: handlePlayIntentFriendsListChange,
     libraryEntries,
     selectedPlayIntentGameIds,
     onTogglePlayIntentGame: togglePlayIntentGame,

@@ -69,7 +69,9 @@ Optional: set `VITE_API_BASE_URL` to an explicit origin if the web app should ca
 
 The dashboard uses route-backed tabs, so the main views live at `/` for Home, `/network`, `/friends`, `/library`, `/discovery`, and `/play`. Admin users also get a `/debug` tab for bot, DM lifecycle simulator, prompt, notification, and invite-attribution diagnostics. Discord sign-in now preserves same-origin return URLs so a user can authenticate and land back on the view they started from, and invite links can land on a dedicated `/invite` route before handing off into Discord OAuth.
 
-The Play tab now keeps both active and recently ended calls to play visible across the viewer's network, including targeted friend-only or selected-server calls that explicitly include that viewer. By default, the Play page filters those lists to calls that apply to the viewer's current library, but each section can be switched to show all visible calls.
+The Play tab now keeps both active and recently ended calls to play visible across the viewer's network, including targeted friend-only, friends-list, or selected-server calls that explicitly include that viewer. By default, the Play page filters those lists to calls that apply to the viewer's current library, but each section can be switched to show all visible calls.
+
+The Friends page also supports reusable friends lists so creators can save common audience groups and target those saved lists directly from the Play composer.
 
 Signed-in dashboard sessions now also keep themselves fresh through a same-origin Server-Sent Events invalidation stream. When impactful shared state changes land on the API, open tabs can automatically reload discovery, play, library, network, and session data without a polling loop.
 

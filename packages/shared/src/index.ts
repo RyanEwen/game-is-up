@@ -287,7 +287,7 @@ export const upsertLibraryEntryRequestSchema = z.object({
 // ---------------------------------------------------------------------------
 
 export const playIntentSelectionModeSchema = z.enum(['library', 'subset'])
-export const playIntentNotifyScopeSchema = z.enum(['network', 'friends-only', 'specific-friends', 'specific-discord-server'])
+export const playIntentNotifyScopeSchema = z.enum(['network', 'friends-only', 'specific-friends', 'friends-list', 'specific-discord-server'])
 export const maximumPlayIntentGameSelectionCount = 5
 
 export const playIntentDiscordSpaceStatusSchema = z.enum([
@@ -369,6 +369,7 @@ export const playIntentDetailSchema = playIntentPreviewSchema.extend({
   audienceSummary: z.string().min(1),
   passedUsers: z.array(playIntentPreviewUserSchema).default([]),
   targetedFriends: z.array(playIntentPreviewUserSchema).default([]),
+  targetFriendsListId: z.string().uuid().nullable().default(null),
   expandedGameScope: playIntentExpandedGameScopeSchema.nullable().default(null)
 })
 
@@ -388,6 +389,7 @@ export const activePlayIntentSchema = z.object({
   notifyScope: playIntentNotifyScopeSchema,
   targetServers: z.array(playIntentTargetDiscordServerSchema).default([]),
   targetedFriends: z.array(playIntentPreviewUserSchema),
+  targetFriendsListId: z.string().uuid().nullable().default(null),
   platforms: z.array(platformLabelSchema).min(1),
   games: z.array(playIntentGameSchema),
   note: z.string().max(140),
@@ -433,6 +435,8 @@ export const playIntentDiscordSpaceRetryResponseSchema = z.object({
  * - Exactly one of `durationMinutes` or `endAt` must be provided.
  * - `targetUserIds` is required for and exclusive to the `specific-friends`
  *   audience scope.
+ * - `targetFriendsListId` is required for and exclusive to the `friends-list`
+ *   audience scope.
  * - `targetDiscordServerIds` is required for and exclusive to the
  *   `specific-discord-server` audience scope.
  * - New or edited calls to play must target a selected subset of 1 to 5
@@ -456,6 +460,7 @@ export const upsertPlayIntentRequestSchema = z.object({
   endAt: z.string().datetime().optional(),
   gameIds: z.array(z.string().uuid()).min(1).max(maximumPlayIntentGameSelectionCount),
   targetUserIds: z.array(z.string().uuid()).max(25).default([]),
+  targetFriendsListId: z.string().uuid().optional(),
   targetDiscordServerIds: z.array(z.string().trim().min(1).max(64)).max(25).default([])
 }).superRefine((value, context) => {
   if ((value.durationMinutes == null) === (value.endAt == null)) {
@@ -479,6 +484,22 @@ export const upsertPlayIntentRequestSchema = z.object({
       code: z.ZodIssueCode.custom,
       message: 'Specific target friends are only valid for the specific-friends audience.',
       path: ['targetUserIds']
+    })
+  }
+
+  if (value.notifyScope === 'friends-list' && value.targetFriendsListId == null) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Choose a friends list for a friends-list call to play.',
+      path: ['targetFriendsListId']
+    })
+  }
+
+  if (value.notifyScope !== 'friends-list' && value.targetFriendsListId != null) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'A friends list is only valid for the friends-list audience.',
+      path: ['targetFriendsListId']
     })
   }
 
@@ -518,6 +539,39 @@ export const upsertPlayIntentRequestSchema = z.object({
 export const upsertPlayIntentResponseSchema = z.object({
   activeIntent: activePlayIntentSchema,
   notifiedFriendCount: z.number().int().nonnegative()
+})
+
+// ---------------------------------------------------------------------------
+// Friends lists (reusable named audiences for calls to play)
+// ---------------------------------------------------------------------------
+
+export const maximumFriendsListMemberCount = 100
+
+export const friendsListSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string().min(1).max(60),
+  memberCount: z.number().int().nonnegative(),
+  members: z.array(playIntentPreviewUserSchema).default([]),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime()
+})
+
+export const friendsListsResponseSchema = z.object({
+  lists: z.array(friendsListSchema).default([])
+})
+
+export const friendsListResponseSchema = z.object({
+  list: friendsListSchema
+})
+
+export const upsertFriendsListRequestSchema = z.object({
+  name: z.string().trim().min(1).max(60),
+  friendUserIds: z.array(z.string().uuid()).min(1).max(maximumFriendsListMemberCount)
+})
+
+export const deleteFriendsListResponseSchema = z.object({
+  status: z.enum(['deleted', 'missing']),
+  message: z.string().min(1)
 })
 
 // ---------------------------------------------------------------------------
@@ -1050,6 +1104,11 @@ export type PlayIntentRecipientResponseResult = z.infer<typeof playIntentRecipie
 export type PlayIntentDiscordSpaceRetryResponse = z.infer<typeof playIntentDiscordSpaceRetryResponseSchema>;
 export type UpsertPlayIntentRequest = z.infer<typeof upsertPlayIntentRequestSchema>;
 export type UpsertPlayIntentResponse = z.infer<typeof upsertPlayIntentResponseSchema>;
+export type FriendsList = z.infer<typeof friendsListSchema>;
+export type FriendsListsResponse = z.infer<typeof friendsListsResponseSchema>;
+export type FriendsListResponse = z.infer<typeof friendsListResponseSchema>;
+export type UpsertFriendsListRequest = z.infer<typeof upsertFriendsListRequestSchema>;
+export type DeleteFriendsListResponse = z.infer<typeof deleteFriendsListResponseSchema>;
 export type HealthResponse = z.infer<typeof healthResponseSchema>;
 export type AuthProvidersResponse = z.infer<typeof authProvidersResponseSchema>;
 export type DiscordGraphCapabilities = z.infer<typeof discordGraphCapabilitiesSchema>;

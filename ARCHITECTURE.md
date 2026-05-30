@@ -58,7 +58,7 @@ Play intent is represented as a call-to-play aggregate rather than a single game
 
 The persisted schema still carries both enum values so older rows and Discord/history surfaces remain readable while new write paths stay narrowed to explicit game picks.
 
-Play intents can notify either explicit followed users only, a specific hand-picked set of followed users, the broader discovery audience formed by opted-in shared Discord servers plus explicit followed users, or one or more specific opted-in Discord servers that narrow that broader discovery audience down to selected shared servers.
+Play intents can notify either explicit followed users only, a specific hand-picked set of followed users, a saved friends list audience (snapshotted to explicit recipients at send time), the broader discovery audience formed by opted-in shared Discord servers plus explicit followed users, or one or more specific opted-in Discord servers that narrow that broader discovery audience down to selected shared servers.
 
 The scheduling model uses an explicit start and end window so the same aggregate supports both live-now calls to play and scheduled future sessions without a second entity type.
 

@@ -152,7 +152,7 @@ function buildAudienceSummary(options: {
       : 'Only matching people from the selected Discord servers can receive this call.'
   }
 
-  if (options.scope === PlayIntentScope.SPECIFIC_FRIENDS) {
+  if (options.scope === PlayIntentScope.SPECIFIC_FRIENDS || options.scope === PlayIntentScope.SPECIFIC_FRIENDS_LIST) {
     if (options.isOwnIntent && options.targetFriends.length > 0) {
       return 'Only these specific friends can receive this call when their libraries match.'
     }
@@ -420,10 +420,12 @@ export async function buildPlayIntentDetail(viewerId: string, playIntentId: stri
   const recipientNotificationState = intent.notifications[0] ?? null
   const interestedUsersByPlayIntentId = await getInterestedUsersByPlayIntentId([intent.id])
   const interestedUsers = interestedUsersByPlayIntentId.get(intent.id) ?? []
-  const passedUsersByPlayIntentId = intent.scope === PlayIntentScope.SPECIFIC_FRIENDS
+  const showsPassedUsers = intent.scope === PlayIntentScope.SPECIFIC_FRIENDS
+    || intent.scope === PlayIntentScope.SPECIFIC_FRIENDS_LIST
+  const passedUsersByPlayIntentId = showsPassedUsers
     ? await getPassedUsersByPlayIntentId([intent.id])
     : new Map<string, PlayIntentResponseUser[]>()
-  const passedUsers = intent.scope === PlayIntentScope.SPECIFIC_FRIENDS
+  const passedUsers = showsPassedUsers
     ? passedUsersByPlayIntentId.get(intent.id) ?? []
     : []
   const targetServers = serializeTargetDiscordServers(intent.targetDiscordServers)
@@ -522,6 +524,7 @@ export async function buildPlayIntentDetail(viewerId: string, playIntentId: stri
         }))
         .sort((left, right) => left.displayName.localeCompare(right.displayName))
       : [],
+    targetFriendsListId: isOwnIntent ? (intent.targetFriendsListId ?? null) : null,
     expandedGameScope
   }
 }

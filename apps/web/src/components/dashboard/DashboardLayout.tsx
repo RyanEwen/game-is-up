@@ -379,6 +379,7 @@ export const DashboardLayout = ({
                     sx={dashboardTabSx}
                     aria-label={tab.ariaLabel}
                     title={tab.ariaLabel}
+                    onClick={() => onTabChange(tab.value)}
                   >
                     {tab.value === 'overview' ? (
                       <>

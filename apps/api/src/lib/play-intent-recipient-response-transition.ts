@@ -22,7 +22,9 @@ export function resolveRecipientResponseTransition(options: {
 }): RecipientResponseTransition {
   if (options.response === NotificationResponseChoice.DECLINE) {
     const shouldCreateCreatorSystemNotification = options.previousChoice !== NotificationResponseChoice.DECLINE
-      && (options.scope === PlayIntentScope.SPECIFIC_FRIENDS || options.previousChoice === NotificationResponseChoice.JOIN)
+      && (options.scope === PlayIntentScope.SPECIFIC_FRIENDS
+        || options.scope === PlayIntentScope.SPECIFIC_FRIENDS_LIST
+        || options.previousChoice === NotificationResponseChoice.JOIN)
 
     return {
       nextChoice: NotificationResponseChoice.DECLINE,

@@ -42,6 +42,7 @@ import {
   getMutualDiscoveryAudienceUserIds,
   getTargetDiscordServersAudienceUserIds
 } from './discord-servers.js'
+import { FriendsListValidationError, getFriendsListAudienceUserIds } from './friends-lists.js'
 import { editDiscordDirectMessage, sendDiscordDirectMessages } from './discord-bot-runtime.js'
 import { deletePlayIntentDirectMessages } from './discord-dm-cleanup.js'
 import { toClientGameCoverUrl, toClientAvatarUrl } from './game-media.js'
@@ -246,6 +247,8 @@ function toClientNotifyScope(scope: PlayIntentScope): PlayIntentNotifyScope {
       return 'specific-discord-server'
     case PlayIntentScope.SPECIFIC_FRIENDS:
       return 'specific-friends'
+    case PlayIntentScope.SPECIFIC_FRIENDS_LIST:
+      return 'friends-list'
     case PlayIntentScope.MUTUAL_FRIENDS:
       return 'network'
     default:
@@ -259,6 +262,8 @@ function toPrismaNotifyScope(scope: PlayIntentNotifyScope): PlayIntentScope {
       return PlayIntentScope.SPECIFIC_DISCORD_SERVER
     case 'specific-friends':
       return PlayIntentScope.SPECIFIC_FRIENDS
+    case 'friends-list':
+      return PlayIntentScope.SPECIFIC_FRIENDS_LIST
     case 'network':
       return PlayIntentScope.MUTUAL_FRIENDS
     default:
@@ -453,12 +458,50 @@ function shouldRenotifyPriorDecliner(options: {
     return true
   }
 
-  return options.notifyScope === 'specific-friends' && options.targetedFriendUserIds.includes(options.recipientUserId)
+  return (options.notifyScope === 'specific-friends' || options.notifyScope === 'friends-list')
+    && options.targetedFriendUserIds.includes(options.recipientUserId)
 }
 
 function dedupePlatformLabels(platformLabels: string[]) {
   return [...new Set(platformLabels.map((platformLabel) => platformLabel.trim()).filter(Boolean))]
     .sort((left, right) => left.localeCompare(right))
+}
+
+type TargetableFriendUser = { id: string; handle: string; displayName: string; avatarUrl: string | null }
+
+/**
+ * Snapshot a friends list's current members into concrete friend records for a
+ * `friends-list` call to play. The list resolver only returns people who are
+ * still friends; we map those ids back to the caller's loaded friend objects.
+ */
+async function resolveFriendsListTargetedFriends(
+  userId: string,
+  listId: string,
+  explicitFriendUsers: TargetableFriendUser[]
+): Promise<TargetableFriendUser[]> {
+  let memberIds: string[]
+
+  try {
+    memberIds = await getFriendsListAudienceUserIds(userId, listId)
+  } catch (error) {
+    if (error instanceof FriendsListValidationError) {
+      throw new PlayIntentValidationError(error.message)
+    }
+
+    throw error
+  }
+
+  const friendById = new Map(explicitFriendUsers.map((friend) => [friend.id, friend]))
+
+  return memberIds.map((memberId) => {
+    const matchedFriend = friendById.get(memberId)
+
+    if (!matchedFriend) {
+      throw new PlayIntentValidationError('Only people you already added as friends can be in a friends-list call to play.')
+    }
+
+    return matchedFriend
+  })
 }
 
 function resolvePlayIntentWindow(payload: UpsertPlayIntentRequest, now: Date) {
@@ -564,6 +607,7 @@ function serializeActivePlayIntent(intent: {
   } | null;
   selectionMode: PrismaPlayIntentSelectionMode;
   scope: PlayIntentScope;
+  targetFriendsListId: string | null;
   targetDiscordServers: Array<{ server: { id: string; name: string; iconHash: string | null } }>;
   windowStartsAt: Date;
   windowEndsAt: Date;
@@ -585,6 +629,7 @@ function serializeActivePlayIntent(intent: {
     targetedFriends: intent.targetFriends
       .map((entry) => ({ ...entry.friendUser, avatarUrl: toClientAvatarUrl(entry.friendUser.avatarUrl) }))
       .sort((left, right) => left.displayName.localeCompare(right.displayName)),
+    targetFriendsListId: intent.targetFriendsListId,
     platforms: intent.platforms.map((platform) => platform.platformLabel).sort((left, right) => left.localeCompare(right)),
     games: intent.games
       .map((entry) => ({
@@ -643,7 +688,7 @@ async function getRecipientUserIds(
 
           return loadRecipientUserIds()
         })()
-    : scope === 'specific-friends'
+    : scope === 'specific-friends' || scope === 'friends-list'
       ? targetUserIds
       : explicitFriendUserIds)
 
@@ -1611,6 +1656,7 @@ export async function upsertCurrentPlayIntent(
   const missingTargetDiscordServerSelection = payload.notifyScope === 'specific-discord-server'
     ? normalizedTargetDiscordServerIds.find((serverId) => !selectedDiscoveryServerIds.includes(serverId) || !availableTargetDiscordServerById.has(serverId)) ?? null
     : null
+  const targetFriendsListId = payload.notifyScope === 'friends-list' ? (payload.targetFriendsListId ?? null) : null
   const targetedFriends = payload.notifyScope === 'specific-friends'
     ? normalizedTargetUserIds.map((targetUserId) => {
         const matchedFriend = explicitFriendUsers.find((friend) => friend.id === targetUserId)
@@ -1621,7 +1667,9 @@ export async function upsertCurrentPlayIntent(
 
         return matchedFriend
       })
-    : []
+    : payload.notifyScope === 'friends-list' && targetFriendsListId
+      ? await resolveFriendsListTargetedFriends(userId, targetFriendsListId, explicitFriendUsers)
+      : []
 
   if (platformLabels.length === 0) {
     throw new PlayIntentValidationError('Choose at least one platform in your library before posting a call to play.')
@@ -1940,6 +1988,7 @@ export async function upsertCurrentPlayIntent(
                 : {})
             },
             scope: toPrismaNotifyScope(payload.notifyScope),
+            targetFriendsListId,
             windowStartsAt: startsAt,
             windowEndsAt: endsAt,
             expiresAt: endsAt,
@@ -1949,7 +1998,7 @@ export async function upsertCurrentPlayIntent(
             },
             targetFriends: {
               deleteMany: {},
-              ...(payload.notifyScope === 'specific-friends'
+              ...(payload.notifyScope === 'specific-friends' || payload.notifyScope === 'friends-list'
                 ? {
                     create: targetFriendCreates
                   }
@@ -1982,13 +2031,14 @@ export async function upsertCurrentPlayIntent(
                 }
               : undefined,
             scope: toPrismaNotifyScope(payload.notifyScope),
+            targetFriendsListId,
             windowStartsAt: startsAt,
             windowEndsAt: endsAt,
             expiresAt: endsAt,
             platforms: {
               create: platformCreates
             },
-            targetFriends: payload.notifyScope === 'specific-friends'
+            targetFriends: payload.notifyScope === 'specific-friends' || payload.notifyScope === 'friends-list'
               ? {
                   create: targetFriendCreates
                 }

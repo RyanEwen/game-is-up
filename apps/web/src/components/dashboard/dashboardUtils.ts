@@ -163,6 +163,8 @@ export function formatNotifyScopeLabel(scope: PlayIntentPreview['notifyScope']):
       return 'Specific Discord servers'
     case 'specific-friends':
       return 'Specific friends'
+    case 'friends-list':
+      return 'Friends list'
     default:
       return 'Friends only'
   }
@@ -176,6 +178,8 @@ export function formatNotifyScopeDescription(scope: PlayIntentPreview['notifySco
       return 'Only the in-app people from the selected network Discord servers, where there are matching games.'
     case 'specific-friends':
       return 'Only the specific friends you choose, where there are matching games.'
+    case 'friends-list':
+      return 'Only the friends saved in the friends list you choose, where there are matching games.'
     default:
       return 'Only people you added as friends, where there are matching games.'
   }
