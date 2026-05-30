@@ -10,6 +10,7 @@ import {
 } from './play-intent-notification-responses.js'
 import {
   sweepBackfillLegacyPlayIntentDiscordSpaces,
+  sweepBackfillMissingPlayIntentDiscordSpaceDeleteAfter,
   sweepDeleteDuePlayIntentDiscordSpaces,
   sweepProvisionPendingPlayIntentDiscordSpaces
 } from './play-intent-discord-spaces.js'
@@ -88,6 +89,7 @@ async function runCleanupSweep() {
     await sweepScheduledPlayIntentCreatorCheckIns()
     await sweepProvisionPendingPlayIntentDiscordSpaces()
     await sweepBackfillLegacyPlayIntentDiscordSpaces()
+    await sweepBackfillMissingPlayIntentDiscordSpaceDeleteAfter()
     await sweepDeleteDuePlayIntentDiscordSpaces()
 
     if (!trackedDiscordDmRefreshCompleted) {

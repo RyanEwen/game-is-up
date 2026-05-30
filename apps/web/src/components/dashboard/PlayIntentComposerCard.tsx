@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useState } from 'react'
 import { Avatar, Button, Card, Chip, DialogContent, DialogTitle, Input, Option, Select, Stack, Step, StepButton, StepIndicator, Stepper, Typography } from '@mui/joy'
 import { THEME_ID as MATERIAL_THEME_ID, ThemeProvider, createTheme } from '@mui/material/styles'
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
@@ -21,7 +21,6 @@ import {
   minimumPlayIntentDurationMinutes,
   playIntentPresetDurations
 } from './dashboardUtils'
-import { formatMonthDayTime } from '../../lib/dateTime'
 import { DashboardModalActionBar } from './DashboardModalActionBar'
 import type { PlayIntentStartMode, PlayIntentTimingMode, PlayIntentVoiceMode } from './types'
 import dayjs, { type Dayjs } from 'dayjs'
@@ -149,14 +148,6 @@ function PlayIntentDateTimeInput({
 
 type ComposerStepId = 'basics' | 'audience' | 'timing' | 'details'
 
-type ComposerSummaryChip = {
-  key: string;
-  label: string;
-  color?: 'danger' | 'neutral' | 'primary' | 'success' | 'warning';
-  variant?: 'outlined' | 'soft' | 'solid';
-  onClick?: () => void;
-}
-
 const composerSteps: Array<{
   id: ComposerStepId;
   label: string;
@@ -183,169 +174,6 @@ const composerSteps: Array<{
     description: 'Note and voice setup'
   }
 ]
-
-function formatDraftDateTime(value: string): string | null {
-  if (!value) {
-    return null
-  }
-
-  const parsedValue = dayjs(value)
-
-  return parsedValue.isValid() ? formatMonthDayTime(parsedValue.toDate()) : null
-}
-
-function formatVoiceModeLabel(voiceMode: PlayIntentVoiceMode): string {
-  switch (voiceMode) {
-    case 'existing':
-      return 'Existing Discord channel'
-    case 'temporary':
-      return 'Temporary Discord channel'
-    default:
-      return 'No voice channel'
-  }
-}
-
-function truncateSummary(value: string, maxLength = 120): string {
-  if (value.length <= maxLength) {
-    return value
-  }
-
-  return `${value.slice(0, maxLength - 1).trimEnd()}...`
-}
-
-function createSummaryChip(
-  key: string,
-  label: string,
-  color: ComposerSummaryChip['color'] = 'neutral',
-  variant: ComposerSummaryChip['variant'] = 'soft',
-  onClick?: () => void
-): ComposerSummaryChip {
-  return {
-    key,
-    label,
-    color,
-    variant,
-    onClick
-  }
-}
-
-function ComposerSummaryChipRow({ chips }: { chips: ComposerSummaryChip[] }) {
-  if (chips.length === 0) {
-    return null
-  }
-
-  return (
-    <Stack direction="row" spacing={0.75} sx={{ flexWrap: 'wrap' }}>
-      {chips.map((chip) => (
-        <Chip
-          key={chip.key}
-          size="sm"
-          color={chip.color ?? 'neutral'}
-          variant={chip.variant ?? 'soft'}
-          onClick={chip.onClick}
-          sx={{
-            cursor: chip.onClick ? 'pointer' : 'default',
-            '&:focus-visible': {
-              outline: '2px solid',
-              outlineColor: 'focusVisible',
-              outlineOffset: '2px'
-            }
-          }}
-        >
-          {chip.label}
-        </Chip>
-      ))}
-    </Stack>
-  )
-}
-
-function PlayIntentComposerStepCard({
-  stepNumber,
-  title,
-  description,
-  active,
-  statusLabel,
-  statusColor,
-  summaryText,
-  summaryChips,
-  onActivateStep,
-  children
-}: {
-  stepNumber: number;
-  title: string;
-  description: string;
-  active: boolean;
-  statusLabel: string;
-  statusColor: 'danger' | 'neutral' | 'primary' | 'success' | 'warning';
-  summaryText: string;
-  summaryChips: ComposerSummaryChip[];
-  onActivateStep: () => void;
-  children: ReactNode;
-}) {
-  return (
-    <Card
-      variant={active ? 'soft' : 'outlined'}
-      sx={{
-        p: 2,
-        gap: 1.25,
-        border: '1px solid',
-        borderColor: active
-          ? 'primary.700'
-          : statusColor === 'warning'
-            ? 'warning.700'
-            : 'neutral.700',
-        backgroundColor: active ? 'background.level1' : 'background.surface',
-        boxShadow: 'none'
-      }}
-    >
-      <Stack direction="row" spacing={1} justifyContent="space-between" alignItems="flex-start">
-        <Stack spacing={0.25} sx={{ minWidth: 0, flex: 1 }}>
-          <Typography level="title-md">{stepNumber}. {title}</Typography>
-          <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
-            {description}
-          </Typography>
-        </Stack>
-        <Chip
-          size="sm"
-          color={statusColor}
-          variant={active ? 'solid' : 'soft'}
-          onClick={onActivateStep}
-          sx={{
-            flexShrink: 0,
-            mt: 0.125,
-            cursor: 'pointer',
-            '&:focus-visible': {
-              outline: '2px solid',
-              outlineColor: 'focusVisible',
-              outlineOffset: '2px'
-            }
-          }}
-        >
-          {statusLabel}
-        </Chip>
-      </Stack>
-
-      {active ? (
-        <Stack spacing={2}>
-          {children}
-        </Stack>
-      ) : (
-        <Stack spacing={1.25}>
-          <Typography
-            level="body-sm"
-            sx={{
-              display: summaryChips.length > 0 ? { xs: 'none', sm: 'block' } : undefined,
-              color: statusColor === 'warning' ? 'warning.200' : 'neutral.200'
-            }}
-          >
-            {summaryText}
-          </Typography>
-          <ComposerSummaryChipRow chips={summaryChips} />
-        </Stack>
-      )}
-    </Card>
-  )
-}
 
 export function PlayIntentComposerCard({
   isOpen,
@@ -496,138 +324,24 @@ export function PlayIntentComposerCard({
     .map((entry) => entry.title)
   const selectedFriends = playIntentFriendOptions.filter((friend) => selectedPlayIntentTargetUserIds.includes(friend.id))
   const selectedServers = playIntentDiscordServerOptions.filter((server) => selectedPlayIntentTargetDiscordServerIds.includes(server.id))
-  const selectedVoiceChannel = playIntentVoiceChannelOptions.find((channel) => channel.id === playIntentVoiceChannelId) ?? null
-  const scheduledStartLabel = formatDraftDateTime(playIntentStartAtInput)
-  const specificEndLabel = formatDraftDateTime(playIntentEndAtInput)
   const basicsNeedsAttention = selectedGameTitles.length === 0
   const audienceNeedsAttention = Boolean(playIntentFilteredAudienceMessage)
     || (playIntentNotifyScope === 'specific-friends' && selectedFriends.length === 0)
     || (playIntentNotifyScope === 'specific-discord-server' && selectedServers.length === 0)
   const timingNeedsAttention = playIntentStartHasError || playIntentTimingHasError
-  const basicsSummaryChips: ComposerSummaryChip[] = [
-    createSummaryChip(
-      'title',
-      playIntentTitle.trim() || 'Call to play',
-      playIntentTitle.trim() ? 'primary' : 'neutral',
-      playIntentTitle.trim() ? 'soft' : 'outlined'
-    ),
-    createSummaryChip('selection-mode', 'Selected games')
-  ]
-  const audienceSummaryChips: ComposerSummaryChip[] = [
-    createSummaryChip(
-      'notify-scope',
-      formatNotifyScopeLabel(playIntentNotifyScope),
-      audienceNeedsAttention ? 'warning' : 'primary'
-    )
-  ]
-  const timingSummaryChips: ComposerSummaryChip[] = [
-    createSummaryChip(
-      'start-mode',
-      playIntentStartMode === 'scheduled' ? 'Scheduled start' : 'Start now',
-      playIntentStartMode === 'scheduled' ? 'warning' : 'success'
-    ),
-    createSummaryChip('duration', formatPlayIntentDurationLabel(playIntentDurationMinutes))
-  ]
-  const detailsSummaryChips: ComposerSummaryChip[] = [
-    createSummaryChip(
-      'voice-mode',
-      formatVoiceModeLabel(playIntentVoiceMode),
-      playIntentVoiceMode === 'temporary' ? 'primary' : 'neutral'
-    )
-  ]
 
-  basicsSummaryChips.push(
-    createSummaryChip(
-      'selection-count',
-      selectedGameTitles.length > 0
-        ? `${selectedGameTitles.length} of ${maximumPlayIntentGameSelectionCount} selected`
-        : 'No games selected yet',
-      selectedGameTitles.length > 0 ? 'success' : 'warning'
-    )
-  )
-
-  if (playIntentNotifyScope === 'specific-friends') {
-    if (selectedFriends.length > 0) {
-      selectedFriends.slice(0, 2).forEach((friend) => {
-        audienceSummaryChips.push(createSummaryChip(`friend-${friend.id}`, friend.displayName, 'neutral', 'outlined'))
-      })
-
-      if (selectedFriends.length > 2) {
-        audienceSummaryChips.push(createSummaryChip('friends-more', `+${selectedFriends.length - 2} more`))
-      }
-    } else {
-      audienceSummaryChips.push(createSummaryChip('friends-empty', 'No friends selected yet', 'warning'))
-    }
-  }
-
-  if (playIntentNotifyScope === 'specific-discord-server') {
-    if (selectedServers.length > 0) {
-      selectedServers.slice(0, 2).forEach((server) => {
-        audienceSummaryChips.push(createSummaryChip(`server-${server.id}`, server.name, 'neutral', 'outlined'))
-      })
-
-      if (selectedServers.length > 2) {
-        audienceSummaryChips.push(createSummaryChip('servers-more', `+${selectedServers.length - 2} more`))
-      }
-    } else {
-      audienceSummaryChips.push(createSummaryChip('servers-empty', 'No servers selected yet', 'warning'))
-    }
-  }
-
-  if (playIntentTimingMode === 'custom') {
-    timingSummaryChips.push(createSummaryChip('custom-duration', 'Custom length', 'neutral', 'outlined'))
-  }
-
-  if (playIntentTimingMode === 'end-time' && specificEndLabel) {
-    timingSummaryChips.push(createSummaryChip('end-time', `Ends ${specificEndLabel}`, 'neutral', 'outlined'))
-  }
-
-  if (selectedVoiceChannel) {
-    detailsSummaryChips.push(createSummaryChip('voice-channel', selectedVoiceChannel.name, 'neutral', 'outlined'))
-  }
-
-  if (playIntentNote.trim()) {
-    detailsSummaryChips.push(createSummaryChip('note', 'Note added', 'success'))
-  }
-
-  const stepSummaries: Record<ComposerStepId, { hasAttention: boolean; summaryText: string; summaryChips: ComposerSummaryChip[] }> = {
+  const stepSummaries: Record<ComposerStepId, { hasAttention: boolean }> = {
     basics: {
-      hasAttention: basicsNeedsAttention,
-      summaryText: selectedGameTitles.length > 0
-        ? `Focused on ${selectedGameTitles.slice(0, 3).join(', ')}${selectedGameTitles.length > 3 ? ` and ${selectedGameTitles.length - 3} more.` : '.'}`
-        : `Pick between 1 and ${maximumPlayIntentGameSelectionCount} games for this call to play.`,
-      summaryChips: basicsSummaryChips
+      hasAttention: basicsNeedsAttention
     },
     audience: {
-      hasAttention: audienceNeedsAttention || Boolean(playIntentTargetedAudienceWarningMessage),
-      summaryText: playIntentFilteredAudienceMessage
-        ?? playIntentTargetedAudienceWarningMessage
-        ?? formatNotifyScopeDescription(playIntentNotifyScope),
-      summaryChips: audienceSummaryChips
+      hasAttention: audienceNeedsAttention || Boolean(playIntentTargetedAudienceWarningMessage)
     },
     timing: {
-      hasAttention: timingNeedsAttention,
-      summaryText: timingNeedsAttention
-        ? `Check the timing: ${playIntentStartHasError ? playIntentStartHelperText : playIntentTimingHelperText}`
-        : playIntentStartMode === 'scheduled'
-          ? scheduledStartLabel
-            ? `Starts ${scheduledStartLabel}.${playIntentTimingMode === 'end-time' && specificEndLabel ? ` Ends ${specificEndLabel}.` : ''}`
-            : 'Choose when this should start.'
-          : `Starts as soon as you post it.${playIntentTimingMode === 'end-time' && specificEndLabel ? ` Ends ${specificEndLabel}.` : ''}`,
-      summaryChips: timingSummaryChips
+      hasAttention: timingNeedsAttention
     },
     details: {
-      hasAttention: false,
-      summaryText: playIntentNote.trim()
-        ? truncateSummary(playIntentNote.trim())
-        : playIntentVoiceMode === 'existing' && selectedVoiceChannel
-          ? `Voice will use ${selectedVoiceChannel.serverName} / ${selectedVoiceChannel.name}.`
-          : playIntentVoiceMode === 'temporary'
-            ? 'Game\'s Up will create a temporary text and voice space.'
-            : playIntentVoiceMode === 'existing'
-              ? 'Pick a Discord voice channel from your selected servers.'
-              : 'No note or voice channel has been added yet.',
-          summaryChips: detailsSummaryChips
+      hasAttention: false
     }
   }
   const activeStepIndex = composerSteps.findIndex((step) => step.id === activeStep)
@@ -1036,10 +750,11 @@ export function PlayIntentComposerCard({
 
         <Stepper
           sx={{
-            '--StepIndicator-size': '2rem',
-            '--Step-gap': '0.75rem',
-            '--Stepper-horizontalGap': '1rem',
-            flexWrap: { xs: 'wrap', md: 'nowrap' }
+            '--StepIndicator-size': { xs: '1.5rem', sm: '2rem' },
+            '--Step-gap': { xs: '0.25rem', sm: '0.75rem' },
+            '--Step-connectorInset': { xs: '0.25rem', sm: '0.375rem' },
+            '--Stepper-horizontalGap': { xs: '0.375rem', sm: '1rem' },
+            flexWrap: 'nowrap'
           }}
         >
           {composerSteps.map((step, index) => {
@@ -1052,13 +767,6 @@ export function PlayIntentComposerCard({
                 : index < activeStepIndex
                   ? 'success'
                   : 'neutral'
-            const statusLabel = isActive
-              ? 'Current'
-              : stepSummary.hasAttention
-                ? 'Needs attention'
-                : index < activeStepIndex
-                  ? 'Done'
-                  : 'Up next'
 
             return (
               <Step
@@ -1073,14 +781,20 @@ export function PlayIntentComposerCard({
                   onClick={() => setActiveStep(step.id)}
                   sx={{
                     borderRadius: 'md',
-                    px: 0.75,
+                    px: { xs: 0.25, sm: 0.75 },
                     py: 0.5,
                     textAlign: 'left',
-                    backgroundColor: isActive ? 'rgba(20, 136, 106, 0.18)' : 'transparent'
+                    backgroundColor: 'transparent'
                   }}
                 >
                   <Stack spacing={0.25}>
-                    <Typography level="title-sm" sx={{ color: isActive ? 'neutral.50' : 'neutral.200' }}>
+                    <Typography
+                      level="title-sm"
+                      sx={{
+                        display: { xs: isActive ? 'block' : 'none', sm: 'block' },
+                        color: isActive ? 'neutral.50' : 'neutral.200'
+                      }}
+                    >
                       {step.label}
                     </Typography>
                     <Typography
@@ -1090,7 +804,7 @@ export function PlayIntentComposerCard({
                         color: statusColor === 'warning' ? 'warning.300' : 'neutral.400'
                       }}
                     >
-                      {statusLabel} · {step.description}
+                      {step.description}
                     </Typography>
                   </Stack>
                 </StepButton>
@@ -1100,43 +814,25 @@ export function PlayIntentComposerCard({
         </Stepper>
 
         <Stack spacing={1.5}>
-          {composerSteps.map((step, index) => {
-            const stepSummary = stepSummaries[step.id]
-            const isActive = step.id === activeStep
-            const statusColor = isActive
-              ? 'primary'
-              : stepSummary.hasAttention
-                ? 'warning'
-                : index < activeStepIndex
-                  ? 'success'
-                  : 'neutral'
-            const statusLabel = isActive
-              ? 'Current'
-              : stepSummary.hasAttention
-                ? 'Needs attention'
-                : index < activeStepIndex
-                  ? 'Done'
-                  : 'Up next'
+          {(() => {
+            const step = composerSteps.find((candidate) => candidate.id === activeStep) ?? composerSteps[0]!
             return (
-              <PlayIntentComposerStepCard
+              <Card
                 key={step.id}
-                stepNumber={index + 1}
-                title={step.label}
-                description={step.description}
-                active={isActive}
-                statusLabel={statusLabel}
-                statusColor={statusColor}
-                summaryText={stepSummary.summaryText}
-                summaryChips={stepSummary.summaryChips.map((chip) => ({
-                  ...chip,
-                  onClick: () => setActiveStep(step.id)
-                }))}
-                onActivateStep={() => setActiveStep(step.id)}
+                variant="soft"
+                sx={{
+                  p: 2,
+                  gap: 2,
+                  border: '1px solid',
+                  borderColor: 'primary.700',
+                  backgroundColor: 'background.level1',
+                  boxShadow: 'none'
+                }}
               >
                 {renderStepContent(step.id)}
-              </PlayIntentComposerStepCard>
+              </Card>
             )
-          })}
+          })()}
         </Stack>
       </DialogContent>
       <DashboardModalActionBar
@@ -1198,7 +894,7 @@ export function PlayIntentComposerCard({
                 boxShadow: 'none'
               }}
             >
-              {nextStep ? `Next: ${nextStep.label}` : 'Next'}
+              Next
             </Button>
           )
         )}

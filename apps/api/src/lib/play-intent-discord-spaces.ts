@@ -41,7 +41,7 @@ const complementarySpaceActiveStatuses: PlayIntentDiscordSpaceStatus[] = [
   PlayIntentDiscordSpaceStatus.RETAINED,
   PlayIntentDiscordSpaceStatus.DELETE_REQUESTED
 ]
-const complementarySpaceRetentionMs = 24 * 60 * 60 * 1000
+const complementarySpaceRetentionMs = 12 * 60 * 60 * 1000
 const discordSpaceGrantFailureMessage = 'Some Discord channel access grants could not be applied. Check that the Game\'s Up bot can manage roles in the Discord server.'
 const discordSpaceCreatorMissingIdentityMessage = 'The call-to-play creator no longer has a linked Discord account, so the temporary Discord channel access could not be granted.'
 const discordSpaceCreatorJoinServerMessage = 'The call-to-play creator is not currently in the Game\'s Up Discord server. Join the server to reveal the temporary Discord channel.'
@@ -93,7 +93,7 @@ export function buildComplementarySpaceWelcomeMessage(playIntent: { headline: st
   return [
     `Welcome to ${playIntent.headline} by ${playIntent.user.displayName}.`,
     'Use this chat and the matching voice channel to coordinate.',
-    'This temporary chat and voice channel will be automatically deleted 24 hours after the last message or active voice user.'
+    'This temporary chat and voice channel will be automatically deleted 12 hours after the last message or active voice user.'
   ].join('\n\n')
 }
 
@@ -1328,6 +1328,49 @@ export async function sweepBackfillLegacyPlayIntentDiscordSpaces(options: {
 
     await (options.provisionSpace ?? provisionPlayIntentDiscordSpace)(space.id)
   }
+}
+
+/**
+ * Retroactively assigns a deletion countdown to retained Discord spaces that
+ * never received one (for example, spaces retained before the auto-deletion
+ * window existed, or before its duration changed). Without a `deleteAfter`
+ * value the delete sweep skips these spaces, so they would otherwise linger
+ * forever. The countdown is anchored on the later of the call's end time and
+ * the last recorded activity so long-idle spaces expire promptly.
+ */
+export async function sweepBackfillMissingPlayIntentDiscordSpaceDeleteAfter() {
+  const spacesMissingCountdown = await prisma.playIntentDiscordSpace.findMany({
+    where: {
+      deletedAt: null,
+      deleteAfter: null,
+      status: PlayIntentDiscordSpaceStatus.RETAINED
+    },
+    select: {
+      id: true,
+      lastActiveAt: true,
+      playIntent: {
+        select: {
+          expiresAt: true
+        }
+      }
+    }
+  })
+
+  if (spacesMissingCountdown.length === 0) {
+    return
+  }
+
+  for (const space of spacesMissingCountdown) {
+    const baseTime = space.playIntent.expiresAt ?? new Date()
+    await prisma.playIntentDiscordSpace.update({
+      where: { id: space.id },
+      data: {
+        deleteAfter: resolveComplementarySpaceDeleteAfter(baseTime, space.lastActiveAt)
+      }
+    })
+  }
+
+  publishPlayIntentInvalidation()
 }
 
 export async function sweepDeleteDuePlayIntentDiscordSpaces(options: {

@@ -2613,6 +2613,7 @@ function buildInterestedAcceptedMessage(
   creatorLabel: string,
   discordSpace?: PlayIntentDiscordSpaceRecipientContext | null
 ) {
+  const showTextLinks = !supportsDiscordInteractiveMessages()
   const textChannelValue = discordSpace
     ? buildRecipientDiscordSpaceChannelReference({
         channelUrl: discordSpace.textChannelUrl,
@@ -2624,11 +2625,11 @@ function buildInterestedAcceptedMessage(
     ? [
         !discordSpace.recipientInServer
           ? buildRecipientDiscordSpacePendingAccessLine()
-          : (textChannelValue ? `Text channel: ${textChannelValue}` : null),
-        !discordSpace.recipientInServer && discordSpace.inviteUrl
+          : (showTextLinks && textChannelValue ? `Text channel: ${textChannelValue}` : null),
+        showTextLinks && !discordSpace.recipientInServer && discordSpace.inviteUrl
           ? `Invite link (shareable): ${discordSpace.inviteUrl}`
           : null,
-        !discordSpace.recipientInServer && discordSpace.inviteUrl
+        showTextLinks && !discordSpace.recipientInServer && discordSpace.inviteUrl
           ? 'Join the server from the invite above to access it.'
           : null
       ]
@@ -2644,6 +2645,41 @@ function buildInterestedAcceptedMessage(
       trailingSubtext: 'If you change your mind you can switch to "Pass" later.'
     }
   )
+}
+
+/**
+ * Builds the channel-access buttons that accompany an accepted "I'm interested"
+ * follow-up. When the recipient already shares the temporary Discord server
+ * they get direct text and voice channel links; otherwise they get the
+ * shareable invite button in their place. Returns no rows when the guild lacks
+ * interactive component support or there is nothing actionable to link.
+ */
+function buildRecipientDiscordSpaceLinkComponents(
+  discordSpace?: PlayIntentDiscordSpaceRecipientContext | null
+): ActionRowBuilder<MessageActionRowComponentBuilder>[] {
+  if (!discordSpace || !supportsDiscordInteractiveMessages()) {
+    return []
+  }
+
+  const buttons: ButtonBuilder[] = []
+
+  if (discordSpace.recipientInServer) {
+    if (discordSpace.textChannelUrl) {
+      buttons.push(buildOpenInAppButton(discordSpace.textChannelUrl, 'Text channel'))
+    }
+
+    if (discordSpace.voiceChannelUrl) {
+      buttons.push(buildOpenInAppButton(discordSpace.voiceChannelUrl, 'Voice channel'))
+    }
+  } else if (discordSpace.inviteUrl) {
+    buttons.push(buildOpenInAppButton(discordSpace.inviteUrl, 'Join Discord'))
+  }
+
+  if (buttons.length === 0) {
+    return []
+  }
+
+  return [new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(...buttons)]
 }
 
 const passAcknowledgementCopyByMode = {
@@ -3130,6 +3166,7 @@ async function syncRecipientResponseFollowUpDirectMessage(options: {
   notificationId: string;
   discordUserId: string;
   content: string;
+  components?: ActionRowBuilder<MessageActionRowComponentBuilder>[];
   channelId?: string | null;
   messageId?: string | null;
   replyTo?: DiscordDirectMessagePayload['replyTo'];
@@ -3141,7 +3178,7 @@ async function syncRecipientResponseFollowUpDirectMessage(options: {
     },
     discordUserId: options.discordUserId,
     content: options.content,
-    components: [],
+    components: options.components ?? [],
     replyTo: options.replyTo,
     onMissingTrackedMessage: async () => {
       await prisma.notification.update({
@@ -3442,7 +3479,8 @@ async function applyRecipientResponseToPlayIntentNotification(options: {
           )
         : responseTransition.acknowledgementKind === 'pass-repeat'
           ? buildPassResultMessage('You are still marked as passed on this call to play.', passAcknowledgementMode)
-          : buildPassAcceptedMessage(passAcknowledgementMode, creatorDiscordLabel)
+          : buildPassAcceptedMessage(passAcknowledgementMode, creatorDiscordLabel),
+      discordComponents: [] as ActionRowBuilder<MessageActionRowComponentBuilder>[]
     }
   }
 
@@ -3567,7 +3605,8 @@ async function applyRecipientResponseToPlayIntentNotification(options: {
 
   return {
     content: buildInterestedAcceptedMessage(playIntent.user.displayName, discordSpace),
-    discordContent: buildInterestedAcceptedMessage(creatorDiscordLabel, discordSpace)
+    discordContent: buildInterestedAcceptedMessage(creatorDiscordLabel, discordSpace),
+    discordComponents: buildRecipientDiscordSpaceLinkComponents(discordSpace)
   }
 }
 
@@ -3666,6 +3705,7 @@ export async function respondToPlayIntentFromWeb(options: {
       notificationId: notification.id,
       discordUserId: recipientDiscordUserId,
       content: result.discordContent ?? result.content,
+      components: result.discordComponents,
       channelId: notification.recipientResponseDiscordDmChannelId,
       messageId: notification.recipientResponseDiscordDmMessageId,
       replyTo: buildTrackedDirectMessageReplyReference(
@@ -4599,6 +4639,7 @@ export async function handlePlayIntentNotificationInteraction(interaction: Butto
     notificationId: responseNotification.id,
     discordUserId: responseNotification.user.identities?.[0]?.providerUserId ?? interaction.user.id,
     content: result.discordContent ?? result.content,
+    components: result.discordComponents,
     channelId: responseNotification.recipientResponseDiscordDmChannelId,
     messageId: responseNotification.recipientResponseDiscordDmMessageId,
     replyTo: buildTrackedDirectMessageReplyReference(

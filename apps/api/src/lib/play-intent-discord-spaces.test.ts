@@ -43,17 +43,17 @@ test('temporary Discord text channels open with the welcome and cleanup guidance
 
   assert.match(message, /Welcome to Friday Night Helldivers by Ryan\./)
   assert.match(message, /Use this chat and the matching voice channel to coordinate\./)
-  assert.match(message, /automatically deleted 24 hours after the last message or active voice user\./)
+  assert.match(message, /automatically deleted 12 hours after the last message or active voice user\./)
 })
 
-test('retained Discord spaces delete 24 hours after the latest activity', () => {
+test('retained Discord spaces delete 12 hours after the latest activity', () => {
   const baseTime = new Date('2026-05-14T12:00:00.000Z')
   const earlierActivity = new Date('2026-05-14T11:00:00.000Z')
   const laterActivity = new Date('2026-05-14T15:30:00.000Z')
 
-  assert.equal(resolveComplementarySpaceDeleteAfter(baseTime).toISOString(), '2026-05-15T12:00:00.000Z')
-  assert.equal(resolveComplementarySpaceDeleteAfter(baseTime, earlierActivity).toISOString(), '2026-05-15T12:00:00.000Z')
-  assert.equal(resolveComplementarySpaceDeleteAfter(baseTime, laterActivity).toISOString(), '2026-05-15T15:30:00.000Z')
+  assert.equal(resolveComplementarySpaceDeleteAfter(baseTime).toISOString(), '2026-05-15T00:00:00.000Z')
+  assert.equal(resolveComplementarySpaceDeleteAfter(baseTime, earlierActivity).toISOString(), '2026-05-15T00:00:00.000Z')
+  assert.equal(resolveComplementarySpaceDeleteAfter(baseTime, laterActivity).toISOString(), '2026-05-15T03:30:00.000Z')
 })
 
 test('legacy Discord-space backfill only targets active voice-backed spaces missing category or text channels', () => {

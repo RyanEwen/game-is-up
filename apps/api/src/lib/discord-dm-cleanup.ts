@@ -28,6 +28,8 @@ import {
 } from './discord-dm-cleanup-reference-updates.js'
 import { collectReplyMessageIdsForCleanup } from './discord-dm-cleanup-thread.js'
 import { buildArchiveCleanupRow, buildDiscordMessageHeading, buildOpenInAppButton, decorateFieldLabel } from './discord-dm-formatting.js'
+import { buildDiscordChannelUrl } from './discord-channel-urls.js'
+import { getInterestedUsersByPlayIntentId } from './play-intent-interested-users.js'
 import { buildClientPlayIntentUrl, buildClientPlayUrl } from './play-intent-urls.js'
 import { callToPlayEndedSystemNotification } from './play-intent-system-notifications.js'
 import { formatPlayIntentWindowLabel } from './play-intent-time-format.js'
@@ -210,6 +212,69 @@ export function buildArchivedPlayIntentEmbeds(summaryBody: string) {
   ]
 }
 
+type ArchivedCreatorDiscordSpace = {
+  status: 'REQUESTED' | 'PROVISIONING' | 'ACTIVE' | 'RETAINED' | 'DELETE_REQUESTED' | 'DELETED' | 'PROVISION_FAILED';
+  serverId?: string | null;
+  textChannelId?: string | null;
+  textChannelName?: string | null;
+  voiceChannelId?: string | null;
+  voiceChannelName?: string | null;
+  inviteUrl?: string | null;
+}
+
+/**
+ * Condenses interested-party labels for an archived summary embed, mirroring the
+ * live creator summary cap of five names plus an overflow count.
+ */
+function formatArchivedInterestedLabels(labels: string[]) {
+  if (labels.length <= 5) {
+    return labels.join(', ')
+  }
+
+  return `${labels.slice(0, 5).join(', ')} +${labels.length - 5} more`
+}
+
+/**
+ * Builds the extra archived-summary lines that preserve who was interested and
+ * how to reach the temporary channels once a call to play ends. Channel links
+ * are omitted once the Discord space is deleted because the targets no longer
+ * resolve.
+ */
+function buildArchivedCreatorDetailLines(
+  discordSpace: ArchivedCreatorDiscordSpace | null | undefined,
+  interestedLabels: string[]
+) {
+  const lines: string[] = []
+
+  if (interestedLabels.length > 0) {
+    lines.push(`Interested: ${formatArchivedInterestedLabels(interestedLabels)}`)
+  }
+
+  if (discordSpace && discordSpace.status !== 'DELETED') {
+    const serverId = discordSpace.serverId ?? null
+    const textChannelUrl = serverId ? buildDiscordChannelUrl(serverId, discordSpace.textChannelId) : null
+    const voiceChannelUrl = serverId ? buildDiscordChannelUrl(serverId, discordSpace.voiceChannelId) : null
+
+    if (textChannelUrl) {
+      lines.push(`Text channel: ${textChannelUrl}`)
+    } else if (discordSpace.textChannelName) {
+      lines.push(`Text channel: ${discordSpace.textChannelName}`)
+    }
+
+    if (voiceChannelUrl) {
+      lines.push(`Voice channel: ${voiceChannelUrl}`)
+    } else if (discordSpace.voiceChannelName) {
+      lines.push(`Voice channel: ${discordSpace.voiceChannelName}`)
+    }
+
+    if (discordSpace.inviteUrl) {
+      lines.push(`Invite link: ${discordSpace.inviteUrl}`)
+    }
+  }
+
+  return lines
+}
+
 export function buildArchivedCreatorPlayIntentPreview(
   playIntentId: string,
   playIntent: {
@@ -221,13 +286,16 @@ export function buildArchivedCreatorPlayIntentPreview(
       identities?: { providerUserId: string }[];
     };
     games: { game: { title: string } }[];
-    discordSpace?: {
-      status: 'REQUESTED' | 'PROVISIONING' | 'ACTIVE' | 'RETAINED' | 'DELETE_REQUESTED' | 'DELETED' | 'PROVISION_FAILED';
-    } | null;
+    discordSpace?: ArchivedCreatorDiscordSpace | null;
   },
-  timezoneId: string
+  timezoneId: string,
+  interestedLabels: string[] = []
 ) {
   const summary = buildArchivedPlayIntentSummary(playIntent, timezoneId)
+  const detailLines = buildArchivedCreatorDetailLines(playIntent.discordSpace, interestedLabels)
+  const summaryBody = detailLines.length > 0
+    ? `${summary.body}\n${detailLines.join('\n')}`
+    : summary.body
   const discordSpaceStatus = playIntent.discordSpace?.status
   const hasDeletableDiscordSpace = discordSpaceStatus != null
     && discordSpaceStatus !== 'DELETED'
@@ -236,7 +304,7 @@ export function buildArchivedCreatorPlayIntentPreview(
 
   return {
     content: '',
-    embeds: buildArchivedPlayIntentEmbeds(summary.body),
+    embeds: buildArchivedPlayIntentEmbeds(summaryBody),
     components: buildArchivedCreatorCleanupComponents(playIntentId, {
       hasDeletableDiscordSpace
     })
@@ -1442,7 +1510,13 @@ export async function archivePlayIntentDirectMessages(options: {
       creatorDiscordDmMessageId: true,
       discordSpace: {
         select: {
-          status: true
+          status: true,
+          serverId: true,
+          textChannelId: true,
+          textChannelName: true,
+          voiceChannelId: true,
+          voiceChannelName: true,
+          inviteUrl: true
         }
       },
       user: {
@@ -1566,12 +1640,19 @@ export async function archivePlayIntentDirectMessages(options: {
   const notificationIdsToClear = new Set<string>()
   const playIntentIdsToClear = new Set<string>()
   const notificationReferenceUpdates = new Map<string, NotificationDmReferenceUpdate>()
+  const interestedUsersByPlayIntentId = await getInterestedUsersByPlayIntentId(playIntents.map((playIntent) => playIntent.id))
 
   for (const playIntent of playIntents) {
+    const interestedLabels = (interestedUsersByPlayIntentId.get(playIntent.id) ?? [])
+      .map((user) => {
+        const discordUserId = user.identities?.[0]?.providerUserId
+        return discordUserId ? `<@${discordUserId}>` : user.displayName
+      })
     const creatorArchivePreview = buildArchivedCreatorPlayIntentPreview(
       playIntent.id,
       playIntent,
-      playIntent.user.timezoneId
+      playIntent.user.timezoneId,
+      interestedLabels
     )
     const creatorCandidates: ArchivedCreatorCandidate[] = []
 
