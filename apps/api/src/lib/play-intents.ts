@@ -52,7 +52,6 @@ import {
   serializeTargetDiscordServers
 } from './play-intent-serializers.js'
 import {
-  buildDiscordInviteReplyPayload,
   buildPlayIntentDirectMessageHeading,
   buildPlayIntentDirectMessageEmbeds,
   buildPlayIntentNotificationComponents,
@@ -2462,24 +2461,6 @@ export async function upsertCurrentPlayIntent(
             discordDmMessageId: dmResult.messageId
           }
         })
-
-        const inviteReply = target.notificationType === NotificationType.FRIEND_PLAYING
-          && target.discordUserId
-          && dmResult.channelId
-          && dmResult.messageId
-          ? buildDiscordInviteReplyPayload({
-              discordUserId: target.discordUserId,
-              inviteUrl: target.inviteUrl,
-              replyTo: {
-                channelId: dmResult.channelId,
-                messageId: dmResult.messageId
-              }
-            })
-          : null
-
-        if (inviteReply) {
-          await sendDiscordDirectMessages([inviteReply])
-        }
 
         if (updateReplyContent && target.discordUserId && dmResult.channelId && dmResult.messageId) {
           await sendDiscordDirectMessages([{

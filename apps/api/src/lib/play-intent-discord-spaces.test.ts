@@ -4,7 +4,6 @@ import test from 'node:test'
 import { PlayIntentDiscordSpaceStatus } from '@prisma/client'
 
 import {
-  buildComplementarySpaceWelcomeMessage,
   buildComplementarySpaceNames,
   handlePlayIntentDiscordSpaceMemberJoin,
   resolveComplementarySpaceDeleteAfter,
@@ -31,19 +30,6 @@ test('temporary Discord channel names use consistent prefixes and category phras
   assert.equal(names.categoryName, 'Friday Night Helldivers by Ryan abcdef')
   assert.equal(names.textChannelName, 'chat-friday-night-helldivers-abcdef')
   assert.equal(names.voiceChannelName, 'voice-friday-night-helldivers-abcdef')
-})
-
-test('temporary Discord text channels open with the welcome and cleanup guidance', () => {
-  const message = buildComplementarySpaceWelcomeMessage({
-    headline: 'Friday Night Helldivers',
-    user: {
-      displayName: 'Ryan'
-    }
-  })
-
-  assert.match(message, /Welcome to Friday Night Helldivers by Ryan\./)
-  assert.match(message, /Use this chat and the matching voice channel to coordinate\./)
-  assert.match(message, /automatically deleted 12 hours after the last message or active voice user\./)
 })
 
 test('retained Discord spaces delete 12 hours after the latest activity', () => {

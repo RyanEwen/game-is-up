@@ -810,24 +810,6 @@ export function buildPlayIntentDirectMessageHeading(
   return buildDiscordMessageHeading(`🎮 ${title}`)
 }
 
-export function buildDiscordInviteReplyPayload(options: {
-  discordUserId: string;
-  inviteUrl: string | null | undefined;
-  replyTo?: DiscordDirectMessagePayload['replyTo'];
-}): DiscordDirectMessagePayload | null {
-  const trimmedInviteUrl = options.inviteUrl?.trim()
-
-  if (!trimmedInviteUrl || !options.replyTo) {
-    return null
-  }
-
-  return {
-    discordUserId: options.discordUserId,
-    content: trimmedInviteUrl,
-    components: [],
-    replyTo: options.replyTo
-  }
-}
 
 function extractLabeledFields(text: string) {
   return text
@@ -2030,12 +2012,6 @@ type CreatorPlayIntentSummarySyncOptions = {
   notifyOnActiveChange?: boolean;
 }
 
-export function shouldKeepCreatorDiscordInviteReply(options: {
-  isActive: boolean;
-  inviteUrl?: string | null;
-}) {
-  return options.isActive && Boolean(options.inviteUrl)
-}
 
 async function deleteUntrackedCreatorSummaryReplies(options: {
   playIntentId: string;
@@ -2143,28 +2119,11 @@ async function sendOrEditCreatorPlayIntentSummary(
         }
       : null
 
-  const keepInviteReply = shouldKeepCreatorDiscordInviteReply({
-    isActive,
-    inviteUrl: snapshot.discordSpace?.inviteUrl
-  })
-
-  if (summaryMessage && !keepInviteReply) {
+  if (summaryMessage) {
     await deleteUntrackedCreatorSummaryReplies({
       playIntentId,
       summaryMessage
     })
-  }
-
-  if (keepInviteReply && trackedResult.status === 'sent' && trackedResult.channelId && trackedResult.messageId) {
-    const inviteReply = buildDiscordInviteReplyPayload({
-      discordUserId: creatorDiscordUserId,
-      inviteUrl: snapshot.discordSpace?.inviteUrl,
-      replyTo: buildTrackedDirectMessageReplyReference(trackedResult.channelId, trackedResult.messageId)
-    })
-
-    if (inviteReply) {
-      await sendDiscordDirectMessages([inviteReply])
-    }
   }
 }
 

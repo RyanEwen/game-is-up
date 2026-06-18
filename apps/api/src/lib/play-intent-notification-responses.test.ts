@@ -5,11 +5,9 @@ import { NotificationResponseChoice, NotificationType } from '@prisma/client'
 import type { APIEmbed } from 'discord.js'
 
 import {
-  buildDiscordInviteReplyPayload,
   buildCreatorPlayIntentSummaryPreview,
   buildNotificationDirectMessagePreview,
-  buildPlayIntentNotificationPromptPreview,
-  shouldKeepCreatorDiscordInviteReply
+  buildPlayIntentNotificationPromptPreview
 } from './play-intent-notification-responses.js'
 
 for (const responseChoice of [NotificationResponseChoice.JOIN, NotificationResponseChoice.DECLINE] as const) {
@@ -132,44 +130,6 @@ test('creator summary DMs keep the temporary Discord invite URL out of the summa
   assert.match(voiceChannelField?.value ?? '', /Text channel:/)
   assert.match(voiceChannelField?.value ?? '', /Voice channel:/)
   assert.match(voiceChannelField?.value ?? '', /https:\/\/discord\.gg\/test-invite/)
-})
-
-test('temporary Discord invite replies use the invite URL as reply content', () => {
-  const payload = buildDiscordInviteReplyPayload({
-    discordUserId: 'discord-user-1',
-    inviteUrl: 'https://discord.gg/test-invite',
-    replyTo: {
-      channelId: 'dm-channel-1',
-      messageId: 'dm-message-1'
-    }
-  })
-
-  assert.deepEqual(payload, {
-    discordUserId: 'discord-user-1',
-    content: 'https://discord.gg/test-invite',
-    components: [],
-    replyTo: {
-      channelId: 'dm-channel-1',
-      messageId: 'dm-message-1'
-    }
-  })
-})
-
-test('creator invite replies are only kept while the call is active and has an invite URL', () => {
-  assert.equal(shouldKeepCreatorDiscordInviteReply({
-    isActive: true,
-    inviteUrl: 'https://discord.gg/test-invite'
-  }), true)
-
-  assert.equal(shouldKeepCreatorDiscordInviteReply({
-    isActive: false,
-    inviteUrl: 'https://discord.gg/test-invite'
-  }), false)
-
-  assert.equal(shouldKeepCreatorDiscordInviteReply({
-    isActive: true,
-    inviteUrl: null
-  }), false)
 })
 
 test('the joined acknowledgement DM no longer repeats the voice channel line', () => {

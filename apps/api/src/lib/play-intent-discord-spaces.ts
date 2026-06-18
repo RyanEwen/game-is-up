@@ -89,13 +89,6 @@ export function buildComplementarySpaceNames(playIntent: { id: string; headline:
   }
 }
 
-export function buildComplementarySpaceWelcomeMessage(playIntent: { headline: string; user: { displayName: string } }) {
-  return [
-    `Welcome to ${playIntent.headline} by ${playIntent.user.displayName}.`,
-    'Use this chat and the matching voice channel to coordinate.',
-    'This temporary chat and voice channel will be automatically deleted 12 hours after the last message or active voice user.'
-  ].join('\n\n')
-}
 
 function isUnknownDiscordResourceError(error: unknown) {
   const message = error instanceof Error ? error.message : String(error ?? '')
@@ -422,20 +415,6 @@ async function createChannel(serverId: string, options: {
     id: channel.id,
     name: 'name' in channel && typeof channel.name === 'string' ? channel.name : options.name
   }
-}
-
-async function sendChannelMessage(channelId: string, content: string) {
-  const rest = getDiscordBotRest()
-
-  if (!rest) {
-    throw new Error('Discord channel messaging needs the bot token to be configured.')
-  }
-
-  await rest.post(Routes.channelMessages(channelId), {
-    body: {
-      content
-    }
-  })
 }
 
 async function deleteChannel(channelId: string | null | undefined) {
@@ -1145,7 +1124,6 @@ export async function provisionPlayIntentDiscordSpace(spaceId: string) {
 
   try {
     const names = buildComplementarySpaceNames(space.playIntent)
-    const welcomeMessage = buildComplementarySpaceWelcomeMessage(space.playIntent)
     const resetLegacyChannels = await resetLegacyProvisioningChannels(space)
     const role = space.roleId
       ? { id: space.roleId, name: space.roleName ?? names.roleName }
@@ -1191,8 +1169,6 @@ export async function provisionPlayIntentDiscordSpace(spaceId: string) {
           textChannelName: textChannel.name
         }
       })
-
-      await sendChannelMessage(textChannel.id, welcomeMessage)
     }
     const voiceChannel = !resetLegacyChannels && space.voiceChannelId
       ? { id: space.voiceChannelId, name: space.voiceChannelName ?? names.voiceChannelName }
