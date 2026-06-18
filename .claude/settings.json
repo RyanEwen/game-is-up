@@ -1,0 +1,44 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ./.claude/hooks/session-start.mjs",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ./.claude/hooks/pre-tool-use.mjs",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ./.claude/hooks/post-tool-reminders.mjs",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "node ./.claude/hooks/post-tool-validate.mjs",
+            "timeout": 120
+          }
+        ]
+      }
+    ]
+  }
+}
