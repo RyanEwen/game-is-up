@@ -1,6 +1,7 @@
 export { aliasesRouter } from './aliases.js'
 export { authRouter } from './auth.js'
 export { debugRouter } from './debug.js'
+export { discordEventsRouter } from './discord-events.js'
 export { discordServersRouter } from './discord-servers.js'
 export { discoveryRouter } from './discovery.js'
 export { eventsRouter } from './events.js'

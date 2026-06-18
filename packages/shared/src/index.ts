@@ -1028,6 +1028,7 @@ export const serverEnvSchema = z.object({
   SESSION_SECRET: z.string().min(16),
   DISCORD_CLIENT_ID: z.string().optional(),
   DISCORD_CLIENT_SECRET: z.string().optional(),
+  DISCORD_PUBLIC_KEY: z.string().optional(),
   DISCORD_CALLBACK_URL: z.string().url().optional(),
   DISCORD_BOT_TOKEN: z.string().optional(),
   DISCORD_BOT_MODE: discordBotModeSchema.optional(),

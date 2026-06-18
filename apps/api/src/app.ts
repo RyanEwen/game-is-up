@@ -7,6 +7,7 @@ import {
   aliasesRouter,
   authRouter,
   debugRouter,
+  discordEventsRouter,
   discordServersRouter,
   discoveryRouter,
   eventsRouter,
@@ -39,6 +40,11 @@ app.use(
   })
 )
 app.use(helmet())
+
+// Discord Event Webhooks must be mounted before express.json(): signature
+// verification needs the raw, unparsed request body.
+app.use('/api/discord/events', discordEventsRouter)
+
 app.use(express.json())
 
 app.get('/api/bootstrap', (_request, response) => {
