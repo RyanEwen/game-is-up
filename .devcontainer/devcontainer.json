@@ -1,7 +1,8 @@
 {
   "name": "game-is-up",
   "dockerComposeFile": [
-    "compose.yml"
+    "compose.yml",
+    "compose.persist.yml"
   ],
   "service": "workspace",
   "runServices": ["workspace", "db"],
@@ -9,10 +10,6 @@
   "workspaceFolder": "/workspace/game-is-up",
   "remoteUser": "node",
   "updateRemoteUserUID": true,
-  "mounts": [
-    "source=${localEnv:HOME}/.ssh,target=/home/node/.ssh,type=bind"
-  ],
-  "forwardPorts": [5173, 4000, 5432],
   "remoteEnv": {
     "DATABASE_URL": "postgresql://postgres:postgres@db:5432/game_is_up?schema=public",
     "API_PORT": "4000",
@@ -24,8 +21,7 @@
     "vscode": {
       "extensions": [
         "dbaeumer.vscode-eslint",
-        "Prisma.prisma",
-        "ms-azuretools.vscode-docker"
+        "anthropic.claude-code"
       ],
       "settings": {
         "editor.codeActionsOnSave": {
@@ -35,6 +31,6 @@
       }
     }
   },
-  "postCreateCommand": "git config --global --add safe.directory /workspace/game-is-up && npm install && npm run db:generate",
+  "postCreateCommand": ".devcontainer/fix-volume-perms.sh && git config --global --add safe.directory /workspace/game-is-up && npm install && npm run db:generate",
   "postStartCommand": "npm run db:wait"
 }

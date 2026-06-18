@@ -8,17 +8,9 @@ services:
     working_dir: /workspace/game-is-up
     volumes:
       - ..:/workspace/game-is-up:cached
-      # Bind-mount the host user's SSH directory so private keys (e.g. the
-      # production deploy key) survive devcontainer rebuilds. Mounted as
-      # cached read-write so `known_hosts` updates inside the container
-      # propagate back to the host.
-      - ${HOME}/.ssh:/home/node/.ssh:cached
-      # Named volume that persists the node user's bash history across
-      # devcontainer rebuilds. See Dockerfile for the HISTFILE wiring.
-      - bash-history:/commandhistory
-    ports:
-      - "4000:4000"
-      - "5173:5173"
+    # ports:
+    #   - "4000:4000"
+    #   - "5173:5173"
     depends_on:
       db:
         condition: service_healthy
@@ -30,8 +22,8 @@ services:
       POSTGRES_DB: game_is_up
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-    ports:
-      - "5432:5432"
+    # ports:
+    #   - "5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
@@ -43,4 +35,3 @@ services:
 
 volumes:
   postgres-data:
-  bash-history:
