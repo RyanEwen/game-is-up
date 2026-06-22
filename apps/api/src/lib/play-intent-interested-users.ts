@@ -7,6 +7,8 @@ export type PlayIntentResponseUser = {
   handle: string;
   displayName: string;
   avatarUrl: string | null;
+  /** True when this interested user flagged that they will be late. */
+  runningLate: boolean;
   identities?: { providerUserId: string }[];
 }
 
@@ -51,6 +53,7 @@ async function getResponseUsersByPlayIntentId(playIntentIds: string[], responseC
     },
     select: {
       playIntentId: true,
+      runningLateAt: true,
       user: {
         select: {
           id: true,
@@ -95,6 +98,7 @@ async function getResponseUsersByPlayIntentId(playIntentIds: string[], responseC
       handle: notification.user.handle,
       displayName: notification.user.displayName,
       avatarUrl: toClientAvatarUrl(notification.user.avatarUrl),
+      runningLate: notification.runningLateAt != null,
       identities: notification.user.identities
     })
     responseUsersByPlayIntentId.set(notification.playIntentId, responseUsers)

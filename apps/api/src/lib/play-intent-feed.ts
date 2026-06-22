@@ -212,7 +212,8 @@ export async function buildPlayIntentFeed(viewerId?: string | null): Promise<Pla
         },
         select: {
           playIntentId: true,
-          responseChoice: true
+          responseChoice: true,
+          runningLateAt: true
         },
         orderBy: {
           createdAt: 'desc'
@@ -221,6 +222,7 @@ export async function buildPlayIntentFeed(viewerId?: string | null): Promise<Pla
         const map = new Map<string, {
           isNotified: true;
           responseChoice: 'interested' | 'pass' | null;
+          runningLate: boolean;
         }>()
 
         for (const row of rows) {
@@ -234,7 +236,8 @@ export async function buildPlayIntentFeed(viewerId?: string | null): Promise<Pla
               ? 'interested'
               : row.responseChoice === NotificationResponseChoice.DECLINE
                 ? 'pass'
-                : null
+                : null,
+            runningLate: row.runningLateAt != null
           })
         }
 
@@ -242,6 +245,7 @@ export async function buildPlayIntentFeed(viewerId?: string | null): Promise<Pla
       })
     : new Map<string, {
         responseChoice: 'interested' | 'pass' | null;
+        runningLate: boolean;
       }>()
   const interestedUsersByPlayIntentId = await getInterestedUsersByPlayIntentId(intents.map((intent) => intent.id))
 
@@ -318,6 +322,7 @@ export async function buildPlayIntentFeed(viewerId?: string | null): Promise<Pla
         voiceChannelName: intent.voiceChannelName,
         discordSpace: serializeDiscordSpaceSummary(intent.discordSpace),
         viewerResponseChoice: recipientNotificationState?.responseChoice ?? null,
+        viewerRunningLate: recipientNotificationState?.runningLate ?? false,
         interestedUsers,
         interestedCount: interestedUsers.length,
         availabilityWindow: {

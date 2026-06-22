@@ -10,7 +10,49 @@ const interestedPlayerGridSx = {
   gap: 1
 } as const
 
-type InterestedPlayer = ActivePlayIntent['interestedUsers'][number] | PlayIntentPreview['interestedUsers'][number]
+/**
+ * Accepts any call-to-play response user. The shared preview-user shape (used by
+ * passed/targeted users) is the common denominator; interested users carry an
+ * extra `runningLate` flag that this list does not need to render.
+ */
+type InterestedPlayer =
+  | ActivePlayIntent['interestedUsers'][number]
+  | PlayIntentPreview['interestedUsers'][number]
+  | PlayIntentPreview['user']
+
+const responseToneStyles = {
+  interested: {
+    accentColor: 'success.300',
+    responseLabel: 'Interested',
+    responseDetail: 'Interested in this call to play.',
+    badgeColor: 'success',
+    borderColor: '#14886a',
+    background: 'linear-gradient(180deg, #14352f, #141b28)'
+  },
+  late: {
+    accentColor: 'warning.300',
+    responseLabel: 'Running late',
+    responseDetail: 'Interested, but running late.',
+    badgeColor: 'warning',
+    borderColor: '#7c5a17',
+    background: 'linear-gradient(180deg, #2b2312, #141b28)'
+  },
+  passed: {
+    accentColor: 'warning.200',
+    responseLabel: 'Passed',
+    responseDetail: 'Passed on this call to play.',
+    badgeColor: 'warning',
+    borderColor: '#7c5a17',
+    background: 'linear-gradient(180deg, #2b2312, #141b28)'
+  }
+} as const satisfies Record<string, {
+  accentColor: string;
+  responseLabel: string;
+  responseDetail: string;
+  badgeColor: 'success' | 'warning';
+  borderColor: string;
+  background: string;
+}>
 
 export function PlayIntentResponseUserList({
   users,
@@ -24,7 +66,7 @@ export function PlayIntentResponseUserList({
 }: {
   users: InterestedPlayer[];
   label?: string;
-  tone?: 'interested' | 'passed';
+  tone?: 'interested' | 'passed' | 'late';
   sx?: Record<string, unknown>;
   discoveryPeopleById?: ReadonlyMap<string, DiscoveryPerson>;
   canManage?: boolean;
@@ -35,14 +77,7 @@ export function PlayIntentResponseUserList({
     return null
   }
 
-  const isPassedTone = tone === 'passed'
-  const accentColor = isPassedTone ? 'warning.200' : 'success.300'
-  const responseLabel = isPassedTone ? 'Passed' : 'Interested'
-  const responseDetail = isPassedTone ? 'Passed on this call to play.' : 'Interested in this call to play.'
-  const borderColor = isPassedTone ? '#7c5a17' : '#14886a'
-  const background = isPassedTone
-    ? 'linear-gradient(180deg, #2b2312, #141b28)'
-    : 'linear-gradient(180deg, #14352f, #141b28)'
+  const { accentColor, responseLabel, responseDetail, badgeColor, borderColor, background } = responseToneStyles[tone]
 
   return (
     <Box sx={sx}>
@@ -76,7 +111,7 @@ export function PlayIntentResponseUserList({
                   person.usualAvailability ? `Usually plays: ${person.usualAvailability}` : ''
                 ]}
                 badges={[
-                  { label: responseLabel, color: isPassedTone ? 'warning' : 'success' },
+                  { label: responseLabel, color: badgeColor },
                   { label: person.timezoneLabel, variant: 'outlined' }
                 ]}
                 footerBadge={person.usualAvailability ? { label: `Usually: ${person.usualAvailability}`, color: 'neutral' } : null}

@@ -469,6 +469,16 @@ export function PlayIntentDetailView() {
                         I&apos;m interested
                       </Button>
                     ) : null}
+                    {intent.viewerResponseChoice === 'interested' && !intent.viewerRunningLate ? (
+                      <Button
+                        variant="outlined"
+                        color="warning"
+                        disabled={responsePending}
+                        onClick={() => void playViewProps.onRespondToPlayIntent(intent.id, 'late')}
+                      >
+                        I&apos;ll be late
+                      </Button>
+                    ) : null}
                     {intent.viewerResponseChoice !== 'pass' ? (
                       <Button
                         variant="outlined"
@@ -476,7 +486,7 @@ export function PlayIntentDetailView() {
                         disabled={responsePending}
                         onClick={() => void playViewProps.onRespondToPlayIntent(intent.id, 'pass')}
                       >
-                        Pass
+                        Can&apos;t make it
                       </Button>
                     ) : null}
                   </ButtonGroup>
@@ -572,10 +582,18 @@ export function PlayIntentDetailView() {
           ) : null}
 
           {intent.viewerResponseChoice ? (
-            <Card variant="soft" color={intent.viewerResponseChoice === 'interested' ? 'success' : 'neutral'} sx={{ p: 1.5 }}>
+            <Card
+              variant="soft"
+              color={intent.viewerResponseChoice === 'interested'
+                ? (intent.viewerRunningLate ? 'warning' : 'success')
+                : 'neutral'}
+              sx={{ p: 1.5 }}
+            >
               <Typography level="body-sm">
                 {intent.viewerResponseChoice === 'interested'
-                  ? 'You are marked as interested in this call to play.'
+                  ? (intent.viewerRunningLate
+                    ? 'You are marked as interested but running late for this call to play.'
+                    : 'You are marked as interested in this call to play.')
                   : 'You are marked as passed on this call to play.'}
               </Typography>
             </Card>
@@ -898,7 +916,7 @@ export function PlayIntentDetailView() {
               <Typography level="title-md">Responses</Typography>
               <Box>
                 <PlayIntentResponseUserList
-                  users={intent.interestedUsers}
+                  users={intent.interestedUsers.filter((user) => !user.runningLate)}
                   label="Interested players"
                   tone="interested"
                   discoveryPeopleById={discoveryPeopleById}
@@ -912,6 +930,20 @@ export function PlayIntentDetailView() {
                   </Typography>
                 ) : null}
               </Box>
+
+              {intent.interestedUsers.some((user) => user.runningLate) ? (
+                <Box sx={{ pt: 2, borderTop: '1px solid', borderColor: 'neutral.700' }}>
+                  <PlayIntentResponseUserList
+                    users={intent.interestedUsers.filter((user) => user.runningLate)}
+                    label="Running late"
+                    tone="late"
+                    discoveryPeopleById={discoveryPeopleById}
+                    canManage={playViewProps.isSignedIn}
+                    friendPendingId={playViewProps.friendPendingId}
+                    onToggleFriend={playViewProps.onToggleFriend}
+                  />
+                </Box>
+              ) : null}
 
               {intent.notifyScope === 'specific-friends' || intent.notifyScope === 'friends-list' ? (
                 <Box sx={{ pt: 2, borderTop: '1px solid', borderColor: 'neutral.700' }}>

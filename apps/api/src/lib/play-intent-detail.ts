@@ -362,6 +362,7 @@ export async function buildPlayIntentDetail(viewerId: string, playIntentId: stri
           },
           select: {
             responseChoice: true,
+            runningLateAt: true,
             createdAt: true
           },
           orderBy: {
@@ -499,6 +500,8 @@ export async function buildPlayIntentDetail(viewerId: string, playIntentId: stri
       : recipientNotificationState?.responseChoice === NotificationResponseChoice.DECLINE
         ? 'pass'
         : null,
+    viewerRunningLate: recipientNotificationState?.responseChoice === NotificationResponseChoice.JOIN
+      && recipientNotificationState?.runningLateAt != null,
     interestedUsers,
     interestedCount: interestedUsers.length,
     availabilityWindow: {

@@ -3,13 +3,17 @@ import test from 'node:test'
 
 import {
   audienceInterestUpdateSystemNotification,
+  audienceRunningLateSystemNotification,
   callToPlayEndedSystemNotification,
   creatorInterestUpdateSystemNotification,
   creatorInterestWithdrawnSystemNotification,
+  creatorRunningLateSystemNotification,
   formatAudienceInterestUpdateSystemNotification,
+  formatAudienceRunningLateSystemNotification,
   creatorLaunchedGameSystemNotification,
   formatCreatorInterestUpdateSystemNotification,
   formatCreatorInterestWithdrawnSystemNotification,
+  formatCreatorRunningLateSystemNotification,
   formatCreatorLaunchedGameSystemNotification,
   formatGroupLaunchedGameSystemNotification,
   formatInterestedPlayerLaunchedGameSystemNotification,
@@ -33,10 +37,50 @@ test('getPlayIntentSystemNotificationDefinitionByTitle round-trips every known d
     interestedPlayerLaunchedGameSystemNotification,
     creatorInterestUpdateSystemNotification,
     audienceInterestUpdateSystemNotification,
-    creatorInterestWithdrawnSystemNotification
+    creatorInterestWithdrawnSystemNotification,
+    creatorRunningLateSystemNotification,
+    audienceRunningLateSystemNotification
   ]) {
     assert.equal(getPlayIntentSystemNotificationDefinitionByTitle(definition.title), definition)
   }
+})
+
+// ---------------------------------------------------------------------------
+// Running late
+// ---------------------------------------------------------------------------
+
+test('creator running-late notification describes the late interested player', () => {
+  const notification = formatCreatorRunningLateSystemNotification({
+    recipientDisplayName: 'Sam',
+    recipientLabel: '<@123>',
+    gameTitle: 'Helldivers 2'
+  })
+
+  assert.equal(notification.title, creatorRunningLateSystemNotification.title)
+  assert.equal(notification.body, 'Sam is interested but running late for Helldivers 2.')
+  assert.equal(notification.discordBody, '<@123> is interested but running late for Helldivers 2.')
+})
+
+test('creator running-late notification falls back to the call when no game is set', () => {
+  const notification = formatCreatorRunningLateSystemNotification({
+    recipientDisplayName: 'Sam',
+    gameTitle: null
+  })
+
+  assert.equal(notification.body, 'Sam is interested but running late for your call to play.')
+  assert.equal(notification.body, notification.discordBody)
+})
+
+test('audience running-late notification points at this call for other interested players', () => {
+  const notification = formatAudienceRunningLateSystemNotification({
+    recipientDisplayName: 'Sam',
+    recipientLabel: '<@123>',
+    gameTitle: null
+  })
+
+  assert.equal(notification.title, audienceRunningLateSystemNotification.title)
+  assert.equal(notification.body, 'Sam is interested but running late for this call to play.')
+  assert.equal(notification.discordBody, '<@123> is interested but running late for this call to play.')
 })
 
 test('getPlayIntentSystemNotificationDefinitionByTitle returns null for an unknown title', () => {

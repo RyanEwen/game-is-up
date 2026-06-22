@@ -300,3 +300,75 @@ for (const notificationType of [
     assert.doesNotMatch(preview.content, /Use the buttons below if you want in\./)
   })
 }
+
+function collectButtonLabels(components: ReturnType<typeof buildPlayIntentNotificationPromptPreview>['components']) {
+  const labels: string[] = []
+
+  for (const row of components ?? []) {
+    const rowJson = (row as { toJSON: () => { components?: Array<{ label?: string }> } }).toJSON()
+
+    for (const component of rowJson.components ?? []) {
+      if (component.label) {
+        labels.push(component.label)
+      }
+    }
+  }
+
+  return labels
+}
+
+test('interested recipients see an "I\'ll be late" button on the prompt', () => {
+  const preview = buildPlayIntentNotificationPromptPreview({
+    notificationId: 'notification-1',
+    playIntentId: 'play-intent-1',
+    notificationType: NotificationType.FRIEND_PLAYING,
+    title: 'Call to Play',
+    body: 'Games: Helldivers 2\nWhen: Tonight',
+    responseChoice: NotificationResponseChoice.JOIN,
+    creatorUserId: 'creator-1',
+    creatorDiscordUserId: 'discord-creator-1',
+    creatorDisplayName: 'Ryan'
+  })
+
+  const labels = collectButtonLabels(preview.components)
+  assert.ok(labels.includes('I\'ll be late'))
+  assert.ok(labels.includes('Can\'t make it'))
+  assert.ok(!labels.includes('I\'m interested'))
+})
+
+test('the "I\'ll be late" button disappears once the recipient is already running late', () => {
+  const preview = buildPlayIntentNotificationPromptPreview({
+    notificationId: 'notification-1',
+    playIntentId: 'play-intent-1',
+    notificationType: NotificationType.FRIEND_PLAYING,
+    title: 'Call to Play',
+    body: 'Games: Helldivers 2\nWhen: Tonight',
+    responseChoice: NotificationResponseChoice.JOIN,
+    runningLate: true,
+    creatorUserId: 'creator-1',
+    creatorDiscordUserId: 'discord-creator-1',
+    creatorDisplayName: 'Ryan'
+  })
+
+  const labels = collectButtonLabels(preview.components)
+  assert.ok(!labels.includes('I\'ll be late'))
+  assert.ok(labels.includes('Can\'t make it'))
+})
+
+test('recipients who have not accepted do not see an "I\'ll be late" button', () => {
+  const preview = buildPlayIntentNotificationPromptPreview({
+    notificationId: 'notification-1',
+    playIntentId: 'play-intent-1',
+    notificationType: NotificationType.FRIEND_PLAYING,
+    title: 'Call to Play',
+    body: 'Games: Helldivers 2\nWhen: Tonight',
+    responseChoice: null,
+    creatorUserId: 'creator-1',
+    creatorDiscordUserId: 'discord-creator-1',
+    creatorDisplayName: 'Ryan'
+  })
+
+  const labels = collectButtonLabels(preview.components)
+  assert.ok(!labels.includes('I\'ll be late'))
+  assert.ok(labels.includes('I\'m interested'))
+})

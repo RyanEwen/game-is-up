@@ -81,6 +81,18 @@ export const creatorInterestWithdrawnSystemNotification = createPlayIntentSystem
   'none'
 )
 
+export const creatorRunningLateSystemNotification = createPlayIntentSystemNotificationDefinition(
+  'creator-running-late',
+  '⏰ Someone is running late',
+  'none'
+)
+
+export const audienceRunningLateSystemNotification = createPlayIntentSystemNotificationDefinition(
+  'audience-running-late',
+  '⏰ Another player is running late',
+  'none'
+)
+
 const playIntentSystemNotificationDefinitions = [
   callToPlayEndedSystemNotification,
   voiceChannelJoinedSystemNotification,
@@ -89,7 +101,9 @@ const playIntentSystemNotificationDefinitions = [
   interestedPlayerLaunchedGameSystemNotification,
   creatorInterestUpdateSystemNotification,
   audienceInterestUpdateSystemNotification,
-  creatorInterestWithdrawnSystemNotification
+  creatorInterestWithdrawnSystemNotification,
+  creatorRunningLateSystemNotification,
+  audienceRunningLateSystemNotification
 ]
 
 const playIntentSystemNotificationByTitle = new Map(
@@ -231,6 +245,50 @@ export function formatAudienceInterestUpdateSystemNotification(options: {
       options.gameTitle,
       'is interested in playing',
       'is interested in this call to play'
+    )
+  }
+}
+
+export function formatCreatorRunningLateSystemNotification(options: {
+  recipientDisplayName: string;
+  recipientLabel?: string;
+  gameTitle: string | null;
+}): SystemNotificationCopy {
+  return {
+    title: creatorRunningLateSystemNotification.title,
+    body: formatInterestBody(
+      options.recipientDisplayName,
+      options.gameTitle,
+      'is interested but running late for',
+      'is interested but running late for your call to play'
+    ),
+    discordBody: formatInterestBody(
+      options.recipientLabel ?? options.recipientDisplayName,
+      options.gameTitle,
+      'is interested but running late for',
+      'is interested but running late for your call to play'
+    )
+  }
+}
+
+export function formatAudienceRunningLateSystemNotification(options: {
+  recipientDisplayName: string;
+  recipientLabel?: string;
+  gameTitle: string | null;
+}): SystemNotificationCopy {
+  return {
+    title: audienceRunningLateSystemNotification.title,
+    body: formatInterestBody(
+      options.recipientDisplayName,
+      options.gameTitle,
+      'is interested but running late for',
+      'is interested but running late for this call to play'
+    ),
+    discordBody: formatInterestBody(
+      options.recipientLabel ?? options.recipientDisplayName,
+      options.gameTitle,
+      'is interested but running late for',
+      'is interested but running late for this call to play'
     )
   }
 }

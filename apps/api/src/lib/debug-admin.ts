@@ -80,6 +80,7 @@ function toCreatorSummaryNotificationsAtTime(
     type: NotificationType;
     respondedAt: Date | null;
     responseChoice: NotificationResponseChoice | null;
+    runningLateAt?: Date | null;
     deliveredAt: Date | null;
     createdAt: Date;
   }>,
@@ -96,6 +97,9 @@ function toCreatorSummaryNotificationsAtTime(
         : null,
       responseChoice: notification.respondedAt && notification.respondedAt.getTime() <= currentTime.getTime()
         ? notification.responseChoice
+        : null,
+      runningLateAt: notification.runningLateAt && notification.runningLateAt.getTime() <= currentTime.getTime()
+        ? notification.runningLateAt
         : null,
       deliveredAt: notification.deliveredAt && notification.deliveredAt.getTime() <= currentTime.getTime()
         ? notification.deliveredAt
@@ -149,6 +153,7 @@ function buildCreatorSummaryRevisions(intent: {
     type: NotificationType;
     respondedAt: Date | null;
     responseChoice: NotificationResponseChoice | null;
+    runningLateAt?: Date | null;
     deliveredAt: Date | null;
     createdAt: Date;
   }>;
@@ -472,6 +477,7 @@ export async function buildDebugAdminSnapshot() {
             deliveredAt: true,
             respondedAt: true,
             responseChoice: true,
+            runningLateAt: true,
             recipientResponseDiscordDmChannelId: true,
             recipientResponseDiscordDmMessageId: true,
             type: true,

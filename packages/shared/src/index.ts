@@ -327,6 +327,15 @@ export const playIntentPreviewUserSchema = z.object({
   avatarUrl: z.string().url().nullable()
 })
 
+/**
+ * An interested recipient, optionally flagged as running late. `runningLate`
+ * only applies to interested users, so it lives on this extension rather than
+ * the generic preview-user shape used for creators, passed, and targeted users.
+ */
+export const playIntentInterestedUserSchema = playIntentPreviewUserSchema.extend({
+  runningLate: z.boolean().default(false)
+})
+
 export const playIntentPreviewSchema = z.object({
   id: z.string().uuid(),
   title: z.string().min(1),
@@ -343,7 +352,9 @@ export const playIntentPreviewSchema = z.object({
   voiceChannelName: z.string().min(1).nullable(),
   discordSpace: playIntentDiscordSpaceSchema.nullable().default(null),
   viewerResponseChoice: z.enum(['interested', 'pass']).nullable().default(null),
-  interestedUsers: z.array(playIntentPreviewUserSchema).default([]),
+  /** True when the viewer marked interested and then flagged they will be late. */
+  viewerRunningLate: z.boolean().default(false),
+  interestedUsers: z.array(playIntentInterestedUserSchema).default([]),
   interestedCount: z.number().int().min(0),
   availabilityWindow: availabilityWindowSchema
 })
@@ -399,7 +410,7 @@ export const activePlayIntentSchema = z.object({
   windowStartsAt: z.string().datetime(),
   windowEndsAt: z.string().datetime(),
   expiresAt: z.string().datetime(),
-  interestedUsers: z.array(playIntentPreviewUserSchema).default([]),
+  interestedUsers: z.array(playIntentInterestedUserSchema).default([]),
   interestedCount: z.number().int().min(0)
 })
 
@@ -409,12 +420,19 @@ export const playIntentCurrentResponseSchema = z.object({
 
 export const playIntentRecipientResponseChoiceSchema = z.enum(['interested', 'pass'])
 
+/**
+ * Actions a recipient can take from a call-to-play prompt. `late` is a modifier
+ * on an existing `interested` response (saying "I'll be late") rather than a
+ * distinct response state, so it never replaces the stored interested/pass choice.
+ */
+export const playIntentRecipientActionSchema = z.enum(['interested', 'pass', 'late'])
+
 export const playIntentRecipientResponseRequestSchema = z.object({
-  choice: playIntentRecipientResponseChoiceSchema
+  choice: playIntentRecipientActionSchema
 })
 
 export const playIntentRecipientResponseResultSchema = z.object({
-  responseChoice: playIntentRecipientResponseChoiceSchema,
+  responseChoice: playIntentRecipientActionSchema,
   message: z.string().min(1)
 })
 
@@ -1099,7 +1117,9 @@ export type PlayIntentFeed = z.infer<typeof playIntentFeedSchema>;
 export type PlayIntentDetailResponse = z.infer<typeof playIntentDetailResponseSchema>;
 export type ActivePlayIntent = z.infer<typeof activePlayIntentSchema>;
 export type PlayIntentCurrentResponse = z.infer<typeof playIntentCurrentResponseSchema>;
+export type PlayIntentInterestedUser = z.infer<typeof playIntentInterestedUserSchema>;
 export type PlayIntentRecipientResponseChoice = z.infer<typeof playIntentRecipientResponseChoiceSchema>;
+export type PlayIntentRecipientAction = z.infer<typeof playIntentRecipientActionSchema>;
 export type PlayIntentRecipientResponseRequest = z.infer<typeof playIntentRecipientResponseRequestSchema>;
 export type PlayIntentRecipientResponseResult = z.infer<typeof playIntentRecipientResponseResultSchema>;
 export type PlayIntentDiscordSpaceRetryResponse = z.infer<typeof playIntentDiscordSpaceRetryResponseSchema>;

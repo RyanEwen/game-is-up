@@ -43,6 +43,7 @@ import {
 import {
   PlayIntentNotificationResponseError,
   ScheduledPlayIntentStartError,
+  markRunningLateFromWeb,
   respondToPlayIntentFromWeb,
   startScheduledPlayIntentNow
 } from '../lib/play-intent-notification-responses.js'
@@ -53,7 +54,7 @@ import { getUserAdminStatus, requireSignedInUserId } from '../lib/route-auth.js'
 export const playIntentRouter = Router()
 
 const playIntentRecipientResponseInputSchema = z.object({
-  choice: z.enum(['interested', 'pass', 'join', 'decline'])
+  choice: z.enum(['interested', 'pass', 'join', 'decline', 'late'])
 })
 
 const muteTargetParamSchema = z.object({ targetUserId: z.string().uuid() })
@@ -397,13 +398,18 @@ playIntentRouter.post('/:playIntentId/respond', async (request, response, next) 
 
   try {
     const payload = playIntentRecipientResponseInputSchema.parse(request.body)
-    const result = await respondToPlayIntentFromWeb({
-      userId,
-      playIntentId: paramsParse.data.playIntentId,
-      response: payload.choice === 'interested' || payload.choice === 'join'
-        ? NotificationResponseChoice.JOIN
-        : NotificationResponseChoice.DECLINE
-    })
+    const result = payload.choice === 'late'
+      ? await markRunningLateFromWeb({
+          userId,
+          playIntentId: paramsParse.data.playIntentId
+        })
+      : await respondToPlayIntentFromWeb({
+          userId,
+          playIntentId: paramsParse.data.playIntentId,
+          response: payload.choice === 'interested' || payload.choice === 'join'
+            ? NotificationResponseChoice.JOIN
+            : NotificationResponseChoice.DECLINE
+        })
 
     response.json(playIntentRecipientResponseResultSchema.parse(result))
   } catch (error) {

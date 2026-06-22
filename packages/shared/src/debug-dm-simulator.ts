@@ -51,6 +51,8 @@ export type SimulatedLifecycleEntry = {
 export type SimulatedLifecycleState = {
   stage: SimulatedLifecycleStage;
   audienceResponse: SimulatedAudienceResponse;
+  /** True when an interested audience member flagged that they will be late. */
+  audienceRunningLate: boolean;
   creatorCheckInState: SimulatedCreatorCheckInState;
   hasGoTimeBroadcast: boolean;
   hasVoiceChannelActivity: boolean;
@@ -124,6 +126,7 @@ export type SimulatedDmMessage = {
 export const simulatedDmActionIds = {
   audienceInterested: 'simulated:audience:interested',
   audiencePass: 'simulated:audience:pass',
+  audienceRunningLate: 'simulated:audience:late',
   audienceMute: 'simulated:audience:mute',
   creatorConfirmCheckIn: 'simulated:creator:confirm-check-in',
   creatorStartNow: 'simulated:creator:start-now',
@@ -284,9 +287,19 @@ function buildSimulatorAudienceActionButtons(
     })
   }
 
+  if (state.audienceResponse === 'interested' && !state.audienceRunningLate) {
+    primaryRow.push({
+      label: "I'll be late",
+      style: 'secondary',
+      disabled: false,
+      url: null,
+      customId: simulatedDmActionIds.audienceRunningLate
+    })
+  }
+
   if (state.audienceResponse !== 'pass') {
     primaryRow.push({
-      label: isGoTimeConfirmed ? 'No longer interested' : 'Pass',
+      label: isGoTimeConfirmed ? 'No longer interested' : "Can't make it",
       style: 'secondary',
       disabled: false,
       url: null,
@@ -393,6 +406,7 @@ export function buildInitialSimulatorHistory(options: {
   return {
     stage,
     audienceResponse: null,
+    audienceRunningLate: false,
     creatorCheckInState: null,
     hasGoTimeBroadcast: false,
     hasVoiceChannelActivity: false,
@@ -433,7 +447,9 @@ export function buildSimulatorCreatorSummaryPreview(
     : state.stage === 'ended'
       ? 'Ended'
       : 'Scheduled'
-  const interestedCount = state.audienceResponse === 'interested' ? 1 : 0
+  const isRunningLate = state.audienceResponse === 'interested' && state.audienceRunningLate
+  const onTimeInterestedCount = state.audienceResponse === 'interested' && !state.audienceRunningLate ? 1 : 0
+  const runningLateCount = isRunningLate ? 1 : 0
   const passedCount = state.audienceResponse === 'pass' ? 1 : 0
   const waitingCount = state.stage === 'ended' || state.audienceResponse != null ? 0 : 1
 
@@ -475,16 +491,28 @@ export function buildSimulatorCreatorSummaryPreview(
           },
           {
             name: 'Responses',
-            value: `Interested: ${interestedCount}\nPassed: ${passedCount}\nWaiting: ${waitingCount}`,
+            value: [
+              `Interested: ${onTimeInterestedCount}`,
+              runningLateCount > 0 ? `Running late: ${runningLateCount}` : null,
+              `Passed: ${passedCount}`,
+              `Waiting: ${waitingCount}`
+            ].filter((line): line is string => line != null).join('\n'),
             inline: true
           },
           {
             name: 'Interested Players',
-            value: state.audienceResponse === 'interested'
+            value: onTimeInterestedCount > 0
               ? `@${draft.audienceName}`
               : 'No one yet.',
             inline: false
           },
+          ...(isRunningLate
+            ? [{
+                name: 'Running Late',
+                value: `@${draft.audienceName}`,
+                inline: false
+              }]
+            : []),
           {
             name: 'Note',
             value: draft.note.trim().length > 0 ? draft.note.trim() : 'No note.',
@@ -626,6 +654,18 @@ export function buildSimulatorAudienceFollowUpPreview(
     }
   }
 
+  if (state.audienceResponse === 'interested' && state.audienceRunningLate) {
+    return {
+      content: buildSimulatorPlainMessage(
+        '⏰ Running Late',
+        [`Got it — I let ${draft.creatorName} and the other interested players know you are running late.`],
+        'You are still marked as interested.'
+      ),
+      embeds: [],
+      buttonRows: []
+    }
+  }
+
   if ((state.stage === 'scheduled' || state.stage === 'check-in') && state.audienceResponse == null) {
     return null
   }
@@ -641,7 +681,7 @@ export function buildSimulatorAudienceFollowUpPreview(
           ? buildSimulatorPlainMessage(
               '✅ You\'re In',
               [`You are marked as interested. ${draft.creatorName} has been notified.`],
-              'If you change your mind you can switch to "Pass" later.'
+              'If you change your mind you can switch to "Can\'t make it" later.'
             )
           : buildSimulatorPlainMessage(
               '❎ Passed for Now',
@@ -697,7 +737,7 @@ export function buildSimulatorAudienceFollowUpPreview(
       ? buildSimulatorPlainMessage(
           '✅ You\'re In',
           [`You are marked as interested. ${draft.creatorName} has been notified.`],
-          'If you change your mind you can switch to "Pass" later.'
+          'If you change your mind you can switch to "Can\'t make it" later.'
         )
       : buildSimulatorPlainMessage(
           '❎ Passed for Now',
@@ -774,6 +814,17 @@ export function buildSimulatorCreatorFollowUpPreview(
 ): SimulatorDebugDmPreview | null {
   if (state.audienceResponse == null || state.stage === 'ended') {
     return null
+  }
+
+  if (state.audienceResponse === 'interested' && state.audienceRunningLate) {
+    return {
+      content: buildSimulatorPlainMessage(
+        '⏰ Someone is running late',
+        [`@${draft.audienceName} is interested but running late for ${draft.gameTitle}.`]
+      ),
+      embeds: [],
+      buttonRows: []
+    }
   }
 
   return {

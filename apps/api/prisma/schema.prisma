@@ -489,6 +489,7 @@ model Notification {
   readAt                              DateTime?
   responseChoice                      NotificationResponseChoice?
   respondedAt                         DateTime?
+  runningLateAt                       DateTime?
   deliveredAt                         DateTime?
   discordDmChannelId                  String?
   discordDmMessageId                  String?

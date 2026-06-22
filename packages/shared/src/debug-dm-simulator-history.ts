@@ -223,6 +223,10 @@ function shouldTreatSimulatorMessageChangeAsReplacement(options: {
     return false
   }
 
+  if (options.action === 'audience-running-late') {
+    return !previousState.audienceRunningLate && nextState.audienceRunningLate
+  }
+
   if (options.action !== 'audience-interested' && options.action !== 'audience-pass') {
     return false
   }

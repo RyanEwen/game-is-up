@@ -974,6 +974,11 @@ export function DmLifecycleSimulatorDialog({
                       <Chip size="sm" variant="soft" color={state?.audienceResponse === 'interested' ? 'primary' : state?.audienceResponse === 'pass' ? 'warning' : 'neutral'}>
                         {state?.audienceResponse == null ? 'No audience reply yet' : `Audience: ${state.audienceResponse}`}
                       </Chip>
+                      {state?.audienceRunningLate ? (
+                        <Chip size="sm" variant="soft" color="warning">
+                          Audience running late
+                        </Chip>
+                      ) : null}
                       <Chip size="sm" variant="soft" color={state?.hasVoiceChannelActivity ? 'primary' : 'neutral'}>
                         {state?.hasVoiceChannelActivity ? 'Voice activity sent' : 'No voice activity yet'}
                       </Chip>

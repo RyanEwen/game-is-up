@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { buildSimulatedDmMessages } from '../src/debug-dm-simulator.js'
+import { buildSimulatedDmMessages, simulatedDmActionIds } from '../src/debug-dm-simulator.js'
 import { buildSimulatedCallToPlayMessagesForHistory } from '../src/debug-dm-simulator-history.js'
-import { applySimulatorLifecycleAction, buildInitialSimulatorDialogState } from '../src/debug-dm-simulator-state.js'
+import { applySimulatorLifecycleAction, applySimulatorPreviewAction, buildInitialSimulatorDialogState } from '../src/debug-dm-simulator-state.js'
 
 const draft = {
   creatorName: 'Ryan',
@@ -214,6 +214,64 @@ test('audience live activity events add dangling replies to the creator thread i
   assert.ok(launchReply)
   assert.match(launchReply.preview.content, /^🎮 Someone launched the game/m)
   assert.match(launchReply.preview.content, /@Sam just launched Helldivers 2/m)
+})
+
+test('audience running-late flags the interested player and notifies both threads', () => {
+  const initialState = buildInitialSimulatorDialogState({ draft, mode: 'live' })
+  const interestedState = applySimulatorLifecycleAction(initialState, 'audience-interested', draft)
+  const lateState = applySimulatorLifecycleAction(interestedState, 'audience-running-late', draft)
+
+  assert.equal(lateState.audienceRunningLate, true)
+  assert.equal(lateState.audienceResponse, 'interested')
+
+  const { creatorMessages, audienceMessages } = buildSimulatedDmMessages(draft, lateState)
+  const creatorFollowUp = creatorMessages.find((message) => message.id === 'creator-follow-up')
+  const audienceFollowUp = audienceMessages.find((message) => message.id === 'audience-follow-up')
+
+  assert.ok(creatorFollowUp)
+  assert.match(creatorFollowUp.preview.content, /^⏰ Someone is running late/m)
+  assert.match(creatorFollowUp.preview.content, /@Sam is interested but running late for Helldivers 2\./)
+
+  assert.ok(audienceFollowUp)
+  assert.match(audienceFollowUp.preview.content, /^⏰ Running Late/m)
+  assert.match(audienceFollowUp.preview.content, /You are still marked as interested\./)
+})
+
+test('the simulated invite prompt offers "I\'ll be late" once interested and clicking it flags late', () => {
+  const initialState = buildInitialSimulatorDialogState({ draft, mode: 'live' })
+  const interestedState = applySimulatorLifecycleAction(initialState, 'audience-interested', draft)
+
+  const interestedAnchor = buildSimulatedDmMessages(draft, interestedState).audienceMessages
+    .find((message) => message.id === 'audience-anchor')
+  const interestedLabels = (interestedAnchor?.preview.buttonRows ?? []).flat().map((button) => button.label)
+  assert.ok(interestedLabels.includes("I'll be late"))
+
+  const lateState = applySimulatorPreviewAction(interestedState, simulatedDmActionIds.audienceRunningLate, draft)
+  assert.equal(lateState.audienceRunningLate, true)
+
+  const lateAnchor = buildSimulatedDmMessages(draft, lateState).audienceMessages
+    .find((message) => message.id === 'audience-anchor')
+  const lateLabels = (lateAnchor?.preview.buttonRows ?? []).flat().map((button) => button.label)
+  assert.ok(!lateLabels.includes("I'll be late"))
+})
+
+test('audience running-late is ignored unless the player is currently interested', () => {
+  const initialState = buildInitialSimulatorDialogState({ draft, mode: 'live' })
+
+  const fromNoReply = applySimulatorLifecycleAction(initialState, 'audience-running-late', draft)
+  assert.equal(fromNoReply.audienceRunningLate, false)
+
+  const passedState = applySimulatorLifecycleAction(initialState, 'audience-pass', draft)
+  const fromPass = applySimulatorLifecycleAction(passedState, 'audience-running-late', draft)
+  assert.equal(fromPass.audienceRunningLate, false)
+
+  const interestedState = applySimulatorLifecycleAction(initialState, 'audience-interested', draft)
+  const lateState = applySimulatorLifecycleAction(interestedState, 'audience-running-late', draft)
+  const repeatedLateState = applySimulatorLifecycleAction(lateState, 'audience-running-late', draft)
+  assert.equal(repeatedLateState.history.length, lateState.history.length)
+
+  const clearedState = applySimulatorLifecycleAction(lateState, 'audience-pass', draft)
+  assert.equal(clearedState.audienceRunningLate, false)
 })
 
 test('simulator ignores repeated voice activity triggers after the first one', () => {

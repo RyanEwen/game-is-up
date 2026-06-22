@@ -24,6 +24,7 @@ export type SimulatedLifecycleAction =
   | 'scheduled-start-reached'
   | 'audience-interested'
   | 'audience-pass'
+  | 'audience-running-late'
   | 'audience-mute'
   | 'creator-joined-voice'
   | 'audience-joined-voice'
@@ -90,6 +91,7 @@ const simulatedLifecycleActionByCustomId = {
   [simulatedDmActionIds.creatorConfirmCheckIn]: 'creator-check-in-confirmed',
   [simulatedDmActionIds.audienceInterested]: 'audience-interested',
   [simulatedDmActionIds.audiencePass]: 'audience-pass',
+  [simulatedDmActionIds.audienceRunningLate]: 'audience-running-late',
   [simulatedDmActionIds.audienceMute]: 'audience-mute',
   [simulatedDmActionIds.creatorStartNow]: 'creator-start-now',
   [simulatedDmActionIds.creatorEnd]: 'creator-end',
@@ -121,6 +123,7 @@ function snapshotSimulatorLifecycleState(
   return {
     stage: state.stage,
     audienceResponse: state.audienceResponse,
+    audienceRunningLate: state.audienceRunningLate,
     creatorCheckInState: state.creatorCheckInState,
     hasGoTimeBroadcast: state.hasGoTimeBroadcast,
     hasVoiceChannelActivity: state.hasVoiceChannelActivity,
@@ -335,6 +338,7 @@ function resolveSimulatorLifecycleTransition(
       nextState = {
         ...nextState,
         audienceResponse: 'interested',
+        audienceRunningLate: false,
         latestAudienceUpdateFields: null,
         latestAudienceUpdateRequiresFreshResponse: false
       }
@@ -347,6 +351,7 @@ function resolveSimulatorLifecycleTransition(
       nextState = {
         ...nextState,
         audienceResponse: 'pass',
+        audienceRunningLate: false,
         latestAudienceUpdateFields: null,
         latestAudienceUpdateRequiresFreshResponse: false
       }
@@ -354,6 +359,18 @@ function resolveSimulatorLifecycleTransition(
       summary = currentState.stage === 'confirmed'
         ? `${draft.audienceName} passed after the creator confirmed the session.`
         : `${draft.audienceName} passed for now.`
+      break
+    case 'audience-running-late':
+      if (currentState.audienceResponse !== 'interested' || currentState.audienceRunningLate) {
+        return null
+      }
+
+      nextState = {
+        ...nextState,
+        audienceRunningLate: true
+      }
+      actor = 'audience'
+      summary = `${draft.audienceName} is interested but running late.`
       break
     case 'audience-mute':
       actor = 'audience'

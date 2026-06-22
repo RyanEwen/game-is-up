@@ -21,7 +21,7 @@ import type {
   PlayIntentDetail,
   PlayIntentNotifyScope,
   PlayIntentPreview,
-  PlayIntentRecipientResponseChoice,
+  PlayIntentRecipientAction,
   PlayIntentRecipientResponseResult,
   UpsertPlayIntentResponse
 } from '@game-is-up/shared'
@@ -101,6 +101,10 @@ function toComposerPlayIntent(intent: ActivePlayIntent | PlayIntentDetail): Acti
 function buildPlayIntentResponseToastMessage(result: PlayIntentRecipientResponseResult) {
   const creatorWasNotified = result.message.includes('has been notified')
 
+  if (result.responseChoice === 'late') {
+    return 'You are marked as running late. The creator and other interested players were notified.'
+  }
+
   if (result.responseChoice === 'interested') {
     return creatorWasNotified
       ? 'You are marked as interested. The creator has been notified.'
@@ -176,7 +180,7 @@ export type DashboardPlayViewProps = {
   onDeletePlayIntent: (playIntentId: string) => Promise<boolean>;
   playIntentPreviews: PlayIntentPreview[];
   playIntentResponsePendingIntentId: string | null;
-  onRespondToPlayIntent: (playIntentId: string, responseChoice: PlayIntentRecipientResponseChoice) => Promise<void>;
+  onRespondToPlayIntent: (playIntentId: string, responseChoice: PlayIntentRecipientAction) => Promise<void>;
   playIntentDiscordSpaceRetryPendingIntentId: string | null;
   onRetryPlayIntentDiscordSpace: (playIntentId: string) => Promise<void>;
   playIntentDiscordSpaceDeletePendingIntentId: string | null;
@@ -1043,7 +1047,7 @@ export function useDashboardPlay({
     }
   }, [buildApiUrl, loadDashboard])
 
-  const handleRespondToPlayIntent = useCallback(async (playIntentId: string, responseChoice: PlayIntentRecipientResponseChoice) => {
+  const handleRespondToPlayIntent = useCallback(async (playIntentId: string, responseChoice: PlayIntentRecipientAction) => {
     setPlayIntentResponsePendingIntentId(playIntentId)
     setPlayIntentNotice(null)
 

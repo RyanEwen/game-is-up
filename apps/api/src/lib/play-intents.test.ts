@@ -29,4 +29,5 @@ test('right-now selected-game notification titles call out immediate timing', ()
   )
 
   assert.equal(copy.title, 'Ryan wants to play Helldivers 2 (right now!)')
+  assert.equal(copy.body, 'When: For 2 hours starting now.')
 })
