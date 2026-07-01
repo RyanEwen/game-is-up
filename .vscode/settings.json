@@ -15,5 +15,33 @@
     "typescript",
     "typescriptreact"
   ],
-  "typescript.tsdk": "node_modules/typescript/lib"
+  "typescript.tsdk": "node_modules/typescript/lib",
+
+  // Preconfigured zero-prompt connection for the Microsoft PostgreSQL extension
+  // (ms-ossdata.vscode-pgsql), targeting the devcontainer Postgres service
+  // (.devcontainer/compose.yml): host `db`, db `game_is_up`, user `postgres`.
+  // authenticationType "None" makes the extension send no password; its libpq
+  // tools service falls back to the PGPASSWORD env var, which devcontainer.json's
+  // remoteEnv sets to `postgres`. No connect-time prompt, nothing stored in the
+  // OS keychain. (Outside the devcontainer, export PGPASSWORD=postgres yourself.)
+  "pgsql.serverGroups": [
+    {
+      "id": "game-is-up-dev-group",
+      "name": "game-is-up",
+      "color": "#1E88E5",
+      "description": "game-is-up local development database"
+    }
+  ],
+  "pgsql.connections": [
+    {
+      "id": "game-is-up-dev-db",
+      "groupId": "game-is-up-dev-group",
+      "profileName": "game-is-up (devcontainer)",
+      "server": "db",
+      "port": "5432",
+      "database": "game_is_up",
+      "user": "postgres",
+      "authenticationType": "None"
+    }
+  ]
 }
