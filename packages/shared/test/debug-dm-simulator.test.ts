@@ -148,7 +148,7 @@ test('creator follow-up previews use the requested audience-status emoji heading
   assert.match(passedFollowUp.preview.content, /^❎ Someone passed/m)
 })
 
-test('audience pass follow-up previews use the cross-mark emoji heading', () => {
+test('passing no longer posts a separate audience acknowledgement reply', () => {
   const { audienceMessages } = buildSimulatedDmMessages(draft, {
     stage: 'confirmed',
     audienceResponse: 'pass',
@@ -166,10 +166,7 @@ test('audience pass follow-up previews use the cross-mark emoji heading', () => 
 
   const followUp = audienceMessages.find((message) => message.id === 'audience-follow-up')
 
-  assert.ok(followUp)
-  assert.match(followUp.preview.content, /^❎ Passed for Now/m)
-  assert.match(followUp.preview.content, /You are marked as passing for now\. Passing is anonymous\./)
-  assert.doesNotMatch(followUp.preview.content, /Ryan has been notified\./)
+  assert.equal(followUp, undefined)
 })
 
 test('creator live activity events add dangling replies to the audience thread in the simulator', () => {
@@ -232,9 +229,9 @@ test('audience running-late flags the interested player and notifies both thread
   assert.match(creatorFollowUp.preview.content, /^⏰ Someone is running late/m)
   assert.match(creatorFollowUp.preview.content, /@Sam is interested but running late for Helldivers 2\./)
 
-  assert.ok(audienceFollowUp)
-  assert.match(audienceFollowUp.preview.content, /^⏰ Running Late/m)
-  assert.match(audienceFollowUp.preview.content, /You are still marked as interested\./)
+  // Running late no longer posts a separate audience acknowledgement reply; the
+  // invite anchor updates in place instead.
+  assert.equal(audienceFollowUp, undefined)
 })
 
 test('the simulated invite prompt offers "I\'ll be late" once interested and clicking it flags late', () => {

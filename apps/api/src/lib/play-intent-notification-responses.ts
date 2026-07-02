@@ -712,6 +712,49 @@ function buildResponseRow(
   return new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(...buttons)
 }
 
+/**
+ * How long the pressed response button shows its confirmation label before the
+ * prompt settles back to its steady interactive state. Kept short so the message
+ * feels responsive rather than stuck.
+ */
+const RESPONSE_CONFIRMATION_FLASH_MS = 2000
+
+function delay(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds))
+}
+
+type ResponseConfirmationKind = 'interested' | 'pass' | 'late'
+
+const responseConfirmationCopy: Record<ResponseConfirmationKind, { label: string; style: ButtonStyle }> = {
+  interested: { label: '✅ You\'re in!', style: ButtonStyle.Success },
+  pass: { label: '✅ Got it', style: ButtonStyle.Secondary },
+  late: { label: '⏰ Got it — running late', style: ButtonStyle.Secondary }
+}
+
+/**
+ * Builds the transient message components shown right after a recipient presses a
+ * response button: a single disabled button echoing their choice plus the standard
+ * open-in-app link. Disabled buttons never emit interactions, so the static custom
+ * id is inert. This is the momentary in-place acknowledgement that replaced the
+ * separate response follow-up DM.
+ */
+function buildResponseConfirmationComponents(kind: ResponseConfirmationKind, playIntentId?: string) {
+  const copy = responseConfirmationCopy[kind]
+  const confirmationRow = new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId('play-intent-response-confirmation')
+      .setLabel(copy.label)
+      .setStyle(copy.style)
+      .setDisabled(true)
+  )
+
+  return appendOpenInAppButton(
+    [confirmationRow],
+    buildPlayAppUrl(playIntentId),
+    'Open in App'
+  )
+}
+
 function buildMuteLabel(creatorDisplayName: string) {
   const normalized = creatorDisplayName.trim()
   const baseLabel = normalized ? `Mute ${normalized}` : 'Mute creator'
@@ -1249,6 +1292,7 @@ export function buildPlayIntentNotificationComponents(
     playIntentId?: string;
     responseCustomIdBuilder?: (response: 'interested' | 'pass' | 'late') => string;
     runningLate?: boolean;
+    discordSpace?: PlayIntentDiscordSpaceRecipientContext | null;
   } = {}
 ) {
   const rows: ActionRowBuilder<MessageActionRowComponentBuilder>[] = []
@@ -1272,6 +1316,13 @@ export function buildPlayIntentNotificationComponents(
     } else {
       rows.push(buildMuteRow(creatorUserId, creatorDisplayName))
     }
+  }
+
+  // Interested recipients get their temporary Discord space access on the prompt
+  // itself. This access used to live on the separate response follow-up DM, which
+  // is no longer sent, so surface it here instead.
+  if (responseChoice === NotificationResponseChoice.JOIN) {
+    rows.push(...buildRecipientDiscordSpaceLinkComponents(options.discordSpace))
   }
 
   if (!(options.forceInteractive ?? supportsDiscordInteractiveMessages())) {
@@ -1370,7 +1421,8 @@ export function buildPlayIntentNotificationPromptPreview(options: {
         forceInteractive: true,
         playIntentId: options.playIntentId,
         responseCustomIdBuilder: options.responseCustomIdBuilder,
-        runningLate: options.runningLate
+        runningLate: options.runningLate,
+        discordSpace: options.discordSpace
       }
     )
   }
@@ -2239,9 +2291,17 @@ export async function refreshTrackedCreatorPlayIntentSummaryMessages() {
 export async function refreshTrackedPlayIntentNotificationDirectMessages(options: {
   playIntentIds?: string[];
   userIds?: string[];
+  /**
+   * Notification ids whose tracked prompt message should be left untouched. Used
+   * when a Discord button interaction has already taken ownership of a message
+   * (e.g. to hold a momentary response confirmation) and will restore the steady
+   * state itself once the confirmation flash clears.
+   */
+  excludeNotificationIds?: string[];
 } = {}) {
   const targetPlayIntentIds = options.playIntentIds?.filter((playIntentId): playIntentId is string => Boolean(playIntentId)) ?? []
   const targetUserIds = options.userIds?.filter((userId): userId is string => Boolean(userId)) ?? []
+  const excludedNotificationIds = new Set(options.excludeNotificationIds ?? [])
   const notifications = await prisma.notification.findMany({
     where: {
       discordDmChannelId: {
@@ -2471,6 +2531,10 @@ export async function refreshTrackedPlayIntentNotificationDirectMessages(options
       continue
     }
 
+    if (excludedNotificationIds.has(notification.id)) {
+      continue
+    }
+
     const playIntent = notification.playIntent
     const interestedUsers = notification.playIntentId
       ? interestedUsersByPlayIntentId.get(notification.playIntentId) ?? []
@@ -2575,38 +2639,6 @@ export async function refreshTrackedPlayIntentNotificationDirectMessages(options
       })
     }
 
-    if (
-      previewResponseChoice
-      && previewResponseChoice !== NotificationResponseChoice.EXPIRED
-      && notification.type !== NotificationType.SCHEDULED_PLAY_INTENT_CHECK_IN
-      && notification.recipientResponseDiscordDmChannelId
-      && notification.recipientResponseDiscordDmMessageId
-    ) {
-      const followUpPreview = buildNotificationDirectMessagePreview({
-        ...previewOptions,
-        renderSurface: 'response'
-      })
-
-      const followUpResult = await editDiscordDirectMessage({
-        channelId: notification.recipientResponseDiscordDmChannelId,
-        messageId: notification.recipientResponseDiscordDmMessageId,
-        content: followUpPreview.content,
-        embeds: followUpPreview.embeds,
-        components: followUpPreview.components
-      })
-
-      if (followUpResult.status === 'failed' && isMissingDiscordMessageError(followUpResult.error)) {
-        await prisma.notification.update({
-          where: {
-            id: notification.id
-          },
-          data: {
-            recipientResponseDiscordDmChannelId: null,
-            recipientResponseDiscordDmMessageId: null
-          }
-        })
-      }
-    }
   }
 }
 
@@ -3184,49 +3216,6 @@ async function syncAudienceResponseSystemDirectMessage(options: {
           deliveredAt: new Date(),
           discordDmChannelId: result.channelId,
           discordDmMessageId: result.messageId
-        }
-      })
-    }
-  })
-}
-
-async function syncRecipientResponseFollowUpDirectMessage(options: {
-  notificationId: string;
-  discordUserId: string;
-  content: string;
-  components?: ActionRowBuilder<MessageActionRowComponentBuilder>[];
-  channelId?: string | null;
-  messageId?: string | null;
-  replyTo?: DiscordDirectMessagePayload['replyTo'];
-}) {
-  await syncTrackedDiscordDirectMessage({
-    tracked: {
-      channelId: options.channelId,
-      messageId: options.messageId
-    },
-    discordUserId: options.discordUserId,
-    content: options.content,
-    components: options.components ?? [],
-    replyTo: options.replyTo,
-    onMissingTrackedMessage: async () => {
-      await prisma.notification.update({
-        where: {
-          id: options.notificationId
-        },
-        data: {
-          recipientResponseDiscordDmChannelId: null,
-          recipientResponseDiscordDmMessageId: null
-        }
-      })
-    },
-    onSent: async (result) => {
-      await prisma.notification.update({
-        where: {
-          id: options.notificationId
-        },
-        data: {
-          recipientResponseDiscordDmChannelId: result.channelId,
-          recipientResponseDiscordDmMessageId: result.messageId
         }
       })
     }
@@ -3865,23 +3854,6 @@ export async function respondToPlayIntentFromWeb(options: {
     response: options.response
   })
 
-  const recipientDiscordUserId = notification.user.identities?.[0]?.providerUserId ?? null
-
-  if (recipientDiscordUserId) {
-    await syncRecipientResponseFollowUpDirectMessage({
-      notificationId: notification.id,
-      discordUserId: recipientDiscordUserId,
-      content: result.discordContent ?? result.content,
-      components: result.discordComponents,
-      channelId: notification.recipientResponseDiscordDmChannelId,
-      messageId: notification.recipientResponseDiscordDmMessageId,
-      replyTo: buildTrackedDirectMessageReplyReference(
-        notification.discordDmChannelId,
-        notification.discordDmMessageId
-      )
-    })
-  }
-
   await refreshTrackedPlayIntentNotificationDirectMessages({
     playIntentIds: [notification.playIntent.id]
   })
@@ -3982,23 +3954,6 @@ export async function markRunningLateFromWeb(options: {
   }
 
   const result = await applyRunningLateToPlayIntentNotification({ notification })
-
-  const recipientDiscordUserId = notification.user.identities?.[0]?.providerUserId ?? null
-
-  if (recipientDiscordUserId) {
-    await syncRecipientResponseFollowUpDirectMessage({
-      notificationId: notification.id,
-      discordUserId: recipientDiscordUserId,
-      content: result.discordContent ?? result.content,
-      components: result.discordComponents,
-      channelId: notification.recipientResponseDiscordDmChannelId,
-      messageId: notification.recipientResponseDiscordDmMessageId,
-      replyTo: buildTrackedDirectMessageReplyReference(
-        notification.discordDmChannelId,
-        notification.discordDmMessageId
-      )
-    })
-  }
 
   await refreshTrackedPlayIntentNotificationDirectMessages({
     playIntentIds: [notification.playIntent.id]
@@ -4741,6 +4696,16 @@ export async function handlePlayIntentNotificationInteraction(interaction: Butto
             _count: {
               select: { games: true }
             },
+            games: {
+              select: {
+                game: {
+                  select: {
+                    title: true,
+                    coverUrl: true
+                  }
+                }
+              }
+            },
             user: {
               select: {
                 id: true,
@@ -4888,14 +4853,16 @@ export async function handlePlayIntentNotificationInteraction(interaction: Butto
     return
   }
 
-  const result = action.kind === 'running-late'
-    ? await applyRunningLateToPlayIntentNotification({
-        notification: responseNotification
-      })
-    : await applyRecipientResponseToPlayIntentNotification({
-        notification: responseNotification,
-        response: action.response
-      })
+  if (action.kind === 'running-late') {
+    await applyRunningLateToPlayIntentNotification({
+      notification: responseNotification
+    })
+  } else {
+    await applyRecipientResponseToPlayIntentNotification({
+      notification: responseNotification,
+      response: action.response
+    })
+  }
   const preservedResponseChoice = action.kind === 'running-late'
     ? NotificationResponseChoice.JOIN
     : action.response
@@ -4934,28 +4901,47 @@ export async function handlePlayIntentNotificationInteraction(interaction: Butto
     passAcknowledgementMode
   })
 
+  const steadyEmbeds = notification.type === NotificationType.FRIEND_PLAYING
+    ? [
+        ...(preservedPrompt.embeds ?? []),
+        ...buildPlayIntentGameEmbeds(playIntent)
+      ]
+    : preservedPrompt.embeds
+  const confirmationKind: ResponseConfirmationKind = action.kind === 'running-late'
+    ? 'late'
+    : action.response === NotificationResponseChoice.JOIN ? 'interested' : 'pass'
+
+  // Acknowledge the click by flashing a short confirmation on the pressed button
+  // instead of sending a separate "You're In" follow-up DM. The pressed message is
+  // held out of the tracked refresh below so the flash is not immediately
+  // overwritten, then restored to the steady prompt once the flash clears.
   await interaction.update({
     content: preservedPrompt.content,
-    embeds: preservedPrompt.embeds,
-    components: preservedPrompt.components
+    embeds: steadyEmbeds,
+    components: buildResponseConfirmationComponents(confirmationKind, playIntent.id)
   })
 
-  await syncRecipientResponseFollowUpDirectMessage({
-    notificationId: responseNotification.id,
-    discordUserId: responseNotification.user.identities?.[0]?.providerUserId ?? interaction.user.id,
-    content: result.discordContent ?? result.content,
-    components: result.discordComponents,
-    channelId: responseNotification.recipientResponseDiscordDmChannelId,
-    messageId: responseNotification.recipientResponseDiscordDmMessageId,
-    replyTo: buildTrackedDirectMessageReplyReference(
-      responseNotification.discordDmChannelId,
-      responseNotification.discordDmMessageId
-    )
-  })
+  // allSettled so a refresh failure can never strand the message on the flash
+  // state: the pressed button must always settle back to the steady prompt.
+  await Promise.allSettled([
+    refreshTrackedPlayIntentNotificationDirectMessages({
+      playIntentIds: [playIntent.id],
+      excludeNotificationIds: [notification.id, responseNotification.id]
+    }),
+    delay(RESPONSE_CONFIRMATION_FLASH_MS)
+  ])
 
-  await refreshTrackedPlayIntentNotificationDirectMessages({
-    playIntentIds: [playIntent.id]
-  })
+  try {
+    await interaction.editReply({
+      content: preservedPrompt.content,
+      embeds: steadyEmbeds,
+      components: preservedPrompt.components
+    })
+  } catch {
+    // The recipient may have dismissed or navigated away from the DM before the
+    // flash cleared. The next tracked refresh restores the steady prompt, so the
+    // failed edit is safe to ignore.
+  }
 }
 
 async function handlePlayIntentMuteInteraction(interaction: ButtonInteraction, action: PlayIntentMuteAction) {

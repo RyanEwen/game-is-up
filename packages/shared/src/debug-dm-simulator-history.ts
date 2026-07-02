@@ -75,7 +75,7 @@ function buildSimulatedAudienceUpdateReplyMessages(history: SimulatedLifecycleEn
         requiresFreshResponse: entry.stateSnapshot.latestAudienceUpdateRequiresFreshResponse
       }),
       explanation: [
-        'Meaningful call edits add fresh update replies beneath the invite instead of overwriting the audience acknowledgement message.',
+        'Meaningful call edits add fresh update replies beneath the invite instead of overwriting the invite anchor.',
         'Each update reply stays in the thread as a trail of changes while the invite above keeps the latest details.'
       ],
       isInteractive: false

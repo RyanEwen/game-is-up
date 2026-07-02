@@ -654,43 +654,14 @@ export function buildSimulatorAudienceFollowUpPreview(
     }
   }
 
-  if (state.audienceResponse === 'interested' && state.audienceRunningLate) {
-    return {
-      content: buildSimulatorPlainMessage(
-        '⏰ Running Late',
-        [`Got it — I let ${draft.creatorName} and the other interested players know you are running late.`],
-        'You are still marked as interested.'
-      ),
-      embeds: [],
-      buttonRows: []
-    }
-  }
-
-  if ((state.stage === 'scheduled' || state.stage === 'check-in') && state.audienceResponse == null) {
-    return null
-  }
-
-  if (state.stage === 'confirmed') {
-    if (!state.hasGoTimeBroadcast) {
-      if (state.audienceResponse == null) {
-        return null
-      }
-
-      return {
-        content: state.audienceResponse === 'interested'
-          ? buildSimulatorPlainMessage(
-              '✅ You\'re In',
-              [`You are marked as interested. ${draft.creatorName} has been notified.`],
-              'If you change your mind you can switch to "Can\'t make it" later.'
-            )
-          : buildSimulatorPlainMessage(
-              '❎ Passed for Now',
-              ['You are marked as passing for now. Passing is anonymous.'],
-              'If you change your mind you can switch to "I\'m interested" later.'
-            ),
-        embeds: [],
-        buttonRows: []
-      }
+  // Response acknowledgements ("You're In" / "Passed for Now" / "Running Late")
+  // are no longer sent as a separate reply. The invite anchor above updates in
+  // place and the pressed button shows a momentary confirmation instead, so the
+  // only audience-side replies that remain are the go-time broadcast and the
+  // ended notice for an unanswered invite.
+  if (state.stage === 'confirmed' && state.hasGoTimeBroadcast) {
+    if (state.audienceResponse === 'pass') {
+      return null
     }
 
     if (state.audienceResponse === 'interested') {
@@ -701,18 +672,6 @@ export function buildSimulatorAudienceFollowUpPreview(
             `${draft.creatorName} confirmed the session is starting now.`,
             'See original invite above for details or to change your response.'
           ]
-        ),
-        embeds: [],
-        buttonRows: []
-      }
-    }
-
-    if (state.audienceResponse === 'pass') {
-      return {
-        content: buildSimulatorPlainMessage(
-          '❎ Passed for Now',
-          ['You are marked as passing for now. Passing is anonymous.'],
-          'If you change your mind you can switch to "I\'m interested" later.'
         ),
         embeds: [],
         buttonRows: []
@@ -732,21 +691,7 @@ export function buildSimulatorAudienceFollowUpPreview(
     }
   }
 
-  return {
-    content: state.audienceResponse === 'interested'
-      ? buildSimulatorPlainMessage(
-          '✅ You\'re In',
-          [`You are marked as interested. ${draft.creatorName} has been notified.`],
-          'If you change your mind you can switch to "Can\'t make it" later.'
-        )
-      : buildSimulatorPlainMessage(
-          '❎ Passed for Now',
-          ['You are marked as passing for now. Passing is anonymous.'],
-          'If you change your mind you can switch to "I\'m interested" later.'
-        ),
-    embeds: [],
-    buttonRows: []
-  }
+  return null
 }
 
 export function buildSimulatorCreatorCheckInPreview(
@@ -946,12 +891,12 @@ export function buildSimulatedDmMessages(
     audienceMessages.push({
       id: 'audience-follow-up',
       label: state.stage === 'confirmed'
-        ? 'Audience follow-up reply'
-        : 'Audience acknowledgement reply',
+        ? 'Audience go-time reply'
+        : 'Audience ended notice',
       preview: followUpPreview,
       explanation: [
-        'This is the retained audience-side acknowledgement or go-time reply beneath the original invite.',
-        'Meaningful call edits should add separate “Call Updated” replies without replacing this message. If the call ends before the recipient answers, this becomes the ended notice; otherwise the invite above carries the ended state on its own.'
+        'This is the retained audience-side go-time reply beneath the original invite, or the ended notice when the call ends before the recipient answers.',
+        'Response acknowledgements ("You\'re In" / "Passed for Now" / "Running Late") are no longer sent as a separate reply: the invite above updates in place and the pressed button shows a momentary confirmation instead.'
       ],
       isInteractive: false
     })

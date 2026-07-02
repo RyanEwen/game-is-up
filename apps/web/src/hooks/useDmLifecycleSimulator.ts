@@ -270,8 +270,8 @@ export function useDmLifecycleSimulator(options: UseDmLifecycleSimulatorOptions)
         badgeLabel: committedDraft?.audienceName ?? 'Audience',
         infoLines: [
           'The invite stays as the anchor for the whole audience lifecycle.',
-          'Meaningful call edits add fresh “Call Updated” replies under the invite while the acknowledgement reply remains separate.',
-          'The acknowledgement and go-time reply should stay retained, while update replies stack as a trail beneath the anchor.'
+          'Responses update the invite in place with a momentary button confirmation instead of a separate acknowledgement reply; meaningful call edits still add fresh “Call Updated” replies under the invite.',
+          'The go-time reply should stay retained, while update replies stack as a trail beneath the anchor.'
         ],
         emptyTitle: state?.audienceThreadArchived ? 'Audience thread archived' : 'No audience thread yet',
         emptyBody: state?.audienceThreadArchived

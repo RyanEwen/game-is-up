@@ -5,9 +5,11 @@
  * invite threads so quiet edits land in place and substantive changes can
  * cleanly replace the right message. This module is the central place where
  * those anchors are archived, reference-updated when a play intent rotates
- * its tracked message, and swept of dangling bot-authored replies. The
- * archive flow honors a 12-hour retention window before destructive cleanup
- * and exposes an explicit creator action button once a thread goes stale.
+ * its tracked message, and swept of dangling bot-authored replies. Chains are
+ * shown as ended when their play-intent window closes and then deleted outright
+ * once a 12-hour retention window after that close has elapsed (see
+ * `sweepOldDiscordDirectMessages`). An explicit creator action button is exposed
+ * once a thread goes stale.
  */
 
 import { AuthProvider, NotificationType } from '@prisma/client'
@@ -42,6 +44,7 @@ import {
 const discordDmRetentionMs = 12 * 60 * 60 * 1000
 const discordDmCleanupSweepPageLimit = 100
 const discordDmCleanupSweepMessageCap = 500
+const discordDmDeleteSweepIntentCap = 100
 const archivedPlayIntentNotificationTypes = [
   NotificationType.FRIEND_PLAYING,
   NotificationType.SCHEDULED_PLAY_INTENT_REMINDER,
@@ -1382,8 +1385,6 @@ export async function deleteSettledDiscordDirectMessagesForUser(userId: string) 
  * Archives play-intent DMs across all terminal states. The flows that converge
  * here are intentional, not a refactor opportunity:
  *
- * - Time-based archival sweep: called from the periodic cleanup with
- *   `deliveredBefore` to retire DMs older than `discordDmRetentionMs`.
  * - Manual end / scheduled end: called with `playIntentIds` after a creator
  *   ends a call or the scheduler expires it. `replaceRecipientMessages: true`
  *   replaces recipient invites with the archived summary so the recipient gets
@@ -1878,9 +1879,73 @@ async function deleteExpiredPromptDirectMessages(cutoff: Date) {
 
 }
 
+/**
+ * Deletes the full tracked DM chain (creator summary, recipient invites,
+ * response anchors, and their bot-authored replies) for every play intent whose
+ * window ended at or before `cutoff`. This is the destructive tail of the DM
+ * lifecycle: chains are shown as ended at window close and then removed entirely
+ * once the retention window has elapsed. Work is capped per sweep so a large
+ * backlog drains across successive hourly sweeps rather than in one burst;
+ * cleared references drop intents out of the query, so the set does not regrow.
+ */
+async function deleteExpiredPlayIntentDirectMessages(cutoff: Date) {
+  const playIntents = await prisma.playIntent.findMany({
+    where: {
+      expiresAt: {
+        lte: cutoff
+      },
+      OR: [
+        {
+          creatorDiscordDmChannelId: {
+            not: null
+          },
+          creatorDiscordDmMessageId: {
+            not: null
+          }
+        },
+        {
+          notifications: {
+            some: {
+              OR: [
+                {
+                  discordDmChannelId: {
+                    not: null
+                  },
+                  discordDmMessageId: {
+                    not: null
+                  }
+                },
+                {
+                  recipientResponseDiscordDmChannelId: {
+                    not: null
+                  },
+                  recipientResponseDiscordDmMessageId: {
+                    not: null
+                  }
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    orderBy: {
+      expiresAt: 'asc'
+    },
+    take: discordDmDeleteSweepIntentCap,
+    select: {
+      id: true
+    }
+  })
+
+  for (const playIntent of playIntents) {
+    await deletePlayIntentDirectMessages(playIntent.id)
+  }
+}
+
 export async function sweepOldDiscordDirectMessages() {
   const cutoff = new Date(Date.now() - discordDmRetentionMs)
 
-  await archivePlayIntentDirectMessages({ deliveredBefore: cutoff })
+  await deleteExpiredPlayIntentDirectMessages(cutoff)
   await deleteExpiredPromptDirectMessages(cutoff)
 }
