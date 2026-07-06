@@ -1472,7 +1472,6 @@ export async function clearCurrentPlayIntent(userId: string, playIntentId?: stri
   })
 
   await expirePendingPlayIntentNotifications(activeIntentIds, {
-    notifyAudienceOnEnd: true,
     publishInvalidation: false
   })
 
@@ -1768,8 +1767,6 @@ export async function upsertCurrentPlayIntent(
           responseChoice: true,
           discordDmChannelId: true,
           discordDmMessageId: true,
-          recipientResponseDiscordDmChannelId: true,
-          recipientResponseDiscordDmMessageId: true,
           createdAt: true,
           user: {
             select: {
@@ -1797,8 +1794,6 @@ export async function upsertCurrentPlayIntent(
     responseChoice: NotificationResponseChoice | null;
     discordDmChannelId: string | null;
     discordDmMessageId: string | null;
-    recipientResponseDiscordDmChannelId: string | null;
-    recipientResponseDiscordDmMessageId: string | null;
     interestedUserLabel: string;
   }>()
   for (const notification of priorRecipientNotifications) {
@@ -1809,8 +1804,6 @@ export async function upsertCurrentPlayIntent(
         responseChoice: notification.responseChoice,
         discordDmChannelId: notification.discordDmChannelId,
         discordDmMessageId: notification.discordDmMessageId,
-        recipientResponseDiscordDmChannelId: notification.recipientResponseDiscordDmChannelId,
-        recipientResponseDiscordDmMessageId: notification.recipientResponseDiscordDmMessageId,
         interestedUserLabel: notification.user?.identities[0]?.providerUserId
           ? `<@${notification.user.identities[0].providerUserId}>`
           : (notification.user?.displayName ?? notification.userId)
@@ -1949,8 +1942,6 @@ export async function upsertCurrentPlayIntent(
     responseChoice: NotificationResponseChoice | null;
     discordDmChannelId: string | null;
     discordDmMessageId: string | null;
-    recipientResponseDiscordDmChannelId: string | null;
-    recipientResponseDiscordDmMessageId: string | null;
     sendUpdateReply: boolean;
     requiresFreshResponse: boolean;
   }> = []
@@ -2116,9 +2107,7 @@ export async function upsertCurrentPlayIntent(
               title: notificationCopy.title,
               body: notificationCopy.body,
               respondedAt: shouldResetAudienceResponse ? null : priorStatus.respondedAt,
-              responseChoice: shouldResetAudienceResponse ? null : priorStatus.responseChoice,
-              recipientResponseDiscordDmChannelId: priorStatus.recipientResponseDiscordDmChannelId,
-              recipientResponseDiscordDmMessageId: priorStatus.recipientResponseDiscordDmMessageId
+              responseChoice: shouldResetAudienceResponse ? null : priorStatus.responseChoice
             },
             select: {
               id: true,
@@ -2127,9 +2116,7 @@ export async function upsertCurrentPlayIntent(
               body: true,
               responseChoice: true,
               discordDmChannelId: true,
-              discordDmMessageId: true,
-              recipientResponseDiscordDmChannelId: true,
-              recipientResponseDiscordDmMessageId: true
+              discordDmMessageId: true
             }
           }).then((notification) => ({
             ...notification,
@@ -2182,9 +2169,7 @@ export async function upsertCurrentPlayIntent(
               body: true,
               responseChoice: true,
               discordDmChannelId: true,
-              discordDmMessageId: true,
-              recipientResponseDiscordDmChannelId: true,
-              recipientResponseDiscordDmMessageId: true
+              discordDmMessageId: true
             }
           })
         })
@@ -2391,8 +2376,6 @@ export async function upsertCurrentPlayIntent(
           discordDmChannelId: notification.discordDmChannelId,
           discordDmMessageId: notification.discordDmMessageId,
           inviteUrl: discordSpace?.inviteUrl ?? null,
-          recipientResponseDiscordDmChannelId: notification.recipientResponseDiscordDmChannelId,
-          recipientResponseDiscordDmMessageId: notification.recipientResponseDiscordDmMessageId,
           sendUpdateReply: notification.sendUpdateReply,
           requiresFreshResponse: notification.requiresFreshResponse
       }

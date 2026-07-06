@@ -1,82 +1,48 @@
-export type ArchivedNotificationCandidateReference = 'notification' | 'response'
+/**
+ * Reference bookkeeping for archived recipient invite anchors.
+ *
+ * When a play intent ends, every recipient's invite thread collapses onto a
+ * single archived anchor. The kept anchor must retain its
+ * `Notification.discordDm*` reference so the retention sweep can later find and
+ * delete it; any duplicate anchors that were removed have their references
+ * cleared. This module computes that per-notification reference update set.
+ */
 
 export type ArchivedNotificationCandidate = {
   channelId: string;
   messageId: string;
   notificationId: string;
-  reference: ArchivedNotificationCandidateReference;
 }
 
 export type NotificationDmReferenceUpdate = {
   discordDmChannelId: string | null;
   discordDmMessageId: string | null;
-  recipientResponseDiscordDmChannelId: string | null;
-  recipientResponseDiscordDmMessageId: string | null;
 }
 
-export function createNotificationDmReferenceUpdate(): NotificationDmReferenceUpdate {
-  return {
-    discordDmChannelId: null,
-    discordDmMessageId: null,
-    recipientResponseDiscordDmChannelId: null,
-    recipientResponseDiscordDmMessageId: null
-  }
-}
-
-export function preserveArchivedNotificationCandidateReference(
-  update: NotificationDmReferenceUpdate,
-  candidate: ArchivedNotificationCandidate
-) {
-  if (candidate.reference === 'notification') {
-    update.discordDmChannelId = candidate.channelId
-    update.discordDmMessageId = candidate.messageId
-    return
-  }
-
-  update.recipientResponseDiscordDmChannelId = candidate.channelId
-  update.recipientResponseDiscordDmMessageId = candidate.messageId
-}
-
+/**
+ * Returns the reference update to apply to each candidate notification: the
+ * notification owning the kept anchor keeps its reference, every other
+ * notification has its reference cleared. The kept reference always wins if a
+ * notification somehow appears under multiple candidates.
+ */
 export function buildArchivedNotificationReferenceUpdates(options: {
   candidates: ArchivedNotificationCandidate[];
   keptMessageId: string;
-  replacementResponse?: {
-    notificationId: string;
-    channelId: string;
-    messageId: string;
-  } | null;
 }) {
   const updates = new Map<string, NotificationDmReferenceUpdate>()
 
-  const getUpdate = (notificationId: string) => {
-    const existingUpdate = updates.get(notificationId)
+  for (const candidate of options.candidates) {
+    const isKept = candidate.messageId === options.keptMessageId
+    const existing = updates.get(candidate.notificationId)
 
-    if (existingUpdate) {
-      return existingUpdate
+    if (existing?.discordDmMessageId != null && !isKept) {
+      continue
     }
 
-    const nextUpdate = createNotificationDmReferenceUpdate()
-    updates.set(notificationId, nextUpdate)
-    return nextUpdate
-  }
-
-  for (const candidate of options.candidates) {
-    getUpdate(candidate.notificationId)
-  }
-
-  const keptCandidate = options.candidates.find((candidate) => candidate.messageId === options.keptMessageId) ?? null
-
-  if (keptCandidate) {
-    preserveArchivedNotificationCandidateReference(
-      getUpdate(keptCandidate.notificationId),
-      keptCandidate
-    )
-  }
-
-  if (options.replacementResponse) {
-    const update = getUpdate(options.replacementResponse.notificationId)
-    update.recipientResponseDiscordDmChannelId = options.replacementResponse.channelId
-    update.recipientResponseDiscordDmMessageId = options.replacementResponse.messageId
+    updates.set(candidate.notificationId, {
+      discordDmChannelId: isKept ? candidate.channelId : null,
+      discordDmMessageId: isKept ? candidate.messageId : null
+    })
   }
 
   return updates

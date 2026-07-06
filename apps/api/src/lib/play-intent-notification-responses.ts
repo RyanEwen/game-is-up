@@ -132,8 +132,6 @@ type ResolvablePlayIntentNotification = {
   gameId: string | null;
   responseChoice: NotificationResponseChoice | null;
   runningLateAt?: Date | null;
-  recipientResponseDiscordDmChannelId?: string | null;
-  recipientResponseDiscordDmMessageId?: string | null;
   user: {
     displayName: string;
     identities?: { providerUserId: string }[];
@@ -294,7 +292,6 @@ type RecipientPlayIntentDetails = {
 const defaultPlayIntentHeadline = 'Call to play'
 
 type ExpirePendingPlayIntentNotificationsOptions = {
-  notifyAudienceOnEnd?: boolean;
   publishInvalidation?: boolean;
 }
 
@@ -2162,6 +2159,14 @@ async function sendOrEditCreatorPlayIntentSummary(
   }
 
   const isActive = snapshot.expiresAt > new Date()
+
+  if (!isActive) {
+    // Expired chains are owned by the archive flow (archivePlayIntentDirectMessages);
+    // rendering a live summary here would revert the archived "no longer active"
+    // message. The archive sweep renders and holds the ended state instead.
+    return
+  }
+
   const isScheduled = isScheduledPlayIntentWindow(snapshot.windowStartsAt, new Date())
   const startsAtLabel = formatPlayIntentDateLabel(snapshot.windowStartsAt, snapshot.user.timezoneId)
   const content = buildCreatorPlayIntentSummaryHeading(startsAtLabel)
@@ -2245,6 +2250,11 @@ export async function refreshTrackedCreatorPlayIntentSummaryMessages() {
       },
       creatorDiscordDmMessageId: {
         not: null
+      },
+      // Expired chains are owned by the archive flow; refreshing would revert the
+      // archived "no longer active" summary back to a live one.
+      expiresAt: {
+        gt: new Date()
       }
     },
     select: {
@@ -2337,8 +2347,6 @@ export async function refreshTrackedPlayIntentNotificationDirectMessages(options
       runningLateAt: true,
       discordDmChannelId: true,
       discordDmMessageId: true,
-      recipientResponseDiscordDmChannelId: true,
-      recipientResponseDiscordDmMessageId: true,
       game: {
         select: {
           title: true
@@ -2536,6 +2544,13 @@ export async function refreshTrackedPlayIntentNotificationDirectMessages(options
     }
 
     const playIntent = notification.playIntent
+
+    if (playIntent && playIntent.expiresAt <= now) {
+      // Ended chains are owned by the archive flow; refreshing would revert the
+      // archived recipient message back to a live invite.
+      continue
+    }
+
     const interestedUsers = notification.playIntentId
       ? interestedUsersByPlayIntentId.get(notification.playIntentId) ?? []
       : []
@@ -3790,8 +3805,6 @@ export async function respondToPlayIntentFromWeb(options: {
       responseChoice: true,
       discordDmChannelId: true,
       discordDmMessageId: true,
-      recipientResponseDiscordDmChannelId: true,
-      recipientResponseDiscordDmMessageId: true,
       user: {
         select: {
           displayName: true,
@@ -3894,8 +3907,6 @@ export async function markRunningLateFromWeb(options: {
       runningLateAt: true,
       discordDmChannelId: true,
       discordDmMessageId: true,
-      recipientResponseDiscordDmChannelId: true,
-      recipientResponseDiscordDmMessageId: true,
       user: {
         select: {
           displayName: true,
@@ -4366,8 +4377,7 @@ export async function expirePendingPlayIntentNotifications(
   await markPlayIntentDiscordSpacesRetained(playIntentIds)
   await syncCreatorPlayIntentSummaryMessages(playIntentIds)
   await archivePlayIntentDirectMessages({
-    playIntentIds,
-    replaceRecipientMessages: options.notifyAudienceOnEnd === true
+    playIntentIds
   })
 
   if (options.publishInvalidation !== false) {
@@ -4535,9 +4545,7 @@ export async function handleScheduledPlayIntentCheckInInteraction(interaction: B
     if (endResult.notificationEnded && notification.playIntentId) {
       await interaction.deferUpdate()
 
-      await expirePendingPlayIntentNotifications([notification.playIntentId], {
-        notifyAudienceOnEnd: true
-      })
+      await expirePendingPlayIntentNotifications([notification.playIntentId])
 
       return
     }
@@ -4663,8 +4671,6 @@ export async function handlePlayIntentNotificationInteraction(interaction: Butto
         runningLateAt: true,
         discordDmChannelId: true,
         discordDmMessageId: true,
-        recipientResponseDiscordDmChannelId: true,
-        recipientResponseDiscordDmMessageId: true,
         user: {
           select: {
             displayName: true,
@@ -4795,8 +4801,6 @@ export async function handlePlayIntentNotificationInteraction(interaction: Butto
           runningLateAt: true,
           discordDmChannelId: true,
           discordDmMessageId: true,
-          recipientResponseDiscordDmChannelId: true,
-          recipientResponseDiscordDmMessageId: true,
           user: {
             select: {
               displayName: true,
@@ -5141,17 +5145,14 @@ export async function handleCreatorPlayIntentSummaryInteraction(interaction: But
       }
     })
 
-    await expirePendingPlayIntentNotifications([playIntent.id], {
-      notifyAudienceOnEnd: true
-    })
+    await expirePendingPlayIntentNotifications([playIntent.id])
     return
   } else if (action.action === 'end') {
     await interaction.deferUpdate()
 
     await markPlayIntentDiscordSpacesRetained([playIntent.id])
     await archivePlayIntentDirectMessages({
-      playIntentIds: [playIntent.id],
-      replaceRecipientMessages: true
+      playIntentIds: [playIntent.id]
     })
     return
   }

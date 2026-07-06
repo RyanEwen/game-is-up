@@ -363,6 +363,7 @@ model PlayIntent {
   targetFriendsListId       String?
   createdAt                 DateTime                        @default(now())
   expiresAt                 DateTime
+  dmChainEndedAt            DateTime?
   deletedAt                 DateTime?
   user                      User                            @relation(fields: [userId], references: [id], onDelete: Cascade)
   targetFriendsList         FriendsList?                    @relation("play_intent_target_friends_list", fields: [targetFriendsListId], references: [id], onDelete: SetNull)
@@ -376,6 +377,7 @@ model PlayIntent {
 
   @@index([userId, expiresAt])
   @@index([selectionMode, expiresAt])
+  @@index([dmChainEndedAt, expiresAt])
   @@index([deletedAt])
 }
 
@@ -493,8 +495,6 @@ model Notification {
   deliveredAt                         DateTime?
   discordDmChannelId                  String?
   discordDmMessageId                  String?
-  recipientResponseDiscordDmChannelId String?
-  recipientResponseDiscordDmMessageId String?
   createdAt                           DateTime                    @default(now())
   user                                User                        @relation("notification_recipient", fields: [userId], references: [id], onDelete: Cascade)
   playIntent                          PlayIntent?                 @relation(fields: [playIntentId], references: [id], onDelete: SetNull)

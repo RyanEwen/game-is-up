@@ -1,4 +1,3 @@
-import { NotificationType } from '@prisma/client'
 import { sweepOldDiscordDirectMessages } from './discord-dm-cleanup.js'
 import { refreshTrackedDiscordAutoPlayPromptDirectMessages } from './discord-auto-play-prompts.js'
 import { publishPlayIntentInvalidation } from './dashboard-events.js'
@@ -18,6 +17,7 @@ import { prisma } from './prisma.js'
 
 const playIntentCleanupIntervalMs = 60 * 1000
 const staleDiscordDmSweepIntervalMs = 60 * 60 * 1000
+const playIntentArchiveSweepIntentCap = 200
 
 let cleanupLoopStarted = false
 let cleanupInFlight = false
@@ -55,21 +55,26 @@ async function publishElapsedPlayIntentTimeBoundaryInvalidation() {
   }
 }
 
+/**
+ * Archives every expired play intent whose DM chain has not been ended yet.
+ *
+ * Selection keys off `dmChainEndedAt IS NULL` rather than unresponded
+ * notifications, so fully-responded calls to play are archived too. Archiving
+ * sets the marker, so each chain is processed exactly once and a backlog drains
+ * across successive sweeps (capped per pass) without regrowing.
+ */
 export async function sweepExpiredPlayIntentNotifications() {
   const expiredIntentIds = (await prisma.playIntent.findMany({
     where: {
       expiresAt: {
         lte: new Date()
       },
-      notifications: {
-        some: {
-          type: {
-            in: [NotificationType.FRIEND_PLAYING, NotificationType.SCHEDULED_PLAY_INTENT_CHECK_IN]
-          },
-          respondedAt: null
-        }
-      }
+      dmChainEndedAt: null
     },
+    orderBy: {
+      expiresAt: 'asc'
+    },
+    take: playIntentArchiveSweepIntentCap,
     select: {
       id: true
     }

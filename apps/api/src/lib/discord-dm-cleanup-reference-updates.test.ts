@@ -3,52 +3,36 @@ import test from 'node:test'
 
 import { buildArchivedNotificationReferenceUpdates } from './discord-dm-cleanup-reference-updates.js'
 
-test('manual end keeps the archived invite and the new ended reply refs', () => {
+test('the kept anchor retains its reference', () => {
   const updates = buildArchivedNotificationReferenceUpdates({
     candidates: [
       {
         channelId: 'dm-1',
         messageId: 'invite-1',
-        notificationId: 'notification-1',
-        reference: 'notification'
-      },
-      {
-        channelId: 'dm-1',
-        messageId: 'response-old',
-        notificationId: 'notification-1',
-        reference: 'response'
+        notificationId: 'notification-1'
       }
     ],
-    keptMessageId: 'invite-1',
-    replacementResponse: {
-      notificationId: 'notification-1',
-      channelId: 'dm-1',
-      messageId: 'response-new'
-    }
+    keptMessageId: 'invite-1'
   })
 
   assert.deepEqual(updates.get('notification-1'), {
     discordDmChannelId: 'dm-1',
-    discordDmMessageId: 'invite-1',
-    recipientResponseDiscordDmChannelId: 'dm-1',
-    recipientResponseDiscordDmMessageId: 'response-new'
+    discordDmMessageId: 'invite-1'
   })
 })
 
-test('quiet archive keeps only the retained invite refs', () => {
+test('duplicate anchors for other notifications are cleared', () => {
   const updates = buildArchivedNotificationReferenceUpdates({
     candidates: [
       {
         channelId: 'dm-2',
         messageId: 'invite-2',
-        notificationId: 'notification-2',
-        reference: 'notification'
+        notificationId: 'notification-2'
       },
       {
         channelId: 'dm-2',
-        messageId: 'response-2',
-        notificationId: 'notification-2',
-        reference: 'response'
+        messageId: 'invite-2-duplicate',
+        notificationId: 'notification-2-duplicate'
       }
     ],
     keptMessageId: 'invite-2'
@@ -56,35 +40,33 @@ test('quiet archive keeps only the retained invite refs', () => {
 
   assert.deepEqual(updates.get('notification-2'), {
     discordDmChannelId: 'dm-2',
-    discordDmMessageId: 'invite-2',
-    recipientResponseDiscordDmChannelId: null,
-    recipientResponseDiscordDmMessageId: null
+    discordDmMessageId: 'invite-2'
+  })
+  assert.deepEqual(updates.get('notification-2-duplicate'), {
+    discordDmChannelId: null,
+    discordDmMessageId: null
   })
 })
 
-test('response-slot retention can preserve a kept response message', () => {
+test('the kept reference wins even if a notification appears under multiple candidates', () => {
   const updates = buildArchivedNotificationReferenceUpdates({
     candidates: [
       {
         channelId: 'dm-3',
-        messageId: 'invite-3',
-        notificationId: 'notification-3',
-        reference: 'notification'
+        messageId: 'stale-3',
+        notificationId: 'notification-3'
       },
       {
         channelId: 'dm-3',
-        messageId: 'response-3',
-        notificationId: 'notification-3',
-        reference: 'response'
+        messageId: 'invite-3',
+        notificationId: 'notification-3'
       }
     ],
-    keptMessageId: 'response-3'
+    keptMessageId: 'invite-3'
   })
 
   assert.deepEqual(updates.get('notification-3'), {
-    discordDmChannelId: null,
-    discordDmMessageId: null,
-    recipientResponseDiscordDmChannelId: 'dm-3',
-    recipientResponseDiscordDmMessageId: 'response-3'
+    discordDmChannelId: 'dm-3',
+    discordDmMessageId: 'invite-3'
   })
 })

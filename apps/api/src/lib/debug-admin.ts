@@ -478,8 +478,6 @@ export async function buildDebugAdminSnapshot() {
             respondedAt: true,
             responseChoice: true,
             runningLateAt: true,
-            recipientResponseDiscordDmChannelId: true,
-            recipientResponseDiscordDmMessageId: true,
             type: true,
             title: true,
             body: true,

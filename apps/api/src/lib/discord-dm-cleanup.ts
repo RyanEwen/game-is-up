@@ -455,9 +455,7 @@ async function clearNotificationDmReferences(notificationIds: string[]) {
     },
     data: {
       discordDmChannelId: null,
-      discordDmMessageId: null,
-      recipientResponseDiscordDmChannelId: null,
-      recipientResponseDiscordDmMessageId: null
+      discordDmMessageId: null
     }
   })
 }
@@ -579,24 +577,12 @@ async function collectTrackedDirectMessageStateForUser(userId: string, now: Date
     prisma.notification.findMany({
       where: {
         userId,
-        OR: [
-          {
-            discordDmChannelId: {
-              not: null
-            },
-            discordDmMessageId: {
-              not: null
-            }
-          },
-          {
-            recipientResponseDiscordDmChannelId: {
-              not: null
-            },
-            recipientResponseDiscordDmMessageId: {
-              not: null
-            }
-          }
-        ]
+        discordDmChannelId: {
+          not: null
+        },
+        discordDmMessageId: {
+          not: null
+        }
       },
       select: {
         id: true,
@@ -606,8 +592,6 @@ async function collectTrackedDirectMessageStateForUser(userId: string, now: Date
         responseChoice: true,
         discordDmChannelId: true,
         discordDmMessageId: true,
-        recipientResponseDiscordDmChannelId: true,
-        recipientResponseDiscordDmMessageId: true,
         playIntent: {
           select: {
             expiresAt: true,
@@ -667,14 +651,6 @@ async function collectTrackedDirectMessageStateForUser(userId: string, now: Date
       channelId: notification.discordDmChannelId,
       messageId: notification.discordDmMessageId,
       sortAt: notification.deliveredAt ?? notification.createdAt,
-      isActive: preserveNotificationMessage,
-      notificationId: notification.id
-    })
-
-    upsertTrackedDirectMessageEntry(state, {
-      channelId: notification.recipientResponseDiscordDmChannelId,
-      messageId: notification.recipientResponseDiscordDmMessageId,
-      sortAt: notification.respondedAt ?? notification.deliveredAt ?? notification.createdAt,
       isActive: preserveNotificationMessage,
       notificationId: notification.id
     })
@@ -839,31 +815,17 @@ export async function deletePlayIntentDirectMessages(playIntentId: string) {
     prisma.notification.findMany({
       where: {
         playIntentId,
-        OR: [
-          {
-            discordDmChannelId: {
-              not: null
-            },
-            discordDmMessageId: {
-              not: null
-            }
-          },
-          {
-            recipientResponseDiscordDmChannelId: {
-              not: null
-            },
-            recipientResponseDiscordDmMessageId: {
-              not: null
-            }
-          }
-        ]
+        discordDmChannelId: {
+          not: null
+        },
+        discordDmMessageId: {
+          not: null
+        }
       },
       select: {
         id: true,
         discordDmChannelId: true,
-        discordDmMessageId: true,
-        recipientResponseDiscordDmChannelId: true,
-        recipientResponseDiscordDmMessageId: true
+        discordDmMessageId: true
       }
     })
   ])
@@ -893,41 +855,22 @@ export async function deletePlayIntentDirectMessages(playIntentId: string) {
 
   for (const notification of notifications) {
     if (!notification.discordDmChannelId || !notification.discordDmMessageId) {
-      // Keep checking for tracked response follow-up DMs below.
+      continue
+    }
+
+    const key = `${notification.discordDmChannelId}:${notification.discordDmMessageId}`
+    const existingMessage = trackedMessages.get(key)
+
+    if (existingMessage) {
+      existingMessage.notificationIds.push(notification.id)
     } else {
-      const key = `${notification.discordDmChannelId}:${notification.discordDmMessageId}`
-      const existingMessage = trackedMessages.get(key)
-
-      if (existingMessage) {
-        existingMessage.notificationIds.push(notification.id)
-      } else {
-        trackedMessages.set(key, {
-          channelId: notification.discordDmChannelId,
-          messageId: notification.discordDmMessageId,
-          notificationIds: [notification.id],
-          clearsCreatorSummary: false
-        })
-      }
+      trackedMessages.set(key, {
+        channelId: notification.discordDmChannelId,
+        messageId: notification.discordDmMessageId,
+        notificationIds: [notification.id],
+        clearsCreatorSummary: false
+      })
     }
-
-    if (!notification.recipientResponseDiscordDmChannelId || !notification.recipientResponseDiscordDmMessageId) {
-      continue
-    }
-
-    const responseKey = `${notification.recipientResponseDiscordDmChannelId}:${notification.recipientResponseDiscordDmMessageId}`
-    const existingResponseMessage = trackedMessages.get(responseKey)
-
-    if (existingResponseMessage) {
-      existingResponseMessage.notificationIds.push(notification.id)
-      continue
-    }
-
-    trackedMessages.set(responseKey, {
-      channelId: notification.recipientResponseDiscordDmChannelId,
-      messageId: notification.recipientResponseDiscordDmMessageId,
-      notificationIds: [notification.id],
-      clearsCreatorSummary: false
-    })
   }
 
   const deletedNotificationIds = new Set<string>()
@@ -991,31 +934,17 @@ export async function deleteCreatorPlayIntentDirectMessages(
       where: {
         playIntentId,
         userId,
-        OR: [
-          {
-            discordDmChannelId: {
-              not: null
-            },
-            discordDmMessageId: {
-              not: null
-            }
-          },
-          {
-            recipientResponseDiscordDmChannelId: {
-              not: null
-            },
-            recipientResponseDiscordDmMessageId: {
-              not: null
-            }
-          }
-        ]
+        discordDmChannelId: {
+          not: null
+        },
+        discordDmMessageId: {
+          not: null
+        }
       },
       select: {
         id: true,
         discordDmChannelId: true,
-        discordDmMessageId: true,
-        recipientResponseDiscordDmChannelId: true,
-        recipientResponseDiscordDmMessageId: true
+        discordDmMessageId: true
       }
     })
   ])
@@ -1052,40 +981,23 @@ export async function deleteCreatorPlayIntentDirectMessages(
   }
 
   for (const notification of notifications) {
-    if (notification.discordDmChannelId && notification.discordDmMessageId) {
-      const key = `${notification.discordDmChannelId}:${notification.discordDmMessageId}`
-      const existingMessage = trackedMessages.get(key)
-
-      if (existingMessage) {
-        existingMessage.notificationIds.push(notification.id)
-      } else {
-        trackedMessages.set(key, {
-          channelId: notification.discordDmChannelId,
-          messageId: notification.discordDmMessageId,
-          notificationIds: [notification.id],
-          clearsCreatorSummary: false
-        })
-      }
-    }
-
-    if (!notification.recipientResponseDiscordDmChannelId || !notification.recipientResponseDiscordDmMessageId) {
+    if (!notification.discordDmChannelId || !notification.discordDmMessageId) {
       continue
     }
 
-    const responseKey = `${notification.recipientResponseDiscordDmChannelId}:${notification.recipientResponseDiscordDmMessageId}`
-    const existingResponseMessage = trackedMessages.get(responseKey)
+    const key = `${notification.discordDmChannelId}:${notification.discordDmMessageId}`
+    const existingMessage = trackedMessages.get(key)
 
-    if (existingResponseMessage) {
-      existingResponseMessage.notificationIds.push(notification.id)
-      continue
+    if (existingMessage) {
+      existingMessage.notificationIds.push(notification.id)
+    } else {
+      trackedMessages.set(key, {
+        channelId: notification.discordDmChannelId,
+        messageId: notification.discordDmMessageId,
+        notificationIds: [notification.id],
+        clearsCreatorSummary: false
+      })
     }
-
-    trackedMessages.set(responseKey, {
-      channelId: notification.recipientResponseDiscordDmChannelId,
-      messageId: notification.recipientResponseDiscordDmMessageId,
-      notificationIds: [notification.id],
-      clearsCreatorSummary: false
-    })
   }
 
   const deletedNotificationIds = new Set<string>()
@@ -1138,31 +1050,17 @@ export async function deleteUserPlayIntentDirectMessages(
     where: {
       playIntentId,
       userId,
-      OR: [
-        {
-          discordDmChannelId: {
-            not: null
-          },
-          discordDmMessageId: {
-            not: null
-          }
-        },
-        {
-          recipientResponseDiscordDmChannelId: {
-            not: null
-          },
-          recipientResponseDiscordDmMessageId: {
-            not: null
-          }
-        }
-      ]
+      discordDmChannelId: {
+        not: null
+      },
+      discordDmMessageId: {
+        not: null
+      }
     },
     select: {
       id: true,
       discordDmChannelId: true,
-      discordDmMessageId: true,
-      recipientResponseDiscordDmChannelId: true,
-      recipientResponseDiscordDmMessageId: true
+      discordDmMessageId: true
     }
   })
 
@@ -1181,38 +1079,22 @@ export async function deleteUserPlayIntentDirectMessages(
   }
 
   for (const notification of notifications) {
-    if (notification.discordDmChannelId && notification.discordDmMessageId) {
-      const key = `${notification.discordDmChannelId}:${notification.discordDmMessageId}`
-      const existingMessage = trackedMessages.get(key)
-
-      if (existingMessage) {
-        existingMessage.notificationIds.push(notification.id)
-      } else {
-        trackedMessages.set(key, {
-          channelId: notification.discordDmChannelId,
-          messageId: notification.discordDmMessageId,
-          notificationIds: [notification.id]
-        })
-      }
-    }
-
-    if (!notification.recipientResponseDiscordDmChannelId || !notification.recipientResponseDiscordDmMessageId) {
+    if (!notification.discordDmChannelId || !notification.discordDmMessageId) {
       continue
     }
 
-    const responseKey = `${notification.recipientResponseDiscordDmChannelId}:${notification.recipientResponseDiscordDmMessageId}`
-    const existingResponseMessage = trackedMessages.get(responseKey)
+    const key = `${notification.discordDmChannelId}:${notification.discordDmMessageId}`
+    const existingMessage = trackedMessages.get(key)
 
-    if (existingResponseMessage) {
-      existingResponseMessage.notificationIds.push(notification.id)
-      continue
+    if (existingMessage) {
+      existingMessage.notificationIds.push(notification.id)
+    } else {
+      trackedMessages.set(key, {
+        channelId: notification.discordDmChannelId,
+        messageId: notification.discordDmMessageId,
+        notificationIds: [notification.id]
+      })
     }
-
-    trackedMessages.set(responseKey, {
-      channelId: notification.recipientResponseDiscordDmChannelId,
-      messageId: notification.recipientResponseDiscordDmMessageId,
-      notificationIds: [notification.id]
-    })
   }
 
   const deletedNotificationIds = new Set<string>()
@@ -1382,125 +1264,37 @@ export async function deleteSettledDiscordDirectMessagesForUser(userId: string) 
 }
 
 /**
- * Archives play-intent DMs across all terminal states. The flows that converge
- * here are intentional, not a refactor opportunity:
+ * Archives a play intent's tracked DMs into the terminal "no longer active"
+ * state and marks the chain ended (`PlayIntent.dmChainEndedAt`).
  *
- * - Manual end / scheduled end: called with `playIntentIds` after a creator
- *   ends a call or the scheduler expires it. `replaceRecipientMessages: true`
- *   replaces recipient invites with the archived summary so the recipient gets
- *   a fresh DM bump; `false` (default) edits in place for quiet expiry.
- * - Expired pending notifications: called from `expirePendingPlayIntentNotifications`
- *   for play intents whose window passed without a creator confirmation.
+ * Both sides are handled symmetrically: the creator summary and each recipient
+ * invite collapse onto a single archived anchor per side, edited in place (a
+ * quiet update, per the archival convention). The kept anchor keeps its stored
+ * reference (`creatorDiscordDm*` / `Notification.discordDm*`) so the retention
+ * sweep (`deleteExpiredPlayIntentDirectMessages`) can later find and delete the
+ * whole chain; duplicate anchors are deleted and their references cleared here.
  *
- * The recipient-visible difference between these modes is purely whether the
- * DM is replaced (new message + ping) or edited in place (quiet update). Add a
- * new flag here rather than forking the function if a future requirement needs
- * to diverge further.
+ * Setting `dmChainEndedAt` makes this idempotent: the archive sweep only selects
+ * intents whose marker is still null, so an already-archived chain is not
+ * re-edited on later sweeps while its references remain intact for deletion.
  */
 export async function archivePlayIntentDirectMessages(options: {
-  playIntentIds?: string[];
-  deliveredBefore?: Date;
-  replaceRecipientMessages?: boolean;
-} = {}) {
-  const playIntentIds = options.playIntentIds?.filter(Boolean)
+  playIntentIds: string[];
+}) {
+  const playIntentIds = options.playIntentIds.filter(Boolean)
 
-  if (options.playIntentIds && playIntentIds && playIntentIds.length === 0) {
+  if (playIntentIds.length === 0) {
     return
   }
 
-  const playIntentCutoff = options.deliveredBefore ?? new Date()
   const playIntents = await prisma.playIntent.findMany({
     where: {
-      ...(playIntentIds
-        ? {
-            id: {
-              in: playIntentIds
-            }
-          }
-        : {}),
-      expiresAt: {
-        lte: playIntentCutoff
+      id: {
+        in: playIntentIds
       },
-      ...((options.replaceRecipientMessages && playIntentIds)
-        ? {}
-        : {
-            OR: [
-              {
-                creatorDiscordDmChannelId: {
-                  not: null
-                },
-                creatorDiscordDmMessageId: {
-                  not: null
-                }
-              },
-              {
-                notifications: {
-                  some: {
-                    type: {
-                      in: [...archivedPlayIntentNotificationTypes]
-                    },
-                    ...(options.deliveredBefore
-                      ? {
-                          deliveredAt: {
-                            lte: options.deliveredBefore
-                          }
-                        }
-                      : {}),
-                    discordDmChannelId: {
-                      not: null
-                    },
-                    discordDmMessageId: {
-                      not: null
-                    }
-                  }
-                }
-              },
-              {
-                notifications: {
-                  some: {
-                    type: {
-                      in: [...archivedPlayIntentNotificationTypes]
-                    },
-                    ...(options.deliveredBefore
-                      ? {
-                          respondedAt: {
-                            lte: options.deliveredBefore
-                          }
-                        }
-                      : {}),
-                    recipientResponseDiscordDmChannelId: {
-                      not: null
-                    },
-                    recipientResponseDiscordDmMessageId: {
-                      not: null
-                    }
-                  }
-                }
-              },
-              {
-                notifications: {
-                  some: {
-                    type: {
-                      in: [...archivedCreatorSystemNotificationTypes]
-                    },
-                    ...(options.deliveredBefore
-                      ? {
-                          deliveredAt: {
-                            lte: options.deliveredBefore
-                          }
-                        }
-                      : {}),
-                    discordDmChannelId: {
-                      not: null
-                    },
-                    discordDmMessageId: {
-                      not: null
-                    }
-                  }
-                }
-              }
-            ]
-          })
+      expiresAt: {
+        lte: new Date()
+      }
     },
     select: {
       id: true,
@@ -1546,60 +1340,15 @@ export async function archivePlayIntentDirectMessages(options: {
       },
       notifications: {
         where: {
-          OR: [
-            {
-              type: {
-                in: [...archivedPlayIntentNotificationTypes]
-              },
-              ...(options.deliveredBefore
-                ? {
-                    deliveredAt: {
-                      lte: options.deliveredBefore
-                    }
-                  }
-                : {}),
-              ...(options.replaceRecipientMessages
-                ? {}
-                : {
-                    OR: [
-                      {
-                        discordDmChannelId: {
-                          not: null
-                        },
-                        discordDmMessageId: {
-                          not: null
-                        }
-                      },
-                      {
-                        recipientResponseDiscordDmChannelId: {
-                          not: null
-                        },
-                        recipientResponseDiscordDmMessageId: {
-                          not: null
-                        }
-                      }
-                    ]
-                  })
-            },
-            {
-              type: {
-                in: [...archivedCreatorSystemNotificationTypes]
-              },
-              ...(options.deliveredBefore
-                ? {
-                    deliveredAt: {
-                      lte: options.deliveredBefore
-                    }
-                  }
-                : {}),
-              discordDmChannelId: {
-                not: null
-              },
-              discordDmMessageId: {
-                not: null
-              }
-            }
-          ]
+          type: {
+            in: [...archivedPlayIntentNotificationTypes, ...archivedCreatorSystemNotificationTypes]
+          },
+          discordDmChannelId: {
+            not: null
+          },
+          discordDmMessageId: {
+            not: null
+          }
         },
         orderBy: [
           {
@@ -1617,8 +1366,6 @@ export async function archivePlayIntentDirectMessages(options: {
           responseChoice: true,
           discordDmChannelId: true,
           discordDmMessageId: true,
-          recipientResponseDiscordDmChannelId: true,
-          recipientResponseDiscordDmMessageId: true,
           user: {
             select: {
               timezoneId: true,
@@ -1707,11 +1454,9 @@ export async function archivePlayIntentDirectMessages(options: {
 
       for (const candidate of creatorCandidates) {
         if (candidate.messageId === keptCreatorMessageId) {
-          if (candidate.notificationId) {
-            notificationIdsToClear.add(candidate.notificationId)
-          } else {
-            playIntentIdsToClear.add(playIntent.id)
-          }
+          // Keep the archived anchor's stored reference intact so the retention
+          // sweep can find and delete it later. Only the duplicate anchors
+          // collapsed below have their references cleared.
           continue
         }
 
@@ -1748,29 +1493,16 @@ export async function archivePlayIntentDirectMessages(options: {
       const archiveEmbeds = buildArchivedPlayIntentEmbeds(buildArchivedPlayIntentSummary(playIntent, notifications[0]?.user.timezoneId ?? playIntent.user.timezoneId).body)
       const candidates = notifications
         .flatMap<ArchivedNotificationCandidate>((notification) => {
-          const candidateEntries: ArchivedNotificationCandidate[] = []
-
-          if (notification.discordDmChannelId && notification.discordDmMessageId) {
-            candidateEntries.push({
-              channelId: notification.discordDmChannelId,
-              messageId: notification.discordDmMessageId,
-              notificationId: notification.id,
-              reference: 'notification',
-              priority: getNotificationArchivePriority(notification.type)
-            })
+          if (!notification.discordDmChannelId || !notification.discordDmMessageId) {
+            return []
           }
 
-          if (notification.recipientResponseDiscordDmChannelId && notification.recipientResponseDiscordDmMessageId) {
-            candidateEntries.push({
-              channelId: notification.recipientResponseDiscordDmChannelId,
-              messageId: notification.recipientResponseDiscordDmMessageId,
-              notificationId: notification.id,
-              reference: 'response',
-              priority: getNotificationArchivePriority(notification.type) + 100
-            })
-          }
-
-          return candidateEntries
+          return [{
+            channelId: notification.discordDmChannelId,
+            messageId: notification.discordDmMessageId,
+            notificationId: notification.id,
+            priority: getNotificationArchivePriority(notification.type)
+          }]
         })
         .sort((left, right) => left.priority - right.priority)
       const candidateNotificationIds = new Map(candidates.map((candidate) => [candidate.messageId, candidate.notificationId]))
@@ -1838,6 +1570,21 @@ export async function archivePlayIntentDirectMessages(options: {
     ),
     clearCreatorSummaryDmReferences([...playIntentIdsToClear])
   ])
+
+  // Mark every processed chain ended so the archive sweep does not re-edit it on
+  // later passes. References stay intact for the retention delete; this marker
+  // is the idempotency guard that replaces the old reference-clearing behavior.
+  await prisma.playIntent.updateMany({
+    where: {
+      id: {
+        in: playIntents.map((playIntent) => playIntent.id)
+      },
+      dmChainEndedAt: null
+    },
+    data: {
+      dmChainEndedAt: new Date()
+    }
+  })
 }
 
 async function deleteExpiredPromptDirectMessages(cutoff: Date) {
@@ -1880,13 +1627,13 @@ async function deleteExpiredPromptDirectMessages(cutoff: Date) {
 }
 
 /**
- * Deletes the full tracked DM chain (creator summary, recipient invites,
- * response anchors, and their bot-authored replies) for every play intent whose
- * window ended at or before `cutoff`. This is the destructive tail of the DM
- * lifecycle: chains are shown as ended at window close and then removed entirely
- * once the retention window has elapsed. Work is capped per sweep so a large
- * backlog drains across successive hourly sweeps rather than in one burst;
- * cleared references drop intents out of the query, so the set does not regrow.
+ * Deletes the full tracked DM chain (creator summary, recipient invites, and
+ * their bot-authored replies) for every play intent whose window ended at or
+ * before `cutoff`. This is the destructive tail of the DM lifecycle: chains are
+ * shown as ended at window close and then removed entirely once the retention
+ * window has elapsed. Work is capped per sweep so a large backlog drains across
+ * successive hourly sweeps rather than in one burst; cleared references drop
+ * intents out of the query, so the set does not regrow.
  */
 async function deleteExpiredPlayIntentDirectMessages(cutoff: Date) {
   const playIntents = await prisma.playIntent.findMany({
@@ -1906,24 +1653,12 @@ async function deleteExpiredPlayIntentDirectMessages(cutoff: Date) {
         {
           notifications: {
             some: {
-              OR: [
-                {
-                  discordDmChannelId: {
-                    not: null
-                  },
-                  discordDmMessageId: {
-                    not: null
-                  }
-                },
-                {
-                  recipientResponseDiscordDmChannelId: {
-                    not: null
-                  },
-                  recipientResponseDiscordDmMessageId: {
-                    not: null
-                  }
-                }
-              ]
+              discordDmChannelId: {
+                not: null
+              },
+              discordDmMessageId: {
+                not: null
+              }
             }
           }
         }
