@@ -1,3 +1,6 @@
+# Copy this file to compose.yml for a real deployment and keep the
+# server-specific copy out of git.
+
 services:
   db:
     image: postgres:16-bookworm
