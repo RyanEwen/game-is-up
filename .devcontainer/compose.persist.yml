@@ -12,6 +12,7 @@ services:
       - game-is-up-vscode-server:/home/node/.vscode-server/extensions
       - game-is-up-bash-history:/commandhistory
       - ${HOME}/.ssh:/home/node/.ssh:ro
+      - ${HOME}/development/claude-shared-settings.json:/etc/claude-code/managed-settings.json:ro
 volumes:
   game-is-up-config-data:
     name: ${DEVCONTAINER_CONFIG_VOLUME:-game-is-up-config-data}
