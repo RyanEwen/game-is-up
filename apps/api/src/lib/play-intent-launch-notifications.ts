@@ -2,9 +2,10 @@
  * One-time live-activity nudges for active calls to play.
  *
  * When the presence stream observes someone in the live group launching the
- * planned game (or joining the associated voice channel), this module fires a
- * threaded reply under the retained call anchor so other recipients see the
- * activity. Audience-side nudges are gated to recipients who already
+ * planned game (or joining the associated voice channel), this module records
+ * a SYSTEM notification per recipient and re-syncs each recipient's per-intent
+ * updates-log DM so the activity lands as a new log entry (with a fresh push
+ * notification). Audience-side nudges are gated to recipients who already
  * expressed interest, while creator-side nudges can still reflect audience
  * activity. Advisory locks prevent duplicate notifications when concurrent
  * presence events race for the same play intent + recipient pair.
@@ -16,15 +17,14 @@ import {
   PlayIntentSelectionMode,
   Prisma
 } from '@prisma/client'
-import { sendDiscordDirectMessages, type DiscordDirectMessagePayload } from './discord-bot-runtime.js'
 import { prisma } from './prisma.js'
 import { getInterestedUsersByPlayIntentId } from './play-intent-interested-users.js'
-import { buildNotificationDirectMessagePreview } from './play-intent-notification-responses.js'
 import {
   formatGroupLaunchedGameSystemNotification,
   formatVoiceChannelJoinedSystemNotification,
   type SystemNotificationCopy
 } from './play-intent-system-notifications.js'
+import { syncPlayIntentUpdatesLogDirectMessage } from './play-intent-updates-log.js'
 
 const replyAnchorNotificationTypes = [
   NotificationType.FRIEND_PLAYING,
@@ -142,107 +142,6 @@ async function createSystemNotificationsIfMissing(options: {
   })
 }
 
-async function getCreatorReplyReferenceByPlayIntentId(playIntentIds: string[]) {
-  const uniquePlayIntentIds = [...new Set(playIntentIds.filter(Boolean))]
-
-  if (uniquePlayIntentIds.length === 0) {
-    return new Map<string, DiscordDirectMessagePayload['replyTo']>()
-  }
-
-  const playIntents = await prisma.playIntent.findMany({
-    where: {
-      id: {
-        in: uniquePlayIntentIds
-      },
-      creatorDiscordDmChannelId: {
-        not: null
-      },
-      creatorDiscordDmMessageId: {
-        not: null
-      }
-    },
-    select: {
-      id: true,
-      creatorDiscordDmChannelId: true,
-      creatorDiscordDmMessageId: true
-    }
-  })
-
-  return new Map(playIntents.flatMap((playIntent) => (
-    playIntent.creatorDiscordDmChannelId && playIntent.creatorDiscordDmMessageId
-      ? [[playIntent.id, {
-          channelId: playIntent.creatorDiscordDmChannelId,
-          messageId: playIntent.creatorDiscordDmMessageId
-        }] as const]
-      : []
-  )))
-}
-
-async function getAudienceReplyReferenceByPlayIntentAndUser(options: {
-  playIntentIds: string[];
-  userIds: string[];
-}) {
-  const uniquePlayIntentIds = [...new Set(options.playIntentIds.filter(Boolean))]
-  const uniqueUserIds = [...new Set(options.userIds.filter(Boolean))]
-
-  if (uniquePlayIntentIds.length === 0 || uniqueUserIds.length === 0) {
-    return new Map<string, DiscordDirectMessagePayload['replyTo']>()
-  }
-
-  const notifications = await prisma.notification.findMany({
-    where: {
-      playIntentId: {
-        in: uniquePlayIntentIds
-      },
-      userId: {
-        in: uniqueUserIds
-      },
-      type: {
-        in: replyAnchorNotificationTypes
-      },
-      discordDmChannelId: {
-        not: null
-      },
-      discordDmMessageId: {
-        not: null
-      }
-    },
-    select: {
-      playIntentId: true,
-      userId: true,
-      discordDmChannelId: true,
-      discordDmMessageId: true,
-      createdAt: true
-    },
-    orderBy: [
-      {
-        createdAt: 'desc'
-      }
-    ]
-  })
-
-  const replyReferenceByKey = new Map<string, DiscordDirectMessagePayload['replyTo']>()
-
-  for (const notification of notifications) {
-    if (!notification.playIntentId || !notification.discordDmChannelId || !notification.discordDmMessageId) {
-      continue
-    }
-
-    const key = `${notification.playIntentId}:${notification.userId}`
-
-    if (replyReferenceByKey.has(key)) {
-      continue
-    }
-
-    replyReferenceByKey.set(key, {
-      channelId: notification.discordDmChannelId,
-      messageId: notification.discordDmMessageId
-    })
-  }
-
-  return replyReferenceByKey
-}
-
 async function getAudienceRecipientUserIdsByPlayIntentId(playIntentIds: string[]) {
   const uniquePlayIntentIds = [...new Set(playIntentIds.filter(Boolean))]
 
@@ -288,90 +187,24 @@ async function getAudienceRecipientUserIdsByPlayIntentId(playIntentIds: string[]
 
 async function deliverSystemNotifications(options: {
   notifications: CreatedSystemNotification[];
-  playIntentCreatorUserIdByPlayIntentId: Map<string, string>;
   recipientDiscordUserIdByUserId: Map<string, string>;
-  actorDisplayName: string;
-  actorDiscordUserId: string | null;
 }) {
-  const creatorReplyReferenceByPlayIntentId = await getCreatorReplyReferenceByPlayIntentId(
-    options.notifications
-      .filter((notification) => options.playIntentCreatorUserIdByPlayIntentId.get(notification.playIntentId) === notification.userId)
-      .map((notification) => notification.playIntentId)
-  )
-  const audienceReplyReferenceByKey = await getAudienceReplyReferenceByPlayIntentAndUser({
-    playIntentIds: options.notifications.map((notification) => notification.playIntentId),
-    userIds: options.notifications
-      .filter((notification) => options.playIntentCreatorUserIdByPlayIntentId.get(notification.playIntentId) !== notification.userId)
-      .map((notification) => notification.userId)
-  })
-  const directMessageTargets = options.notifications.flatMap((notification) => {
+  // Each activity event lands as a new entry in the recipient's per-intent
+  // updates-log DM, which is deleted and re-sent so Discord raises a fresh
+  // push notification. Delivery timestamps are recorded by the log sync.
+  await Promise.all(options.notifications.flatMap((notification) => {
     const discordUserId = options.recipientDiscordUserIdByUserId.get(notification.userId)
 
     if (!discordUserId) {
       return []
     }
 
-    const creatorUserId = options.playIntentCreatorUserIdByPlayIntentId.get(notification.playIntentId)
-    const replyTo = creatorUserId === notification.userId
-      ? creatorReplyReferenceByPlayIntentId.get(notification.playIntentId)
-      : audienceReplyReferenceByKey.get(`${notification.playIntentId}:${notification.userId}`)
-
-    const preview = buildNotificationDirectMessagePreview({
-      notificationId: notification.id,
-      notificationType: NotificationType.SYSTEM,
-      title: notification.title,
-      body: notification.body,
-      actorDisplayName: options.actorDisplayName,
-      actorDiscordUserId: options.actorDiscordUserId
-    })
-
-    return [{
-      notificationId: notification.id,
-      discordUserId,
-      content: preview.content,
-      embeds: preview.embeds,
-      components: preview.components,
-      replyTo
-    }]
-  })
-
-  if (directMessageTargets.length === 0) {
-    return
-  }
-
-  const results = await sendDiscordDirectMessages(directMessageTargets.map((target) => ({
-    discordUserId: target.discordUserId,
-    content: target.content,
-    embeds: target.embeds,
-    components: target.components,
-    replyTo: target.replyTo
-  })))
-
-  const deliveredTargets = directMessageTargets.flatMap((target, index) => {
-    const result = results[index]
-
-    if (!result || result.status !== 'sent' || result.emulated) {
-      return []
-    }
-
-    return [{
-      notificationId: target.notificationId,
-      deliveredAt: new Date()
-    }]
-  })
-
-  if (deliveredTargets.length === 0) {
-    return
-  }
-
-  await Promise.all(deliveredTargets.map((target) => prisma.notification.update({
-    where: {
-      id: target.notificationId
-    },
-    data: {
-      deliveredAt: target.deliveredAt
-    }
-  })))
+    return [syncPlayIntentUpdatesLogDirectMessage({
+      playIntentId: notification.playIntentId,
+      recipientUserId: notification.userId,
+      discordUserId
+    })]
+  }))
 }
 async function notifyRestOfGroupAboutActivity<Intent extends {
   id: string;
@@ -386,8 +219,6 @@ async function notifyRestOfGroupAboutActivity<Intent extends {
 }>(options: {
   playIntents: Intent[];
   triggeredByUserId: string;
-  actorDisplayName: string;
-  actorDiscordUserId: string | null;
   gameId?: string | null;
   buildNotificationCopy: (playIntent: Intent) => SystemNotificationCopy;
 }) {
@@ -400,10 +231,7 @@ async function notifyRestOfGroupAboutActivity<Intent extends {
     getAudienceRecipientUserIdsByPlayIntentId(options.playIntents.map((playIntent) => playIntent.id))
   ])
   const recipientUserIds = new Set<string>()
-  const playIntentCreatorUserIdByPlayIntentId = new Map<string, string>()
   const createdNotifications = (await Promise.all(options.playIntents.flatMap((playIntent) => {
-    playIntentCreatorUserIdByPlayIntentId.set(playIntent.id, playIntent.userId)
-
     const interestedUserIds = (interestedUsersByPlayIntentId.get(playIntent.id) ?? []).map((user) => user.id)
     const audienceRecipientUserIds = audienceRecipientUserIdsByPlayIntentId.get(playIntent.id) ?? []
 
@@ -452,10 +280,7 @@ async function notifyRestOfGroupAboutActivity<Intent extends {
 
   await deliverSystemNotifications({
     notifications: createdNotifications,
-    playIntentCreatorUserIdByPlayIntentId,
-    recipientDiscordUserIdByUserId: new Map(recipientIdentities.map((identity) => [identity.userId, identity.providerUserId])),
-    actorDisplayName: options.actorDisplayName,
-    actorDiscordUserId: options.actorDiscordUserId
+    recipientDiscordUserIdByUserId: new Map(recipientIdentities.map((identity) => [identity.userId, identity.providerUserId]))
   })
 }
 
@@ -550,8 +375,6 @@ export async function maybeSendPlayIntentVoiceChannelJoinNotifications(options: 
   await notifyRestOfGroupAboutActivity({
     playIntents: activePlayIntents,
     triggeredByUserId: actorIdentity.userId,
-    actorDisplayName: actorIdentity.user.displayName,
-    actorDiscordUserId: actorIdentity.user.identities[0]?.providerUserId ?? options.discordUserId,
     buildNotificationCopy: (playIntent) => formatVoiceChannelJoinedSystemNotification({
       actorDisplayName: actorIdentity.user.displayName,
       voiceChannelName: playIntent.voiceChannelId === options.channelId
@@ -639,8 +462,6 @@ export async function maybeSendPlayIntentLaunchNotificationsForObservation(obser
   await notifyRestOfGroupAboutActivity({
     playIntents: activePlayIntents,
     triggeredByUserId: observation.userId,
-    actorDisplayName: observation.user.displayName,
-    actorDiscordUserId: observation.user.identities[0]?.providerUserId ?? null,
     gameId: observation.gameId,
     buildNotificationCopy: () => formatGroupLaunchedGameSystemNotification({
       actorDisplayName: observation.user.displayName,

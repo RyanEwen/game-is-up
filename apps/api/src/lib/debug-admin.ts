@@ -27,6 +27,8 @@ import {
   buildNotificationDirectMessagePreview,
   buildScheduledCheckInPromptPreview
 } from './play-intent-notification-responses.js'
+import { callToPlayEndedSystemNotification } from './play-intent-system-notifications.js'
+import type { PlayIntentUpdatesLogEntry } from './play-intent-updates-log.js'
 import { buildDiscordChannelUrl } from './discord-channel-urls.js'
 import { prisma } from './prisma.js'
 
@@ -1055,6 +1057,64 @@ export async function buildDebugAdminSnapshot() {
     }
   })
 
+  // SYSTEM notification DMs are a single per-recipient updates log, so the
+  // preview needs every sibling SYSTEM entry for the same (playIntent,
+  // recipient) pair, not just this row's title/body.
+  const systemLogPairKeys = new Set(
+    recentNotifications
+      .filter((notification) => (
+        notification.type === NotificationType.SYSTEM
+        && notification.playIntentId
+        && notification.title !== callToPlayEndedSystemNotification.title
+      ))
+      .map((notification) => `${notification.playIntentId}:${notification.user.id}`)
+  )
+  const systemLogEntriesByPairKey = new Map<string, PlayIntentUpdatesLogEntry[]>()
+
+  if (systemLogPairKeys.size > 0) {
+    const systemLogRows = await prisma.notification.findMany({
+      where: {
+        type: NotificationType.SYSTEM,
+        title: {
+          not: callToPlayEndedSystemNotification.title
+        },
+        playIntentId: {
+          in: [...new Set(
+            recentNotifications
+              .filter((notification) => notification.type === NotificationType.SYSTEM && notification.playIntentId)
+              .map((notification) => notification.playIntentId as string)
+          )]
+        }
+      },
+      orderBy: [
+        {
+          createdAt: 'desc'
+        },
+        {
+          id: 'desc'
+        }
+      ],
+      select: {
+        playIntentId: true,
+        userId: true,
+        title: true,
+        body: true
+      }
+    })
+
+    for (const row of systemLogRows) {
+      const pairKey = `${row.playIntentId}:${row.userId}`
+
+      if (!systemLogPairKeys.has(pairKey)) {
+        continue
+      }
+
+      const entries = systemLogEntriesByPairKey.get(pairKey) ?? []
+      entries.push({ title: row.title, body: row.body })
+      systemLogEntriesByPairKey.set(pairKey, entries)
+    }
+  }
+
   const recentNotificationRows = recentNotifications.map((notification) => {
     const playIntent = notification.playIntentId ? (previewPlayIntentMap.get(notification.playIntentId) ?? null) : null
     const discordSpaceRecipientContext = notification.playIntentId
@@ -1168,7 +1228,21 @@ export async function buildDebugAdminSnapshot() {
               : null,
             discordSpace: discordSpaceRecipientContext,
             actorDisplayName: notification.triggeredByUserId ? (triggeredByUserMap.get(notification.triggeredByUserId)?.displayName ?? null) : null,
-            actorDiscordUserId: notification.triggeredByUserId ? (triggeredByUserMap.get(notification.triggeredByUserId)?.identities[0]?.providerUserId ?? null) : null
+            actorDiscordUserId: notification.triggeredByUserId ? (triggeredByUserMap.get(notification.triggeredByUserId)?.identities[0]?.providerUserId ?? null) : null,
+            intentDetails: playIntent
+              ? {
+                  headline: playIntent.headline,
+                  selectionMode: playIntent.selectionMode,
+                  selectedGameTitles: playIntent.games.map((entry) => entry.game.title),
+                  scope: playIntent.scope,
+                  targetDiscordServers: playIntent.targetDiscordServers,
+                  targetFriends: playIntent.targetFriends,
+                  note: playIntent.note
+                }
+              : undefined,
+            systemLogEntries: notification.type === NotificationType.SYSTEM && notification.playIntentId
+              ? systemLogEntriesByPairKey.get(`${notification.playIntentId}:${notification.user.id}`)
+              : undefined
           })
 
     return {

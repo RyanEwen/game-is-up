@@ -5,6 +5,10 @@
  * each event kind (voice join, game launch, interest change, end-of-call,
  * archive cleanup) so the bot, the in-app DM simulator, and the debug
  * snapshot all render the same wording.
+ *
+ * Bodies are plain text (display names, never `<@id>` mentions): they land in
+ * the per-recipient updates-log DM, and Android push notifications render
+ * mention markup literally. Mentions belong on the original invite/summary.
  */
 
 type PlayIntentSystemNotificationComponentMode = 'none' | 'link' | 'archived-cleanup'
@@ -18,7 +22,6 @@ type PlayIntentSystemNotificationDefinition = {
 export type SystemNotificationCopy = {
   title: string;
   body: string;
-  discordBody: string;
 }
 
 function createPlayIntentSystemNotificationDefinition(
@@ -110,20 +113,20 @@ const playIntentSystemNotificationByTitle = new Map(
   playIntentSystemNotificationDefinitions.map((definition) => [definition.title, definition] as const)
 )
 
-function formatLaunchedGameBody(actorLabel: string, gameTitle: string, audienceContext: string) {
-  return `${actorLabel} just launched ${gameTitle} for ${audienceContext}.`
+function formatLaunchedGameBody(actorDisplayName: string, gameTitle: string, audienceContext: string) {
+  return `${actorDisplayName} just launched ${gameTitle} for ${audienceContext}.`
 }
 
-function formatVoiceChannelBody(actorLabel: string, voiceChannelName: string | null | undefined) {
+function formatVoiceChannelBody(actorDisplayName: string, voiceChannelName: string | null | undefined) {
   const channelLabel = voiceChannelName ? `the voice channel ${voiceChannelName}` : 'the voice channel'
 
-  return `${actorLabel} just joined ${channelLabel} for this call to play.`
+  return `${actorDisplayName} just joined ${channelLabel} for this call to play.`
 }
 
-function formatInterestBody(subjectLabel: string, gameTitle: string | null, activeVerb: string, fallbackTarget: string) {
+function formatInterestBody(subjectDisplayName: string, gameTitle: string | null, activeVerb: string, fallbackTarget: string) {
   return gameTitle
-    ? `${subjectLabel} ${activeVerb} ${gameTitle}.`
-    : `${subjectLabel} ${fallbackTarget}.`
+    ? `${subjectDisplayName} ${activeVerb} ${gameTitle}.`
+    : `${subjectDisplayName} ${fallbackTarget}.`
 }
 
 export function getPlayIntentSystemNotificationDefinitionByTitle(title: string) {
@@ -132,7 +135,6 @@ export function getPlayIntentSystemNotificationDefinitionByTitle(title: string) 
 
 export function formatCreatorLaunchedGameSystemNotification(options: {
   actorDisplayName: string;
-  actorLabel?: string;
   gameTitle: string;
 }): SystemNotificationCopy {
   return {
@@ -141,18 +143,12 @@ export function formatCreatorLaunchedGameSystemNotification(options: {
       options.actorDisplayName,
       options.gameTitle,
       'the active call to play you are interested in'
-    ),
-    discordBody: formatLaunchedGameBody(
-      options.actorLabel ?? options.actorDisplayName,
-      options.gameTitle,
-      'the active call to play you are interested in'
     )
   }
 }
 
 export function formatGroupLaunchedGameSystemNotification(options: {
   actorDisplayName: string;
-  actorLabel?: string;
   gameTitle: string;
 }): SystemNotificationCopy {
   return {
@@ -161,33 +157,22 @@ export function formatGroupLaunchedGameSystemNotification(options: {
       options.actorDisplayName,
       options.gameTitle,
       'this call to play'
-    ),
-    discordBody: formatLaunchedGameBody(
-      options.actorLabel ?? options.actorDisplayName,
-      options.gameTitle,
-      'this call to play'
     )
   }
 }
 
 export function formatVoiceChannelJoinedSystemNotification(options: {
   actorDisplayName: string;
-  actorLabel?: string;
   voiceChannelName?: string | null;
 }): SystemNotificationCopy {
   return {
     title: voiceChannelJoinedSystemNotification.title,
-    body: formatVoiceChannelBody(options.actorDisplayName, options.voiceChannelName),
-    discordBody: formatVoiceChannelBody(
-      options.actorLabel ?? options.actorDisplayName,
-      options.voiceChannelName
-    )
+    body: formatVoiceChannelBody(options.actorDisplayName, options.voiceChannelName)
   }
 }
 
 export function formatInterestedPlayerLaunchedGameSystemNotification(options: {
   actorDisplayName: string;
-  actorLabel?: string;
   gameTitle: string;
 }): SystemNotificationCopy {
   return {
@@ -196,18 +181,12 @@ export function formatInterestedPlayerLaunchedGameSystemNotification(options: {
       options.actorDisplayName,
       options.gameTitle,
       'your active call to play'
-    ),
-    discordBody: formatLaunchedGameBody(
-      options.actorLabel ?? options.actorDisplayName,
-      options.gameTitle,
-      'your active call to play'
     )
   }
 }
 
 export function formatCreatorInterestUpdateSystemNotification(options: {
   recipientDisplayName: string;
-  recipientLabel?: string;
   gameTitle: string | null;
 }): SystemNotificationCopy {
   return {
@@ -217,19 +196,12 @@ export function formatCreatorInterestUpdateSystemNotification(options: {
       options.gameTitle,
       'is interested in playing',
       'is interested in your call to play'
-    ),
-    discordBody: formatInterestBody(
-      options.recipientLabel ?? options.recipientDisplayName,
-      options.gameTitle,
-      'is interested in playing',
-      'is interested in your call to play'
     )
   }
 }
 
 export function formatAudienceInterestUpdateSystemNotification(options: {
   recipientDisplayName: string;
-  recipientLabel?: string;
   gameTitle: string | null;
 }): SystemNotificationCopy {
   return {
@@ -239,19 +211,12 @@ export function formatAudienceInterestUpdateSystemNotification(options: {
       options.gameTitle,
       'is interested in playing',
       'is interested in this call to play'
-    ),
-    discordBody: formatInterestBody(
-      options.recipientLabel ?? options.recipientDisplayName,
-      options.gameTitle,
-      'is interested in playing',
-      'is interested in this call to play'
     )
   }
 }
 
 export function formatCreatorRunningLateSystemNotification(options: {
   recipientDisplayName: string;
-  recipientLabel?: string;
   gameTitle: string | null;
 }): SystemNotificationCopy {
   return {
@@ -261,19 +226,12 @@ export function formatCreatorRunningLateSystemNotification(options: {
       options.gameTitle,
       'is interested but running late for',
       'is interested but running late for your call to play'
-    ),
-    discordBody: formatInterestBody(
-      options.recipientLabel ?? options.recipientDisplayName,
-      options.gameTitle,
-      'is interested but running late for',
-      'is interested but running late for your call to play'
     )
   }
 }
 
 export function formatAudienceRunningLateSystemNotification(options: {
   recipientDisplayName: string;
-  recipientLabel?: string;
   gameTitle: string | null;
 }): SystemNotificationCopy {
   return {
@@ -283,31 +241,18 @@ export function formatAudienceRunningLateSystemNotification(options: {
       options.gameTitle,
       'is interested but running late for',
       'is interested but running late for this call to play'
-    ),
-    discordBody: formatInterestBody(
-      options.recipientLabel ?? options.recipientDisplayName,
-      options.gameTitle,
-      'is interested but running late for',
-      'is interested but running late for this call to play'
     )
   }
 }
 
 export function formatCreatorInterestWithdrawnSystemNotification(options: {
   recipientDisplayName: string;
-  recipientLabel?: string;
   gameTitle: string | null;
 }): SystemNotificationCopy {
   return {
     title: creatorInterestWithdrawnSystemNotification.title,
     body: formatInterestBody(
       options.recipientDisplayName,
-      options.gameTitle,
-      'passed on',
-      'passed on your call to play'
-    ),
-    discordBody: formatInterestBody(
-      options.recipientLabel ?? options.recipientDisplayName,
       options.gameTitle,
       'passed on',
       'passed on your call to play'
