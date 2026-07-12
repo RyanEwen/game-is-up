@@ -275,10 +275,15 @@ async function purgeExpiredDrafts() {
 async function loadGameOptions(userId: string) {
   const entries = await getPlayableLibraryEntries(userId)
 
-  return entries.map((entry) => ({
-    gameId: entry.gameId,
-    title: entry.game.title
-  }))
+  // The library query orders by recency; the picker pages alphabetically so
+  // games are findable. Sorting here keeps render and select-handling slices
+  // aligned since both go through this loader.
+  return entries
+    .map((entry) => ({
+      gameId: entry.gameId,
+      title: entry.game.title
+    }))
+    .sort((left, right) => left.title.localeCompare(right.title))
 }
 
 async function loadFriendOptions(userId: string) {
@@ -525,10 +530,14 @@ function buildNavRow(step: DiscordCtpComposerStep) {
   return row
 }
 
+// Paging buttons name what they page ("More games") and sit next to a
+// disabled page indicator so they cannot be mistaken for the wizard's
+// "Next: ..." step navigation button.
 function buildPageRow(kind: 'games' | 'friends', page: number, pageCount: number) {
   return new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
-    composerButton(`${kind}:page:${page - 1}`, 'Prev page', ButtonStyle.Secondary, page <= 0),
-    composerButton(`${kind}:page:${page + 1}`, `Page ${page + 1} of ${pageCount} - Next`, ButtonStyle.Secondary, page >= pageCount - 1)
+    composerButton(`${kind}:page:${page - 1}`, `< Prev ${kind}`, ButtonStyle.Secondary, page <= 0),
+    composerButton(`${kind}:page-indicator`, `Page ${page + 1} of ${pageCount}`, ButtonStyle.Secondary, true),
+    composerButton(`${kind}:page:${page + 1}`, `More ${kind} >`, ButtonStyle.Secondary, page >= pageCount - 1)
   )
 }
 
@@ -1383,14 +1392,14 @@ async function respondWithComposerFailure(interaction: ButtonInteraction | Strin
 // Channel launch post (/setup-ctp-post)
 // ---------------------------------------------------------------------------
 
-function buildLaunchPostPayload(serverName: string) {
+function buildLaunchPostPayload() {
   return {
     embeds: [
       new EmbedBuilder()
         .setColor(launchPostEmbedColor)
         .setTitle('Game\'s Up - rally people to play')
         .setDescription([
-          `Up for a game with people from ${serverName}? Press the button below to post a call to play without leaving Discord.`,
+          'Up for a game? Press the button below to post a call to play without leaving Discord. You choose who sees it - your whole Game\'s Up network, specific friends, or specific servers.',
           'You will pick games, audience, and timing in a private step-by-step composer that only you can see. You need a Game\'s Up account linked to your Discord to post one.'
         ].join('\n\n'))
     ],
@@ -1404,9 +1413,62 @@ function buildLaunchPostPayload(serverName: string) {
 }
 
 /**
+ * Applies or lifts the optional launch-channel lock: denying send/thread
+ * permissions for @everyone keeps the button post from being buried, while an
+ * explicit allow overwrite for the bot keeps re-runs able to post. Passing
+ * `lock: false` clears only the specific denies this lock sets, leaving any
+ * other admin-managed overwrites on the channel alone.
+ */
+async function applyLaunchChannelLock(channel: GuildTextBasedChannel, lock: boolean) {
+  if (!('permissionOverwrites' in channel)) {
+    return 'Threads cannot be locked this way, so the channel permissions were left unchanged.'
+  }
+
+  const reason = lock
+    ? 'Keep the Game\'s Up call-to-play post visible'
+    : 'Reopen the Game\'s Up call-to-play channel'
+
+  try {
+    if (lock) {
+      const botMember = channel.guild.members.me
+
+      if (botMember) {
+        await channel.permissionOverwrites.edit(botMember, {
+          SendMessages: true,
+          EmbedLinks: true
+        }, { reason })
+      }
+
+      await channel.permissionOverwrites.edit(channel.guild.roles.everyone, {
+        SendMessages: false,
+        SendMessagesInThreads: false,
+        CreatePublicThreads: false,
+        CreatePrivateThreads: false
+      }, { reason })
+
+      return 'Members can no longer send messages in this channel.'
+    }
+
+    await channel.permissionOverwrites.edit(channel.guild.roles.everyone, {
+      SendMessages: null,
+      SendMessagesInThreads: null,
+      CreatePublicThreads: null,
+      CreatePrivateThreads: null
+    }, { reason })
+
+    return 'Members can send messages in this channel again.'
+  } catch (error) {
+    console.error('Failed to update the call-to-play channel lock', error)
+    return `I could not ${lock ? 'lock' : 'unlock'} the channel - make sure the Game's Up bot has the Manage Roles permission here, then re-run the command.`
+  }
+}
+
+/**
  * Posts (or re-posts) the persistent call-to-play launch message in the
  * invoking channel and records its location on the DiscordServer row so a
  * later re-run can replace the previous post instead of stacking duplicates.
+ * The optional `lock-channel` option denies member sends in the channel so
+ * the post stays visible (or lifts that lock when false).
  */
 export async function handleSetupCtpPostCommand(interaction: ChatInputCommandInteraction) {
   const serverId = interaction.guildId
@@ -1458,7 +1520,7 @@ export async function handleSetupCtpPostCommand(interaction: ChatInputCommandInt
   let message
 
   try {
-    message = await (channel as GuildTextBasedChannel).send(buildLaunchPostPayload(guild.name))
+    message = await (channel as GuildTextBasedChannel).send(buildLaunchPostPayload())
   } catch (error) {
     console.error('Failed to post the call-to-play launch message', error)
     await interaction.editReply({
@@ -1486,7 +1548,16 @@ export async function handleSetupCtpPostCommand(interaction: ChatInputCommandInt
     }
   })
 
+  const lockChannel = interaction.options.getBoolean('lock-channel')
+  const lockNote = lockChannel !== null
+    ? await applyLaunchChannelLock(channel as GuildTextBasedChannel, lockChannel)
+    : null
+
   await interaction.editReply({
-    content: `Done. The call-to-play button now lives in this channel${server.ctpComposerMessageId ? ' (the previous post was removed)' : ''}. Re-run /setup-ctp-post any time to refresh or move it.`
+    content: [
+      `Done. The call-to-play button now lives in this channel${server.ctpComposerMessageId ? ' (the previous post was removed)' : ''}.`,
+      lockNote,
+      'Re-run /setup-ctp-post any time to refresh or move it.'
+    ].filter((part): part is string => Boolean(part)).join(' ')
   })
 }

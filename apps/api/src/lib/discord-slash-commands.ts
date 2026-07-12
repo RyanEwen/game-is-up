@@ -58,6 +58,12 @@ const slashCommands = [
   new SlashCommandBuilder()
     .setName('setup-ctp-post')
     .setDescription('Post or refresh the Game\'s Up call-to-play button message in this channel.')
+    .addBooleanOption((option) => (
+      option
+        .setName('lock-channel')
+        .setDescription('True stops members from posting here so the button stays visible; false lifts an earlier lock.')
+        .setRequired(false)
+    ))
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
     .setDMPermission(false)
 ].map((command) => command.toJSON()) satisfies RESTPostAPIApplicationCommandsJSONBody[]
