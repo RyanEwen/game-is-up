@@ -1502,6 +1502,38 @@ export async function handleSetupCtpPostCommand(interaction: ChatInputCommandInt
 
   await interaction.deferReply({ flags: MessageFlags.Ephemeral })
 
+  const targetChannel = channel as GuildTextBasedChannel
+
+  if (targetChannel.isThread() && (targetChannel.archived || targetChannel.locked)) {
+    await interaction.editReply({
+      content: `This thread is ${targetChannel.archived ? 'archived' : 'locked'}, so I cannot post here. Reopen it or run the command in another channel.`
+    })
+    return
+  }
+
+  // Preflight the exact permissions channel.send needs so failures name the
+  // missing bot permission instead of a generic error. Threads gate sends
+  // behind Send Messages in Threads on the parent channel.
+  const botMember = guild.members.me
+  const channelPermissions = botMember ? targetChannel.permissionsFor(botMember) : null
+  const requiredPermissions: Array<{ flag: bigint; label: string }> = [
+    { flag: PermissionFlagsBits.ViewChannel, label: 'View Channel' },
+    targetChannel.isThread()
+      ? { flag: PermissionFlagsBits.SendMessagesInThreads, label: 'Send Messages in Threads' }
+      : { flag: PermissionFlagsBits.SendMessages, label: 'Send Messages' },
+    { flag: PermissionFlagsBits.EmbedLinks, label: 'Embed Links' }
+  ]
+  const missingPermissionLabels = channelPermissions
+    ? requiredPermissions.filter(({ flag }) => !channelPermissions.has(flag)).map(({ label }) => label)
+    : []
+
+  if (missingPermissionLabels.length > 0) {
+    await interaction.editReply({
+      content: `The Game's Up bot is missing the following permission${missingPermissionLabels.length === 1 ? '' : 's'} here: ${missingPermissionLabels.join(', ')}. Grant ${missingPermissionLabels.length === 1 ? 'it' : 'them'} on this channel${targetChannel.isThread() ? ' (or its parent channel)' : ''}, then try again.`
+    })
+    return
+  }
+
   const server = await prisma.discordServer.upsert({
     where: {
       id: serverId
@@ -1520,11 +1552,11 @@ export async function handleSetupCtpPostCommand(interaction: ChatInputCommandInt
   let message
 
   try {
-    message = await (channel as GuildTextBasedChannel).send(buildLaunchPostPayload())
+    message = await targetChannel.send(buildLaunchPostPayload())
   } catch (error) {
     console.error('Failed to post the call-to-play launch message', error)
     await interaction.editReply({
-      content: 'I could not post in this channel. Make sure the Game\'s Up bot can send messages and embeds here, then try again.'
+      content: `I could not post in this channel${error instanceof Error && error.message ? ` (Discord said: ${error.message})` : ''}. Make sure the Game's Up bot can send messages and embeds here, then try again.`
     })
     return
   }
@@ -1550,13 +1582,16 @@ export async function handleSetupCtpPostCommand(interaction: ChatInputCommandInt
 
   const lockChannel = interaction.options.getBoolean('lock-channel')
   const lockNote = lockChannel !== null
-    ? await applyLaunchChannelLock(channel as GuildTextBasedChannel, lockChannel)
+    ? await applyLaunchChannelLock(targetChannel, lockChannel)
     : null
 
   await interaction.editReply({
     content: [
       `Done. The call-to-play button now lives in this channel${server.ctpComposerMessageId ? ' (the previous post was removed)' : ''}.`,
       lockNote,
+      targetChannel.isThread()
+        ? 'Heads up: threads auto-archive after inactivity, which hides this post - a regular text channel keeps the button visible.'
+        : null,
       'Re-run /setup-ctp-post any time to refresh or move it.'
     ].filter((part): part is string => Boolean(part)).join(' ')
   })
