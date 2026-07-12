@@ -857,7 +857,7 @@ export async function getPlayIntentRecipientUserIdsForDebug(options: {
   )
 }
 
-async function getPlayableLibraryEntries(userId: string) {
+export async function getPlayableLibraryEntries(userId: string) {
   return prisma.userGameInterest.findMany({
     where: {
       userId,

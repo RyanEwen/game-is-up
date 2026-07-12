@@ -91,6 +91,25 @@ enum DiscordInviteAttributionKind {
   SERVER
 }
 
+enum DiscordCtpComposerStep {
+  BASICS
+  AUDIENCE
+  TIMING
+  DETAILS
+  REVIEW
+}
+
+enum DiscordCtpComposerStartMode {
+  NOW
+  SCHEDULED
+}
+
+enum DiscordCtpComposerVoiceMode {
+  NONE
+  EXISTING_CHANNEL
+  TEMPORARY_SPACE
+}
+
 enum ReportReason {
   ABUSE
   SPAM
@@ -131,6 +150,7 @@ model User {
   mutesReceived                      PlayIntentMute[]                    @relation("mutes_received")
   notifications                      Notification[]                      @relation("notification_recipient")
   discordAutoPlayPrompts             DiscordAutoPlayPrompt[]
+  discordCtpComposerDraft            DiscordCtpComposerDraft?
   acceptedDiscordInvites             DiscordInviteAttribution[]          @relation("discord_invite_acceptances")
   sentDiscordInvites                 DiscordInviteAttribution[]          @relation("discord_invite_senders")
   reportsFiled                       Report[]                            @relation("reporter")
@@ -160,6 +180,9 @@ model DiscordServer {
   id                         String                          @id
   name                       String
   iconHash                   String?
+  ctpComposerChannelId       String?
+  ctpComposerMessageId       String?
+  ctpComposerPostedAt        DateTime?
   createdAt                  DateTime                        @default(now())
   updatedAt                  DateTime                        @updatedAt
   memberships                DiscordServerMembership[]
@@ -169,6 +192,7 @@ model DiscordServer {
   activityObservations       DiscordActivityObservation[]
   observedGames              DiscordObservedGame[]
   autoPlayPrompts            DiscordAutoPlayPrompt[]
+  ctpComposerDrafts          DiscordCtpComposerDraft[]
 }
 
 model DiscordInviteAttribution {
@@ -574,6 +598,41 @@ model DiscordAutoPlayPrompt {
   @@index([userId, createdAt])
   @@index([status, createdAt])
   @@index([createdPlayIntentId])
+}
+
+/// Per-user scratch state for the Discord-side call-to-play composer wizard
+/// (channel button / slash-command entry points). One draft per user; the id
+/// arrays are transient UI selections, not product relationships - they are
+/// validated into the real PlayIntent join tables when the draft is posted
+/// through `upsertCurrentPlayIntent`, then the draft row is deleted.
+model DiscordCtpComposerDraft {
+  id                     String                      @id @default(uuid())
+  userId                 String                      @unique
+  discordUserId          String
+  step                   DiscordCtpComposerStep      @default(BASICS)
+  title                  String                      @default("")
+  gameIds                String[]                    @default([])
+  gamePage               Int                         @default(0)
+  notifyScope            PlayIntentScope             @default(FRIENDS_ONLY)
+  targetUserIds          String[]                    @default([])
+  targetPage             Int                         @default(0)
+  targetFriendsListId    String?
+  targetDiscordServerIds String[]                    @default([])
+  startMode              DiscordCtpComposerStartMode @default(NOW)
+  startAt                DateTime?
+  durationMinutes        Int                         @default(60)
+  note                   String                      @default("")
+  voiceMode              DiscordCtpComposerVoiceMode @default(NONE)
+  voiceChannelId         String?
+  voiceChannelName       String?
+  sourceServerId         String?
+  createdAt              DateTime                    @default(now())
+  updatedAt              DateTime                    @updatedAt
+  expiresAt              DateTime
+  user                   User                        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sourceServer           DiscordServer?              @relation(fields: [sourceServerId], references: [id], onDelete: SetNull)
+
+  @@index([expiresAt])
 }
 
 model DiscordObservedGame {

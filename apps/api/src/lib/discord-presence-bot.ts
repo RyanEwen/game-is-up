@@ -7,7 +7,8 @@
  * `discord-bot-runtime.ts`). This module owns connect/reconnect, listener
  * registration, member-cache hydration, and routing inbound interactions to
  * the per-feature handlers (slash commands, DM commands, prompt buttons,
- * recipient response buttons, creator action buttons).
+ * recipient response buttons, creator action buttons, and the call-to-play
+ * composer's buttons/selects/modals).
  */
 
 import {
@@ -38,6 +39,12 @@ import {
   syncDiscordPresenceBotGuildIds
 } from './discord-bot-runtime.js'
 import { handleDiscordAutoPlayPromptInteraction } from './discord-auto-play-prompts.js'
+import {
+  handleCtpComposerButtonInteraction,
+  handleCtpComposerModalSubmit,
+  handleCtpComposerSelectInteraction,
+  isCtpComposerCustomId
+} from './discord-ctp-composer.js'
 import { recordDiscordPresence } from './discord-activity.js'
 import { env } from './env.js'
 import { prisma } from './prisma.js'
@@ -1028,7 +1035,26 @@ export async function startDiscordPresenceBot() {
       return
     }
 
+    if (interaction.isStringSelectMenu()) {
+      if (isCtpComposerCustomId(interaction.customId)) {
+        void handleCtpComposerSelectInteraction(interaction)
+      }
+      return
+    }
+
+    if (interaction.isModalSubmit()) {
+      if (isCtpComposerCustomId(interaction.customId)) {
+        void handleCtpComposerModalSubmit(interaction)
+      }
+      return
+    }
+
     if (!interaction.isButton()) {
+      return
+    }
+
+    if (isCtpComposerCustomId(interaction.customId)) {
+      void handleCtpComposerButtonInteraction(interaction)
       return
     }
 

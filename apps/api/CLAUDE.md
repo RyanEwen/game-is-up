@@ -12,6 +12,7 @@ Scope: applies when working in the Express API, route modules, service logic, au
 - When changing any Discord DM content, components, embeds, or branching states, update the live runtime payload builders, any serialized debug preview builders, the shared preview serialization/schema, and the web DM preview renderer together so read-only debug previews stay aligned with real bot output.
 - When adding a new DM flow or a materially new DM state, make sure the debug snapshot still exposes the relevant preview payloads from real runtime data where the admin web surfaces depend on them.
 - Keep cleanup-specific or archived DM/embed builders close to the cleanup modules that own them. Pulling those builders back into play-intent response modules can create avoidable runtime dependency cycles.
+- Interactive Discord components route by customId prefix through the presence bot's InteractionCreate dispatcher. The call-to-play composer (channel button, /post-ctp, /setup-ctp-post) owns the `guild-ctp:` prefix in `apps/api/src/lib/discord-ctp-composer.ts`; new interactive surfaces should claim their own prefix and register there rather than adding ad-hoc listeners.
 
 ## Shared Helpers
 

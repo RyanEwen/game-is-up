@@ -10,23 +10,21 @@
  */
 
 import {
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
   EmbedBuilder,
   MessageFlags,
+  PermissionFlagsBits,
   Routes,
   SlashCommandBuilder,
   type ChatInputCommandInteraction,
-  type MessageActionRowComponentBuilder,
   type RESTPostAPIApplicationCommandsJSONBody
 } from 'discord.js'
 import { AuthProvider, NotificationResponseChoice, NotificationType, PlayIntentScope, PlayIntentSelectionMode } from '@prisma/client'
 import { buildDiscordServerIconUrl } from './discord-servers.js'
 import { getDiscordBotRest } from './discord-bot-runtime.js'
+import { handleSetupCtpPostCommand, launchCtpComposer } from './discord-ctp-composer.js'
+import { buildDiscordInviteUrl, buildInviteButtonRow, buildInviteLandingUrl } from './discord-invite-links.js'
 import { env } from './env.js'
 import { toClientAvatarUrl, toClientGameCoverUrl } from './game-media.js'
-import { getApiOrigin } from './origin.js'
 import { formatPlayIntentWindowLabel } from './play-intent-time-format.js'
 import { prisma } from './prisma.js'
 
@@ -52,6 +50,15 @@ const slashCommands = [
   new SlashCommandBuilder()
     .setName('server-ctps')
     .setDescription('Show active calls to play from members of this server.')
+    .setDMPermission(false),
+  new SlashCommandBuilder()
+    .setName('post-ctp')
+    .setDescription('Post a Game\'s Up call to play with the guided composer.')
+    .setDMPermission(true),
+  new SlashCommandBuilder()
+    .setName('setup-ctp-post')
+    .setDescription('Post or refresh the Game\'s Up call-to-play button message in this channel.')
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
     .setDMPermission(false)
 ].map((command) => command.toJSON()) satisfies RESTPostAPIApplicationCommandsJSONBody[]
 
@@ -61,68 +68,6 @@ type ServerAppMember = {
   appDisplayName: string;
   appHandle: string;
 };
-
-function buildPlayUrl() {
-  try {
-    return new URL('/play', env.CLIENT_ORIGIN).toString()
-  } catch {
-    return env.CLIENT_ORIGIN
-  }
-}
-
-function buildInviteLandingUrl(options: {
-  serverId?: string | null;
-  serverName?: string | null;
-  inviterDiscordUserId?: string | null;
-  inviterLabel?: string | null;
-  memberCount?: number | null;
-  kind?: 'direct' | 'server';
-}) {
-  try {
-    const inviteUrl = new URL('/invite', env.CLIENT_ORIGIN)
-
-    if (options.serverId?.trim()) {
-      inviteUrl.searchParams.set('serverId', options.serverId.trim())
-    }
-
-    if (options.serverName?.trim()) {
-      inviteUrl.searchParams.set('server', options.serverName.trim())
-    }
-
-    if (options.inviterDiscordUserId?.trim()) {
-      inviteUrl.searchParams.set('inviterDiscordId', options.inviterDiscordUserId.trim())
-    }
-
-    if (options.inviterLabel?.trim()) {
-      inviteUrl.searchParams.set('inviter', options.inviterLabel.trim())
-    }
-
-    if (options.memberCount != null && Number.isFinite(options.memberCount)) {
-      inviteUrl.searchParams.set('members', String(Math.max(0, Math.floor(options.memberCount))))
-    }
-
-    inviteUrl.searchParams.set('kind', options.kind ?? 'server')
-
-    return inviteUrl.toString()
-  } catch {
-    return buildPlayUrl()
-  }
-}
-
-function buildDiscordInviteUrl() {
-  const loginUrl = new URL('/api/auth/discord/login', getApiOrigin())
-  loginUrl.searchParams.set('returnTo', buildPlayUrl())
-  return loginUrl.toString()
-}
-
-function buildInviteButtonRow(url: string) {
-  return new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
-    new ButtonBuilder()
-      .setStyle(ButtonStyle.Link)
-      .setLabel('Join Game\'s Up')
-      .setURL(url)
-  )
-}
 
 function summarizeGameTitles(
   selectionMode: PlayIntentSelectionMode,
@@ -587,6 +532,12 @@ export async function handleDiscordSlashCommand(interaction: ChatInputCommandInt
       return
     case 'server-ctps':
       await handleServerCtpsCommand(interaction)
+      return
+    case 'post-ctp':
+      await launchCtpComposer(interaction, { sourceServerId: interaction.guildId })
+      return
+    case 'setup-ctp-post':
+      await handleSetupCtpPostCommand(interaction)
       return
     default:
       await interaction.reply({
