@@ -84,6 +84,12 @@ export const creatorInterestWithdrawnSystemNotification = createPlayIntentSystem
   'none'
 )
 
+export const audienceInterestWithdrawnSystemNotification = createPlayIntentSystemNotificationDefinition(
+  'audience-interest-withdrawn',
+  '❎ Another player passed',
+  'none'
+)
+
 export const creatorRunningLateSystemNotification = createPlayIntentSystemNotificationDefinition(
   'creator-running-late',
   '⏰ Someone is running late',
@@ -105,6 +111,7 @@ const playIntentSystemNotificationDefinitions = [
   creatorInterestUpdateSystemNotification,
   audienceInterestUpdateSystemNotification,
   creatorInterestWithdrawnSystemNotification,
+  audienceInterestWithdrawnSystemNotification,
   creatorRunningLateSystemNotification,
   audienceRunningLateSystemNotification
 ]
@@ -256,6 +263,21 @@ export function formatCreatorInterestWithdrawnSystemNotification(options: {
       options.gameTitle,
       'passed on',
       'passed on your call to play'
+    )
+  }
+}
+
+export function formatAudienceInterestWithdrawnSystemNotification(options: {
+  recipientDisplayName: string;
+  gameTitle: string | null;
+}): SystemNotificationCopy {
+  return {
+    title: audienceInterestWithdrawnSystemNotification.title,
+    body: formatInterestBody(
+      options.recipientDisplayName,
+      options.gameTitle,
+      'passed on',
+      'passed on this call to play'
     )
   }
 }

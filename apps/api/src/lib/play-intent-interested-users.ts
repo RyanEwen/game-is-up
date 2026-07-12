@@ -12,6 +12,11 @@ export type PlayIntentResponseUser = {
   identities?: { providerUserId: string }[];
 }
 
+type PlayIntentRecipientResponseUser = PlayIntentResponseUser & {
+  /** Latest recipient-notification response; null when still unanswered. */
+  responseChoice: NotificationResponseChoice | null;
+}
+
 const recipientResponseNotificationTypes = [
   NotificationType.FRIEND_PLAYING,
   NotificationType.SCHEDULED_PLAY_INTENT_REMINDER,
@@ -34,11 +39,11 @@ export function isInterestedPlayIntentWindowBlockingAutoPrompt(
     && windowStartsAt <= new Date(referenceTime.getTime() + leadMinutes * 60 * 1000)
 }
 
-async function getResponseUsersByPlayIntentId(playIntentIds: string[], responseChoice: NotificationResponseChoice) {
+async function getResponseUsersByPlayIntentId(playIntentIds: string[], responseChoice?: NotificationResponseChoice) {
   const uniquePlayIntentIds = [...new Set(playIntentIds.filter(Boolean))]
 
   if (uniquePlayIntentIds.length === 0) {
-    return new Map<string, PlayIntentResponseUser[]>()
+    return new Map<string, PlayIntentRecipientResponseUser[]>()
   }
 
   const notifications = await prisma.notification.findMany({
@@ -46,13 +51,14 @@ async function getResponseUsersByPlayIntentId(playIntentIds: string[], responseC
       playIntentId: {
         in: uniquePlayIntentIds
       },
-      responseChoice,
+      ...(responseChoice ? { responseChoice } : {}),
       type: {
         in: recipientResponseNotificationTypes
       }
     },
     select: {
       playIntentId: true,
+      responseChoice: true,
       runningLateAt: true,
       user: {
         select: {
@@ -76,7 +82,7 @@ async function getResponseUsersByPlayIntentId(playIntentIds: string[], responseC
     }
   })
 
-  const responseUsersByPlayIntentId = new Map<string, PlayIntentResponseUser[]>()
+  const responseUsersByPlayIntentId = new Map<string, PlayIntentRecipientResponseUser[]>()
   const seenKeys = new Set<string>()
 
   for (const notification of notifications) {
@@ -99,6 +105,7 @@ async function getResponseUsersByPlayIntentId(playIntentIds: string[], responseC
       displayName: notification.user.displayName,
       avatarUrl: toClientAvatarUrl(notification.user.avatarUrl),
       runningLate: notification.runningLateAt != null,
+      responseChoice: notification.responseChoice,
       identities: notification.user.identities
     })
     responseUsersByPlayIntentId.set(notification.playIntentId, responseUsers)
@@ -113,6 +120,28 @@ async function getResponseUsersByPlayIntentId(playIntentIds: string[], responseC
 
 export async function getInterestedUsersByPlayIntentId(playIntentIds: string[]) {
   return getResponseUsersByPlayIntentId(playIntentIds, NotificationResponseChoice.JOIN)
+}
+
+/**
+ * All invited recipients still eligible for SYSTEM update fan-out: their
+ * latest recipient notification is either unanswered or an interested (JOIN)
+ * response. Recipients whose latest response is a pass (or an expired prompt)
+ * are excluded so passing stops the update pings.
+ */
+export async function getUpdateEligibleRecipientsByPlayIntentId(playIntentIds: string[]) {
+  const recipientsByPlayIntentId = await getResponseUsersByPlayIntentId(playIntentIds)
+  const eligibleRecipientsByPlayIntentId = new Map<string, PlayIntentResponseUser[]>()
+
+  for (const [playIntentId, recipients] of recipientsByPlayIntentId) {
+    eligibleRecipientsByPlayIntentId.set(
+      playIntentId,
+      recipients.filter((recipient) => (
+        recipient.responseChoice === null || recipient.responseChoice === NotificationResponseChoice.JOIN
+      ))
+    )
+  }
+
+  return eligibleRecipientsByPlayIntentId
 }
 
 /**

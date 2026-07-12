@@ -5,10 +5,11 @@
  * planned game (or joining the associated voice channel), this module records
  * a SYSTEM notification per recipient and re-syncs each recipient's per-intent
  * updates-log DM so the activity lands as a new log entry (with a fresh push
- * notification). Audience-side nudges are gated to recipients who already
- * expressed interest, while creator-side nudges can still reflect audience
- * activity. Advisory locks prevent duplicate notifications when concurrent
- * presence events race for the same play intent + recipient pair.
+ * notification). Audience-side nudges go to every invited recipient who has
+ * not passed — including invitees who have not responded yet, so live
+ * activity doubles as a nudge to answer. Advisory locks prevent duplicate
+ * notifications when concurrent presence events race for the same play
+ * intent + recipient pair.
  */
 
 import {
@@ -18,7 +19,7 @@ import {
   Prisma
 } from '@prisma/client'
 import { prisma } from './prisma.js'
-import { getInterestedUsersByPlayIntentId } from './play-intent-interested-users.js'
+import { getPassedUsersByPlayIntentId } from './play-intent-interested-users.js'
 import {
   formatGroupLaunchedGameSystemNotification,
   formatVoiceChannelJoinedSystemNotification,
@@ -43,17 +44,17 @@ type CreatedSystemNotification = {
 export function resolvePlayIntentActivityRecipientUserIds(options: {
   creatorUserId: string;
   triggeredByUserId: string;
-  interestedUserIds: string[];
+  declinedUserIds: string[];
   audienceRecipientUserIds: string[];
 }) {
   const audienceRecipientUserIds = [...new Set(options.audienceRecipientUserIds.filter(Boolean))]
-  const interestedUserIds = new Set(options.interestedUserIds.filter(Boolean))
-  const interestedAudienceRecipientUserIds = audienceRecipientUserIds.filter((userId) => interestedUserIds.has(userId))
+  const declinedUserIds = new Set(options.declinedUserIds.filter(Boolean))
+  const eligibleAudienceRecipientUserIds = audienceRecipientUserIds.filter((userId) => !declinedUserIds.has(userId))
   const actorIsCreator = options.creatorUserId === options.triggeredByUserId
   const actorIsAudienceRecipient = audienceRecipientUserIds.includes(options.triggeredByUserId)
 
   if (actorIsCreator) {
-    return interestedAudienceRecipientUserIds.filter((userId) => userId !== options.triggeredByUserId)
+    return eligibleAudienceRecipientUserIds.filter((userId) => userId !== options.triggeredByUserId)
   }
 
   if (!actorIsAudienceRecipient) {
@@ -62,7 +63,7 @@ export function resolvePlayIntentActivityRecipientUserIds(options: {
 
   return [
     options.creatorUserId,
-    ...interestedAudienceRecipientUserIds.filter((userId) => userId !== options.triggeredByUserId)
+    ...eligibleAudienceRecipientUserIds.filter((userId) => userId !== options.triggeredByUserId)
   ]
 }
 
@@ -226,20 +227,20 @@ async function notifyRestOfGroupAboutActivity<Intent extends {
     return
   }
 
-  const [interestedUsersByPlayIntentId, audienceRecipientUserIdsByPlayIntentId] = await Promise.all([
-    getInterestedUsersByPlayIntentId(options.playIntents.map((playIntent) => playIntent.id)),
+  const [passedUsersByPlayIntentId, audienceRecipientUserIdsByPlayIntentId] = await Promise.all([
+    getPassedUsersByPlayIntentId(options.playIntents.map((playIntent) => playIntent.id)),
     getAudienceRecipientUserIdsByPlayIntentId(options.playIntents.map((playIntent) => playIntent.id))
   ])
   const recipientUserIds = new Set<string>()
   const createdNotifications = (await Promise.all(options.playIntents.flatMap((playIntent) => {
-    const interestedUserIds = (interestedUsersByPlayIntentId.get(playIntent.id) ?? []).map((user) => user.id)
+    const declinedUserIds = (passedUsersByPlayIntentId.get(playIntent.id) ?? []).map((user) => user.id)
     const audienceRecipientUserIds = audienceRecipientUserIdsByPlayIntentId.get(playIntent.id) ?? []
 
     const notificationCopy = options.buildNotificationCopy(playIntent)
     const playIntentRecipientUserIds = resolvePlayIntentActivityRecipientUserIds({
       creatorUserId: playIntent.userId,
       triggeredByUserId: options.triggeredByUserId,
-      interestedUserIds,
+      declinedUserIds,
       audienceRecipientUserIds
     })
 

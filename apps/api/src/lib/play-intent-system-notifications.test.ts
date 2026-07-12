@@ -3,12 +3,14 @@ import test from 'node:test'
 
 import {
   audienceInterestUpdateSystemNotification,
+  audienceInterestWithdrawnSystemNotification,
   audienceRunningLateSystemNotification,
   callToPlayEndedSystemNotification,
   creatorInterestUpdateSystemNotification,
   creatorInterestWithdrawnSystemNotification,
   creatorRunningLateSystemNotification,
   formatAudienceInterestUpdateSystemNotification,
+  formatAudienceInterestWithdrawnSystemNotification,
   formatAudienceRunningLateSystemNotification,
   creatorLaunchedGameSystemNotification,
   formatCreatorInterestUpdateSystemNotification,
@@ -38,6 +40,7 @@ test('getPlayIntentSystemNotificationDefinitionByTitle round-trips every known d
     creatorInterestUpdateSystemNotification,
     audienceInterestUpdateSystemNotification,
     creatorInterestWithdrawnSystemNotification,
+    audienceInterestWithdrawnSystemNotification,
     creatorRunningLateSystemNotification,
     audienceRunningLateSystemNotification
   ]) {
@@ -122,6 +125,25 @@ test('creator interest withdrawn notification falls back when no game title is p
   })
 
   assert.equal(notification.body, 'Sam passed on your call to play.')
+})
+
+test('audience interest withdrawn notification renders the configured title and body', () => {
+  const notification = formatAudienceInterestWithdrawnSystemNotification({
+    recipientDisplayName: 'Sam',
+    gameTitle: 'Helldivers 2'
+  })
+
+  assert.equal(notification.title, audienceInterestWithdrawnSystemNotification.title)
+  assert.equal(notification.body, 'Sam passed on Helldivers 2.')
+})
+
+test('audience interest withdrawn notification falls back when no game title is provided', () => {
+  const notification = formatAudienceInterestWithdrawnSystemNotification({
+    recipientDisplayName: 'Sam',
+    gameTitle: null
+  })
+
+  assert.equal(notification.body, 'Sam passed on this call to play.')
 })
 
 test('audience interest update notification renders the configured title and body', () => {
@@ -210,6 +232,7 @@ test('system notification bodies never contain Discord mention markup', () => {
     formatCreatorInterestWithdrawnSystemNotification({ recipientDisplayName: 'Sam', gameTitle: null }),
     formatCreatorRunningLateSystemNotification({ recipientDisplayName: 'Sam', gameTitle: null }),
     formatAudienceInterestUpdateSystemNotification({ recipientDisplayName: 'Sam', gameTitle: null }),
+    formatAudienceInterestWithdrawnSystemNotification({ recipientDisplayName: 'Sam', gameTitle: null }),
     formatAudienceRunningLateSystemNotification({ recipientDisplayName: 'Sam', gameTitle: null }),
     formatVoiceChannelJoinedSystemNotification({ actorDisplayName: 'Sam' }),
     formatGroupLaunchedGameSystemNotification({ actorDisplayName: 'Ryan', gameTitle: 'Helldivers 2' })

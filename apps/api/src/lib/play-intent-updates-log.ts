@@ -15,15 +15,22 @@
  *   the only way Discord raises a push notification for the update. Quiet
  *   corrections (startup refresh, entry deletion after a substantive edit)
  *   edit the tracked message in place (`refresh...`).
- * - Entry lines use the stored plain-text `body` (display names, no `<@id>`
- *   mentions): Android push notifications render mention markup literally.
+ * - The rendered content is pure plain text (display names, no `<@id>`
+ *   mentions, no `-#` subtext or other markdown): Android push notifications
+ *   render the raw message content, so any markup would show literally.
  *   Mentions stay on the original invite/summary DMs, which is where readers
  *   can open a profile or add a friend.
+ * - Entry lines carry a compact timestamp ("Fri 7:05pm") rendered in the
+ *   recipient's own timezone at build time.
+ * - Recipients who have not answered their invite yet get a trailing
+ *   call-to-action line pointing at the invite buttons; passing stops the
+ *   update pings entirely (pass state excludes them from fan-out).
  * - "Call to play ended" SYSTEM notifications are excluded: the archived
  *   end-of-call DM belongs to the cleanup flow in `discord-dm-cleanup.ts`.
  */
 
 import { NotificationType } from '@prisma/client'
+import { formatPlayIntentLogTimestampLabel } from './play-intent-time-format.js'
 import {
   deleteDiscordDirectMessage,
   editDiscordDirectMessage,
@@ -31,13 +38,27 @@ import {
   type DiscordDirectMessagePayload
 } from './discord-bot-runtime.js'
 import { isMissingDiscordMessageError } from './discord-tracked-direct-message.js'
-import { buildDiscordMessageHeading, buildDiscordPlainMessage } from './discord-dm-formatting.js'
+import { buildDiscordMessageHeading } from './discord-dm-formatting.js'
 import { callToPlayEndedSystemNotification } from './play-intent-system-notifications.js'
 import { prisma } from './prisma.js'
 
 export type PlayIntentUpdatesLogEntry = {
   title: string;
   body: string;
+  /** Pre-formatted "Fri 7:05pm" label in the recipient's timezone. */
+  timestampLabel?: string | null;
+}
+
+/** Builds a log entry from a SYSTEM notification row, stamping the entry time in the recipient's timezone. */
+export function buildPlayIntentUpdatesLogEntry(
+  row: { title: string; body: string; createdAt: Date },
+  recipientTimezoneId: string | null | undefined
+): PlayIntentUpdatesLogEntry {
+  return {
+    title: row.title,
+    body: row.body,
+    timestampLabel: formatPlayIntentLogTimestampLabel(row.createdAt, recipientTimezoneId)
+  }
 }
 
 /**
@@ -140,17 +161,28 @@ function extractTitleDecoration(title: string) {
 function formatUpdatesLogEntryLine(entry: PlayIntentUpdatesLogEntry) {
   const decoration = extractTitleDecoration(entry.title)
   const body = entry.body.replace(/\s*\n\s*/gu, ' ').trim()
+  const timestampLabel = entry.timestampLabel?.trim()
+  const line = timestampLabel ? `${timestampLabel} — ${body}` : body
 
-  return decoration ? `${decoration} ${body}` : body
+  return decoration ? `${decoration} ${line}` : line
 }
+
+const respondCallToActionLine
+  = 'You haven\'t responded yet — tap "I\'m interested" or "Can\'t make it" on your invite above. Saying you can\'t make it stops these updates.'
 
 /**
  * Renders the full log DM content from entries ordered newest-first. Exported
  * so the debug DM preview surfaces render exactly what the bot sends.
+ *
+ * The output is deliberately plain text (no `-#` subtext or other markdown):
+ * every new log event re-sends this DM, and Android push notifications show
+ * the raw content, markup and all.
  */
 export function buildPlayIntentUpdatesLogContent(options: {
   headline?: string | null;
   entries: PlayIntentUpdatesLogEntry[];
+  /** Appends the respond call-to-action for recipients who have not answered their invite. */
+  showRespondCallToAction?: boolean;
 }) {
   const headline = options.headline?.trim()
   const heading = buildDiscordMessageHeading(
@@ -160,28 +192,95 @@ export function buildPlayIntentUpdatesLogContent(options: {
   )
   const renderedEntries = options.entries.slice(0, maxRenderedUpdatesLogEntries)
   const hiddenEntryCount = options.entries.length - renderedEntries.length
+  const footerLines = [
+    hiddenEntryCount > 0
+      ? `…and ${hiddenEntryCount} earlier ${hiddenEntryCount === 1 ? 'update' : 'updates'}.`
+      : null,
+    options.showRespondCallToAction ? respondCallToActionLine : null
+  ].filter((line): line is string => Boolean(line))
 
-  return buildDiscordPlainMessage(
+  return [
     heading,
-    renderedEntries.map((entry) => formatUpdatesLogEntryLine(entry)),
-    {
-      trailingSubtext: hiddenEntryCount > 0
-        ? `…and ${hiddenEntryCount} earlier ${hiddenEntryCount === 1 ? 'update' : 'updates'}.`
-        : null
-    }
-  )
+    renderedEntries.map((entry) => formatUpdatesLogEntryLine(entry)).join('\n'),
+    footerLines.join('\n')
+  ].filter((part) => part.length > 0).join('\n\n')
 }
 
 type UpdatesLogNotificationRow = {
   id: string;
   title: string;
   body: string;
+  createdAt: Date;
   discordDmChannelId: string | null;
   discordDmMessageId: string | null;
 }
 
+/**
+ * Pair keys (`playIntentId:userId`) whose newest invite/go-time notification
+ * is still unanswered. These recipients get the respond call-to-action line in
+ * their updates-log DM. Creators never have such rows, so they are naturally
+ * excluded.
+ */
+export async function getPendingResponsePlayIntentPairKeys(
+  playIntentIds: string[],
+  recipientUserIds: string[]
+) {
+  const uniquePlayIntentIds = [...new Set(playIntentIds.filter(Boolean))]
+  const uniqueRecipientUserIds = [...new Set(recipientUserIds.filter(Boolean))]
+
+  if (uniquePlayIntentIds.length === 0 || uniqueRecipientUserIds.length === 0) {
+    return new Set<string>()
+  }
+
+  const rows = await prisma.notification.findMany({
+    where: {
+      playIntentId: {
+        in: uniquePlayIntentIds
+      },
+      userId: {
+        in: uniqueRecipientUserIds
+      },
+      type: {
+        in: updatesLogReplyAnchorNotificationTypes
+      }
+    },
+    orderBy: [
+      {
+        createdAt: 'desc'
+      },
+      {
+        id: 'desc'
+      }
+    ],
+    select: {
+      playIntentId: true,
+      userId: true,
+      responseChoice: true
+    }
+  })
+
+  const seenPairKeys = new Set<string>()
+  const pendingPairKeys = new Set<string>()
+
+  for (const row of rows) {
+    const pairKey = `${row.playIntentId}:${row.userId}`
+
+    if (seenPairKeys.has(pairKey)) {
+      continue
+    }
+
+    seenPairKeys.add(pairKey)
+
+    if (row.responseChoice === null) {
+      pendingPairKeys.add(pairKey)
+    }
+  }
+
+  return pendingPairKeys
+}
+
 async function getUpdatesLogState(playIntentId: string, recipientUserId: string) {
-  const [playIntent, rows] = await Promise.all([
+  const [playIntent, recipient, rows, pendingResponsePairKeys] = await Promise.all([
     prisma.playIntent.findUnique({
       where: {
         id: playIntentId
@@ -189,6 +288,14 @@ async function getUpdatesLogState(playIntentId: string, recipientUserId: string)
       select: {
         userId: true,
         headline: true
+      }
+    }),
+    prisma.user.findUnique({
+      where: {
+        id: recipientUserId
+      },
+      select: {
+        timezoneId: true
       }
     }),
     prisma.notification.findMany({
@@ -212,15 +319,19 @@ async function getUpdatesLogState(playIntentId: string, recipientUserId: string)
         id: true,
         title: true,
         body: true,
+        createdAt: true,
         discordDmChannelId: true,
         discordDmMessageId: true
       }
-    })
+    }),
+    getPendingResponsePlayIntentPairKeys([playIntentId], [recipientUserId])
   ])
 
   return {
     playIntent,
-    rows: rows as UpdatesLogNotificationRow[]
+    rows: rows as UpdatesLogNotificationRow[],
+    entries: (rows as UpdatesLogNotificationRow[]).map((row) => buildPlayIntentUpdatesLogEntry(row, recipient?.timezoneId)),
+    showRespondCallToAction: pendingResponsePairKeys.has(`${playIntentId}:${recipientUserId}`)
   }
 }
 
@@ -268,7 +379,7 @@ export async function syncPlayIntentUpdatesLogDirectMessage(options: {
   recipientUserId: string;
   discordUserId: string;
 }) {
-  const { playIntent, rows } = await getUpdatesLogState(options.playIntentId, options.recipientUserId)
+  const { playIntent, rows, entries, showRespondCallToAction } = await getUpdatesLogState(options.playIntentId, options.recipientUserId)
 
   if (!playIntent || rows.length === 0) {
     return
@@ -282,7 +393,8 @@ export async function syncPlayIntentUpdatesLogDirectMessage(options: {
 
   const content = buildPlayIntentUpdatesLogContent({
     headline: playIntent.headline,
-    entries: rows
+    entries,
+    showRespondCallToAction
   })
   const trackedMessages = collectTrackedMessages(rows)
   const replyTo = options.recipientUserId === playIntent.userId
@@ -344,7 +456,7 @@ export async function refreshPlayIntentUpdatesLogDirectMessage(options: {
   playIntentId: string;
   recipientUserId: string;
 }) {
-  const { playIntent, rows } = await getUpdatesLogState(options.playIntentId, options.recipientUserId)
+  const { playIntent, rows, entries, showRespondCallToAction } = await getUpdatesLogState(options.playIntentId, options.recipientUserId)
 
   if (!playIntent) {
     return
@@ -358,7 +470,8 @@ export async function refreshPlayIntentUpdatesLogDirectMessage(options: {
 
   const content = buildPlayIntentUpdatesLogContent({
     headline: playIntent.headline,
-    entries: rows
+    entries,
+    showRespondCallToAction
   })
 
   await Promise.all(trackedRows.map(async (row) => {

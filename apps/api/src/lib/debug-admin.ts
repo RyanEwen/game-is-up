@@ -28,7 +28,11 @@ import {
   buildScheduledCheckInPromptPreview
 } from './play-intent-notification-responses.js'
 import { callToPlayEndedSystemNotification } from './play-intent-system-notifications.js'
-import type { PlayIntentUpdatesLogEntry } from './play-intent-updates-log.js'
+import {
+  buildPlayIntentUpdatesLogEntry,
+  getPendingResponsePlayIntentPairKeys,
+  type PlayIntentUpdatesLogEntry
+} from './play-intent-updates-log.js'
 import { buildDiscordChannelUrl } from './discord-channel-urls.js'
 import { prisma } from './prisma.js'
 
@@ -1060,47 +1064,63 @@ export async function buildDebugAdminSnapshot() {
   // SYSTEM notification DMs are a single per-recipient updates log, so the
   // preview needs every sibling SYSTEM entry for the same (playIntent,
   // recipient) pair, not just this row's title/body.
+  const systemLogNotifications = recentNotifications.filter((notification) => (
+    notification.type === NotificationType.SYSTEM
+    && notification.playIntentId
+    && notification.title !== callToPlayEndedSystemNotification.title
+  ))
   const systemLogPairKeys = new Set(
-    recentNotifications
-      .filter((notification) => (
-        notification.type === NotificationType.SYSTEM
-        && notification.playIntentId
-        && notification.title !== callToPlayEndedSystemNotification.title
-      ))
-      .map((notification) => `${notification.playIntentId}:${notification.user.id}`)
+    systemLogNotifications.map((notification) => `${notification.playIntentId}:${notification.user.id}`)
   )
   const systemLogEntriesByPairKey = new Map<string, PlayIntentUpdatesLogEntry[]>()
+  let systemLogPendingResponsePairKeys = new Set<string>()
 
   if (systemLogPairKeys.size > 0) {
-    const systemLogRows = await prisma.notification.findMany({
-      where: {
-        type: NotificationType.SYSTEM,
-        title: {
-          not: callToPlayEndedSystemNotification.title
+    const systemLogPlayIntentIds = [...new Set(systemLogNotifications.map((notification) => notification.playIntentId as string))]
+    const systemLogRecipientUserIds = [...new Set(systemLogNotifications.map((notification) => notification.user.id))]
+    const [systemLogRows, systemLogRecipientTimezoneRows, pendingPairKeys] = await Promise.all([
+      prisma.notification.findMany({
+        where: {
+          type: NotificationType.SYSTEM,
+          title: {
+            not: callToPlayEndedSystemNotification.title
+          },
+          playIntentId: {
+            in: systemLogPlayIntentIds
+          }
         },
-        playIntentId: {
-          in: [...new Set(
-            recentNotifications
-              .filter((notification) => notification.type === NotificationType.SYSTEM && notification.playIntentId)
-              .map((notification) => notification.playIntentId as string)
-          )]
+        orderBy: [
+          {
+            createdAt: 'desc'
+          },
+          {
+            id: 'desc'
+          }
+        ],
+        select: {
+          playIntentId: true,
+          userId: true,
+          title: true,
+          body: true,
+          createdAt: true
         }
-      },
-      orderBy: [
-        {
-          createdAt: 'desc'
+      }),
+      prisma.user.findMany({
+        where: {
+          id: {
+            in: systemLogRecipientUserIds
+          }
         },
-        {
-          id: 'desc'
+        select: {
+          id: true,
+          timezoneId: true
         }
-      ],
-      select: {
-        playIntentId: true,
-        userId: true,
-        title: true,
-        body: true
-      }
-    })
+      }),
+      getPendingResponsePlayIntentPairKeys(systemLogPlayIntentIds, systemLogRecipientUserIds)
+    ])
+
+    systemLogPendingResponsePairKeys = pendingPairKeys
+    const timezoneIdByUserId = new Map(systemLogRecipientTimezoneRows.map((row) => [row.id, row.timezoneId]))
 
     for (const row of systemLogRows) {
       const pairKey = `${row.playIntentId}:${row.userId}`
@@ -1110,7 +1130,7 @@ export async function buildDebugAdminSnapshot() {
       }
 
       const entries = systemLogEntriesByPairKey.get(pairKey) ?? []
-      entries.push({ title: row.title, body: row.body })
+      entries.push(buildPlayIntentUpdatesLogEntry(row, timezoneIdByUserId.get(row.userId)))
       systemLogEntriesByPairKey.set(pairKey, entries)
     }
   }
@@ -1242,6 +1262,9 @@ export async function buildDebugAdminSnapshot() {
               : undefined,
             systemLogEntries: notification.type === NotificationType.SYSTEM && notification.playIntentId
               ? systemLogEntriesByPairKey.get(`${notification.playIntentId}:${notification.user.id}`)
+              : undefined,
+            systemLogShowRespondCallToAction: notification.type === NotificationType.SYSTEM && notification.playIntentId
+              ? systemLogPendingResponsePairKeys.has(`${notification.playIntentId}:${notification.user.id}`)
               : undefined
           })
 

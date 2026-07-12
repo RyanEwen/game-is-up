@@ -66,10 +66,11 @@ import {
 } from './discord-dm-formatting.js'
 import { toClientGameCoverUrl } from './game-media.js'
 import { buildDiscordChannelUrl } from './discord-channel-urls.js'
-import { getInterestedUsersByPlayIntentId } from './play-intent-interested-users.js'
+import { getInterestedUsersByPlayIntentId, getUpdateEligibleRecipientsByPlayIntentId } from './play-intent-interested-users.js'
 import {
   callToPlayEndedSystemNotification,
   formatAudienceInterestUpdateSystemNotification,
+  formatAudienceInterestWithdrawnSystemNotification,
   formatAudienceRunningLateSystemNotification,
   creatorInterestUpdateSystemNotification,
   creatorInterestWithdrawnSystemNotification,
@@ -94,7 +95,9 @@ import {
 } from './play-intent-recipient-response-transition.js'
 import {
   buildPlayIntentUpdatesLogContent,
+  buildPlayIntentUpdatesLogEntry,
   getCreatorPlayIntentSummaryReplyReference,
+  getPendingResponsePlayIntentPairKeys,
   refreshPlayIntentUpdatesLogDirectMessage,
   syncPlayIntentUpdatesLogDirectMessage,
   type PlayIntentUpdatesLogEntry
@@ -1468,6 +1471,8 @@ export function buildNotificationDirectMessagePreview(options: {
    * from this notification's own title/body.
    */
   systemLogEntries?: PlayIntentUpdatesLogEntry[];
+  /** True when the log recipient has not answered their invite yet, which appends the respond call-to-action line. */
+  systemLogShowRespondCallToAction?: boolean;
 }): DirectMessagePreviewPayload {
   const creatorLabel = options.creatorDisplayName
     ? buildDiscordUserLabel(options.creatorDisplayName, options.creatorDiscordUserId)
@@ -1582,7 +1587,8 @@ export function buildNotificationDirectMessagePreview(options: {
     return {
       content: buildPlayIntentUpdatesLogContent({
         headline: options.intentDetails?.headline,
-        entries: options.systemLogEntries ?? [{ title: options.title, body: options.body }]
+        entries: options.systemLogEntries ?? [{ title: options.title, body: options.body }],
+        showRespondCallToAction: options.systemLogShowRespondCallToAction
       }),
       components: []
     }
@@ -2451,36 +2457,55 @@ export async function refreshTrackedPlayIntentNotificationDirectMessages(options
       .map((notification) => `${notification.playIntentId}:${notification.userId}`)
   )
   const systemLogEntriesByPairKey = new Map<string, PlayIntentUpdatesLogEntry[]>()
+  let pendingResponsePairKeys = new Set<string>()
 
   if (systemLogPairKeys.size > 0) {
-    const systemLogRows = await prisma.notification.findMany({
-      where: {
-        type: NotificationType.SYSTEM,
-        title: {
-          not: callToPlayEndedSystemNotification.title
+    const [systemLogRows, recipientTimezoneRows, pendingPairKeys] = await Promise.all([
+      prisma.notification.findMany({
+        where: {
+          type: NotificationType.SYSTEM,
+          title: {
+            not: callToPlayEndedSystemNotification.title
+          },
+          playIntentId: {
+            in: playIntentIds
+          },
+          userId: {
+            in: recipientUserIds
+          }
         },
-        playIntentId: {
-          in: playIntentIds
-        },
-        userId: {
-          in: recipientUserIds
+        orderBy: [
+          {
+            createdAt: 'desc'
+          },
+          {
+            id: 'desc'
+          }
+        ],
+        select: {
+          playIntentId: true,
+          userId: true,
+          title: true,
+          body: true,
+          createdAt: true
         }
-      },
-      orderBy: [
-        {
-          createdAt: 'desc'
+      }),
+      prisma.user.findMany({
+        where: {
+          id: {
+            in: recipientUserIds
+          }
         },
-        {
-          id: 'desc'
+        select: {
+          id: true,
+          timezoneId: true
         }
-      ],
-      select: {
-        playIntentId: true,
-        userId: true,
-        title: true,
-        body: true
-      }
-    })
+      }),
+      getPendingResponsePlayIntentPairKeys(playIntentIds, recipientUserIds)
+    ])
+
+    pendingResponsePairKeys = pendingPairKeys
+    const timezoneIdByUserId = new Map(recipientTimezoneRows.map((row) => [row.id, row.timezoneId]))
 
     for (const row of systemLogRows) {
       const pairKey = `${row.playIntentId}:${row.userId}`
@@ -2490,7 +2515,7 @@ export async function refreshTrackedPlayIntentNotificationDirectMessages(options
       }
 
       const entries = systemLogEntriesByPairKey.get(pairKey) ?? []
-      entries.push({ title: row.title, body: row.body })
+      entries.push(buildPlayIntentUpdatesLogEntry(row, timezoneIdByUserId.get(row.userId)))
       systemLogEntriesByPairKey.set(pairKey, entries)
     }
   }
@@ -2692,6 +2717,9 @@ export async function refreshTrackedPlayIntentNotificationDirectMessages(options
       actorDiscordUserId: actor?.identities[0]?.providerUserId ?? null,
       systemLogEntries: notification.type === NotificationType.SYSTEM && notification.playIntentId
         ? systemLogEntriesByPairKey.get(`${notification.playIntentId}:${notification.userId}`)
+        : undefined,
+      systemLogShowRespondCallToAction: notification.type === NotificationType.SYSTEM && notification.playIntentId
+        ? pendingResponsePairKeys.has(`${notification.playIntentId}:${notification.userId}`)
         : undefined
     }
 
@@ -3268,10 +3296,12 @@ function buildCreatorPassNotification(notification: {
 
 /**
  * Fans a SYSTEM status notification (web inbox + Discord updates-log DM) out
- * to every other interested recipient on a call to play, skipping the
- * triggering user and the creator. Used when someone marks interested or
- * flags that they are running late so the rest of the interested group stays
- * in sync.
+ * to every other invited recipient on a call to play who has not passed —
+ * interested players and not-yet-responded invitees alike — skipping the
+ * triggering user and the creator. Used when someone marks interested,
+ * passes, or flags that they are running late so the rest of the group stays
+ * in sync (and fence-sitters are nudged to respond). Passing removes a
+ * recipient from this fan-out, which is what stops their update pings.
  */
 async function fanOutAudienceResponseNotifications(options: {
   playIntentId: string;
@@ -3280,17 +3310,17 @@ async function fanOutAudienceResponseNotifications(options: {
   gameId: string | null;
   audienceCopy: SystemNotificationCopy;
 }) {
-  const interestedUsersByPlayIntentId = await getInterestedUsersByPlayIntentId([options.playIntentId])
-  const interestedRecipients = (interestedUsersByPlayIntentId.get(options.playIntentId) ?? []).filter((user) => (
+  const eligibleRecipientsByPlayIntentId = await getUpdateEligibleRecipientsByPlayIntentId([options.playIntentId])
+  const audienceRecipients = (eligibleRecipientsByPlayIntentId.get(options.playIntentId) ?? []).filter((user) => (
     user.id !== options.triggeredByUserId && user.id !== options.creatorUserId
   ))
 
-  if (interestedRecipients.length === 0) {
+  if (audienceRecipients.length === 0) {
     return
   }
 
   await prisma.$transaction((transaction) => Promise.all(
-    interestedRecipients.map((user) => upsertCreatorResponseSystemNotification(transaction, {
+    audienceRecipients.map((user) => upsertCreatorResponseSystemNotification(transaction, {
       playIntentId: options.playIntentId,
       recipientUserId: user.id,
       triggeredByUserId: options.triggeredByUserId,
@@ -3300,7 +3330,7 @@ async function fanOutAudienceResponseNotifications(options: {
     }))
   ))
 
-  await Promise.all(interestedRecipients.map((user) => {
+  await Promise.all(audienceRecipients.map((user) => {
     const discordUserId = user.identities?.[0]?.providerUserId
 
     if (!discordUserId) {
@@ -3396,6 +3426,19 @@ async function applyRecipientResponseToPlayIntentNotification(options: {
         playIntentId: playIntent.id,
         recipientUserId: playIntent.user.id,
         discordUserId: creatorDiscordUserId
+      })
+    }
+
+    if (shouldCreateCreatorPassNotification) {
+      await fanOutAudienceResponseNotifications({
+        playIntentId: playIntent.id,
+        triggeredByUserId: notification.userId,
+        creatorUserId: playIntent.user.id,
+        gameId: notification.gameId,
+        audienceCopy: formatAudienceInterestWithdrawnSystemNotification({
+          recipientDisplayName: notification.user.displayName,
+          gameTitle: responseGameTitle
+        })
       })
     }
 

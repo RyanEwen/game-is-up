@@ -72,6 +72,21 @@ export function formatPlayIntentTimeLabel(date: Date, timezoneId: string | null 
   return minute === '00' ? `${hour}${dayPeriod}` : `${hour}:${minute}${dayPeriod}`
 }
 
+/**
+ * Compact "Fri 7:05pm" label for updates-log entry lines. Rendered as plain
+ * text (not Discord `<t:…>` markup) because the log DM's content is shown raw
+ * in Android push notifications.
+ */
+export function formatPlayIntentLogTimestampLabel(date: Date, timezoneId: string | null | undefined) {
+  const normalizedTimezoneId = resolvePlayIntentTimezoneId(timezoneId)
+  const parts = formatDateTimeToParts(date, {
+    timeZone: normalizedTimezoneId,
+    weekday: 'short'
+  }, 'en-US') as Intl.DateTimeFormatPart[]
+
+  return `${findDateTimePartValue(parts, 'weekday')} ${formatPlayIntentTimeLabel(date, timezoneId)}`
+}
+
 export function formatPlayIntentWindowLabel(
   startsAt: Date,
   endsAt: Date,
