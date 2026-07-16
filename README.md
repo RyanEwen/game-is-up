@@ -144,12 +144,6 @@ Keep any `compose.prod.yml` override out of the repository; that file is intende
   docker compose up --build -d
   ```
 
-   If you serve the app through Cloudflare, you can follow the deploy with a targeted edge-cache purge:
-
-  ```bash
-  docker compose up --build -d && npm run cache:purge:cloudflare
-  ```
-
 6. Open the app on `http://localhost:8080` by default. If you need a different host port, set `PORT`, for example `PORT=9090 docker compose up --build -d`.
 
 For a minimal SSH-driven deployment from your local workspace, the repo now includes:
@@ -165,7 +159,6 @@ That script:
 - SSHes into the production host
 - refuses to deploy if the remote repo has tracked uncommitted changes
 - runs `docker compose -f compose.yml -f compose.prod.yml up --build -d` in the remote checkout when a server-only `compose.prod.yml` exists there
-- runs `npm run cache:purge:cloudflare` on the server after deploy when the remote `.env` includes the required Cloudflare values
 
 Default SSH deployment values are:
 
@@ -174,7 +167,7 @@ Default SSH deployment values are:
 - repo path: `/srv/game-is-up`
 - branch: `main`
 
-Override them with flags such as `--host`, `--port`, `--repo-path`, `--branch`, and `--compose-file`, or with the env vars `DEPLOY_SSH_HOST`, `DEPLOY_SSH_PORT`, `DEPLOY_REPO_PATH`, `DEPLOY_GIT_BRANCH`, and `DEPLOY_COMPOSE_FILES`. Pass `--compose-file` multiple times when you need an exact Compose stack, for example `--compose-file compose.yml --compose-file compose.prod.yml`. If you need to bypass the post-deploy purge for an emergency rollout, pass `--skip-cache-purge`.
+Override them with flags such as `--host`, `--port`, `--repo-path`, `--branch`, and `--compose-file`, or with the env vars `DEPLOY_SSH_HOST`, `DEPLOY_SSH_PORT`, `DEPLOY_REPO_PATH`, `DEPLOY_GIT_BRANCH`, and `DEPLOY_COMPOSE_FILES`. Pass `--compose-file` multiple times when you need an exact Compose stack, for example `--compose-file compose.yml --compose-file compose.prod.yml`.
 
 The devcontainer now bind-mounts your local `.ssh` directory, so this deploy path uses your normal SSH config and host aliases directly. With the default host of `deploy-host`, any configured user, key selection, and host-specific settings come from your mounted SSH config rather than deploy-script flags.
 
@@ -193,23 +186,7 @@ For a host-Nginx setup, the important production values are:
 
 When the web app is built for same-origin production hosting with `VITE_API_BASE_URL=` empty, client auth flows should still construct absolute OAuth entry URLs so redirects remain stable behind reverse proxies and alternate origins.
 
-For Cloudflare-backed deployments, the repo now includes a purge helper that reads the same root `.env` file used by Docker Compose. Set `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ZONE_ID`, then run `npm run cache:purge:cloudflare` after deployment. By default it purges the app shell URLs most likely to stay stale at the edge: `/`, `/index.html`, `/sw.js`, `/registerSW.js`, and `/manifest.webmanifest`.
-
-If you need to add more URLs, set `CLOUDFLARE_PURGE_PATHS` as a comma-separated list or pass repeated `--path` flags, for example:
-
-```bash
-npm run cache:purge:cloudflare -- --path /discovery --path /library
-
-Note: if you are purging route-backed dashboard pages, use `/discovery` rather than `/discover`.
-```
-
-For an emergency full-zone purge, run:
-
-```bash
-npm run cache:purge:cloudflare:everything
-```
-
-Prefer the targeted purge command for normal releases so long-lived hashed assets can stay cached.
+For Cloudflare-backed deployments, no cache purge is needed: nginx serves the app-shell URLs (`/`, `/index.html`, `/sw.js`, `/registerSW.js`, `/manifest.webmanifest`) with `Cache-Control: no-store`, so the edge never caches them (`cf-cache-status: BYPASS`/`DYNAMIC`) and installed PWAs pick up new builds on their next service-worker check. Hashed assets stay long-lived and immutable. If a Cloudflare-level cache rule (for example "Cache Everything") is ever added, it must exclude those shell URLs or app updates will stall for installed clients.
 
 This repo now treats Prisma migrations as the source of truth for schema changes. Use `db:migrate` to create new migrations during development and `db:migrate:deploy` for deployment targets.
 

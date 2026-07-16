@@ -1,7 +1,7 @@
 ---
 name: "deploy"
 description: "Review, document, commit, push, and deploy the current changes with the production SSH workflow unless the prompt invocation requests a pause."
-argument-hint: "Optional change summary or flags such as confirm first, skip cache purge, dry run, or alternate deploy args"
+argument-hint: "Optional change summary or flags such as confirm first, dry run, or alternate deploy args"
 agent: "agent"
 model: "GPT-5 (copilot)"
 ---
@@ -18,7 +18,7 @@ Requirements:
 - Treat the prompt invocation as approval to deploy after a successful push unless the invocation explicitly says not to deploy.
 - Use the production SSH deploy path by default: `npm run deploy:prod:ssh`.
 - If the prompt invocation explicitly requests `push`, include the push step even when the deploy command could also push.
-- If the prompt invocation explicitly requests deploy args such as `--skip-cache-purge`, `--dry-run`, `--host`, `--repo-path`, or `--branch`, pass them through to the deploy command.
+- If the prompt invocation explicitly requests deploy args such as `--dry-run`, `--host`, `--repo-path`, or `--branch`, pass them through to the deploy command.
 
 Documentation review scope:
 - `README.md` for setup, workflow, deployment, or user-visible behavior changes

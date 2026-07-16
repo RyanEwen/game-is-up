@@ -15,7 +15,6 @@ function parseArgs(argv) {
     port: process.env.DEPLOY_SSH_PORT?.trim() || '22',
     push: false,
     repoPath: process.env.DEPLOY_REPO_PATH?.trim() || '/srv/game-is-up',
-    skipCachePurge: false,
     skipValidate: false
   }
 
@@ -39,11 +38,6 @@ function parseArgs(argv) {
 
     if (argument === '--skip-validate') {
       options.skipValidate = true
-      continue
-    }
-
-    if (argument === '--skip-cache-purge') {
-      options.skipCachePurge = true
       continue
     }
 
@@ -134,7 +128,7 @@ function parseArgs(argv) {
 }
 
 function printHelp() {
-  process.stdout.write(`Usage: npm run deploy:prod:ssh -- [options]\n\nOptions:\n  --push                Push local HEAD to origin/<branch> before deploying\n  --skip-validate       Skip local npm run validate before deployment\n  --skip-cache-purge    Skip the post-deploy Cloudflare cache purge\n  --host <value>        SSH host, default deploy-host\n  --port <value>        SSH port, default 22\n  --repo-path <path>    Remote repo path, default /srv/game-is-up\n  --branch <name>       Git branch to deploy, default main\n  --compose-file <path> Repeatable Docker Compose file override; defaults to compose.yml and auto-adds compose.prod.yml when present on the server\n  --dry-run             Print the planned commands without running them\n  --help                Show this message\n`)
+  process.stdout.write(`Usage: npm run deploy:prod:ssh -- [options]\n\nOptions:\n  --push                Push local HEAD to origin/<branch> before deploying\n  --skip-validate       Skip local npm run validate before deployment\n  --host <value>        SSH host, default deploy-host\n  --port <value>        SSH port, default 22\n  --repo-path <path>    Remote repo path, default /srv/game-is-up\n  --branch <name>       Git branch to deploy, default main\n  --compose-file <path> Repeatable Docker Compose file override; defaults to compose.yml and auto-adds compose.prod.yml when present on the server\n  --dry-run             Print the planned commands without running them\n  --help                Show this message\n`)
 }
 
 function parseComposeFiles(value) {
@@ -185,7 +179,6 @@ function getLocalStatus() {
 function buildRemoteDeployCommand(options) {
   const branch = shellQuote(options.branch)
   const repoPath = shellQuote(options.repoPath)
-  const shouldPurgeCache = !options.skipCachePurge
   const composeFileCommands = options.composeFiles.length > 0
     ? options.composeFiles.map((composeFile) => `compose_args+=("-f" ${shellQuote(composeFile)})`)
     : [
@@ -210,15 +203,6 @@ function buildRemoteDeployCommand(options) {
     `git checkout ${branch}`,
     `git pull --ff-only origin ${branch}`,
     'docker compose "${compose_args[@]}" up --build -d',
-    ...(shouldPurgeCache
-      ? [
-          'if [[ -f .env ]] && grep -Eq "^(export[[:space:]]+)?CLOUDFLARE_API_TOKEN=" .env && grep -Eq "^(export[[:space:]]+)?CLOUDFLARE_ZONE_ID=" .env && grep -Eq "^(export[[:space:]]+)?(CLOUDFLARE_PURGE_BASE_URL|VITE_PUBLIC_APP_URL|CLIENT_ORIGIN)=" .env; then',
-          '  npm run cache:purge:cloudflare',
-          'else',
-          '  printf "%s\n" "Skipping Cloudflare cache purge because the required values were not found in .env."',
-          'fi'
-        ]
-      : []),
     'docker compose "${compose_args[@]}" ps',
     'printf "%s %s\n" "Deployed commit:" "$(git rev-parse --short HEAD)"'
   ].join('\n')
@@ -248,7 +232,6 @@ function main() {
     process.stdout.write(`Compose files: ${describeComposeFiles(options)}\n`)
     process.stdout.write(`Will push first: ${options.push ? 'yes' : 'no'}\n`)
     process.stdout.write(`Will validate first: ${options.skipValidate ? 'no' : 'yes'}\n`)
-    process.stdout.write(`Will purge Cloudflare cache: ${options.skipCachePurge ? 'no' : 'yes, when configured on the server'}\n`)
     process.stdout.write(`SSH command: ssh ${sshArgs.map(shellQuote).join(' ')}\n`)
     return
   }
