@@ -480,7 +480,7 @@ function InfoPopoverButton({
             border: '1px solid',
             borderColor: 'neutral.700',
             overflow: 'auto',
-            backgroundColor: '#121a28'
+            backgroundColor: 'var(--joy-palette-background-popup)'
           }}
         >
           <Stack spacing={0.75}>

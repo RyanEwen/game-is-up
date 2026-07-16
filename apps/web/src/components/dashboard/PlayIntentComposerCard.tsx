@@ -23,36 +23,50 @@ import {
   playIntentPresetDurations
 } from './dashboardUtils'
 import { DashboardModalActionBar } from './DashboardModalActionBar'
+import { useDeviceTheme } from '../../hooks/useDeviceTheme'
+import type { AppThemeId } from '../../theme/themes'
 import type { PlayIntentStartMode, PlayIntentTimingMode, PlayIntentVoiceMode } from './types'
 import dayjs, { type Dayjs } from 'dayjs'
 
 const localDateTimeFormat = 'YYYY-MM-DDTHH:mm'
 
-const playIntentPickerTheme = createTheme({
-  palette: {
-    mode: 'dark',
-    primary: {
-      main: '#33d7a6',
-      light: '#57f4c1',
-      dark: '#14886a'
-    },
-    background: {
-      default: '#070b14',
-      paper: '#121a28'
-    },
-    text: {
-      primary: '#ffffff',
-      secondary: '#d1dbe5'
-    },
+// The Material date-time picker cannot read Joy CSS vars from a theme
+// object, so each app theme gets a concrete Material palette here. Keep
+// these in step with the palettes in src/theme.
+const playIntentPickerThemes: Record<AppThemeId, ReturnType<typeof createTheme>> = {
+  classic: createPickerTheme({
+    primary: { main: '#33d7a6', light: '#57f4c1', dark: '#14886a' },
+    background: { default: '#070b14', paper: '#121a28' },
+    text: { primary: '#ffffff', secondary: '#d1dbe5' },
     divider: '#3b4d66'
-  },
-  shape: {
-    borderRadius: 16
-  },
-  typography: {
-    fontFamily: 'IBM Plex Sans, sans-serif'
-  }
-})
+  }),
+  'gold-bubble': createPickerTheme({
+    primary: { main: '#f7b733', light: '#fddd8d', dark: '#a06d08' },
+    background: { default: '#101117', paper: '#1e1f28' },
+    text: { primary: '#ffffff', secondary: '#e2e3e9' },
+    divider: '#353742'
+  })
+}
+
+function createPickerTheme(palette: {
+  primary: { main: string; light: string; dark: string }
+  background: { default: string; paper: string }
+  text: { primary: string; secondary: string }
+  divider: string
+}) {
+  return createTheme({
+    palette: {
+      mode: 'dark',
+      ...palette
+    },
+    shape: {
+      borderRadius: 16
+    },
+    typography: {
+      fontFamily: 'IBM Plex Sans, sans-serif'
+    }
+  })
+}
 
 function toPickerValue(value: string): Dayjs | null {
   if (!value) {
@@ -81,8 +95,10 @@ function PlayIntentDateTimeInput({
   error: boolean;
   onChange: (value: string) => void;
 }) {
+  const [appThemeId] = useDeviceTheme()
+
   return (
-    <ThemeProvider theme={{ [MATERIAL_THEME_ID]: playIntentPickerTheme }}>
+    <ThemeProvider theme={{ [MATERIAL_THEME_ID]: playIntentPickerThemes[appThemeId] }}>
       <LocalizationProvider dateAdapter={AdapterDayjs}>
         <DateTimePicker
           value={toPickerValue(value)}
@@ -100,43 +116,43 @@ function PlayIntentDateTimeInput({
               sx: {
                 '& .MuiInputBase-root': {
                   minHeight: 48,
-                  backgroundColor: 'rgba(31, 42, 58, 0.87)',
-                  color: '#ffffff'
+                  backgroundColor: 'var(--joy-palette-background-level2)',
+                  color: 'var(--joy-palette-text-primary)'
                 },
                 '& .MuiOutlinedInput-notchedOutline': {
-                  borderColor: '#3b4d66'
+                  borderColor: 'var(--joy-palette-neutral-700)'
                 },
                 '&:hover .MuiOutlinedInput-notchedOutline': {
-                  borderColor: '#506077'
+                  borderColor: 'var(--joy-palette-neutral-600)'
                 },
                 '& .Mui-focused .MuiOutlinedInput-notchedOutline': {
-                  borderColor: '#33d7a6'
+                  borderColor: 'var(--joy-palette-primary-400)'
                 },
                 '& .MuiIconButton-root': {
-                  color: '#d1dbe5'
+                  color: 'var(--joy-palette-text-secondary)'
                 }
               }
             },
             desktopPaper: {
               sx: {
                 backgroundImage: 'none',
-                backgroundColor: '#121a28',
-                border: '1px solid #3b4d66'
+                backgroundColor: 'var(--joy-palette-background-popup)',
+                border: '1px solid var(--joy-palette-neutral-700)'
               }
             },
             mobilePaper: {
               sx: {
                 backgroundImage: 'none',
-                backgroundColor: '#121a28',
-                border: '1px solid #3b4d66'
+                backgroundColor: 'var(--joy-palette-background-popup)',
+                border: '1px solid var(--joy-palette-neutral-700)'
               }
             },
             popper: {
               sx: {
                 '& .MuiPaper-root': {
                   backgroundImage: 'none',
-                  backgroundColor: '#121a28',
-                  border: '1px solid #3b4d66'
+                  backgroundColor: 'var(--joy-palette-background-popup)',
+                  border: '1px solid var(--joy-palette-neutral-700)'
                 }
               }
             }

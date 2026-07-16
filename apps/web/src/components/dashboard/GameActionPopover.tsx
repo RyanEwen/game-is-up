@@ -37,10 +37,10 @@ const chipTriggerSx = {
   cursor: 'pointer',
   transition: 'background-color 180ms ease, color 180ms ease, transform 180ms ease, box-shadow 180ms ease',
   '&:hover': {
-    backgroundColor: 'rgba(16, 106, 84, 0.9)',
+    backgroundColor: 'rgba(var(--joy-palette-primary-darkChannel) / 0.9)',
     color: 'primary.100',
     transform: 'translateY(-1px)',
-    boxShadow: '0 0 0 1px rgba(141, 255, 216, 0.22)'
+    boxShadow: '0 0 0 1px rgba(var(--joy-palette-primary-lightChannel) / 0.22)'
   },
   '&:focus-visible': {
     outline: '2px solid',

@@ -26,24 +26,24 @@ const responseToneStyles = {
     responseLabel: 'Interested',
     responseDetail: 'Interested in this call to play.',
     badgeColor: 'success',
-    borderColor: '#14886a',
-    background: 'linear-gradient(180deg, #14352f, #141b28)'
+    borderColor: 'var(--joy-palette-primary-600)',
+    background: 'linear-gradient(180deg, rgba(var(--joy-palette-primary-darkChannel) / 0.5), var(--joy-palette-background-popup))'
   },
   late: {
     accentColor: 'warning.300',
     responseLabel: 'Running late',
     responseDetail: 'Interested, but running late.',
     badgeColor: 'warning',
-    borderColor: '#7c5a17',
-    background: 'linear-gradient(180deg, #2b2312, #141b28)'
+    borderColor: 'var(--joy-palette-warning-700)',
+    background: 'linear-gradient(180deg, rgba(var(--joy-palette-warning-darkChannel) / 0.5), var(--joy-palette-background-popup))'
   },
   passed: {
     accentColor: 'warning.200',
     responseLabel: 'Passed',
     responseDetail: 'Passed on this call to play.',
     badgeColor: 'warning',
-    borderColor: '#7c5a17',
-    background: 'linear-gradient(180deg, #2b2312, #141b28)'
+    borderColor: 'var(--joy-palette-warning-700)',
+    background: 'linear-gradient(180deg, rgba(var(--joy-palette-warning-darkChannel) / 0.5), var(--joy-palette-background-popup))'
   }
 } as const satisfies Record<string, {
   accentColor: string;

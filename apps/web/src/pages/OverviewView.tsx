@@ -602,7 +602,7 @@ export function InviteUsersCard({
                           sx={{
                             p: { xs: 1, sm: 1.25 },
                             borderRadius: 'md',
-                            backgroundColor: isSelected ? 'rgba(20, 136, 106, 0.14)' : 'transparent'
+                            backgroundColor: isSelected ? 'rgba(var(--joy-palette-primary-mainChannel) / 0.14)' : 'transparent'
                           }}
                         >
                           <Stack direction="row" spacing={{ xs: 1, sm: 1.25 }} justifyContent="space-between" alignItems="center">

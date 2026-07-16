@@ -252,7 +252,7 @@ export function LibrarySuggestionsRow({
                     backgroundColor: libraryGameIds.has(game.gameId) ? undefined : 'primary.400',
                     color: libraryGameIds.has(game.gameId) ? undefined : 'common.white',
                     transform: libraryGameIds.has(game.gameId) ? undefined : 'translateY(-1px)',
-                    boxShadow: libraryGameIds.has(game.gameId) ? undefined : '0 0 0 1px rgba(141, 255, 216, 0.22)'
+                    boxShadow: libraryGameIds.has(game.gameId) ? undefined : '0 0 0 1px rgba(var(--joy-palette-primary-lightChannel) / 0.22)'
                   },
                   '&:focus-visible': {
                     outline: '2px solid',

@@ -48,8 +48,8 @@ export function LibraryEntryCard({
           aspectRatio: commonWideGameCoverAspectRatio,
           flexShrink: 0,
           overflow: 'hidden',
-          background: 'linear-gradient(160deg, #1a4b56, #121a28 58%, #5b3807)',
-          borderBottom: '1px solid #304159',
+          background: 'linear-gradient(160deg, rgba(var(--joy-palette-primary-darkChannel) / 0.85), var(--joy-palette-background-popup) 58%, rgba(var(--joy-palette-warning-darkChannel) / 0.8))',
+          borderBottom: '1px solid var(--joy-palette-neutral-700)',
           borderLeft: 'none',
           borderRight: 'none',
           borderTop: 'none',
@@ -66,7 +66,7 @@ export function LibraryEntryCard({
             sx={{
               height: '100%',
               p: 2,
-              background: 'linear-gradient(180deg, #131c2b, #121a28)'
+              background: 'linear-gradient(180deg, var(--joy-palette-background-level1), var(--joy-palette-background-popup))'
             }}
           >
             <Typography level="title-md" sx={{ color: 'common.white' }}>

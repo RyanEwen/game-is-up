@@ -413,8 +413,8 @@ export function PlayIntentDetailView() {
         variant="soft"
         sx={{
           p: 3,
-            border: '1px solid #14886a',
-            background: 'linear-gradient(180deg, #143b33, #0d1322)',
+            border: '1px solid var(--joy-palette-primary-600)',
+            background: 'linear-gradient(180deg, var(--gu-soft-primary-card-gradient-start), var(--gu-soft-primary-card-gradient-end))',
             boxShadow: 'none'
         }}
       >

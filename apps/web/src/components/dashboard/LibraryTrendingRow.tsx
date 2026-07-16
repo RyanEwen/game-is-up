@@ -436,7 +436,7 @@ export function LibraryTrendingRow({
                           transition: 'background-color 180ms ease, color 180ms ease, border-color 180ms ease',
                           '&:hover': {
                             backgroundColor: game.alreadyInLibrary ? 'rgba(59, 77, 102, 0.46)' : 'rgba(16, 106, 84, 0.22)',
-                            borderColor: game.alreadyInLibrary ? 'rgba(80, 96, 119, 0.58)' : 'rgba(141, 255, 216, 0.24)',
+                            borderColor: game.alreadyInLibrary ? 'rgba(var(--joy-palette-neutral-mainChannel) / 0.5)' : 'rgba(var(--joy-palette-primary-lightChannel) / 0.24)',
                             color: game.alreadyInLibrary ? 'neutral.500' : 'primary.50'
                           },
                           '&.Mui-disabled': {

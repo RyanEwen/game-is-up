@@ -74,7 +74,7 @@ export const nestedInsetSurfaceSx = {
 } as const
 
 export const nestedInsetMediaSx = {
-  backgroundColor: '#111827'
+  backgroundColor: 'var(--joy-palette-background-popup)'
 } as const
 
 export const headerFilterControlSx = {
