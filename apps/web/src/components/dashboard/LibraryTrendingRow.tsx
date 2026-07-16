@@ -96,12 +96,18 @@ export function LibraryTrendingRow({
 
     const measureTicker = () => {
       const nextLoopWidth = baseCycle.getBoundingClientRect().width
-      const nextCopyCount = buildMinimumTickerCopyCount(nextLoopWidth, viewport.clientWidth)
+      // Only run the marquee (duplicate copies + auto-scroll + drag) when a
+      // single copy of the list overflows the viewport. When everything fits,
+      // each game renders exactly once and the row stays static.
+      const overflowsViewport = nextLoopWidth > viewport.clientWidth + 1
+      const nextCopyCount = overflowsViewport
+        ? buildMinimumTickerCopyCount(nextLoopWidth, viewport.clientWidth)
+        : 1
 
       setCopyCount((currentCopyCount) => (currentCopyCount === nextCopyCount ? currentCopyCount : nextCopyCount))
       setLoopWidth(nextLoopWidth)
 
-      const canScroll = trendingGames.length > 1 && nextLoopWidth > 0
+      const canScroll = overflowsViewport && nextLoopWidth > 0
       setShouldAutoScroll(canScroll)
 
       offsetRef.current = canScroll
