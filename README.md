@@ -112,8 +112,6 @@ Because the text is outlined, the emitted SVGs have no font dependency and raste
 everywhere. After changing icon art or references, bump the icon version query string in
 `apps/web/vite.config.ts` and `apps/web/index.html` so installed clients refetch the new assets.
 
-The older `icon-gamepad-voice-*` assets in `apps/web/public` are the superseded previous branding
-and are no longer referenced.
 
 ## Database helpers
 

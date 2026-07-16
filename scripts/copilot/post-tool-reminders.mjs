@@ -20,7 +20,7 @@ const touchesPwaIconFiles = filePaths.some(
   (filePath) =>
     filePath === 'apps/web/vite.config.ts' ||
     filePath === 'apps/web/index.html' ||
-    filePath.startsWith('apps/web/public/icon-gamepad-voice-')
+    filePath.startsWith('apps/web/public/icon-')
 )
 
 if (filePaths.some((filePath) => filePath.startsWith('packages/shared/'))) {

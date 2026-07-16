@@ -87,22 +87,18 @@ export function SectionNav({
           px: { xs: 2, sm: 2.5 },
           py: { xs: 0.75, sm: 1 },
           borderTop: 'none',
-          borderLeft: '1px solid rgba(129, 166, 214, 0.22)',
-          borderRight: '1px solid rgba(129, 166, 214, 0.22)',
-          borderBottom: '1px solid rgba(129, 166, 214, 0.22)',
+          borderLeft: '1px solid var(--gu-section-nav-border)',
+          borderRight: '1px solid var(--gu-section-nav-border)',
+          borderBottom: '1px solid var(--gu-section-nav-border)',
           borderTopLeftRadius: topRadius,
           borderTopRightRadius: topRadius,
           borderBottomLeftRadius: 'var(--joy-radius-xl, 16px)',
           borderBottomRightRadius: 'var(--joy-radius-xl, 16px)',
           transition: 'border-top-left-radius 120ms ease, border-top-right-radius 120ms ease',
-          backgroundColor: 'rgba(18, 34, 48, 0.72)',
-          backdropFilter: 'blur(12px) saturate(1.06)',
-          WebkitBackdropFilter: 'blur(12px) saturate(1.06)',
-          boxShadow: [
-            '0 14px 26px -18px rgba(0, 0, 0, 0.72)',
-            'inset 0 -1px 0 rgba(255, 255, 255, 0.05)',
-            '0 0 0 1px rgba(113, 160, 214, 0.12)'
-          ].join(', ')
+          backgroundColor: 'var(--gu-section-nav-background)',
+          backdropFilter: 'var(--gu-section-nav-backdrop-filter)',
+          WebkitBackdropFilter: 'var(--gu-section-nav-backdrop-filter)',
+          boxShadow: 'var(--gu-section-nav-shadow)'
         }}
       >
         {sections.map(({ id, label, mobileLabel, desktopLabel, ariaLabel, count }, i) => (
@@ -111,7 +107,7 @@ export function SectionNav({
               <Box
                 component="span"
                 aria-hidden
-                sx={{ mx: 1.5, color: 'rgba(255,255,255,0.26)', userSelect: 'none', fontSize: 'sm' }}
+                sx={{ mx: 1.5, color: 'var(--gu-section-nav-separator)', userSelect: 'none', fontSize: 'sm' }}
               >
                 ·
               </Box>
@@ -127,16 +123,16 @@ export function SectionNav({
                 border: 'none',
                 background: 'none',
                 padding: 0,
-                color: 'var(--joy-palette-neutral-300)',
+                color: 'var(--gu-section-nav-text)',
                 fontSize: { xs: 'var(--joy-fontSize-sm)', sm: 'var(--joy-fontSize-md)' },
                 fontWeight: 'var(--joy-fontWeight-md)',
                 fontFamily: 'var(--joy-fontFamily-body)',
                 whiteSpace: 'nowrap',
                 cursor: 'pointer',
                 transition: 'color 150ms ease',
-                '&:hover': { color: 'var(--joy-palette-neutral-100)' },
+                '&:hover': { color: 'var(--gu-section-nav-text-hover)' },
                 '&:focus-visible': {
-                  outline: '2px solid rgba(129, 166, 214, 0.6)',
+                  outline: '2px solid var(--gu-section-nav-focus-ring)',
                   outlineOffset: 3,
                   borderRadius: 2
                 }
@@ -152,7 +148,7 @@ export function SectionNav({
                 <Box
                   component="span"
                   sx={{
-                    color: 'var(--joy-palette-neutral-400)',
+                    color: 'var(--gu-section-nav-count)',
                     fontSize: { xs: 'var(--joy-fontSize-xs)', sm: 'var(--joy-fontSize-sm)' },
                     fontWeight: 'var(--joy-fontWeight-md)'
                   }}

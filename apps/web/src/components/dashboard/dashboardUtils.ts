@@ -28,13 +28,13 @@ export const dashboardTabSx = {
   whiteSpace: 'nowrap',
   transition: 'background-color 180ms ease, color 180ms ease, box-shadow 180ms ease',
   '&:hover': {
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
-    color: 'neutral.100'
+    backgroundColor: 'var(--gu-tab-hover-background)',
+    color: 'var(--gu-tab-hover-color)'
   },
   '&.Mui-selected': {
-    color: 'primary.200',
-    background: 'linear-gradient(180deg, rgba(20, 136, 106, 0.26), rgba(15, 84, 68, 0.18))',
-    boxShadow: 'inset 0 0 0 1px rgba(141, 255, 216, 0.16), 0 10px 20px -16px rgba(15, 84, 68, 0.9)'
+    color: 'var(--gu-tab-selected-color)',
+    background: 'var(--gu-tab-selected-background)',
+    boxShadow: 'var(--gu-tab-selected-shadow)'
   }
 } as const
 

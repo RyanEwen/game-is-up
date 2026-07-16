@@ -3,6 +3,7 @@
 Scope: applies when working in the Vite web app, Joy UI components, PWA shell, or client data loading (`apps/web/**`).
 
 - Preserve the existing visual direction: dark atmospheric shell, strong typography, and cards with clear information density.
+- Theming goes through the engine in `apps/web/src/theme/buildTheme.ts` (adapted from PrintStream): a theme is a Joy palette plus typed `chrome` slots emitted as `--gu-*` CSS vars, applied at the document root by `useChromeCssVars`. Shell chrome (body background, ambient overlays, hero, tab bar, toasts, install card, modals) must style with `var(--gu-...)` — do not hardcode per-theme colors in shell components. To add a theme, define its palette + chrome in `themes.ts` and register it in `appThemeVariants`; the exhaustive Record over `AppThemeId` fails typecheck if a registered id lacks a variant. Per-device selection persists through `useDeviceTheme` (localStorage); brand surfaces like the invite landing stay pinned to the default theme.
 - Keep UI state simple while the API is still stubbed. Prefer direct data loading over introducing a state library early.
 - Use shared schemas to validate server responses where practical so the frontend fails loudly when contracts drift.
 - Prefer browser-first flows and platform standards over custom client-specific behavior.

@@ -11,7 +11,8 @@ import {
 } from '@mui/joy'
 import { CssVarsProvider } from '@mui/joy/styles'
 import { authSessionResponseSchema, type AuthSessionResponse } from '@game-is-up/shared'
-import { theme } from '../theme/theme'
+import { useChromeCssVars } from '../hooks/useChromeCssVars'
+import { appThemeVariants, DEFAULT_APP_THEME } from '../theme/themes'
 
 type InviteLandingDetails = {
   serverName: string | null;
@@ -176,8 +177,11 @@ export function InviteLandingView() {
 
   const isAuthenticated = Boolean(session?.authenticated)
 
+  // Invite landing is a brand surface: it always renders the app default theme.
+  useChromeCssVars(appThemeVariants[DEFAULT_APP_THEME].chromeCssVars)
+
   return (
-    <CssVarsProvider theme={theme} defaultMode="dark">
+    <CssVarsProvider theme={appThemeVariants[DEFAULT_APP_THEME].theme} defaultMode="dark">
       <CssBaseline />
       <Box
         sx={{

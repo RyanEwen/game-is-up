@@ -235,8 +235,8 @@ export function DashboardModal({
           maxWidth: '100%',
           maxHeight: 'calc(100dvh - 16px)',
           overflow: 'hidden',
-          backgroundColor: '#0f1726',
-          borderColor: '#304159',
+          backgroundColor: 'var(--gu-modal-dialog-background)',
+          borderColor: 'var(--gu-modal-dialog-border)',
           boxShadow: 'none'
         }}
       >

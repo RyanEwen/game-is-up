@@ -3,7 +3,9 @@
 :root {
   color-scheme: dark;
   font-family: 'IBM Plex Sans', sans-serif;
-  background-color: #070b14;
+  /* Theme chrome vars are set on the root element by useChromeCssVars;
+     fallbacks here match the Gold Bubble default for first paint. */
+  background-color: var(--gu-body-background-color, #101117);
   --app-safe-top: env(safe-area-inset-top, 0px);
   --app-titlebar-height: env(titlebar-area-height, 0px);
   --app-titlebar-x: env(titlebar-area-x, 0px);
@@ -19,7 +21,7 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  background: radial-gradient(circle at top left, #0f5444 0%, #304159 100%);
+  background: var(--gu-body-background, #101117);
   background-repeat: no-repeat;
   background-attachment: fixed;
 }

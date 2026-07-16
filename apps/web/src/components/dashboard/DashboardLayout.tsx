@@ -1,11 +1,18 @@
 import { type ReactNode, type RefObject, useEffect, useRef, useState } from 'react'
+import CheckRoundedIcon from '@mui/icons-material/CheckRounded'
 import HomeRoundedIcon from '@mui/icons-material/HomeRounded'
+import PaletteRoundedIcon from '@mui/icons-material/PaletteRounded'
 import { Link } from 'react-router-dom'
 import {
   Alert,
   Box,
   Button,
   CssBaseline,
+  Dropdown,
+  ListItemDecorator,
+  Menu,
+  MenuButton,
+  MenuItem,
   Sheet,
   Stack,
   Tab,
@@ -14,7 +21,9 @@ import {
   Typography
 } from '@mui/joy'
 import { CssVarsProvider } from '@mui/joy/styles'
-import { theme } from '../../theme/theme'
+import { useChromeCssVars } from '../../hooks/useChromeCssVars'
+import { useDeviceTheme } from '../../hooks/useDeviceTheme'
+import { appThemeOptions, appThemeVariants } from '../../theme/themes'
 import { dashboardTabPaths, dashboardTabSx } from './dashboardUtils'
 import type { DashboardTab, DashboardToast } from './types'
 
@@ -27,11 +36,6 @@ const dashboardTabs: Array<{ value: DashboardTab; label?: string; desktopLabel?:
   { value: 'play', label: 'Play', ariaLabel: 'Play' }
 ]
 
-const ambientSpectrumGradient = 'linear-gradient(115deg, #92f7de 0%, #70ebcd 28%, #61d4bf 58%, #a9f3de 100%)'
-const ambientOverlayBase = [
-  'linear-gradient(132deg, rgba(8, 14, 24, 0.03) 0%, rgba(8, 14, 24, 0.09) 100%)',
-  'radial-gradient(circle at 50% 10%, rgba(255, 255, 255, 0.08), transparent 34%)'
-].join(',')
 
 export const DashboardLayout = ({
   activeTab,
@@ -58,6 +62,9 @@ export const DashboardLayout = ({
 }) => {
   const stickyTabsRef = useRef<HTMLDivElement | null>(null)
   const [isTabsStuck, setIsTabsStuck] = useState(false)
+  const [deviceTheme, setDeviceTheme] = useDeviceTheme()
+  const themeVariant = appThemeVariants[deviceTheme]
+  useChromeCssVars(themeVariant.chromeCssVars)
 
   useEffect(() => {
     const stickyTabs = stickyTabsRef.current
@@ -82,7 +89,7 @@ export const DashboardLayout = ({
   }, [])
 
   return (
-    <CssVarsProvider theme={theme} defaultMode="dark">
+    <CssVarsProvider theme={themeVariant.theme} defaultMode="dark">
       <CssBaseline />
       <Box
         sx={{
@@ -101,7 +108,7 @@ export const DashboardLayout = ({
           sx={{
             position: 'fixed',
             inset: 0,
-            background: ambientOverlayBase,
+            backgroundImage: 'var(--gu-ambient-overlay-base), var(--gu-ambient-overlay-glow)',
             pointerEvents: 'none',
             zIndex: 0
           }}
@@ -112,10 +119,7 @@ export const DashboardLayout = ({
           sx={{
             position: 'fixed',
             inset: 0,
-            backgroundImage: [
-              'radial-gradient(circle at 50% 8%, rgba(255, 255, 255, 0.12), transparent 32%)',
-              ambientSpectrumGradient
-            ].join(','),
+            backgroundImage: 'var(--gu-ambient-highlight), var(--gu-ambient-spectrum)',
             backgroundBlendMode: 'screen, normal',
             backgroundSize: 'auto, 100% 100%',
             backgroundPosition: 'center top, center',
@@ -133,7 +137,7 @@ export const DashboardLayout = ({
             left: 'var(--app-titlebar-x, 0px)',
             width: 'var(--app-titlebar-width, 100%)',
             height: 'var(--app-titlebar-height, 0px)',
-            backgroundImage: ambientSpectrumGradient,
+            backgroundImage: 'var(--gu-ambient-spectrum)',
             backgroundSize: '100% 100%',
             backgroundPosition: 'center',
             opacity: 0.04,
@@ -175,8 +179,8 @@ export const DashboardLayout = ({
                 sx={{
                   p: 1.5,
                   borderRadius: 'sm',
-                  backgroundColor: '#121a28',
-                  border: '1px solid #304159',
+                  backgroundColor: 'var(--gu-toast-background)',
+                  border: '1px solid var(--gu-toast-border)',
                   boxShadow: 'none',
                   pointerEvents: 'auto',
                   alignItems: 'center'
@@ -196,9 +200,9 @@ export const DashboardLayout = ({
             sx={{
               p: { xs: 3, md: 4 },
               borderRadius: 'lg',
-              border: '1px solid var(--joy-palette-neutral-700)',
+              border: '1px solid var(--gu-hero-border)',
               backgroundColor: 'var(--joy-palette-background-level2)',
-              backgroundImage: 'linear-gradient(135deg, var(--joy-palette-neutral-900) 0%, var(--joy-palette-background-level2) 64%, rgba(var(--joy-palette-primary-darkChannel) / 0.22) 100%)',
+              backgroundImage: 'var(--gu-hero-background)',
               boxShadow: 'xl'
             }}
           >
@@ -240,6 +244,43 @@ export const DashboardLayout = ({
                 >
                   Build your library, find others that want to play the same games, and connect with them to make it happen.
                 </Typography>
+                <Dropdown>
+                  <MenuButton
+                    aria-label="Choose theme"
+                    title="Choose theme"
+                    variant="plain"
+                    color="neutral"
+                    size="sm"
+                    sx={{
+                      ml: 'auto',
+                      alignSelf: 'flex-start',
+                      flexShrink: 0,
+                      minWidth: 36,
+                      px: 0.75,
+                      color: 'var(--joy-palette-neutral-300)',
+                      '&:hover': {
+                        backgroundColor: 'var(--gu-tab-hover-background)',
+                        color: 'var(--gu-tab-hover-color)'
+                      }
+                    }}
+                  >
+                    <PaletteRoundedIcon fontSize="small" />
+                  </MenuButton>
+                  <Menu placement="bottom-end" size="sm">
+                    {appThemeOptions.map((option) => (
+                      <MenuItem
+                        key={option.value}
+                        selected={option.value === deviceTheme}
+                        onClick={() => setDeviceTheme(option.value)}
+                      >
+                        <ListItemDecorator sx={{ minInlineSize: '1.75rem' }}>
+                          {option.value === deviceTheme ? <CheckRoundedIcon fontSize="small" /> : null}
+                        </ListItemDecorator>
+                        {option.label} theme
+                      </MenuItem>
+                    ))}
+                  </Menu>
+                </Dropdown>
               </Stack>
             </Stack>
           </Sheet>
@@ -253,8 +294,8 @@ export const DashboardLayout = ({
               sx={{
                 p: { xs: 2, md: 2.5 },
                 borderRadius: 'xl',
-                border: '1px solid #245f74',
-                background: 'linear-gradient(135deg, #173048, #16273a)',
+                border: '1px solid var(--gu-install-card-border)',
+                background: 'var(--gu-install-card-background)',
                 boxShadow: 'none'
               }}
             >
@@ -326,16 +367,11 @@ export const DashboardLayout = ({
                   '&::-webkit-scrollbar': {
                     display: 'none'
                   },
-                  backgroundColor: 'rgba(13, 23, 38, 0.84)',
-                  border: '1px solid rgba(118, 164, 220, 0.18)',
-                  backdropFilter: 'blur(10px) saturate(1.04)',
-                  WebkitBackdropFilter: 'blur(10px) saturate(1.04)',
-                  boxShadow: [
-                    '0 14px 26px -18px rgba(0, 0, 0, 0.92)',
-                    '0 1px 0 rgba(197, 224, 255, 0.16)',
-                    'inset 0 1px 0 rgba(255, 255, 255, 0.05)',
-                    '0 0 0 1px rgba(88, 130, 184, 0.14)'
-                  ].join(', ')
+                  backgroundColor: 'var(--gu-tab-bar-background)',
+                  border: '1px solid var(--gu-tab-bar-border)',
+                  backdropFilter: 'var(--gu-tab-bar-backdrop-filter)',
+                  WebkitBackdropFilter: 'var(--gu-tab-bar-backdrop-filter)',
+                  boxShadow: 'var(--gu-tab-bar-shadow)'
                 }}
               >
                 {dashboardTabs.map((tab) => (
