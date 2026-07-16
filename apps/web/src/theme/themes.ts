@@ -65,20 +65,26 @@ const GOLD_BUBBLE_CHROME: GameThemePalette['chrome'] = {
 }
 
 const goldBubbleTheme = createAppTheme({
+  // 50-200 are warm creams rather than pale yellows, and 600-900 are
+  // deliberately desaturated bronzes: soft/outlined primary controls fill
+  // from that range, and fully saturated ambers there read as loud gold
+  // slabs instead of quiet tinted surfaces. Only 300-500 carry the literal
+  // brand gold.
   primary: {
-    50: '#fff8e6',
-    100: '#ffedbf',
-    200: '#fddd8d',
+    50: '#fcf9f0',
+    100: '#f6efdd',
+    200: '#ecd9a4',
     300: '#f7b733',
     400: '#e9a51d',
-    500: '#d29113',
-    600: '#a06d08',
-    700: '#7a5306',
-    800: '#573a04',
-    900: '#3a2703',
-    // The brand gold with ink text, matching the icon's own contrast.
+    500: '#c88f1a',
+    600: '#615641',
+    700: '#463f30',
+    800: '#332e23',
+    900: '#221f17',
+    // Brand gold fill with warm dark-amber text - softer than the icon's
+    // near-black ink, which read too harsh at button size.
     solidBg: '#f7b733',
-    solidColor: '#191307',
+    solidColor: '#6b4a08',
     solidHoverBg: '#e9a51d',
     solidActiveBg: '#d29113'
   },

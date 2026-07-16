@@ -41,7 +41,7 @@ const playIntentPickerThemes: Record<AppThemeId, ReturnType<typeof createTheme>>
     divider: '#3b4d66'
   }),
   'gold-bubble': createPickerTheme({
-    primary: { main: '#f7b733', light: '#fddd8d', dark: '#a06d08' },
+    primary: { main: '#f7b733', light: '#ecd9a4', dark: '#c88f1a' },
     background: { default: '#101117', paper: '#1e1f28' },
     text: { primary: '#ffffff', secondary: '#e2e3e9' },
     divider: '#353742'
