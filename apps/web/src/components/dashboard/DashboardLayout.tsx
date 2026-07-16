@@ -203,78 +203,44 @@ export const DashboardLayout = ({
             }}
           >
             <Stack spacing={2}>
-              <Box
-                sx={{
-                  display: 'grid',
-                  width: '100%',
-                  columnGap: { xs: 2, sm: 2.5 },
-                  rowGap: 1.25,
-                  gridTemplateColumns: {
-                    xs: '1fr auto',
-                    sm: '1fr auto'
-                  },
-                  gridTemplateAreas: {
-                    xs: '"title logo" "body body"',
-                    sm: '"title logo" "body logo"'
-                  },
-                  alignItems: 'start'
-                }}
+              <Stack
+                direction="row"
+                spacing={{ xs: 2, md: 2.5 }}
+                sx={{ alignItems: 'center' }}
               >
                 <Box
-                  aria-hidden="true"
                   sx={{
-                    gridArea: 'logo',
-                    width: { xs: 40, md: 96 },
-                    height: { xs: 40, md: 96 },
+                    width: { xs: 64, md: 96 },
+                    height: { xs: 64, md: 96 },
                     flexShrink: 0,
-                    borderRadius: { xs: '12px', md: '22px' },
-                    p: { xs: 0.5, md: 0.85 },
-                    display: 'grid',
-                    placeItems: 'center',
+                    borderRadius: { xs: '14px', md: '22px' },
                     overflow: 'hidden',
-                    backgroundColor: 'var(--joy-palette-neutral-900)',
-                    backgroundImage: 'linear-gradient(180deg, rgba(var(--joy-palette-primary-darkChannel) / 0.1), rgba(var(--joy-palette-neutral-darkChannel) / 0.08))',
-                    border: '1px solid rgba(var(--joy-palette-neutral-mainChannel) / 0.22)',
-                    boxShadow: 'none'
                   }}
                 >
                   <Box
                     component="img"
-                    src="/icon-gamepad-voice-green-bubble.svg"
-                    alt=""
+                    src="/icon-wordmark-gold-bubble.svg"
+                    alt="Game's Up"
                     sx={{
-                      position: 'relative',
                       width: '100%',
                       height: '100%',
                       display: 'block',
                       objectFit: 'contain',
-                      objectPosition: 'center',
+                      objectPosition: 'center'
                     }}
                   />
                 </Box>
                 <Typography
-                  level="h1"
-                  sx={{
-                    gridArea: 'title',
-                    minWidth: 0,
-                    fontSize: { xs: '1.9rem', md: '3rem' },
-                    alignSelf: 'start'
-                  }}
-                >
-                  Game's Up
-                </Typography>
-                <Typography
                   level="body-lg"
                   sx={{
-                    gridArea: 'body',
                     color: 'neutral.200',
-                    maxWidth: 'none',
-                    minWidth: 0
+                    minWidth: 0,
+                    lineHeight: 1.5
                   }}
                 >
                   Build your library, find others that want to play the same games, and connect with them to make it happen.
                 </Typography>
-              </Box>
+              </Stack>
             </Stack>
           </Sheet>
 

@@ -2,7 +2,7 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
-const pwaIconVersion = '20260421'
+const pwaIconVersion = '20260716'
 
 export default defineConfig({
   cacheDir: '.vite',
@@ -43,19 +43,31 @@ export default defineConfig({
         start_url: '/',
         icons: [
           {
-            src: `/icon-gamepad-voice-green-bubble.svg?v=${pwaIconVersion}`,
+            src: `/icon-wordmark-gold-bubble.svg?v=${pwaIconVersion}`,
             sizes: 'any',
             type: 'image/svg+xml'
           },
           {
-            src: `/icon-gamepad-voice-green-bubble-192.png?v=${pwaIconVersion}`,
+            src: `/icon-wordmark-gold-bubble-192.png?v=${pwaIconVersion}`,
             sizes: '192x192',
             type: 'image/png'
           },
           {
-            src: `/icon-gamepad-voice-green-bubble-512.png?v=${pwaIconVersion}`,
+            src: `/icon-wordmark-gold-bubble-512.png?v=${pwaIconVersion}`,
             sizes: '512x512',
             type: 'image/png'
+          },
+          {
+            src: `/icon-wordmark-gold-bubble-maskable-192.png?v=${pwaIconVersion}`,
+            sizes: '192x192',
+            type: 'image/png',
+            purpose: 'maskable'
+          },
+          {
+            src: `/icon-wordmark-gold-bubble-maskable-512.png?v=${pwaIconVersion}`,
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'maskable'
           }
         ]
       }

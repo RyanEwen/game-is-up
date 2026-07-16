@@ -25,11 +25,12 @@
     "db:migrate:deploy": "npm run prisma:migrate:deploy --workspace @game-is-up/api",
     "db:migrate:bootstrap": "npm run prisma:migrate:bootstrap --workspace @game-is-up/api",
     "db:seed": "npm run prisma:seed --workspace @game-is-up/api",
-    "web:icons:export": "node scripts/dev/export-web-logo-pngs.mjs",
+    "web:icons:export": "node scripts/dev/generate-brand-icons.mjs",
     "prepare": "husky"
   },
   "devDependencies": {
     "@eslint/js": "^9.24.0",
+    "@resvg/resvg-js": "^2.6.2",
     "@typescript/native": "npm:typescript@^7.0.2",
     "concurrently": "^9.1.2",
     "eslint": "^9.24.0",
@@ -37,6 +38,7 @@
     "eslint-plugin-react-refresh": "^0.4.19",
     "globals": "^16.0.0",
     "husky": "^9.1.7",
+    "opentype.js": "^2.0.0",
     "typescript": "npm:@typescript/typescript6@^6.0.2",
     "typescript-eslint": "^8.63.0"
   }
