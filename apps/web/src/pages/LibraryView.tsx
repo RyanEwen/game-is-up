@@ -26,6 +26,7 @@ const steamImportPageSize = 50
 type SteamImportSelection = ImportSteamLibrarySelectionRequest['games'][number]
 type SteamImportLibraryFilter = 'importable' | 'already-in-library' | 'all'
 type SteamImportPlaytimeFilter = 'all' | 'recently-played' | 'played' | 'unplayed'
+type SteamImportSortOption = 'recommended' | 'most-played' | 'least-played' | 'recently-played'
 
 function UsualAvailabilityCard({
   usualAvailability,
@@ -73,6 +74,45 @@ function formatSteamPlaytime(minutes: number): string {
   const hours = Math.round((minutes / 60) * 10) / 10
 
   return `${hours}h played`
+}
+
+function compareSteamImportTitles(left: SteamLibraryImportGame, right: SteamLibraryImportGame): number {
+  return left.title.localeCompare(right.title, undefined, {
+    sensitivity: 'base',
+    numeric: true
+  })
+}
+
+/**
+ * Orders the filtered Steam preview list before pagination.
+ *
+ * `recommended` intentionally returns the list untouched: the API already sorts it
+ * (already-in-library last, then title) and the picker refines that ordering one page
+ * at a time, once lazily loaded metadata reveals which titles are single-player only.
+ * The playtime sorts must run globally instead, because playtime ships with every
+ * preview game and a per-page sort would only shuffle rows within an arbitrary slice.
+ */
+function sortSteamImportGames(
+  games: SteamLibraryImportGame[],
+  sortOption: SteamImportSortOption
+): SteamLibraryImportGame[] {
+  if (sortOption === 'recommended') {
+    return games
+  }
+
+  return [...games].sort((left, right) => {
+    if (sortOption === 'recently-played' && left.minutesPlayedRecent !== right.minutesPlayedRecent) {
+      return right.minutesPlayedRecent - left.minutesPlayedRecent
+    }
+
+    if (left.minutesPlayedTotal !== right.minutesPlayedTotal) {
+      return sortOption === 'least-played'
+        ? left.minutesPlayedTotal - right.minutesPlayedTotal
+        : right.minutesPlayedTotal - left.minutesPlayedTotal
+    }
+
+    return compareSteamImportTitles(left, right)
+  })
 }
 
 function buildDefaultSteamImportSelection(game: SteamLibraryImportGame): ImportSteamLibrarySelectionRequest['games'][number] {
@@ -421,6 +461,7 @@ function SteamImportModalPicker({
   const [query, setQuery] = useState('')
   const [libraryFilter, setLibraryFilter] = useState<SteamImportLibraryFilter>('importable')
   const [playtimeFilter, setPlaytimeFilter] = useState<SteamImportPlaytimeFilter>('all')
+  const [sortOption, setSortOption] = useState<SteamImportSortOption>('recommended')
   const [page, setPage] = useState(1)
   const [selectedSourceIds, setSelectedSourceIds] = useState<string[]>([])
   const [selectionOptions, setSelectionOptions] = useState<Record<string, SteamImportSelection>>({})
@@ -435,6 +476,7 @@ function SteamImportModalPicker({
     setQuery('')
     setLibraryFilter('importable')
     setPlaytimeFilter('all')
+    setSortOption('recommended')
     setPage(1)
     setSelectedSourceIds([])
     setSelectionOptions(
@@ -463,25 +505,25 @@ function SteamImportModalPicker({
 
     return matchesQuery && matchesLibraryFilter && matchesPlaytimeFilter
   })
-  const totalPages = Math.max(1, Math.ceil(filteredGames.length / steamImportPageSize))
+  const sortedGames = sortSteamImportGames(filteredGames, sortOption)
+  const totalPages = Math.max(1, Math.ceil(sortedGames.length / steamImportPageSize))
   const currentPage = Math.min(page, totalPages)
   const pageStartIndex = (currentPage - 1) * steamImportPageSize
-  const pageCandidateGames = filteredGames.slice(pageStartIndex, pageStartIndex + steamImportPageSize)
-  const pageGames = [...pageCandidateGames].sort((left, right) => {
-    const leftClassification = steamDetailsBySourceId[left.sourceId]?.gameplay.classification ?? left.gameplayClassification
-    const rightClassification = steamDetailsBySourceId[right.sourceId]?.gameplay.classification ?? right.gameplayClassification
-    const leftPenalty = leftClassification === 'singleplayer-only' ? 1 : 0
-    const rightPenalty = rightClassification === 'singleplayer-only' ? 1 : 0
+  const pageCandidateGames = sortedGames.slice(pageStartIndex, pageStartIndex + steamImportPageSize)
+  const pageGames = sortOption === 'recommended'
+    ? [...pageCandidateGames].sort((left, right) => {
+        const leftClassification = steamDetailsBySourceId[left.sourceId]?.gameplay.classification ?? left.gameplayClassification
+        const rightClassification = steamDetailsBySourceId[right.sourceId]?.gameplay.classification ?? right.gameplayClassification
+        const leftPenalty = leftClassification === 'singleplayer-only' ? 1 : 0
+        const rightPenalty = rightClassification === 'singleplayer-only' ? 1 : 0
 
-    if (leftPenalty !== rightPenalty) {
-      return leftPenalty - rightPenalty
-    }
+        if (leftPenalty !== rightPenalty) {
+          return leftPenalty - rightPenalty
+        }
 
-    return left.title.localeCompare(right.title, undefined, {
-      sensitivity: 'base',
-      numeric: true
-    })
-  })
+        return compareSteamImportTitles(left, right)
+      })
+    : pageCandidateGames
   const steamPageMetadataLoading = pageCandidateGames.some((game) => steamDetailsLoadingIds.includes(game.sourceId))
   const selectedSourceIdSet = new Set(selectedSourceIds)
   const expandedSourceIdSet = new Set(expandedSourceIds)
@@ -502,7 +544,7 @@ function SteamImportModalPicker({
 
   useEffect(() => {
     listScrollRef.current?.scrollTo({ top: 0 })
-  }, [currentPage, libraryFilter, normalizedQuery, playtimeFilter, preview])
+  }, [currentPage, libraryFilter, normalizedQuery, playtimeFilter, preview, sortOption])
 
   useEffect(() => {
     const sourceIdsToLoad = pageCandidateGames
@@ -618,7 +660,7 @@ function SteamImportModalPicker({
               }}
               sx={{ width: '100%' }}
             />
-            <Stack direction="row" spacing={1}>
+            <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
               <Select
                 size="sm"
                 value={libraryFilter}
@@ -628,7 +670,7 @@ function SteamImportModalPicker({
                     setPage(1)
                   }
                 }}
-                sx={{ flex: 1, minWidth: 0 }}
+                sx={{ flex: '1 1 150px', minWidth: 0 }}
               >
                 <Option value="importable">Importable only</Option>
                 <Option value="already-in-library">Already in library</Option>
@@ -643,12 +685,28 @@ function SteamImportModalPicker({
                     setPage(1)
                   }
                 }}
-                sx={{ flex: 1, minWidth: 0 }}
+                sx={{ flex: '1 1 150px', minWidth: 0 }}
               >
                 <Option value="all">Any playtime</Option>
                 <Option value="recently-played">Recently played</Option>
                 <Option value="played">Played before</Option>
                 <Option value="unplayed">Never played</Option>
+              </Select>
+              <Select
+                size="sm"
+                value={sortOption}
+                onChange={(_event, nextValue) => {
+                  if (nextValue) {
+                    setSortOption(nextValue)
+                    setPage(1)
+                  }
+                }}
+                sx={{ flex: '1 1 150px', minWidth: 0 }}
+              >
+                <Option value="recommended">Recommended order</Option>
+                <Option value="most-played">Most played</Option>
+                <Option value="least-played">Least played</Option>
+                <Option value="recently-played">Recently played</Option>
               </Select>
             </Stack>
           </Stack>
@@ -658,7 +716,7 @@ function SteamImportModalPicker({
                 ? '0 results'
                 : `Showing ${pageStartIndex + 1}-${Math.min(pageStartIndex + pageGames.length, filteredGames.length)} of ${filteredGames.length}`}
             </Typography>
-            {steamPageMetadataLoading ? (
+            {sortOption === 'recommended' && steamPageMetadataLoading ? (
               <Chip size="sm" color="neutral" variant="soft">Sorting single-player titles last...</Chip>
             ) : null}
           </Stack>
@@ -694,7 +752,7 @@ function SteamImportModalPicker({
               WebkitOverflowScrolling: 'touch'
             }}
           >
-            <Stack spacing={1.25}>
+            <Stack spacing={0.75}>
               {pageGames.map((game) => {
                 const selected = selectedSourceIdSet.has(game.sourceId)
                 const options = selectionOptions[game.sourceId] ?? buildDefaultSteamImportSelection(game)
@@ -760,15 +818,16 @@ function SteamImportRow({
     <Sheet
       variant="soft"
       sx={{
-        p: 1.25,
+        p: 0.75,
         borderRadius: 'md',
         border: '1px solid #272f3c',
         cursor: game.alreadyInLibrary ? 'default' : 'pointer'
       }}
       onClick={() => onToggleSelection(game)}
     >
-      <Stack direction="row" spacing={1.25} alignItems="center">
+      <Stack direction="row" spacing={1} alignItems="center">
         <Checkbox
+          size="sm"
           checked={game.alreadyInLibrary || selected}
           disabled={game.alreadyInLibrary || importing}
           onClick={(event) => event.stopPropagation()}
@@ -803,7 +862,7 @@ function SteamImportRow({
             <DashboardDeferredImage src={game.coverUrl} alt={game.title} rootMargin="240px 0px" />
           ) : null}
         </Box>
-        <Stack spacing={0.5} sx={{ minWidth: 0, flex: 1 }}>
+        <Stack spacing={0.25} sx={{ minWidth: 0, flex: 1 }}>
           <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }} alignItems="center">
               <Button
                 size="sm"
@@ -827,10 +886,10 @@ function SteamImportRow({
               {game.alreadyInLibrary ? <Chip size="sm" color="success" variant="soft">Already in library</Chip> : null}
               {selected && !game.alreadyInLibrary ? <Chip size="sm" variant="soft" color="primary">{formatLibraryIntentLabel(options.intent)}</Chip> : null}
             </Stack>
-          <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
-            {options.platformLabels.join(', ')}
-          </Typography>
-          <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+          <Stack direction="row" spacing={0.75} sx={{ flexWrap: 'wrap' }} alignItems="center" useFlexGap>
+            <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
+              {options.platformLabels.join(', ')}
+            </Typography>
             <Chip size="sm" variant="outlined" color="neutral">{formatSteamPlaytime(game.minutesPlayedTotal)}</Chip>
             {game.minutesPlayedRecent > 0 ? <Chip size="sm" variant="outlined" color="neutral">{formatSteamPlaytime(game.minutesPlayedRecent)} last 2 weeks</Chip> : null}
             {selected && !game.alreadyInLibrary && options.availability?.trim()
@@ -853,7 +912,7 @@ function SteamImportRow({
         ) : null}
       </Stack>
       {showOptions ? (
-        <Stack spacing={1.25} sx={{ mt: 1.25, pl: { xs: 0, sm: 6 } }} onClick={(event) => event.stopPropagation()}>
+        <Stack spacing={1.25} sx={{ mt: 1, pl: { xs: 0, sm: 5 } }} onClick={(event) => event.stopPropagation()}>
           <Stack spacing={1}>
             <Typography level="title-sm">Platform</Typography>
             <Typography level="body-sm" sx={{ color: 'neutral.400' }}>

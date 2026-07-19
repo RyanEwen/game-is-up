@@ -245,6 +245,7 @@ This repo now treats Prisma migrations as the source of truth for schema changes
 6. Steam import normalizes punctuation, trademark markers, and similar storefront-only title differences before matching against existing catalog games, so reused RAWG-backed games can keep the Steam source plus the original Steam spelling as an alias.
 7. The same normalized-title matching is also used when the app records Discord-observed activity, and API startup now repairs previously split duplicate game rows that only differ by storefront-only title decoration such as trademark symbols.
 8. Steam may return no importable games when the account's game details are private or effectively unavailable to the API, so manual add should remain the fallback.
+9. The picker can filter by library state and playtime, and sort by most played, least played, or recently played. Playtime comes from the Steam preview response and is not persisted at import time, so these controls only apply while the picker is open. The default "Recommended order" keeps the API ordering and pushes single-player-only titles to the end of each page as their metadata loads.
 
 ## Game catalog provider
 
