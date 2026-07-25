@@ -594,7 +594,7 @@ export function PlayIntentDetailView() {
                   ? (intent.viewerRunningLate
                     ? 'You are marked as interested but running late for this call to play.'
                     : 'You are marked as interested in this call to play.')
-                  : 'You are marked as passed on this call to play.'}
+                  : 'You are marked as unable to make it.'}
               </Typography>
             </Card>
           ) : null}
@@ -945,11 +945,11 @@ export function PlayIntentDetailView() {
                 </Box>
               ) : null}
 
-              {intent.notifyScope === 'specific-friends' || intent.notifyScope === 'friends-list' ? (
+              {isOwnIntent || intent.notifyScope === 'specific-friends' || intent.notifyScope === 'friends-list' ? (
                 <Box sx={{ pt: 2, borderTop: '1px solid', borderColor: 'neutral.700' }}>
                   <PlayIntentResponseUserList
                     users={intent.passedUsers}
-                    label="Passed on this call"
+                    label="Can't make it"
                     tone="passed"
                     discoveryPeopleById={discoveryPeopleById}
                     canManage={playViewProps.isSignedIn}
@@ -958,7 +958,7 @@ export function PlayIntentDetailView() {
                   />
                   {intent.passedUsers.length === 0 ? (
                     <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
-                      Nobody has passed yet.
+                      Everyone invited can still make it.
                     </Typography>
                   ) : null}
                 </Box>

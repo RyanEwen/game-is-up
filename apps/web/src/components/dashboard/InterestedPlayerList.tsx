@@ -37,19 +37,21 @@ const responseToneStyles = {
     borderColor: 'var(--joy-palette-warning-700)',
     background: 'linear-gradient(180deg, rgba(var(--joy-palette-warning-darkChannel) / 0.5), var(--joy-palette-background-popup))'
   },
+  // Passed reads as danger so it cannot be confused with the warning-toned
+  // "running late" group sitting directly above it in the responses card.
   passed: {
-    accentColor: 'warning.200',
-    responseLabel: 'Passed',
-    responseDetail: 'Passed on this call to play.',
-    badgeColor: 'warning',
-    borderColor: 'var(--joy-palette-warning-700)',
-    background: 'linear-gradient(180deg, rgba(var(--joy-palette-warning-darkChannel) / 0.5), var(--joy-palette-background-popup))'
+    accentColor: 'danger.200',
+    responseLabel: "Can't make it",
+    responseDetail: "Can't make it for this call to play.",
+    badgeColor: 'danger',
+    borderColor: 'var(--joy-palette-danger-700)',
+    background: 'linear-gradient(180deg, rgba(var(--joy-palette-danger-darkChannel) / 0.5), var(--joy-palette-background-popup))'
   }
 } as const satisfies Record<string, {
   accentColor: string;
   responseLabel: string;
   responseDetail: string;
-  badgeColor: 'success' | 'warning';
+  badgeColor: 'success' | 'warning' | 'danger';
   borderColor: string;
   background: string;
 }>

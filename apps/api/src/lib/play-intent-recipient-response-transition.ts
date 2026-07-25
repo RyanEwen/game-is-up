@@ -1,4 +1,16 @@
-import { NotificationResponseChoice, PlayIntentScope } from '@prisma/client'
+/**
+ * Decides what a recipient's interested/pass answer should trigger.
+ *
+ * A real change of answer always notifies: the creator and every other invited
+ * recipient who has not passed hear about it, on every audience scope. Passes
+ * are not anonymous and are not quiet on broad calls — knowing who dropped out
+ * is worth the extra pings.
+ *
+ * Repeat answers of the same choice stay silent so re-tapping a button is
+ * idempotent.
+ */
+
+import { NotificationResponseChoice } from '@prisma/client'
 
 export type PlayIntentRecipientResponse = 'JOIN' | 'DECLINE'
 
@@ -10,24 +22,22 @@ export type RecipientResponseAcknowledgementKind =
 
 export type RecipientResponseTransition = {
   nextChoice: NotificationResponseChoice;
-  shouldCreateCreatorSystemNotification: boolean;
+  /**
+   * Whether this answer is a real change and should therefore raise the
+   * creator's system notification and fan out to the rest of the audience.
+   */
+  shouldNotifyResponseChange: boolean;
   acknowledgementKind: RecipientResponseAcknowledgementKind;
 }
 
 export function resolveRecipientResponseTransition(options: {
   previousChoice: NotificationResponseChoice | null;
   response: PlayIntentRecipientResponse;
-  scope: PlayIntentScope | null | undefined;
 }): RecipientResponseTransition {
   if (options.response === NotificationResponseChoice.DECLINE) {
-    const shouldCreateCreatorSystemNotification = options.previousChoice !== NotificationResponseChoice.DECLINE
-      && (options.scope === PlayIntentScope.SPECIFIC_FRIENDS
-        || options.scope === PlayIntentScope.SPECIFIC_FRIENDS_LIST
-        || options.previousChoice === NotificationResponseChoice.JOIN)
-
     return {
       nextChoice: NotificationResponseChoice.DECLINE,
-      shouldCreateCreatorSystemNotification,
+      shouldNotifyResponseChange: options.previousChoice !== NotificationResponseChoice.DECLINE,
       acknowledgementKind: options.previousChoice === NotificationResponseChoice.JOIN
         ? 'pass-from-join'
         : options.previousChoice === NotificationResponseChoice.DECLINE
@@ -38,7 +48,7 @@ export function resolveRecipientResponseTransition(options: {
 
   return {
     nextChoice: NotificationResponseChoice.JOIN,
-    shouldCreateCreatorSystemNotification: options.previousChoice !== NotificationResponseChoice.JOIN,
+    shouldNotifyResponseChange: options.previousChoice !== NotificationResponseChoice.JOIN,
     acknowledgementKind: 'interested'
   }
 }

@@ -80,13 +80,13 @@ export const audienceInterestUpdateSystemNotification = createPlayIntentSystemNo
 
 export const creatorInterestWithdrawnSystemNotification = createPlayIntentSystemNotificationDefinition(
   'creator-interest-withdrawn',
-  '❎ Someone passed',
+  '❌ Someone can\'t make it',
   'none'
 )
 
 export const audienceInterestWithdrawnSystemNotification = createPlayIntentSystemNotificationDefinition(
   'audience-interest-withdrawn',
-  '❎ Another player passed',
+  '❌ Another player can\'t make it',
   'none'
 )
 
@@ -261,8 +261,8 @@ export function formatCreatorInterestWithdrawnSystemNotification(options: {
     body: formatInterestBody(
       options.recipientDisplayName,
       options.gameTitle,
-      'passed on',
-      'passed on your call to play'
+      'can\'t make it for',
+      'can\'t make it for your call to play'
     )
   }
 }
@@ -276,8 +276,8 @@ export function formatAudienceInterestWithdrawnSystemNotification(options: {
     body: formatInterestBody(
       options.recipientDisplayName,
       options.gameTitle,
-      'passed on',
-      'passed on this call to play'
+      'can\'t make it for',
+      'can\'t make it for this call to play'
     )
   }
 }

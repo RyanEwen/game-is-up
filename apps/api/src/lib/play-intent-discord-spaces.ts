@@ -472,6 +472,76 @@ async function resetLegacyProvisioningChannels(space: NonNullable<ProvisionableS
   return true
 }
 
+/**
+ * Picks the channel a space invite should point at.
+ *
+ * The temporary channels deny `ViewChannel` to `@everyone`, so an invite
+ * targeting them is useless to the people it exists for: someone who is not in
+ * the server yet cannot see the target channel, and Discord gives them a dead
+ * invite instead of a join prompt. Invites therefore point at a channel a
+ * brand-new member can actually land on (rules channel, system channel, or the
+ * first `@everyone`-visible text channel). Access to the temporary channels is
+ * granted by role on `GuildMemberAdd`, not by the invite target.
+ *
+ * Returns null when the guild exposes no public channel, in which case the
+ * caller falls back to the space's own text channel.
+ */
+async function resolvePublicInviteChannelId(serverId: string) {
+  const rest = getDiscordBotRest()
+
+  if (!rest) {
+    return null
+  }
+
+  try {
+    const guild = await rest.get(Routes.guild(serverId)) as {
+      rules_channel_id?: string | null;
+      system_channel_id?: string | null;
+    } | null
+
+    const announcedChannelId = guild?.rules_channel_id ?? guild?.system_channel_id ?? null
+
+    if (announcedChannelId) {
+      return announcedChannelId
+    }
+
+    const channels = (await rest.get(Routes.guildChannels(serverId)) as Array<{
+      id?: string;
+      type?: number;
+      position?: number;
+      parent_id?: string | null;
+      permission_overwrites?: Array<{ id?: string; deny?: string }>;
+    }> | null) ?? []
+    const channelsById = new Map(channels.flatMap((channel) => channel.id ? [[channel.id, channel] as const] : []))
+    const deniesEveryoneView = (channel: (typeof channels)[number] | undefined) => (
+      (channel?.permission_overwrites ?? []).some((overwrite) => (
+        overwrite.id === serverId
+        && (BigInt(overwrite.deny ?? '0') & PermissionFlagsBits.ViewChannel) !== 0n
+      ))
+    )
+
+    const publicTextChannels = channels
+      .filter((channel) => (
+        typeof channel.id === 'string'
+        && channel.type === ChannelType.GuildText
+        && !deniesEveryoneView(channel)
+        // A channel with no overwrites of its own still inherits a private
+        // category, which is exactly how the temporary spaces are shaped.
+        && !deniesEveryoneView(channel.parent_id ? channelsById.get(channel.parent_id) : undefined)
+      ))
+      .sort((left, right) => (left.position ?? 0) - (right.position ?? 0))
+
+    return publicTextChannels[0]?.id ?? null
+  } catch (error) {
+    console.error('Failed to resolve a public invite channel for a complementary Discord space', {
+      serverId,
+      error
+    })
+
+    return null
+  }
+}
+
 async function createInvite(channelId: string) {
   const rest = getDiscordBotRest()
 
@@ -930,28 +1000,42 @@ export async function ensurePlayIntentDiscordSpaceAudienceAccess(playIntentId: s
   await syncGrantedMembers(refreshedSpace)
 }
 
-export async function markPlayIntentDiscordSpaceInviteSent(playIntentId: string, userId: string) {
+/**
+ * Claims the one-shot server invite send for a recipient by stamping
+ * `inviteSentAt` on their access grant, and reports whether this call is the
+ * one that won the claim. `inviteSentAt` doubles as the dedupe marker for the
+ * dedicated invite DM, so a recipient who flips interested -> pass ->
+ * interested is not invited twice.
+ */
+export async function claimPlayIntentDiscordSpaceInviteSend(playIntentId: string, userId: string) {
   const space = await prisma.playIntentDiscordSpace.findUnique({
     where: { playIntentId },
     select: {
-      id: true
+      id: true,
+      serverId: true
     }
   })
 
   if (!space) {
-    return
+    return { claimed: false as const, serverId: null }
   }
 
-  await prisma.playIntentDiscordSpaceAccessGrant.updateMany({
+  const claim = await prisma.playIntentDiscordSpaceAccessGrant.updateMany({
     where: {
       spaceId: space.id,
       userId,
-      revokedAt: null
+      revokedAt: null,
+      inviteSentAt: null
     },
     data: {
       inviteSentAt: new Date()
     }
   })
+
+  return {
+    claimed: claim.count > 0,
+    serverId: space.serverId
+  }
 }
 
 export async function markPlayIntentDiscordSpacesRetained(playIntentIds: string[], baseTime = new Date()) {
@@ -1189,7 +1273,7 @@ export async function provisionPlayIntentDiscordSpace(spaceId: string) {
     }
     const invite = !resetLegacyChannels && space.inviteCode
       ? { code: space.inviteCode, url: space.inviteUrl ?? `https://discord.gg/${space.inviteCode}`, uses: space.inviteUseCount }
-      : await createInvite(textChannel.id)
+      : await createInvite(await resolvePublicInviteChannelId(space.serverId) ?? textChannel.id)
     if (resetLegacyChannels || !space.inviteCode) {
       await prisma.playIntentDiscordSpace.update({
         where: { id: space.id },

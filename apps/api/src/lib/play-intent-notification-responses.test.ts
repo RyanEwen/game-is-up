@@ -242,7 +242,7 @@ test('go-time confirmed previews use the clock emoji heading', () => {
   assert.doesNotMatch(preview.content, /^🎮 Go Time/m)
 })
 
-test('pass acknowledgements use the cross-mark emoji heading', () => {
+test('pass acknowledgements use a heading emoji that cannot be mistaken for the checkmark', () => {
   const preview = buildNotificationDirectMessagePreview({
     notificationId: 'notification-1',
     notificationType: NotificationType.FRIEND_PLAYING,
@@ -255,13 +255,12 @@ test('pass acknowledgements use the cross-mark emoji heading', () => {
     renderSurface: 'response'
   })
 
-  assert.match(preview.content, /^❎ Passed for Now/m)
-  assert.doesNotMatch(preview.content, /^👎 Passed for Now/m)
-  assert.match(preview.content, /You are marked as passing for now\. Passing is anonymous\./)
-  assert.doesNotMatch(preview.content, /The creator has been notified\./)
+  assert.match(preview.content, /^❌ Can't Make It/m)
+  assert.doesNotMatch(preview.content, /❎/)
+  assert.doesNotMatch(preview.content, /✅/)
 })
 
-test('specific-friends pass acknowledgements name the creator on one line', () => {
+test('pass acknowledgements always name the creator as notified', () => {
   const preview = buildNotificationDirectMessagePreview({
     notificationId: 'notification-1',
     notificationType: NotificationType.FRIEND_PLAYING,
@@ -271,12 +270,11 @@ test('specific-friends pass acknowledgements name the creator on one line', () =
     creatorDisplayName: 'Ryan',
     creatorDiscordUserId: 'discord-creator-1',
     playIntentIsActive: true,
-    passAcknowledgementMode: 'creator-notified',
     renderSurface: 'response'
   })
 
-  assert.match(preview.content, /You are marked as passing for now\. <@discord-creator-1> has been notified\./)
-  assert.doesNotMatch(preview.content, /The creator has been notified\./)
+  assert.match(preview.content, /You are marked as unable to make it\. <@discord-creator-1> has been notified\./)
+  assert.doesNotMatch(preview.content, /anonymous/i)
 })
 
 for (const notificationType of [

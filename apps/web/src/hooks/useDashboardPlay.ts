@@ -111,9 +111,8 @@ function buildPlayIntentResponseToastMessage(result: PlayIntentRecipientResponse
       : 'You are marked as interested.'
   }
 
-  return creatorWasNotified
-    ? 'You are marked as passing for now. The creator has been notified.'
-    : 'You are marked as passing for now.'
+  // A pass always notifies the creator now, so there is no quiet variant here.
+  return 'You are marked as unable to make it. The creator has been notified.'
 }
 
 export type DashboardPlayViewProps = {

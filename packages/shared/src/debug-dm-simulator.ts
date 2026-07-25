@@ -494,7 +494,7 @@ export function buildSimulatorCreatorSummaryPreview(
             value: [
               `Interested: ${onTimeInterestedCount}`,
               runningLateCount > 0 ? `Running late: ${runningLateCount}` : null,
-              `Passed: ${passedCount}`,
+              `Can't make it: ${passedCount}`,
               `Waiting: ${waitingCount}`
             ].filter((line): line is string => line != null).join('\n'),
             inline: true
@@ -654,7 +654,7 @@ export function buildSimulatorAudienceFollowUpPreview(
     }
   }
 
-  // Response acknowledgements ("You're In" / "Passed for Now" / "Running Late")
+  // Response acknowledgements ("You're In" / "Can't Make It" / "Running Late")
   // are no longer sent as a separate reply. The invite anchor above updates in
   // place and the pressed button shows a momentary confirmation instead, so the
   // only audience-side replies that remain are the go-time broadcast and the
@@ -774,11 +774,11 @@ export function buildSimulatorCreatorFollowUpPreview(
 
   return {
     content: buildSimulatorPlainMessage(
-      state.audienceResponse === 'interested' ? '✅ Someone is interested' : '❎ Someone passed',
+      state.audienceResponse === 'interested' ? '✅ Someone is interested' : '❌ Someone can\'t make it',
       [
         state.audienceResponse === 'interested'
           ? `@${draft.audienceName} is interested in playing ${draft.gameTitle}.`
-          : `@${draft.audienceName} passed on ${draft.gameTitle}.`
+          : `@${draft.audienceName} can't make it for ${draft.gameTitle}.`
       ]
     ),
     embeds: [],
@@ -863,7 +863,7 @@ export function buildSimulatedDmMessages(
       label: state.stage === 'confirmed' ? 'Creator audience status reply' : 'Creator interest notification',
       preview: creatorFollowUpPreview,
       explanation: [
-        'This is the creator-side per-audience status reply, such as “Someone is interested” or “Someone passed.”',
+        'This is the creator-side per-audience status reply, such as “Someone is interested” or “Someone can\'t make it.”',
         'Quiet recovery can reuse the same message, but flips between interested and pass should be treated as a fresh creator notification so Discord notifies the creator again. It disappears once the call ends while the retained summary above remains.'
       ],
       isInteractive: false

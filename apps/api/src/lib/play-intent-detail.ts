@@ -421,7 +421,11 @@ export async function buildPlayIntentDetail(viewerId: string, playIntentId: stri
   const recipientNotificationState = intent.notifications[0] ?? null
   const interestedUsersByPlayIntentId = await getInterestedUsersByPlayIntentId([intent.id])
   const interestedUsers = interestedUsersByPlayIntentId.get(intent.id) ?? []
-  const showsPassedUsers = intent.scope === PlayIntentScope.SPECIFIC_FRIENDS
+  // The creator always sees who passed on their own call. Other viewers only
+  // see passes on the small, explicitly targeted scopes, where the whole
+  // audience is already told about them.
+  const showsPassedUsers = isOwnIntent
+    || intent.scope === PlayIntentScope.SPECIFIC_FRIENDS
     || intent.scope === PlayIntentScope.SPECIFIC_FRIENDS_LIST
   const passedUsersByPlayIntentId = showsPassedUsers
     ? await getPassedUsersByPlayIntentId([intent.id])

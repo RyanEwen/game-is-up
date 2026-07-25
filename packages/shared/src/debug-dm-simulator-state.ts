@@ -357,8 +357,8 @@ function resolveSimulatorLifecycleTransition(
       }
       actor = 'audience'
       summary = currentState.stage === 'confirmed'
-        ? `${draft.audienceName} passed after the creator confirmed the session.`
-        : `${draft.audienceName} passed for now.`
+        ? `${draft.audienceName} could not make it after the creator confirmed the session.`
+        : `${draft.audienceName} can't make it.`
       break
     case 'audience-running-late':
       if (currentState.audienceResponse !== 'interested' || currentState.audienceRunningLate) {

@@ -103,7 +103,7 @@ export function PlayIntentCard({
   const timingSummary = formatPlayIntentTimingSummary(intent.availabilityWindow.startsAt, intent.availabilityWindow.endsAt)
   const viewerResponseLabel = viewerResponseChoice === 'interested'
     ? 'You are marked as interested in this call to play.'
-    : 'You are marked as passed on this call to play.'
+    : 'You are marked as unable to make it.'
   const actionButtonSx = {
     width: '100%',
     justifyContent: 'space-between',

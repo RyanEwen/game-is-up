@@ -115,7 +115,7 @@ test('creator interest withdrawn notification renders the configured title and b
   })
 
   assert.equal(notification.title, creatorInterestWithdrawnSystemNotification.title)
-  assert.equal(notification.body, 'Sam passed on Helldivers 2.')
+  assert.equal(notification.body, "Sam can't make it for Helldivers 2.")
 })
 
 test('creator interest withdrawn notification falls back when no game title is provided', () => {
@@ -124,7 +124,7 @@ test('creator interest withdrawn notification falls back when no game title is p
     gameTitle: null
   })
 
-  assert.equal(notification.body, 'Sam passed on your call to play.')
+  assert.equal(notification.body, "Sam can't make it for your call to play.")
 })
 
 test('audience interest withdrawn notification renders the configured title and body', () => {
@@ -134,7 +134,7 @@ test('audience interest withdrawn notification renders the configured title and 
   })
 
   assert.equal(notification.title, audienceInterestWithdrawnSystemNotification.title)
-  assert.equal(notification.body, 'Sam passed on Helldivers 2.')
+  assert.equal(notification.body, "Sam can't make it for Helldivers 2.")
 })
 
 test('audience interest withdrawn notification falls back when no game title is provided', () => {
@@ -143,7 +143,7 @@ test('audience interest withdrawn notification falls back when no game title is 
     gameTitle: null
   })
 
-  assert.equal(notification.body, 'Sam passed on this call to play.')
+  assert.equal(notification.body, "Sam can't make it for this call to play.")
 })
 
 test('audience interest update notification renders the configured title and body', () => {
