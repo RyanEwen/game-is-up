@@ -126,11 +126,6 @@ Discord-linked identities now also persist Discord OAuth access and refresh toke
 
 ## Repository guidance
 
-The repository includes shared Copilot customization files under `.github/`:
+Codex uses the root and nested `AGENTS.md` files for scoped project guidance, `.agents/skills/` for reusable workflows, and `.codex/hooks.json` with `.codex/hooks/` for lifecycle automation.
 
-- `copilot-instructions.md` for workspace-wide guidance
-- `instructions/` for area-specific rules
-- `prompts/` for reusable implementation tasks
-- `hooks/` plus `scripts/copilot/` for deterministic safety and startup context
-
-These are kept small and focused so they remain usable during day-to-day implementation.
+These files stay small and focused so they remain usable during day-to-day implementation.

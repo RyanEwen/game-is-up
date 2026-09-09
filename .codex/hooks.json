@@ -1,0 +1,50 @@
+{
+  "description": "Repository lifecycle hooks for Codex.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$(git rev-parse --show-toplevel)/.codex/hooks/session-start.mjs\"",
+            "timeout": 10,
+            "statusMessage": "Loading Game's Up context"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$(git rev-parse --show-toplevel)/.codex/hooks/pre-tool-use.mjs\"",
+            "timeout": 10,
+            "statusMessage": "Checking command safety"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$(git rev-parse --show-toplevel)/.codex/hooks/post-tool-reminders.mjs\"",
+            "timeout": 10,
+            "statusMessage": "Checking repository conventions"
+          },
+          {
+            "type": "command",
+            "command": "node \"$(git rev-parse --show-toplevel)/.codex/hooks/post-tool-validate.mjs\"",
+            "timeout": 120,
+            "statusMessage": "Running targeted validation"
+          }
+        ]
+      }
+    ]
+  }
+}

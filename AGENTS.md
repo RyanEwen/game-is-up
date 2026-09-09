@@ -1,6 +1,6 @@
 # Game's Up Workspace Instructions
 
-Area-specific guidance lives in nested `CLAUDE.md` files: [apps/web/CLAUDE.md](apps/web/CLAUDE.md), [apps/api/CLAUDE.md](apps/api/CLAUDE.md), and [apps/api/prisma/CLAUDE.md](apps/api/prisma/CLAUDE.md). They load automatically when you work in those directories.
+Area-specific guidance lives in nested `AGENTS.md` files. Codex loads the instruction chain from the repository root to the session's starting directory. When a root-started task touches `apps/web`, `apps/api`, or `apps/api/prisma`, read the applicable nested file before editing. Keep guidance in the narrowest directory it governs.
 
 ## Architecture
 
@@ -39,6 +39,6 @@ Area-specific guidance lives in nested `CLAUDE.md` files: [apps/web/CLAUDE.md](a
 ## Product Conventions
 
 - Discovery is friends-first by default; do not accidentally make profiles fully public in early slices.
-- Play intent is not restricted to one game. Model both "any game in my library" and "selected subset" flows.
+- A play intent targets a selected subset of one to five games. Keep clients and shared contracts aligned with that limit.
 - Title-only play-intent edits are quiet changes. Do not re-notify recipients unless the audience, timing, or other substantive call-to-play details changed.
-- Keep direct messaging out of MVP unless the task explicitly adds it.
+- Do not add user-to-user chat unless the task explicitly calls for it. Automated Discord notification and call-to-play DM flows are established product surfaces.

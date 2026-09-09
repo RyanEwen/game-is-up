@@ -2,7 +2,16 @@ import { spawnSync } from 'node:child_process'
 import path from 'node:path'
 import process from 'node:process'
 
-export const workspaceRoot = '/workspace/game-is-up'
+function resolveWorkspaceRoot() {
+  const result = spawnSync('git', ['rev-parse', '--show-toplevel'], {
+    cwd: process.cwd(),
+    encoding: 'utf8'
+  })
+
+  return result.status === 0 ? result.stdout.trim() : process.cwd()
+}
+
+export const workspaceRoot = resolveWorkspaceRoot()
 
 export function readStdin() {
   return new Promise((resolve) => {
@@ -27,11 +36,19 @@ export function parseHookInput(rawInput) {
 }
 
 export function normalizeToolName(toolName = '') {
-  return String(toolName).split('.').pop() ?? ''
+  return (String(toolName).split('.').pop() ?? '').trim()
 }
 
 export function isFileEditingTool(toolName) {
-  return new Set(['apply_patch', 'create_file', 'edit_notebook_file']).has(normalizeToolName(toolName))
+  return normalizeToolName(toolName) === 'apply_patch'
+}
+
+export function getToolName(event) {
+  return normalizeToolName(event.tool_name)
+}
+
+export function getToolInput(event) {
+  return event.tool_input ?? {}
 }
 
 function normalizeFilePath(filePath) {
@@ -44,17 +61,19 @@ function normalizeFilePath(filePath) {
     return null
   }
 
-  if (trimmedPath.startsWith(workspaceRoot)) {
+  if (path.isAbsolute(trimmedPath)) {
     const relativePath = path.relative(workspaceRoot, trimmedPath)
-    return relativePath || null
+    if (!relativePath.startsWith('..') && !path.isAbsolute(relativePath)) {
+      return relativePath || null
+    }
   }
 
   return trimmedPath.replace(/^\.\//, '')
 }
 
 export function extractFilePaths(event) {
-  const toolName = normalizeToolName(event.toolName)
-  const toolInput = event.toolInput ?? {}
+  const toolName = getToolName(event)
+  const toolInput = getToolInput(event)
   const filePaths = new Set()
 
   const addPath = (filePath) => {
@@ -64,15 +83,16 @@ export function extractFilePaths(event) {
     }
   }
 
-  addPath(toolInput.filePath)
+  addPath(toolInput.file_path)
+  addPath(toolInput.notebook_path)
   addPath(toolInput.path)
 
-  if (Array.isArray(toolInput.filePaths)) {
-    toolInput.filePaths.forEach(addPath)
+  if (Array.isArray(toolInput.file_paths)) {
+    toolInput.file_paths.forEach(addPath)
   }
 
   if (toolName === 'apply_patch') {
-    const patch = String(toolInput.input ?? '')
+    const patch = String(toolInput.command ?? '')
     for (const match of patch.matchAll(/^\*\*\* (?:Add|Update|Delete) File: (.+)$/gm)) {
       addPath(match[1].split(' -> ')[0])
     }
@@ -124,18 +144,9 @@ export function emitSessionMessage(message) {
   process.stdout.write(
     JSON.stringify({
       continue: true,
-      systemMessage: message
-    })
-  )
-}
-
-export function emitPreToolAllow(reason) {
-  process.stdout.write(
-    JSON.stringify({
       hookSpecificOutput: {
-        hookEventName: 'PreToolUse',
-        permissionDecision: 'allow',
-        permissionDecisionReason: reason
+        hookEventName: 'SessionStart',
+        additionalContext: message
       }
     })
   )

@@ -1,9 +1,9 @@
-import { emitEmpty, emitPostToolContext, extractFilePaths, isFileEditingTool, parseHookInput, readStdin } from './hook-utils.mjs'
+import { emitEmpty, emitPostToolContext, extractFilePaths, getToolName, isFileEditingTool, parseHookInput, readStdin } from './hook-utils.mjs'
 
 const rawInput = await readStdin()
 const event = parseHookInput(rawInput)
 
-if (!isFileEditingTool(event.tool_name)) {
+if (!isFileEditingTool(getToolName(event))) {
   emitEmpty()
   process.exit(0)
 }
@@ -40,7 +40,7 @@ if (
 }
 
 if (filePaths.some((filePath) => filePath.startsWith('apps/web/src/'))) {
-  reminders.push('Web changes should preserve the current Joy UI direction, keep UI state simple, and avoid browser-only assumptions in core flows.')
+  reminders.push('Web changes should preserve the current Joy UI direction, stay theme-aware, and avoid browser-only assumptions in core flows.')
 }
 
 if (touchesPwaIconFiles) {
@@ -48,7 +48,7 @@ if (touchesPwaIconFiles) {
 }
 
 if (filePaths.some((filePath) => filePath.startsWith('apps/api/prisma/'))) {
-  reminders.push('Prisma changes should keep shared contracts, demo data, and placeholder behavior aligned. Regenerate or validate Prisma artifacts when appropriate.')
+  reminders.push('Prisma changes should keep shared contracts and seed data aligned. Regenerate or validate Prisma artifacts when appropriate.')
 }
 
 if (reminders.length === 0) {

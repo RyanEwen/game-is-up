@@ -20,11 +20,11 @@ packages/
 .devcontainer/
   devcontainer.json
   compose.yml
-.github/
-  copilot-instructions.md
-  instructions/
-  prompts/
-  hooks/
+.agents/
+  skills/      Codex workflows
+.codex/
+  hooks.json   Codex lifecycle hooks
+AGENTS.md      Codex workspace guidance
 compose.yml
 ```
 
@@ -264,10 +264,9 @@ Users can also set one profile-level "when do you usually play" note and let ind
 
 ## Repository automation
 
-- `.github/copilot-instructions.md` defines workspace-wide coding guidance.
-- `.github/instructions/` scopes additional guidance by area.
-- `.github/prompts/` adds reusable prompts for vertical-slice work, provider adapters, commit workflow, and documentation audits.
-- `.github/hooks/` adds Copilot hooks for session guidance, destructive-command protection, post-edit reminders, and targeted validation routing.
+- `AGENTS.md` and nested `AGENTS.md` files define Codex guidance at workspace, web, API, and Prisma scopes.
+- `.agents/skills/` provides reusable Codex workflows for documentation audits, commits, and deployments.
+- `.codex/hooks.json` runs the hooks in `.codex/hooks/` for session context, destructive-command protection, post-edit reminders, and targeted validation routing.
 
 ## Play intent model
 
@@ -285,4 +284,3 @@ Calls to play can also control who sees them:
 Calls to play can start immediately or be scheduled for later, and they remain visible until the configured end time. If a currently active call starts applying to someone later because their library changes, the app will surface it retroactively and backfill the missing invite or go-time reminder.
 
 The Play view keeps recently ended calls to play visible for a short closed-history window and marks whether each visible call currently applies to the signed-in viewer's library.
-

@@ -7,12 +7,12 @@ set -euo pipefail
 # Why this is needed: when Docker mounts a *fresh* named volume over a path
 # that doesn't already exist (with the right ownership) in the image, it
 # creates the mountpoint as root:root. The non-root user then can't write
-# there — surfacing as "permission denied" the first time a tool (gh, claude,
-# npm, …) writes into ~/.config, ~/.claude, /commandhistory, and friends.
+# there, surfacing as "permission denied" the first time a tool or agent host
+# writes into ~/.config, ~/.codex, /commandhistory, and similar mounts.
 #
 # This is a drop-in, project-agnostic safety net: it auto-discovers every
 # mount under the given roots and chowns any whose top-level owner is wrong.
-# Idempotent — once a volume is correctly owned it's skipped on every later
+# Idempotent: once a volume is correctly owned it's skipped on every later
 # run, so it's cheap to invoke from postCreateCommand on every (re)build.
 #
 # Usage: fix-volume-perms.sh [ROOT ...]

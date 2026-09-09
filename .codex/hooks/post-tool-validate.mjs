@@ -1,9 +1,9 @@
-import { emitEmpty, emitPostToolContext, extractFilePaths, isFileEditingTool, parseHookInput, readStdin, runWorkspaceCommand, summarizeOutput } from './hook-utils.mjs'
+import { emitEmpty, emitPostToolContext, extractFilePaths, getToolName, isFileEditingTool, parseHookInput, readStdin, runWorkspaceCommand, summarizeOutput } from './hook-utils.mjs'
 
 const rawInput = await readStdin()
 const event = parseHookInput(rawInput)
 
-if (!isFileEditingTool(event.toolName)) {
+if (!isFileEditingTool(getToolName(event))) {
   emitEmpty()
   process.exit(0)
 }
@@ -46,6 +46,9 @@ if (areaFlags.prisma) {
 if (areaFlags.web) {
   suggestions.push('npm run typecheck --workspace @game-is-up/web')
 }
+if (areaFlags.rootConfig) {
+  suggestions.push('npm run validate')
+}
 let commandLabel = null
 let commandArgs = null
 
@@ -61,6 +64,9 @@ if (areaFlags.prisma && activeAreas.length === 1) {
 } else if (areaFlags.shared && activeAreas.length === 1) {
   commandLabel = 'npm run typecheck --workspace @game-is-up/shared'
   commandArgs = ['run', 'typecheck', '--workspace', '@game-is-up/shared']
+} else if (areaFlags.rootConfig && activeAreas.length === 1) {
+  commandLabel = 'npm run validate'
+  commandArgs = ['run', 'validate']
 }
 
 if (!commandLabel || !commandArgs) {
