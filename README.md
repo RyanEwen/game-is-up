@@ -81,6 +81,47 @@ For a clean local reset plus startup in one command, run:
 npm run dev:fresh
 ```
 
+## Multi-checkout development (optional)
+
+Devkit gives each host checkout and Git worktree a derived `.localhost` URL, database, and pair of
+web/API ports. The primary checkout uses `game-is-up.localhost`; worktrees use
+`<worktree>.game-is-up.localhost`. It is opt-in and stays completely off in the devcontainer, when
+`DEVKIT=0` is set, and on machines that have not run the bootstrap command. In those cases,
+`npm run dev` keeps the fixed port and devcontainer behavior described above.
+
+```bash
+npm run dev:bootstrap             # once per host machine, outside the devcontainer
+npm run dev:host -- snapshot      # once in the primary checkout, after preparing its dev data
+npm install                       # once in each new worktree
+npm run dev
+```
+
+On startup, `npm run dev` inherits a missing `.env` from the primary checkout, runs Devkit's
+preflight, overlays the derived database, ports, origins, and Vite settings, applies checked-in
+Prisma migrations, builds the shared package, and starts the existing shared/API/web watchers.
+The routed and direct URLs are printed before watcher output. An existing worktree `.env` is never
+overwritten, and the proxy route is removed when the runner exits.
+
+The baseline contains the database only. Game's Up has no checkout-relative filesystem data to
+snapshot. `npm run db:seed` replaces the demo dataset in the current database; run it before
+`npm run dev:host -- snapshot` when new worktrees should begin with that seeded state. A snapshot
+keeps the previous baseline as `_prev`, and the primary checkout refreshes the database baseline
+automatically after it applies a newly checked-in migration. A worktree reset clones that baseline;
+`npm run dev:host -- reset -- --empty` instead creates an empty database, then normal startup
+applies the migrations. Devkit refuses to reset the primary checkout because it owns the source
+development data.
+
+Useful host commands:
+
+- `npm run dev:doctor` reports prerequisites and their fixes.
+- `npm run dev:host -- snapshot` refreshes the project database baseline.
+- `npm run dev:host -- reset` recreates a worktree database from that baseline.
+- `npm run dev:host -- prune` lists databases whose worktrees no longer exist.
+- `npm run dev:host -- infra` restarts the shared proxy and PostgreSQL stack.
+
+Set `DEVKIT=0` for one run to use the normal fixed-port flow. Removing the host marker described by
+`npm run dev:doctor` disables it permanently on that machine.
+
 ## Validation
 
 Run the full validation suite with:
@@ -195,6 +236,12 @@ This repo now treats Prisma migrations as the source of truth for schema changes
 1. In the Discord developer portal, add your OAuth redirect URI.
 2. For local development, use the callback in `.env.development.example` unless you intentionally change the API port.
 3. Set `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`, and `DISCORD_CALLBACK_URL` in your environment or `.env` file.
+   In Devkit host mode the runner replaces the callback with
+   `http://game-is-up.localhost/api/auth/discord/callback` in the primary checkout, or the
+   corresponding `<worktree>.game-is-up.localhost` URI in a worktree. Discord requires an exact
+   redirect URI match, so sign-in only works after that checkout-specific URI is registered in the
+   Discord developer portal. Use `DEVKIT=0 npm run dev` when you need the single registered
+   fixed-port callback instead.
 4. Start the app in the devcontainer and use the "Sign in with Discord" button in the web UI.
 5. Discord sign-in now also requests the `guilds` scope so the app can sync which servers you share with other users.
 6. After signing in, use the in-app Discord server controls to opt specific shared servers into discovery. Synced servers are excluded by default, and a server can only be selected once the bot is installed in that server.
@@ -240,6 +287,9 @@ This repo now treats Prisma migrations as the source of truth for schema changes
 1. Create a Steam Web API key at `https://steamcommunity.com/dev/apikey`.
 2. Set `STEAM_WEB_API_KEY` and `STEAM_CALLBACK_URL` in your environment or `.env` file.
 3. For local development, use the callback in `.env.development.example` unless you intentionally change the API port.
+   Devkit host mode instead uses the routed checkout origin at
+   `/api/auth/steam/callback`; Steam verifies that dynamic return URL and realm. If the provider
+   setup cannot accept the checkout-specific URL, use `DEVKIT=0 npm run dev` for the fixed callback.
 4. Sign in with Discord first, open the Library tab, then use the Add games from Steam button to connect Steam and preview owned games.
 5. Steam import respects the existing library model: the app shows a picker first and only imports the titles the user selects.
 6. Steam import normalizes punctuation, trademark markers, and similar storefront-only title differences before matching against existing catalog games, so reused RAWG-backed games can keep the Steam source plus the original Steam spelling as an alias.
