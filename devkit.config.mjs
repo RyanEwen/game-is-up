@@ -9,7 +9,7 @@ export default {
   ports: ['web', 'api'],
 
   /** Pin the PostgreSQL server version this project expects. */
-  database: { engine: 'postgres', version: '16-bookworm' },
+  database: { engine: 'postgres', version: '16.13-bookworm' },
 
   /** Prisma migration state used by doctor and automatic database-baseline refreshes. */
   migrationsTable: '_prisma_migrations',
