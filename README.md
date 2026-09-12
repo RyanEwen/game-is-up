@@ -29,9 +29,11 @@ compose.yml
 ## Quick start
 
 1. Copy `.env.development.example` to `.env` if you need local overrides.
-2. Install dependencies:
+2. Select the exact Node and npm toolchain, then install dependencies:
 
    ```bash
+   nvm install
+   nvm use
    npm install
    ```
 
