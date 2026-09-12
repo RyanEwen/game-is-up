@@ -4,9 +4,15 @@
  *
  * Counterpart: `scripts/dev/run-dev.mjs`, the only caller of `preflight()`.
  */
+/** Fixed listeners inside every checkout container; Compose receives these through `env()`. */
+export const DEV_PORTS = Object.freeze({
+  api: '4000',
+  web: '5173'
+})
+
 export default {
   /** The web port is first because devkit routes the checkout hostname to the block's base port. */
-  ports: ['web', 'api'],
+  ports: ['web'],
 
   /** Pin the PostgreSQL server version this project expects. */
   database: { engine: 'postgres', version: '16.13-bookworm' },
@@ -21,14 +27,14 @@ export default {
   worktreeFiles: ['.env'],
 
   /** Map checkout-derived ports and origin onto the environment the existing servers consume. */
-  env: ({ ports, url }) => ({
-    API_PORT: String(ports.api),
+  env: ({ url }) => ({
+    API_PORT: DEV_PORTS.api,
     CLIENT_ORIGIN: url,
     DISCORD_CALLBACK_URL: `${url}/api/auth/discord/callback`,
     STEAM_CALLBACK_URL: `${url}/api/auth/steam/callback`,
     VITE_API_BASE_URL: '',
-    VITE_API_PORT: String(ports.api),
-    VITE_DEV_PORT: String(ports.web),
+    VITE_API_PORT: DEV_PORTS.api,
+    VITE_DEV_PORT: DEV_PORTS.web,
     VITE_PUBLIC_APP_URL: url
   })
 }

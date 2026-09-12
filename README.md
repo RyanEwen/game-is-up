@@ -83,8 +83,8 @@ npm run dev:fresh
 
 ## Multi-checkout development (optional)
 
-Devkit gives each host checkout and Git worktree a derived `.localhost` URL, database, and pair of
-web/API ports. The primary checkout uses `game-is-up.localhost`; worktrees use
+Devkit gives each host checkout and Git worktree a derived `.localhost` URL and private Compose
+stack containing Node and PostgreSQL. The primary checkout uses `game-is-up.localhost`; worktrees use
 `<worktree>.game-is-up.localhost`. It is opt-in and stays completely off in the devcontainer, when
 `DEVKIT=0` is set, and on machines that have not run the bootstrap command. In those cases,
 `npm run dev` keeps the fixed port and devcontainer behavior described above.
@@ -97,16 +97,16 @@ npm run dev
 ```
 
 On startup, `npm run dev` inherits a missing `.env` from the primary checkout, runs Devkit's
-preflight, overlays the derived database, ports, origins, and Vite settings, applies checked-in
-Prisma migrations, builds the shared package, and starts the existing shared/API/web watchers.
+preflight, overlays the derived database, port, origins, and Vite settings, applies checked-in
+Prisma migrations, builds the shared package, and starts the shared/API/web watchers in the
+checkout's source-mounted Node container.
 The routed and direct URLs are printed before watcher output. An existing worktree `.env` is never
 overwritten, and the proxy route is removed when the runner exits.
 
 The baseline contains the database only. Game's Up has no checkout-relative filesystem data to
 snapshot. `npm run db:seed` replaces the demo dataset in the current database; run it before
-`npm run dev:host -- snapshot` when new worktrees should begin with that seeded state. A snapshot
-keeps the previous baseline as `_prev`, and the primary checkout refreshes the database baseline
-automatically after it applies a newly checked-in migration. A worktree reset clones that baseline;
+`npm run dev:host -- snapshot` when new worktrees should begin with that seeded state. A worktree
+reset restores that portable SQL baseline;
 `npm run dev:host -- reset -- --empty` instead creates an empty database, then normal startup
 applies the migrations. Devkit refuses to reset the primary checkout because it owns the source
 development data.
@@ -115,9 +115,10 @@ Useful host commands:
 
 - `npm run dev:doctor` reports prerequisites and their fixes.
 - `npm run dev:host -- snapshot` refreshes the project database baseline.
-- `npm run dev:host -- reset` recreates a worktree database from that baseline.
-- `npm run dev:host -- prune` lists databases whose worktrees no longer exist.
-- `npm run dev:host -- infra` restarts the shared proxy and PostgreSQL stack.
+- `npm run dev:host -- reset` recreates a worktree database volume from that baseline.
+- `npm run dev:host -- prune` lists volumes whose worktrees no longer exist.
+- `npm run dev:host -- infra` restarts the machine proxy and this checkout's PostgreSQL container.
+- `npm run dev -- --down` removes this checkout's containers and network while preserving its database volume.
 
 Set `DEVKIT=0` for one run to use the normal fixed-port flow. Removing the host marker described by
 `npm run dev:doctor` disables it permanently on that machine.

@@ -19,7 +19,7 @@
 
   // Preconfigured zero-prompt connection for the Microsoft PostgreSQL extension
   // (ms-ossdata.vscode-pgsql), targeting the devcontainer Postgres service
-  // (.devcontainer/compose.yml): host `db`, db `game_is_up`, user `postgres`.
+  // (.devcontainer/compose.dev.yml): host `db`, db `game_is_up`, user `postgres`.
   // authenticationType "None" makes the extension send no password; its libpq
   // tools service falls back to the PGPASSWORD env var, which devcontainer.json's
   // remoteEnv sets to `postgres`. No connect-time prompt, nothing stored in the
