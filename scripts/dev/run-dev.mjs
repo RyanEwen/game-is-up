@@ -1,8 +1,7 @@
 #!/usr/bin/env node
 /**
- * Starts the database preflight, checked-in migrations, shared build, and current workspace
- * watchers. Optional devkit host mode overlays checkout-specific ports, database, origin, and
- * proxy routing; devcontainers, fresh clones, and DEVKIT=0 retain the fixed-port behavior.
+ * Starts a checkout-specific Devkit stack. The same runner performs the database preparation and
+ * watcher startup when Compose invokes it with `--container-runtime`.
  */
 import { spawn, spawnSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
@@ -20,6 +19,7 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../
 const envPath = path.join(repoRoot, '.env')
 const fresh = process.argv.includes('--fresh') || process.env.DEVKIT_FRESH === '1'
 const teardown = process.argv.includes('--down')
+const containerRuntime = process.argv.includes('--container-runtime')
 
 await inheritWorktreeFiles({ repoRoot })
 
@@ -27,11 +27,17 @@ await inheritWorktreeFiles({ repoRoot })
 if (existsSync(envPath)) process.loadEnvFile(envPath)
 
 let hostMode = null
-try {
-  hostMode = await preflight({ repoRoot, teardown })
-} catch (error) {
-  console.error(`\n[dev] ${error instanceof Error ? error.message : String(error)}\n`)
-  process.exit(1)
+if (!containerRuntime) {
+  try {
+    hostMode = await preflight({ repoRoot, teardown })
+  } catch (error) {
+    console.error(`\n[dev] ${error instanceof Error ? error.message : String(error)}\n`)
+    process.exit(1)
+  }
+  if (!hostMode) {
+    console.error('\n[dev] Devkit is not enabled; run `npm run dev:bootstrap` once on this host.\n')
+    process.exit(1)
+  }
 }
 
 if (hostMode) Object.assign(process.env, hostMode.env)

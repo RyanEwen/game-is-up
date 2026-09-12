@@ -12,5 +12,4 @@ coverage
 apps/api/prisma/dev.db
 apps/api/prisma/dev.db-journal
 *.log
-# .devcontainer/compose.dev.yml is tracked.
 /compose.yml

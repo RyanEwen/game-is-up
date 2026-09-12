@@ -30,8 +30,8 @@ Area-specific guidance lives in nested `AGENTS.md` files. Codex loads the instru
 
 ## Build And Validation
 
-- Use the devcontainer for local development when possible.
-- If a broadly useful CLI dependency is missing from the devcontainer during normal repo work, add it to `.devcontainer/Dockerfile` instead of repeatedly working around it.
+- Use the Devkit-managed Compose stack for local development.
+- If a broadly useful CLI dependency is missing from the development process container, add it to `docker/dev/Dockerfile`.
 - Before finishing a task, run `npm run validate` from the repository root.
 - If Prisma schema changes, keep the shared contracts and placeholder/mock data aligned.
 - The root `typescript` dependency is intentionally aliased to `@typescript/typescript6` (TS 6 JS API for typescript-eslint and tsup dts), while `@typescript/native` supplies the TypeScript 7 native `tsc` used by all build and typecheck scripts. Do not revert `typescript` to a plain `^7` range until TS 7.1+ ships a programmatic API and the tooling supports it.

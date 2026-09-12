@@ -6,7 +6,7 @@ Game's Up is a monorepo for a game-discovery PWA. The initial scaffold includes:
 - an Express + TypeScript API
 - a shared package for contracts and schemas
 - a Prisma schema targeting PostgreSQL
-- a devcontainer with PostgreSQL and VS Code linting support
+- a Devkit-managed development stack with Node and PostgreSQL
 - workspace prompts, instructions, and hooks for repeatable agent-assisted work
 
 ## Workspace layout
@@ -17,9 +17,7 @@ apps/
   web/        Vite React app, Joy UI shell, PWA config
 packages/
   shared/     Shared Zod schemas, contracts, and domain types
-.devcontainer/
-  devcontainer.json
-  compose.yml
+docker/dev/    Development process image
 .agents/
   skills/      Codex workflows
 .codex/
@@ -30,12 +28,17 @@ compose.yml
 
 ## Quick start
 
-1. Open the repository in the devcontainer.
-2. Copy `.env.development.example` to `.env` if you need local overrides outside the devcontainer.
-3. Install dependencies:
+1. Copy `.env.development.example` to `.env` if you need local overrides.
+2. Install dependencies:
 
    ```bash
    npm install
+   ```
+
+3. Bootstrap Devkit once on this machine:
+
+   ```bash
+   npm run dev:bootstrap
    ```
 
 4. Generate the Prisma client:
@@ -85,12 +88,10 @@ npm run dev:fresh
 
 Devkit gives each host checkout and Git worktree a derived `.localhost` URL and private Compose
 stack containing Node and PostgreSQL. The primary checkout uses `game-is-up.localhost`; worktrees use
-`<worktree>.game-is-up.localhost`. It is opt-in and stays completely off in the devcontainer, when
-`DEVKIT=0` is set, and on machines that have not run the bootstrap command. In those cases,
-`npm run dev` keeps the fixed port and devcontainer behavior described above.
+`<worktree>.game-is-up.localhost`.
 
 ```bash
-npm run dev:bootstrap             # once per host machine, outside the devcontainer
+npm run dev:bootstrap             # once per host machine
 npm run dev:host -- snapshot      # once in the primary checkout, after preparing its dev data
 npm install                       # once in each new worktree
 npm run dev
@@ -111,7 +112,7 @@ reset restores that portable SQL baseline;
 applies the migrations. Devkit refuses to reset the primary checkout because it owns the source
 development data.
 
-Useful host commands:
+Useful commands:
 
 - `npm run dev:doctor` reports prerequisites and their fixes.
 - `npm run dev:host -- snapshot` refreshes the project database baseline.
@@ -120,8 +121,6 @@ Useful host commands:
 - `npm run dev:host -- infra` restarts the machine proxy and this checkout's PostgreSQL container.
 - `npm run dev -- --down` removes this checkout's containers and network while preserving its database volume.
 
-Set `DEVKIT=0` for one run to use the normal fixed-port flow. Removing the host marker described by
-`npm run dev:doctor` disables it permanently on that machine.
 
 ## Validation
 
@@ -211,7 +210,7 @@ Default SSH deployment values are:
 
 Override them with flags such as `--host`, `--port`, `--repo-path`, `--branch`, and `--compose-file`, or with the env vars `DEPLOY_SSH_HOST`, `DEPLOY_SSH_PORT`, `DEPLOY_REPO_PATH`, `DEPLOY_GIT_BRANCH`, and `DEPLOY_COMPOSE_FILES`. Pass `--compose-file` multiple times when you need an exact Compose stack, for example `--compose-file compose.yml --compose-file compose.prod.yml`.
 
-The devcontainer now bind-mounts your local `.ssh` directory, so this deploy path uses your normal SSH config and host aliases directly. With the default host of `deploy-host`, any configured user, key selection, and host-specific settings come from your mounted SSH config rather than deploy-script flags.
+The deploy helper runs on the host, so it uses your normal SSH config and host aliases directly. With the default host of `deploy-host`, any configured user, key selection, and host-specific settings come from your SSH config rather than deploy-script flags.
 
 The public container runs unprivileged Nginx on internal port `8080`, and Docker maps host port `8080` to it by default. Nginx proxies `/api/*` to the API container so browser clients can stay same-origin in production.
 
@@ -243,7 +242,7 @@ This repo now treats Prisma migrations as the source of truth for schema changes
    redirect URI match, so sign-in only works after that checkout-specific URI is registered in the
    Discord developer portal. Use `DEVKIT=0 npm run dev` when you need the single registered
    fixed-port callback instead.
-4. Start the app in the devcontainer and use the "Sign in with Discord" button in the web UI.
+4. Start the app with `npm run dev` and use the "Sign in with Discord" button in the web UI.
 5. Discord sign-in now also requests the `guilds` scope so the app can sync which servers you share with other users.
 6. After signing in, use the in-app Discord server controls to opt specific shared servers into discovery. Synced servers are excluded by default, and a server can only be selected once the bot is installed in that server.
 7. If you join a new Discord server or install the bot into one after you have already signed in, use the Network page's `Refresh Discord servers` action to re-sync your server list without signing out.
@@ -303,7 +302,7 @@ This repo now treats Prisma migrations as the source of truth for schema changes
 The library search can query RAWG for broad multi-platform game data instead of being limited to any single storefront.
 
 1. Create a RAWG API key at `https://rawg.io/apidocs`.
-2. Set `RAWG_API_KEY` in your `.env` file or devcontainer environment.
+2. Set `RAWG_API_KEY` in your `.env` file.
 3. If the key is missing, the app falls back to locally known games only.
 4. Keep the RAWG attribution link visible anywhere RAWG-backed catalog results are shown.
 

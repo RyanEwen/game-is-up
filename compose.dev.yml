@@ -1,9 +1,9 @@
-# Host-editor runtime. Devkit adds this checkout's PostgreSQL service.
+# Containerized development runtime. Devkit adds this checkout's PostgreSQL service.
 services:
   node:
     build:
-      context: .devcontainer
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: docker/dev/Dockerfile
     working_dir: /workspace
     user: "${HOST_UID:?host uid is required}:${HOST_GID:?host gid is required}"
     init: true
@@ -29,4 +29,4 @@ services:
     depends_on:
       database:
         condition: service_healthy
-    command: npm run dev
+    command: node scripts/dev/run-dev.mjs --container-runtime
