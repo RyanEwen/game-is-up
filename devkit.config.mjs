@@ -26,6 +26,9 @@ export default {
   /** A new worktree inherits required ignored local configuration without overwriting its own. */
   worktreeFiles: ['.env'],
 
+  /** Open the proxied UI only after its API is ready to serve the application. */
+  browser: { path: '/', healthPath: '/api/health' },
+
   /** Map checkout-derived ports and origin onto the environment the existing servers consume. */
   env: ({ url }) => ({
     API_PORT: DEV_PORTS.api,
