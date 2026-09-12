@@ -17,6 +17,7 @@
     "deploy:prod:ssh": "node scripts/deploy/deploy-over-ssh.mjs",
     "db:wait": "node scripts/dev/wait-for-db.mjs",
     "dev": "node scripts/dev/run-dev.mjs",
+    "dev:down": "npm run dev -- --down",
     "dev:bootstrap": "devkit bootstrap",
     "dev:doctor": "devkit doctor",
     "dev:fresh": "node scripts/dev/run-dev.mjs --fresh",

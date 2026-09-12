@@ -121,7 +121,7 @@ Useful commands:
 - `npm run dev:host -- reset` recreates a worktree database volume from that baseline.
 - `npm run dev:host -- prune` lists volumes whose worktrees no longer exist.
 - `npm run dev:host -- infra` restarts the machine proxy and this checkout's PostgreSQL container.
-- `npm run dev -- --down` removes this checkout's containers and network while preserving its database volume.
+- `npm run dev:down` removes this checkout's containers and network while preserving its database volume.
 
 
 ## Validation
