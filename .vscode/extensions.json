@@ -1,6 +1,7 @@
 {
   "recommendations": [
     "ms-ossdata.vscode-pgsql",
+    "Prisma.prisma",
     "dbaeumer.vscode-eslint",
     "ms-azuretools.vscode-docker"
   ]
