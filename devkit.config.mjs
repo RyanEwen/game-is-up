@@ -26,6 +26,13 @@ export default {
   /** A new worktree inherits required ignored local configuration without overwriting its own. */
   worktreeFiles: ['.env'],
 
+  /** Replace a worktree's shared dependency link with a runtime-matched local install. */
+  install: {
+    command: ['npm', 'ci'],
+    inputs: ['package.json', 'package-lock.json', '.nvmrc'],
+    output: 'node_modules'
+  },
+
   /** Open the proxied UI only after its API is ready to serve the application. */
   browser: { path: '/', healthPath: '/api/health' },
 

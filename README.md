@@ -95,14 +95,14 @@ stack containing Node and PostgreSQL. The primary checkout uses `game-is-up.loca
 ```bash
 npm run dev:bootstrap             # once per host machine
 npm run dev:host -- snapshot      # once in the primary checkout, after preparing its dev data
-npm install                       # once in each new worktree
 npm run dev
 ```
 
-On startup, `npm run dev` inherits a missing `.env` from the primary checkout, runs Devkit's
-preflight, overlays the derived database, port, origins, and Vite settings, applies checked-in
-Prisma migrations, builds the shared package, and starts the shared/API/web watchers in the
-checkout's source-mounted Node container.
+On startup, `npm run dev` inherits a missing `.env` from the primary checkout, replaces a missing
+or shared dependency tree with a checkout-local `npm ci`, runs Devkit's preflight, overlays the
+derived database, port, origins, and Vite settings, applies checked-in Prisma migrations, builds
+the shared package, and starts the shared/API/web watchers in the checkout's source-mounted Node
+container. A standalone clone still needs an initial `npm install` to install Devkit itself.
 The routed and direct URLs are printed before watcher output. An existing worktree `.env` is never
 overwritten, and the proxy route is removed when the runner exits.
 
