@@ -2,6 +2,8 @@ import { fileURLToPath } from 'node:url'
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
+import { webBuildIdPlugin } from './webBuildIdPlugin'
+import { navigationCaching } from './serviceWorkerConfig'
 
 const pwaIconVersion = '20260716'
 
@@ -23,14 +25,18 @@ export default defineConfig(({ mode }) => {
   cacheDir: '.vite',
   plugins: [
     react(),
+    webBuildIdPlugin(),
     VitePWA({
       registerType: 'autoUpdate',
       workbox: {
         cleanupOutdatedCaches: true,
         clientsClaim: true,
-        navigateFallbackDenylist: [/^\/api(?:\/|$)/],
+        navigateFallback: undefined,
+        directoryIndex: null,
+        globIgnores: ['**/build-id.json'],
         skipWaiting: true,
         runtimeCaching: [
+          navigationCaching,
           {
             urlPattern: /^\/api\/media\//,
             handler: 'CacheFirst',

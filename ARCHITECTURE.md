@@ -129,3 +129,12 @@ Discord-linked identities now also persist Discord OAuth access and refresh toke
 Codex uses the root and nested `AGENTS.md` files for scoped project guidance, `.agents/skills/` for reusable workflows, and `.codex/hooks.json` with `.codex/hooks/` for lifecycle automation.
 
 These files stay small and focused so they remain usable during day-to-day implementation.
+
+## PWA updates
+
+Worker activation, periodic checks and wake-up signals compare the loaded page's
+build stamp with the uncached `build-id.json` probe. Only a confirmed mismatch
+reloads the page, with one recorded attempt per target to prevent loops. The build
+identity covers emitted HTML, code, styles, the manifest and public assets, so
+HTML-only releases are detectable without unconditional worker refreshes. Online
+navigations fetch current HTML; offline navigations use the matching precached shell.
