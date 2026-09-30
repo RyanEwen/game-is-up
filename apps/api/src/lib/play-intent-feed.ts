@@ -213,7 +213,8 @@ export async function buildPlayIntentFeed(viewerId?: string | null): Promise<Pla
         select: {
           playIntentId: true,
           responseChoice: true,
-          runningLateAt: true
+          runningLateAt: true,
+          runningLateMinutes: true
         },
         orderBy: {
           createdAt: 'desc'
@@ -223,6 +224,7 @@ export async function buildPlayIntentFeed(viewerId?: string | null): Promise<Pla
           isNotified: true;
           responseChoice: 'interested' | 'pass' | null;
           runningLate: boolean;
+          runningLateMinutes: number | null;
         }>()
 
         for (const row of rows) {
@@ -237,7 +239,8 @@ export async function buildPlayIntentFeed(viewerId?: string | null): Promise<Pla
               : row.responseChoice === NotificationResponseChoice.DECLINE
                 ? 'pass'
                 : null,
-            runningLate: row.runningLateAt != null
+            runningLate: row.runningLateAt != null,
+            runningLateMinutes: row.runningLateAt ? row.runningLateMinutes : null
           })
         }
 
@@ -246,6 +249,7 @@ export async function buildPlayIntentFeed(viewerId?: string | null): Promise<Pla
     : new Map<string, {
         responseChoice: 'interested' | 'pass' | null;
         runningLate: boolean;
+        runningLateMinutes: number | null;
       }>()
   const interestedUsersByPlayIntentId = await getInterestedUsersByPlayIntentId(intents.map((intent) => intent.id))
 
@@ -323,6 +327,7 @@ export async function buildPlayIntentFeed(viewerId?: string | null): Promise<Pla
         discordSpace: serializeDiscordSpaceSummary(intent.discordSpace),
         viewerResponseChoice: recipientNotificationState?.responseChoice ?? null,
         viewerRunningLate: recipientNotificationState?.runningLate ?? false,
+        viewerRunningLateMinutes: recipientNotificationState?.runningLateMinutes ?? null,
         interestedUsers,
         interestedCount: interestedUsers.length,
         availabilityWindow: {

@@ -76,6 +76,8 @@ The dashboard uses route-backed tabs, so the main views live at `/` for Home, `/
 
 The Play tab now keeps both active and recently ended calls to play visible across the viewer's network, including targeted friend-only, friends-list, or selected-server calls that explicitly include that viewer. By default, the Play page filters those lists to calls that apply to the viewer's current library, but each section can be switched to show all visible calls.
 
+Interested players can choose "I'll be late" on the call's detail page or Discord invite and enter an optional delay in minutes. Leave it blank when unsure, or use "Update delay" to revise it later. Estimates appear alongside the player's response and in updates to the creator and other invited players who have not declined. Saving the same estimate again does not send another notification.
+
 The Friends page also supports reusable friends lists so creators can save common audience groups and target those saved lists directly from the Play composer.
 
 Signed-in dashboard sessions now also keep themselves fresh through a same-origin Server-Sent Events invalidation stream. When impactful shared state changes land on the API, open tabs can automatically reload discovery, play, library, network, and session data without a polling loop.

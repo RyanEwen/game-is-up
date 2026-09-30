@@ -87,6 +87,7 @@ function toCreatorSummaryNotificationsAtTime(
     respondedAt: Date | null;
     responseChoice: NotificationResponseChoice | null;
     runningLateAt?: Date | null;
+    runningLateMinutes?: number | null;
     deliveredAt: Date | null;
     createdAt: Date;
   }>,
@@ -106,6 +107,9 @@ function toCreatorSummaryNotificationsAtTime(
         : null,
       runningLateAt: notification.runningLateAt && notification.runningLateAt.getTime() <= currentTime.getTime()
         ? notification.runningLateAt
+        : null,
+      runningLateMinutes: notification.runningLateAt && notification.runningLateAt <= currentTime
+        ? notification.runningLateMinutes ?? null
         : null,
       deliveredAt: notification.deliveredAt && notification.deliveredAt.getTime() <= currentTime.getTime()
         ? notification.deliveredAt
@@ -160,6 +164,7 @@ function buildCreatorSummaryRevisions(intent: {
     respondedAt: Date | null;
     responseChoice: NotificationResponseChoice | null;
     runningLateAt?: Date | null;
+    runningLateMinutes?: number | null;
     deliveredAt: Date | null;
     createdAt: Date;
   }>;
@@ -484,6 +489,7 @@ export async function buildDebugAdminSnapshot() {
             respondedAt: true,
             responseChoice: true,
             runningLateAt: true,
+            runningLateMinutes: true,
             type: true,
             title: true,
             body: true,

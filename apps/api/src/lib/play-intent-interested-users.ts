@@ -1,3 +1,4 @@
+/** Loads recipient response summaries, including optional delays, from their latest prompts. */
 import { AuthProvider, NotificationResponseChoice, NotificationType } from '@prisma/client'
 import { toClientAvatarUrl } from './game-media.js'
 import { prisma } from './prisma.js'
@@ -9,6 +10,7 @@ export type PlayIntentResponseUser = {
   avatarUrl: string | null;
   /** True when this interested user flagged that they will be late. */
   runningLate: boolean;
+  runningLateMinutes?: number | null;
   identities?: { providerUserId: string }[];
 }
 
@@ -60,6 +62,7 @@ async function getResponseUsersByPlayIntentId(playIntentIds: string[], responseC
       playIntentId: true,
       responseChoice: true,
       runningLateAt: true,
+      runningLateMinutes: true,
       user: {
         select: {
           id: true,
@@ -105,6 +108,7 @@ async function getResponseUsersByPlayIntentId(playIntentIds: string[], responseC
       displayName: notification.user.displayName,
       avatarUrl: toClientAvatarUrl(notification.user.avatarUrl),
       runningLate: notification.runningLateAt != null,
+      runningLateMinutes: notification.runningLateAt ? notification.runningLateMinutes : null,
       responseChoice: notification.responseChoice,
       identities: notification.user.identities
     })

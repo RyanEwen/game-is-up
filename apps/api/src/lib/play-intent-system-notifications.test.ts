@@ -54,6 +54,13 @@ test('getPlayIntentSystemNotificationDefinitionByTitle returns null for an unkno
 
 // ---------------------------------------------------------------------------
 // Running late
+test('delay estimates appear in creator and audience updates', () => {
+  const options = { recipientDisplayName: 'Sam', gameTitle: 'Helldivers 2', runningLateMinutes: 15 }
+  assert.equal(formatCreatorRunningLateSystemNotification(options).body,
+    'Sam is interested but about 15 minutes late for Helldivers 2.')
+  assert.equal(formatAudienceRunningLateSystemNotification(options).body,
+    'Sam is interested but about 15 minutes late for Helldivers 2.')
+})
 // ---------------------------------------------------------------------------
 
 test('creator running-late notification describes the late interested player in plain text', () => {

@@ -102,6 +102,8 @@ import {
   syncPlayIntentUpdatesLogDirectMessage,
   type PlayIntentUpdatesLogEntry
 } from './play-intent-updates-log.js'
+import { formatRunningLateLabel, runningLateMinutesSchema } from '@game-is-up/shared'
+import { buildRunningLateModal } from './play-intent-running-late-modal.js'
 import { prisma } from './prisma.js'
 import { formatPlayIntentDateLabel, formatPlayIntentWindowLabel } from './play-intent-time-format.js'
 import {
@@ -147,6 +149,7 @@ type ResolvablePlayIntentNotification = {
   gameId: string | null;
   responseChoice: NotificationResponseChoice | null;
   runningLateAt?: Date | null;
+  runningLateMinutes?: number | null;
   user: {
     displayName: string;
     identities?: { providerUserId: string }[];
@@ -272,6 +275,7 @@ type CreatorPlayIntentSummarySnapshot = {
     respondedAt: Date | null;
     responseChoice: NotificationResponseChoice | null;
     runningLateAt?: Date | null;
+    runningLateMinutes?: number | null;
     deliveredAt: Date | null;
     createdAt: Date;
     user?: {
@@ -680,12 +684,12 @@ function buildResponseRow(
     )
   }
 
-  // Once interested, offer "I'll be late" until the recipient has flagged it.
-  if (responseChoice === NotificationResponseChoice.JOIN && !runningLate) {
+  // Interested players can set an estimate and revise it if their plans change.
+  if (responseChoice === NotificationResponseChoice.JOIN) {
     buttons.push(
       new ButtonBuilder()
         .setCustomId(responseCustomIdBuilder?.('late') ?? `${playIntentNotificationPrefix}:${notificationId}:late`)
-        .setLabel('I\'ll be late')
+        .setLabel(runningLate ? 'Update delay' : "I'll be late")
         .setStyle(ButtonStyle.Secondary)
     )
   }
@@ -1735,6 +1739,7 @@ function getCreatorSummaryRecipientStats(snapshot: CreatorPlayIntentSummarySnaps
     respondedAt: Date | null;
     responseChoice: NotificationResponseChoice | null;
     runningLate: boolean;
+    runningLateMinutes?: number | null;
     interestedUserLabel: string;
   }>()
   const deliveredUserIds = new Set<string>()
@@ -1749,6 +1754,7 @@ function getCreatorSummaryRecipientStats(snapshot: CreatorPlayIntentSummarySnaps
         respondedAt: notification.respondedAt,
         responseChoice: notification.responseChoice,
         runningLate: notification.runningLateAt != null,
+        runningLateMinutes: notification.runningLateMinutes,
         interestedUserLabel: notification.user
           ? buildDiscordUserLabel(notification.user.displayName, notification.user.identities?.[0]?.providerUserId)
           : notification.userId
@@ -1769,7 +1775,9 @@ function getCreatorSummaryRecipientStats(snapshot: CreatorPlayIntentSummarySnaps
       interestedCount += 1
 
       if (status.runningLate) {
-        runningLateUserLabels.push(status.interestedUserLabel)
+        runningLateUserLabels.push(status.runningLateMinutes == null
+          ? status.interestedUserLabel
+          : `${status.interestedUserLabel} (${formatRunningLateLabel(status.runningLateMinutes).toLowerCase()})`)
       } else {
         interestedUserLabels.push(status.interestedUserLabel)
       }
@@ -2077,6 +2085,7 @@ async function getCreatorPlayIntentSummarySnapshot(playIntentId: string) {
           respondedAt: true,
           responseChoice: true,
           runningLateAt: true,
+          runningLateMinutes: true,
           deliveredAt: true,
           createdAt: true,
           user: {
@@ -2358,6 +2367,7 @@ export async function refreshTrackedPlayIntentNotificationDirectMessages(options
       body: true,
       responseChoice: true,
       runningLateAt: true,
+      runningLateMinutes: true,
       discordDmChannelId: true,
       discordDmMessageId: true,
       game: {
@@ -2801,13 +2811,14 @@ function buildInterestedAcceptedMessage(
   )
 }
 
-function buildRunningLateAcceptedMessage(creatorLabel: string, alreadyLate: boolean) {
+function buildRunningLateAcceptedMessage(creatorLabel: string, alreadyLate: boolean, runningLateMinutes?: number | null) {
+  const lateDescription = formatRunningLateLabel(runningLateMinutes).toLowerCase()
   return buildDiscordPlainMessage(
     '⏰ Running Late',
     [
       alreadyLate
-        ? `You are already marked as running late. ${creatorLabel} and the other interested players were notified.`
-        : `Got it — I let ${creatorLabel} and the other interested players know you are running late.`
+        ? `You are already marked as ${lateDescription}. ${creatorLabel} and the other interested players were notified.`
+        : `Got it, I let ${creatorLabel} and the other interested players know you are ${lateDescription}.`
     ],
     {
       trailingSubtext: 'You are still marked as interested.'
@@ -3360,7 +3371,8 @@ async function applyRecipientResponseToPlayIntentNotification(options: {
           data: {
             respondedAt: new Date(),
             responseChoice: NotificationResponseChoice.DECLINE,
-            runningLateAt: null
+            runningLateAt: null,
+            runningLateMinutes: null
           }
         })
 
@@ -3381,7 +3393,8 @@ async function applyRecipientResponseToPlayIntentNotification(options: {
         data: {
           respondedAt: new Date(),
           responseChoice: NotificationResponseChoice.DECLINE,
-          runningLateAt: null
+          runningLateAt: null,
+          runningLateMinutes: null
         },
         select: {
           id: true,
@@ -3527,10 +3540,11 @@ async function applyRecipientResponseToPlayIntentNotification(options: {
  * Flags an interested recipient as running late and notifies the creator plus
  * every other interested recipient. "Running late" is a modifier on an existing
  * interested response, so it requires a prior JOIN and never changes the stored
- * response choice. Repeat flags are idempotent and do not re-notify.
+ * response choice. Repeating the same estimate is quiet; changed estimates notify again.
  */
 async function applyRunningLateToPlayIntentNotification(options: {
   notification: ResolvablePlayIntentNotification;
+  runningLateMinutes?: number | null;
 }) {
   const { notification } = options
 
@@ -3545,15 +3559,16 @@ async function applyRunningLateToPlayIntentNotification(options: {
   const playIntent = notification.playIntent
   const creatorDiscordUserId = playIntent.user.identities?.[0]?.providerUserId ?? null
   const creatorDiscordLabel = buildDiscordUserLabel(playIntent.user.displayName, creatorDiscordUserId)
+  const runningLateMinutes = runningLateMinutesSchema.parse(options.runningLateMinutes ?? null)
   const alreadyLate = notification.runningLateAt != null
 
   const noOpResult = {
-    content: buildRunningLateAcceptedMessage(playIntent.user.displayName, true),
-    discordContent: buildRunningLateAcceptedMessage(creatorDiscordLabel, true),
+    content: buildRunningLateAcceptedMessage(playIntent.user.displayName, true, runningLateMinutes),
+    discordContent: buildRunningLateAcceptedMessage(creatorDiscordLabel, true, runningLateMinutes),
     discordComponents: [] as ActionRowBuilder<MessageActionRowComponentBuilder>[]
   }
 
-  if (alreadyLate) {
+  if (alreadyLate && (notification.runningLateMinutes ?? null) === runningLateMinutes) {
     return noOpResult
   }
 
@@ -3562,10 +3577,12 @@ async function applyRunningLateToPlayIntentNotification(options: {
 
   const creatorNotificationCopy = formatCreatorRunningLateSystemNotification({
     recipientDisplayName: notification.user.displayName,
+    runningLateMinutes,
     gameTitle: responseGameTitle
   })
   const audienceNotificationCopy = formatAudienceRunningLateSystemNotification({
     recipientDisplayName: notification.user.displayName,
+    runningLateMinutes,
     gameTitle: responseGameTitle
   })
 
@@ -3575,7 +3592,8 @@ async function applyRunningLateToPlayIntentNotification(options: {
         id: notification.id
       },
       data: {
-        runningLateAt: new Date()
+        runningLateAt: notification.runningLateAt ?? new Date(),
+        runningLateMinutes
       }
     })
 
@@ -3608,8 +3626,8 @@ async function applyRunningLateToPlayIntentNotification(options: {
   publishPlayIntentInvalidation()
 
   return {
-    content: buildRunningLateAcceptedMessage(playIntent.user.displayName, false),
-    discordContent: buildRunningLateAcceptedMessage(creatorDiscordLabel, false),
+    content: buildRunningLateAcceptedMessage(playIntent.user.displayName, false, runningLateMinutes),
+    discordContent: buildRunningLateAcceptedMessage(creatorDiscordLabel, false, runningLateMinutes),
     discordComponents: [] as ActionRowBuilder<MessageActionRowComponentBuilder>[]
   }
 }
@@ -3719,6 +3737,7 @@ export async function respondToPlayIntentFromWeb(options: {
 export async function markRunningLateFromWeb(options: {
   userId: string;
   playIntentId: string;
+  runningLateMinutes?: number | null;
 }) {
   const notification = await prisma.notification.findFirst({
     where: {
@@ -3738,6 +3757,7 @@ export async function markRunningLateFromWeb(options: {
       gameId: true,
       responseChoice: true,
       runningLateAt: true,
+      runningLateMinutes: true,
       discordDmChannelId: true,
       discordDmMessageId: true,
       user: {
@@ -3797,7 +3817,11 @@ export async function markRunningLateFromWeb(options: {
     throw new PlayIntentNotificationResponseError(409, 'The original call to play is no longer active.')
   }
 
-  const result = await applyRunningLateToPlayIntentNotification({ notification })
+  const result = await applyRunningLateToPlayIntentNotification({ notification, runningLateMinutes: options.runningLateMinutes })
+
+  await syncCreatorPlayIntentSummaryMessages([notification.playIntent.id], {
+    notifyOnActiveChange: false
+  })
 
   await refreshTrackedPlayIntentNotificationDirectMessages({
     playIntentIds: [notification.playIntent.id]
@@ -4502,6 +4526,7 @@ export async function handlePlayIntentNotificationInteraction(interaction: Butto
         respondedAt: true,
         responseChoice: true,
         runningLateAt: true,
+        runningLateMinutes: true,
         discordDmChannelId: true,
         discordDmMessageId: true,
         user: {
@@ -4632,6 +4657,7 @@ export async function handlePlayIntentNotificationInteraction(interaction: Butto
           gameId: true,
           responseChoice: true,
           runningLateAt: true,
+          runningLateMinutes: true,
           discordDmChannelId: true,
           discordDmMessageId: true,
           user: {
@@ -4691,19 +4717,16 @@ export async function handlePlayIntentNotificationInteraction(interaction: Butto
   }
 
   if (action.kind === 'running-late') {
-    await applyRunningLateToPlayIntentNotification({
-      notification: responseNotification
-    })
+    await interaction.showModal(buildRunningLateModal(responseNotification.id, responseNotification.runningLateMinutes))
+    return
   } else {
     await applyRecipientResponseToPlayIntentNotification({
       notification: responseNotification,
       response: action.response
     })
   }
-  const preservedResponseChoice = action.kind === 'running-late'
-    ? NotificationResponseChoice.JOIN
-    : action.response
-  const preservedRunningLate = action.kind === 'running-late'
+  const preservedResponseChoice = action.response
+  const preservedRunningLate = false
   const interestedUsers = await getInterestedUsersByPlayIntentId([playIntent.id])
   const interestedUserLabels = (interestedUsers.get(playIntent.id) ?? []).map((user) => buildDiscordUserLabel(
     user.displayName,
@@ -4742,9 +4765,7 @@ export async function handlePlayIntentNotificationInteraction(interaction: Butto
         ...buildPlayIntentGameEmbeds(playIntent)
       ]
     : preservedPrompt.embeds
-  const confirmationKind: ResponseConfirmationKind = action.kind === 'running-late'
-    ? 'late'
-    : action.response === NotificationResponseChoice.JOIN ? 'interested' : 'pass'
+  const confirmationKind: ResponseConfirmationKind = action.response === NotificationResponseChoice.JOIN ? 'interested' : 'pass'
 
   // Acknowledge the click by flashing a short confirmation on the pressed button
   // instead of sending a separate "You're In" follow-up DM. The pressed message is

@@ -516,6 +516,7 @@ model Notification {
   responseChoice                      NotificationResponseChoice?
   respondedAt                         DateTime?
   runningLateAt                       DateTime?
+  runningLateMinutes                  Int?
   deliveredAt                         DateTime?
   discordDmChannelId                  String?
   discordDmMessageId                  String?

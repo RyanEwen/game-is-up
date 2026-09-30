@@ -16,6 +16,8 @@
  */
 
 import { z } from 'zod'
+import { runningLateMinutesSchema } from './running-late.js'
+export { runningLateMinutesSchema, parseRunningLateMinutes, formatRunningLateLabel } from './running-late.js'
 
 // ---------------------------------------------------------------------------
 // Identity, auth, and shared primitives
@@ -333,7 +335,8 @@ export const playIntentPreviewUserSchema = z.object({
  * the generic preview-user shape used for creators, passed, and targeted users.
  */
 export const playIntentInterestedUserSchema = playIntentPreviewUserSchema.extend({
-  runningLate: z.boolean().default(false)
+  runningLate: z.boolean().default(false),
+  runningLateMinutes: runningLateMinutesSchema.optional()
 })
 
 export const playIntentPreviewSchema = z.object({
@@ -354,6 +357,7 @@ export const playIntentPreviewSchema = z.object({
   viewerResponseChoice: z.enum(['interested', 'pass']).nullable().default(null),
   /** True when the viewer marked interested and then flagged they will be late. */
   viewerRunningLate: z.boolean().default(false),
+  viewerRunningLateMinutes: runningLateMinutesSchema.optional(),
   interestedUsers: z.array(playIntentInterestedUserSchema).default([]),
   interestedCount: z.number().int().min(0),
   availabilityWindow: availabilityWindowSchema
@@ -428,7 +432,25 @@ export const playIntentRecipientResponseChoiceSchema = z.enum(['interested', 'pa
 export const playIntentRecipientActionSchema = z.enum(['interested', 'pass', 'late'])
 
 export const playIntentRecipientResponseRequestSchema = z.object({
-  choice: playIntentRecipientActionSchema
+  // Keep the older Discord-style aliases compatible at the HTTP boundary.
+  choice: z.enum(['interested', 'pass', 'late', 'join', 'decline']).transform((choice) => {
+    if (choice === 'join') {
+      return 'interested' as const
+    }
+    if (choice === 'decline') {
+      return 'pass' as const
+    }
+    return choice
+  }),
+  runningLateMinutes: runningLateMinutesSchema.optional()
+}).superRefine((response, context) => {
+  if (response.choice !== 'late' && response.runningLateMinutes != null) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['runningLateMinutes'],
+      message: 'A delay estimate only applies to a running-late response.'
+    })
+  }
 })
 
 export const playIntentRecipientResponseResultSchema = z.object({

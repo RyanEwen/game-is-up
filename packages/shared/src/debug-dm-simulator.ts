@@ -1,3 +1,5 @@
+/** Builds local Discord previews, including interested-player delay estimates and their revisions. */
+import { formatRunningLateLabel } from './running-late.js'
 import {
   buildAutoPlayInactiveObservationClosedReason,
   buildDecoratedSectionHeading,
@@ -53,6 +55,7 @@ export type SimulatedLifecycleState = {
   audienceResponse: SimulatedAudienceResponse;
   /** True when an interested audience member flagged that they will be late. */
   audienceRunningLate: boolean;
+  audienceRunningLateMinutes?: number | null;
   creatorCheckInState: SimulatedCreatorCheckInState;
   hasGoTimeBroadcast: boolean;
   hasVoiceChannelActivity: boolean;
@@ -287,9 +290,9 @@ function buildSimulatorAudienceActionButtons(
     })
   }
 
-  if (state.audienceResponse === 'interested' && !state.audienceRunningLate) {
+  if (state.audienceResponse === 'interested') {
     primaryRow.push({
-      label: "I'll be late",
+      label: state.audienceRunningLate ? 'Update delay' : "I'll be late",
       style: 'secondary',
       disabled: false,
       url: null,
@@ -407,6 +410,7 @@ export function buildInitialSimulatorHistory(options: {
     stage,
     audienceResponse: null,
     audienceRunningLate: false,
+    audienceRunningLateMinutes: null,
     creatorCheckInState: null,
     hasGoTimeBroadcast: false,
     hasVoiceChannelActivity: false,
@@ -509,7 +513,9 @@ export function buildSimulatorCreatorSummaryPreview(
           ...(isRunningLate
             ? [{
                 name: 'Running Late',
-                value: `@${draft.audienceName}`,
+                value: state.audienceRunningLateMinutes == null
+                  ? `@${draft.audienceName}`
+                  : `@${draft.audienceName} (${formatRunningLateLabel(state.audienceRunningLateMinutes).toLowerCase()})`,
                 inline: false
               }]
             : []),
@@ -765,7 +771,7 @@ export function buildSimulatorCreatorFollowUpPreview(
     return {
       content: buildSimulatorPlainMessage(
         '⏰ Someone is running late',
-        [`@${draft.audienceName} is interested but running late for ${draft.gameTitle}.`]
+        [`@${draft.audienceName} is interested but ${formatRunningLateLabel(state.audienceRunningLateMinutes).toLowerCase()} for ${draft.gameTitle}.`]
       ),
       embeds: [],
       buttonRows: []

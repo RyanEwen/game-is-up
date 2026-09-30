@@ -179,7 +179,7 @@ export type DashboardPlayViewProps = {
   onDeletePlayIntent: (playIntentId: string) => Promise<boolean>;
   playIntentPreviews: PlayIntentPreview[];
   playIntentResponsePendingIntentId: string | null;
-  onRespondToPlayIntent: (playIntentId: string, responseChoice: PlayIntentRecipientAction) => Promise<void>;
+  onRespondToPlayIntent: (playIntentId: string, responseChoice: PlayIntentRecipientAction, runningLateMinutes?: number | null) => Promise<boolean>;
   playIntentDiscordSpaceRetryPendingIntentId: string | null;
   onRetryPlayIntentDiscordSpace: (playIntentId: string) => Promise<void>;
   playIntentDiscordSpaceDeletePendingIntentId: string | null;
@@ -1046,7 +1046,7 @@ export function useDashboardPlay({
     }
   }, [buildApiUrl, loadDashboard])
 
-  const handleRespondToPlayIntent = useCallback(async (playIntentId: string, responseChoice: PlayIntentRecipientAction) => {
+  const handleRespondToPlayIntent = useCallback(async (playIntentId: string, responseChoice: PlayIntentRecipientAction, runningLateMinutes?: number | null) => {
     setPlayIntentResponsePendingIntentId(playIntentId)
     setPlayIntentNotice(null)
 
@@ -1058,7 +1058,8 @@ export function useDashboardPlay({
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          choice: responseChoice
+          choice: responseChoice,
+          ...(responseChoice === 'late' ? { runningLateMinutes: runningLateMinutes ?? null } : {})
         })
       })
 
@@ -1069,7 +1070,7 @@ export function useDashboardPlay({
           tone: 'danger',
           message: extractErrorMessage(responseBody, 'Unable to update your response right now.')
         })
-        return
+        return false
       }
 
       const parsed = playIntentRecipientResponseResultSchema.parse(responseBody)
@@ -1078,11 +1079,13 @@ export function useDashboardPlay({
         message: buildPlayIntentResponseToastMessage(parsed)
       })
       await loadDashboard()
+      return true
     } catch (error) {
       setPlayIntentNotice({
         tone: 'danger',
         message: error instanceof Error ? error.message : 'Unable to update your response right now.'
       })
+      return false
     } finally {
       setPlayIntentResponsePendingIntentId(null)
     }

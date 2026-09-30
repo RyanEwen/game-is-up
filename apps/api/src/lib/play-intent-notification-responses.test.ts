@@ -334,7 +334,7 @@ test('interested recipients see an "I\'ll be late" button on the prompt', () => 
   assert.ok(!labels.includes('I\'m interested'))
 })
 
-test('the "I\'ll be late" button disappears once the recipient is already running late', () => {
+test('late recipients can update their delay estimate', () => {
   const preview = buildPlayIntentNotificationPromptPreview({
     notificationId: 'notification-1',
     playIntentId: 'play-intent-1',
@@ -350,6 +350,7 @@ test('the "I\'ll be late" button disappears once the recipient is already runnin
 
   const labels = collectButtonLabels(preview.components)
   assert.ok(!labels.includes('I\'ll be late'))
+  assert.ok(labels.includes('Update delay'))
   assert.ok(labels.includes('Can\'t make it'))
 })
 

@@ -1,3 +1,4 @@
+/** Presents call details and recipient responses; delay changes are saved through the dashboard flow. */
 import { type ReactNode, useEffect, useMemo, useState } from 'react'
 import ChatBubbleRoundedIcon from '@mui/icons-material/ChatBubbleRounded'
 import HeadsetMicRoundedIcon from '@mui/icons-material/HeadsetMicRounded'
@@ -16,6 +17,8 @@ import { useDashboardContext } from '../contexts/useDashboardContext'
 import { buildApiUrl } from '../lib/apiUrl'
 import { useDashboardSseInvalidation } from '../hooks/useDashboardSseInvalidation'
 import { formatMonthDayTime } from '../lib/dateTime'
+import { formatRunningLateLabel } from '@game-is-up/shared'
+import { RunningLateDialog } from '../components/dashboard/RunningLateDialog'
 
 function formatDateTimeLabel(value: string) {
   return formatMonthDayTime(value)
@@ -183,6 +186,7 @@ export function PlayIntentDetailView() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [showNonOverlappingGames, setShowNonOverlappingGames] = useState(false)
   const [invalidationVersion, setInvalidationVersion] = useState(0)
+  const [runningLateDialogOpen, setRunningLateDialogOpen] = useState(false)
 
   const discoveryPeopleById = useMemo(
     () => new Map(playViewProps.discoveryPeople.map((person) => [person.id, person] as const)),
@@ -469,14 +473,14 @@ export function PlayIntentDetailView() {
                         I&apos;m interested
                       </Button>
                     ) : null}
-                    {intent.viewerResponseChoice === 'interested' && !intent.viewerRunningLate ? (
+                    {intent.viewerResponseChoice === 'interested' ? (
                       <Button
                         variant="outlined"
                         color="warning"
                         disabled={responsePending}
-                        onClick={() => void playViewProps.onRespondToPlayIntent(intent.id, 'late')}
+                        onClick={() => setRunningLateDialogOpen(true)}
                       >
-                        I&apos;ll be late
+                        {intent.viewerRunningLate ? 'Update delay' : "I'll be late"}
                       </Button>
                     ) : null}
                     {intent.viewerResponseChoice !== 'pass' ? (
@@ -592,7 +596,7 @@ export function PlayIntentDetailView() {
               <Typography level="body-sm">
                 {intent.viewerResponseChoice === 'interested'
                   ? (intent.viewerRunningLate
-                    ? 'You are marked as interested but running late for this call to play.'
+                    ? `You are marked as interested but ${formatRunningLateLabel(intent.viewerRunningLateMinutes).toLowerCase()} for this call to play.`
                     : 'You are marked as interested in this call to play.')
                   : 'You are marked as unable to make it.'}
               </Typography>
@@ -973,6 +977,13 @@ export function PlayIntentDetailView() {
           <Typography level="body-sm">{errorMessage}</Typography>
         </Card>
       ) : null}
+      <RunningLateDialog
+        open={runningLateDialogOpen}
+        minutes={intent.viewerRunningLateMinutes}
+        pending={responsePending}
+        onClose={() => setRunningLateDialogOpen(false)}
+        onSave={(minutes) => playViewProps.onRespondToPlayIntent(intent.id, 'late', minutes)}
+      />
     </Stack>
   )
 }

@@ -1,3 +1,5 @@
+/** Owns simulated response transitions and snapshots; unchanged delay estimates stay quiet. */
+import { formatRunningLateLabel, runningLateMinutesSchema } from './running-late.js'
 import type { PlayIntentUpdatedField } from './play-intent-update-effects.js'
 import {
   buildInitialAutoPlayPromptHistory,
@@ -124,6 +126,7 @@ function snapshotSimulatorLifecycleState(
     stage: state.stage,
     audienceResponse: state.audienceResponse,
     audienceRunningLate: state.audienceRunningLate,
+    audienceRunningLateMinutes: state.audienceRunningLateMinutes ?? null,
     creatorCheckInState: state.creatorCheckInState,
     hasGoTimeBroadcast: state.hasGoTimeBroadcast,
     hasVoiceChannelActivity: state.hasVoiceChannelActivity,
@@ -317,7 +320,8 @@ function mapSimulatorCustomIdToAutoPlayAction(customId: string): SimulatedAutoPl
 function resolveSimulatorLifecycleTransition(
   currentState: SimulatedLifecycleState,
   action: Exclude<SimulatedLifecycleAction, 'session-created'>,
-  draft: SimulatedScenarioDraft
+  draft: SimulatedScenarioDraft,
+  runningLateMinutes: number | null
 ): {
   nextState: SimulatedLifecycleState;
   summary: string;
@@ -339,6 +343,7 @@ function resolveSimulatorLifecycleTransition(
         ...nextState,
         audienceResponse: 'interested',
         audienceRunningLate: false,
+        audienceRunningLateMinutes: null,
         latestAudienceUpdateFields: null,
         latestAudienceUpdateRequiresFreshResponse: false
       }
@@ -352,6 +357,7 @@ function resolveSimulatorLifecycleTransition(
         ...nextState,
         audienceResponse: 'pass',
         audienceRunningLate: false,
+        audienceRunningLateMinutes: null,
         latestAudienceUpdateFields: null,
         latestAudienceUpdateRequiresFreshResponse: false
       }
@@ -361,16 +367,18 @@ function resolveSimulatorLifecycleTransition(
         : `${draft.audienceName} can't make it.`
       break
     case 'audience-running-late':
-      if (currentState.audienceResponse !== 'interested' || currentState.audienceRunningLate) {
+      if (currentState.stage === 'ended' || currentState.audienceResponse !== 'interested'
+        || (currentState.audienceRunningLate && (currentState.audienceRunningLateMinutes ?? null) === runningLateMinutes)) {
         return null
       }
 
       nextState = {
         ...nextState,
-        audienceRunningLate: true
+        audienceRunningLate: true,
+        audienceRunningLateMinutes: runningLateMinutesSchema.parse(runningLateMinutes)
       }
       actor = 'audience'
-      summary = `${draft.audienceName} is interested but running late.`
+      summary = `${draft.audienceName} is interested but ${formatRunningLateLabel(runningLateMinutes).toLowerCase()}.`
       break
     case 'audience-mute':
       actor = 'audience'
@@ -685,9 +693,10 @@ export function applySimulatorLifecycleAction(
   currentState: SimulatedLifecycleStateWithActions,
   action: SimulatedPreviewLifecycleAction,
   draft: SimulatedScenarioDraft,
-  now = new Date()
+  now = new Date(),
+  runningLateMinutes: number | null = null
 ) {
-  const transition = resolveSimulatorLifecycleTransition(currentState, action, draft)
+  const transition = resolveSimulatorLifecycleTransition(currentState, action, draft, runningLateMinutes)
 
   if (!transition) {
     return currentState

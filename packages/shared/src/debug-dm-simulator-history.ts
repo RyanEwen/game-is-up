@@ -1,3 +1,4 @@
+/** Replays DM history and distinguishes meaningful delay revisions from quiet repeat saves. */
 import {
   buildSimulatedAutoPlayDmMessages,
   buildSimulatedDmMessages,
@@ -224,7 +225,8 @@ function shouldTreatSimulatorMessageChangeAsReplacement(options: {
   }
 
   if (options.action === 'audience-running-late') {
-    return !previousState.audienceRunningLate && nextState.audienceRunningLate
+    return nextState.audienceRunningLate
+      && (!previousState.audienceRunningLate || previousState.audienceRunningLateMinutes !== nextState.audienceRunningLateMinutes)
   }
 
   if (options.action !== 'audience-interested' && options.action !== 'audience-pass') {

@@ -1,3 +1,4 @@
+/** Hosts the local DM lifecycle simulator, including the same estimate form used on live calls. */
 import { useEffect, useState } from 'react'
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
 import {
@@ -50,12 +51,14 @@ import {
   formatSimulatorTimestamp,
   normalizeSimulatorRecipientCount,
   orderSimulatedThreadMessages,
-  resolveSimulatorUpdatedFields
+  resolveSimulatorUpdatedFields,
+  simulatedDmActionIds
 } from '@game-is-up/shared'
 import ReactMarkdown from 'react-markdown'
 import remarkBreaks from 'remark-breaks'
 import remarkGfm from 'remark-gfm'
 import { DashboardModal } from '../components/dashboard/DashboardModal'
+import { RunningLateDialog } from '../components/dashboard/RunningLateDialog'
 import { EmptyStateCard } from '../components/dashboard/EmptyStateCard'
 
 const defaultSimulatorDraft: SimulatedScenarioDraft = {
@@ -547,6 +550,7 @@ export function DmLifecycleSimulatorDialog({
   onClose: () => void;
 }) {
   const [scenarioKind, setScenarioKind] = useState<SimulatedScenarioKind>('call-to-play')
+  const [runningLateDialogOpen, setRunningLateDialogOpen] = useState(false)
   const [draft, setDraft] = useState<SimulatedScenarioDraft>(() => cloneSimulatorDraft(defaultSimulatorDraft))
   const [committedDraft, setCommittedDraft] = useState<SimulatedScenarioDraft | null>(null)
   const [state, setState] = useState<SimulatedLifecycleStateWithActions | null>(null)
@@ -681,6 +685,11 @@ export function DmLifecycleSimulatorDialog({
 
   const handlePreviewButtonClick = (customId: string) => {
     if (scenarioKind === 'call-to-play') {
+      if (customId === simulatedDmActionIds.audienceRunningLate) {
+        setRunningLateDialogOpen(true)
+        return
+      }
+
       setState((currentState) => {
         if (!currentState || !committedDraft) {
           return currentState
@@ -783,6 +792,7 @@ export function DmLifecycleSimulatorDialog({
       }
 
   const handleClose = () => {
+    setRunningLateDialogOpen(false)
     setScenarioKind('call-to-play')
     setDraft(cloneSimulatorDraft(defaultSimulatorDraft))
     setCommittedDraft(null)
@@ -1182,6 +1192,22 @@ export function DmLifecycleSimulatorDialog({
           </Stack>
         </Stack>
       </DialogContent>
+      <RunningLateDialog
+        open={runningLateDialogOpen}
+        minutes={state?.audienceRunningLateMinutes}
+        pending={false}
+        onClose={() => setRunningLateDialogOpen(false)}
+        onSave={async (minutes) => {
+          if (!state || !committedDraft || state.audienceResponse !== 'interested' || state.stage === 'ended') {
+            return false
+          }
+
+          setState((currentState) => currentState
+            ? applySimulatorLifecycleAction(currentState, 'audience-running-late', committedDraft, new Date(), minutes)
+            : currentState)
+          return true
+        }}
+      />
     </DashboardModal>
   )
 }

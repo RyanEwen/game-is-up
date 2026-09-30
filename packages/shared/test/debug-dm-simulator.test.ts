@@ -145,7 +145,7 @@ test('creator follow-up previews use the requested audience-status emoji heading
   assert.match(interestedFollowUp.preview.content, /^✅ Someone is interested/m)
 
   assert.ok(passedFollowUp)
-  assert.match(passedFollowUp.preview.content, /^❎ Someone passed/m)
+  assert.match(passedFollowUp.preview.content, /^❌ Someone can't make it/m)
 })
 
 test('passing no longer posts a separate audience acknowledgement reply', () => {
@@ -250,6 +250,27 @@ test('the simulated invite prompt offers "I\'ll be late" once interested and cli
     .find((message) => message.id === 'audience-anchor')
   const lateLabels = (lateAnchor?.preview.buttonRows ?? []).flat().map((button) => button.label)
   assert.ok(!lateLabels.includes("I'll be late"))
+  assert.ok(lateLabels.includes('Update delay'))
+})
+
+test('delay revisions notify again, repeat estimates stay quiet, and passing clears the estimate', () => {
+  const initial = buildInitialSimulatorDialogState({ draft, mode: 'live' })
+  const interested = applySimulatorLifecycleAction(initial, 'audience-interested', draft)
+  const now = new Date()
+  const late = applySimulatorLifecycleAction(interested, 'audience-running-late', draft, now, 15)
+  const repeated = applySimulatorLifecycleAction(late, 'audience-running-late', draft, now, 15)
+  assert.equal(repeated.history.length, late.history.length)
+
+  const revised = applySimulatorLifecycleAction(late, 'audience-running-late', draft, now, 30)
+  assert.equal(revised.history.length, late.history.length + 1)
+  assert.equal(revised.audienceRunningLateMinutes, 30)
+  const { creatorMessages } = buildSimulatedDmMessages(draft, revised)
+  assert.ok(creatorMessages.some((message) => message.preview.content.includes('about 30 minutes late')))
+
+  const passed = applySimulatorLifecycleAction(revised, 'audience-pass', draft)
+  assert.equal(passed.audienceRunningLateMinutes, null)
+  const ended = { ...late, stage: 'ended' as const }
+  assert.equal(applySimulatorLifecycleAction(ended, 'audience-running-late', draft, now, 60), ended)
 })
 
 test('audience running-late is ignored unless the player is currently interested', () => {

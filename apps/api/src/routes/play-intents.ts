@@ -25,6 +25,7 @@ import {
   playIntentFeedSchema,
   playIntentMutesResponseSchema,
   playIntentRecipientResponseResultSchema,
+  playIntentRecipientResponseRequestSchema,
   upsertPlayIntentRequestSchema,
   upsertPlayIntentResponseSchema
 } from '@game-is-up/shared'
@@ -52,10 +53,6 @@ import { getAuthSession } from '../lib/session.js'
 import { getUserAdminStatus, requireSignedInUserId } from '../lib/route-auth.js'
 
 export const playIntentRouter = Router()
-
-const playIntentRecipientResponseInputSchema = z.object({
-  choice: z.enum(['interested', 'pass', 'join', 'decline', 'late'])
-})
 
 const muteTargetParamSchema = z.object({ targetUserId: z.string().uuid() })
 const playIntentParamSchema = z.object({ playIntentId: z.string().uuid() })
@@ -397,16 +394,17 @@ playIntentRouter.post('/:playIntentId/respond', async (request, response, next) 
   }
 
   try {
-    const payload = playIntentRecipientResponseInputSchema.parse(request.body)
+    const payload = playIntentRecipientResponseRequestSchema.parse(request.body)
     const result = payload.choice === 'late'
       ? await markRunningLateFromWeb({
           userId,
-          playIntentId: paramsParse.data.playIntentId
+          playIntentId: paramsParse.data.playIntentId,
+          runningLateMinutes: payload.runningLateMinutes
         })
       : await respondToPlayIntentFromWeb({
           userId,
           playIntentId: paramsParse.data.playIntentId,
-          response: payload.choice === 'interested' || payload.choice === 'join'
+          response: payload.choice === 'interested'
             ? NotificationResponseChoice.JOIN
             : NotificationResponseChoice.DECLINE
         })

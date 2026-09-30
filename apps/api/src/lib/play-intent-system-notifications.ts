@@ -11,6 +11,8 @@
  * mention markup literally. Mentions belong on the original invite/summary.
  */
 
+import { formatRunningLateLabel } from '@game-is-up/shared'
+
 type PlayIntentSystemNotificationComponentMode = 'none' | 'link' | 'archived-cleanup'
 
 type PlayIntentSystemNotificationDefinition = {
@@ -225,14 +227,15 @@ export function formatAudienceInterestUpdateSystemNotification(options: {
 export function formatCreatorRunningLateSystemNotification(options: {
   recipientDisplayName: string;
   gameTitle: string | null;
+  runningLateMinutes?: number | null;
 }): SystemNotificationCopy {
   return {
     title: creatorRunningLateSystemNotification.title,
     body: formatInterestBody(
       options.recipientDisplayName,
       options.gameTitle,
-      'is interested but running late for',
-      'is interested but running late for your call to play'
+      `is interested but ${formatRunningLateLabel(options.runningLateMinutes).toLowerCase()} for`,
+      `is interested but ${formatRunningLateLabel(options.runningLateMinutes).toLowerCase()} for your call to play`
     )
   }
 }
@@ -240,14 +243,15 @@ export function formatCreatorRunningLateSystemNotification(options: {
 export function formatAudienceRunningLateSystemNotification(options: {
   recipientDisplayName: string;
   gameTitle: string | null;
+  runningLateMinutes?: number | null;
 }): SystemNotificationCopy {
   return {
     title: audienceRunningLateSystemNotification.title,
     body: formatInterestBody(
       options.recipientDisplayName,
       options.gameTitle,
-      'is interested but running late for',
-      'is interested but running late for this call to play'
+      `is interested but ${formatRunningLateLabel(options.runningLateMinutes).toLowerCase()} for`,
+      `is interested but ${formatRunningLateLabel(options.runningLateMinutes).toLowerCase()} for this call to play`
     )
   }
 }

@@ -56,6 +56,7 @@ import {
   isScheduledPlayIntentCheckInCustomId,
   isPlayIntentNotificationCustomId
 } from './play-intent-notification-responses.js'
+import { handleRunningLateModalSubmit, isRunningLateModalCustomId } from './discord-running-late-response.js'
 import {
   buildDirectMessageReplyPayload,
   type DirectMessageReplyOptions,
@@ -1045,6 +1046,8 @@ export async function startDiscordPresenceBot() {
     if (interaction.isModalSubmit()) {
       if (isCtpComposerCustomId(interaction.customId)) {
         void handleCtpComposerModalSubmit(interaction)
+      } else if (isRunningLateModalCustomId(interaction.customId)) {
+        void handleRunningLateModalSubmit(interaction)
       }
       return
     }

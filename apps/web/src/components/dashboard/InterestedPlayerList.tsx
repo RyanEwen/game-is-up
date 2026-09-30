@@ -1,5 +1,7 @@
+/** Shows call-to-play respondents, including optional delay estimates on interested players. */
 import { Avatar, Box, Sheet, Stack, Typography } from '@mui/joy'
 import type { ActivePlayIntent, DiscoveryPerson, PlayIntentPreview } from '@game-is-up/shared'
+import { formatRunningLateLabel } from '@game-is-up/shared'
 import { CompactDiscoveryPlayerCard } from './GameCard'
 import { nestedInsetSurfaceSx } from './dashboardUtils'
 import type { FriendTarget } from './types'
@@ -89,6 +91,9 @@ export function PlayIntentResponseUserList({
       <Box sx={interestedPlayerGridSx}>
         {users.map((user) => {
           const person = discoveryPeopleById?.get(user.id)
+          const lateLabel = tone === 'late'
+            ? formatRunningLateLabel('runningLateMinutes' in user ? user.runningLateMinutes : null)
+            : responseLabel
 
           if (person && onToggleFriend) {
             return (
@@ -108,12 +113,12 @@ export function PlayIntentResponseUserList({
                 detailLines={[
                   person.contactHint,
                   person.mutualServers.length > 0 ? `Mutual servers: ${person.mutualServers.join(', ')}` : 'Visible to you through your friends list or network.',
-                  responseDetail,
+                  tone === 'late' ? `Interested, but ${lateLabel.toLowerCase()}.` : responseDetail,
                   `Timezone: ${person.timezoneLabel}`,
                   person.usualAvailability ? `Usually plays: ${person.usualAvailability}` : ''
                 ]}
                 badges={[
-                  { label: responseLabel, color: badgeColor },
+                  { label: lateLabel, color: badgeColor },
                   { label: person.timezoneLabel, variant: 'outlined' }
                 ]}
                 footerBadge={person.usualAvailability ? { label: `Usually: ${person.usualAvailability}`, color: 'neutral' } : null}
@@ -143,6 +148,7 @@ export function PlayIntentResponseUserList({
                   <Typography level="body-xs" sx={{ color: 'neutral.400', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     @{user.handle}
                   </Typography>
+                  {tone === 'late' ? <Typography level="body-xs" color="warning">{lateLabel}</Typography> : null}
                 </Box>
               </Stack>
             </Sheet>
