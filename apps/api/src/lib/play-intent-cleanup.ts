@@ -13,6 +13,7 @@ import {
   sweepDeleteDuePlayIntentDiscordSpaces,
   sweepProvisionPendingPlayIntentDiscordSpaces
 } from './play-intent-discord-spaces.js'
+import { sweepUpgradePlayIntentDiscordSpaceInvites } from './discord-space-invites.js'
 import { prisma } from './prisma.js'
 
 const playIntentCleanupIntervalMs = 60 * 1000
@@ -94,6 +95,7 @@ async function runCleanupSweep() {
     await sweepScheduledPlayIntentCreatorCheckIns()
     await sweepProvisionPendingPlayIntentDiscordSpaces()
     await sweepBackfillLegacyPlayIntentDiscordSpaces()
+    await sweepUpgradePlayIntentDiscordSpaceInvites()
     await sweepBackfillMissingPlayIntentDiscordSpaceDeleteAfter()
     await sweepDeleteDuePlayIntentDiscordSpaces()
 

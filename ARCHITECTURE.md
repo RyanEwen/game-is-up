@@ -138,3 +138,5 @@ reloads the page, with one recorded attempt per target to prevent loops. The bui
 identity covers emitted HTML, code, styles, the manifest and public assets, so
 HTML-only releases are detectable without unconditional worker refreshes. Online
 navigations fetch current HTML; offline navigations use the matching precached shell.
+
+Temporary Discord space invitations are owned by `discord-space-invites.ts`. They target a public landing channel and assign only that space's dedicated role when accepted, including by existing guild members. The cleanup sweep upgrades legacy server-only invites without reprovisioning channels or resetting retention. It saves a replacement before retiring the old invite and discards unsaved replacements. Discord failures during invite upgrades do not block channel deletion. Guild member joins still repair tracked recipient access, but never infer channel access from invite-use counters.

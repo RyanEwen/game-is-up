@@ -12,6 +12,7 @@ import { AuthProvider, PlayIntentDiscordSpaceAccessSource, PlayIntentDiscordSpac
 import { ChannelType, OverwriteType, PermissionFlagsBits, Routes } from 'discord.js'
 import { publishPlayIntentInvalidation } from './dashboard-events.js'
 import { buildDiscordChannelUrl } from './discord-channel-urls.js'
+import { deleteDiscordSpaceInvite as deleteInvite, ensurePlayIntentDiscordSpaceInvite } from './discord-space-invites.js'
 import { getDiscordBotClient } from './discord-bot-runtime.js'
 import { env } from './env.js'
 import { getDiscordBotRest } from './discord-bot-runtime.js'
@@ -364,28 +365,6 @@ async function createRole(serverId: string, name: string) {
   }
 }
 
-async function deleteInvite(inviteCode: string | null | undefined) {
-  if (!inviteCode) {
-    return
-  }
-
-  const rest = getDiscordBotRest()
-
-  if (!rest) {
-    throw new Error('Discord invite deletion needs the bot token to be configured.')
-  }
-
-  try {
-    await rest.delete(Routes.invite(inviteCode))
-  } catch (error) {
-    if (isUnknownDiscordResourceError(error)) {
-      return
-    }
-
-    throw error
-  }
-}
-
 async function createChannel(serverId: string, options: {
   name: string;
   type: ChannelType;
@@ -472,103 +451,6 @@ async function resetLegacyProvisioningChannels(space: NonNullable<ProvisionableS
   return true
 }
 
-/**
- * Picks the channel a space invite should point at.
- *
- * The temporary channels deny `ViewChannel` to `@everyone`, so an invite
- * targeting them is useless to the people it exists for: someone who is not in
- * the server yet cannot see the target channel, and Discord gives them a dead
- * invite instead of a join prompt. Invites therefore point at a channel a
- * brand-new member can actually land on (rules channel, system channel, or the
- * first `@everyone`-visible text channel). Access to the temporary channels is
- * granted by role on `GuildMemberAdd`, not by the invite target.
- *
- * Returns null when the guild exposes no public channel, in which case the
- * caller falls back to the space's own text channel.
- */
-async function resolvePublicInviteChannelId(serverId: string) {
-  const rest = getDiscordBotRest()
-
-  if (!rest) {
-    return null
-  }
-
-  try {
-    const guild = await rest.get(Routes.guild(serverId)) as {
-      rules_channel_id?: string | null;
-      system_channel_id?: string | null;
-    } | null
-
-    const announcedChannelId = guild?.rules_channel_id ?? guild?.system_channel_id ?? null
-
-    if (announcedChannelId) {
-      return announcedChannelId
-    }
-
-    const channels = (await rest.get(Routes.guildChannels(serverId)) as Array<{
-      id?: string;
-      type?: number;
-      position?: number;
-      parent_id?: string | null;
-      permission_overwrites?: Array<{ id?: string; deny?: string }>;
-    }> | null) ?? []
-    const channelsById = new Map(channels.flatMap((channel) => channel.id ? [[channel.id, channel] as const] : []))
-    const deniesEveryoneView = (channel: (typeof channels)[number] | undefined) => (
-      (channel?.permission_overwrites ?? []).some((overwrite) => (
-        overwrite.id === serverId
-        && (BigInt(overwrite.deny ?? '0') & PermissionFlagsBits.ViewChannel) !== 0n
-      ))
-    )
-
-    const publicTextChannels = channels
-      .filter((channel) => (
-        typeof channel.id === 'string'
-        && channel.type === ChannelType.GuildText
-        && !deniesEveryoneView(channel)
-        // A channel with no overwrites of its own still inherits a private
-        // category, which is exactly how the temporary spaces are shaped.
-        && !deniesEveryoneView(channel.parent_id ? channelsById.get(channel.parent_id) : undefined)
-      ))
-      .sort((left, right) => (left.position ?? 0) - (right.position ?? 0))
-
-    return publicTextChannels[0]?.id ?? null
-  } catch (error) {
-    console.error('Failed to resolve a public invite channel for a complementary Discord space', {
-      serverId,
-      error
-    })
-
-    return null
-  }
-}
-
-async function createInvite(channelId: string) {
-  const rest = getDiscordBotRest()
-
-  if (!rest) {
-    throw new Error('Discord invite creation needs the bot token to be configured.')
-  }
-
-  const invite = await rest.post(Routes.channelInvites(channelId), {
-    body: {
-      max_age: 0,
-      max_uses: 0,
-      temporary: false,
-      unique: true
-    }
-  })
-
-  if (!invite || typeof invite !== 'object' || !('code' in invite) || typeof invite.code !== 'string') {
-    throw new Error('Discord did not return an invite code for the complementary space.')
-  }
-
-  return {
-    code: invite.code,
-    uses: 'uses' in invite && typeof invite.uses === 'number' ? invite.uses : 0,
-    url: `https://discord.gg/${invite.code}`
-  }
-}
-
 async function addRoleToMember(serverId: string, discordUserId: string, roleId: string) {
   const rest = getDiscordBotRest()
 
@@ -598,7 +480,6 @@ type DiscordRoleGrantResult = {
 type PlayIntentDiscordSpaceMemberJoinDependencies = {
   discordServerId: string | null;
   prisma: Pick<typeof prisma, 'userIdentity' | 'playIntentDiscordSpace' | 'playIntentDiscordSpaceAccessGrant' | 'discordServerMembership'>;
-  fetchGuildInviteUses: typeof fetchGuildInviteUses;
   tryGrantRoleToMember: typeof tryGrantRoleToMember;
   publishPlayIntentInvalidation: typeof publishPlayIntentInvalidation;
   refreshTrackedRecipientDirectMessages?: (userIds: string[]) => Promise<void>;
@@ -607,7 +488,6 @@ type PlayIntentDiscordSpaceMemberJoinDependencies = {
 const defaultPlayIntentDiscordSpaceMemberJoinDependencies: PlayIntentDiscordSpaceMemberJoinDependencies = {
   discordServerId: env.DISCORD_SERVER_ID ?? null,
   prisma,
-  fetchGuildInviteUses,
   tryGrantRoleToMember,
   publishPlayIntentInvalidation,
   refreshTrackedRecipientDirectMessages: async (userIds) => {
@@ -734,28 +614,6 @@ async function deleteRole(serverId: string, roleId: string | null | undefined) {
 
     throw error
   }
-}
-
-async function fetchGuildInviteUses(serverId: string) {
-  const rest = getDiscordBotRest()
-
-  if (!rest) {
-    throw new Error('Discord invite inspection needs the bot token to be configured.')
-  }
-
-  const invites = await rest.get(Routes.guildInvites(serverId))
-
-  if (!Array.isArray(invites)) {
-    return new Map<string, number>()
-  }
-
-  return new Map(invites.flatMap((invite) => {
-    if (!invite || typeof invite !== 'object' || !('code' in invite) || typeof invite.code !== 'string') {
-      return []
-    }
-
-    return [[invite.code, 'uses' in invite && typeof invite.uses === 'number' ? invite.uses : 0] as const]
-  }))
 }
 
 async function syncGrantedMembers(space: NonNullable<ProvisionableSpace>) {
@@ -1271,19 +1129,14 @@ export async function provisionPlayIntentDiscordSpace(spaceId: string) {
         }
       })
     }
-    const invite = !resetLegacyChannels && space.inviteCode
-      ? { code: space.inviteCode, url: space.inviteUrl ?? `https://discord.gg/${space.inviteCode}`, uses: space.inviteUseCount }
-      : await createInvite(await resolvePublicInviteChannelId(space.serverId) ?? textChannel.id)
-    if (resetLegacyChannels || !space.inviteCode) {
-      await prisma.playIntentDiscordSpace.update({
-        where: { id: space.id },
-        data: {
-          inviteCode: invite.code,
-          inviteUseCount: invite.uses,
-          inviteUrl: invite.url
-        }
-      })
-    }
+    const invite = await ensurePlayIntentDiscordSpaceInvite({
+      id: space.id,
+      serverId: space.serverId,
+      roleId: role.id,
+      textChannelId: textChannel.id,
+      inviteCode: resetLegacyChannels ? null : space.inviteCode,
+      inviteUseCount: space.inviteUseCount
+    })
 
     await prisma.playIntentDiscordSpace.update({
       where: { id: space.id },
@@ -1481,37 +1334,20 @@ export async function handlePlayIntentDiscordSpaceMemberJoin(options: {
   const creatorResolvedSpaceIds = new Set<string>()
   let joinedUserId: string | null = null
 
-  const [identity, spaces, inviteUses] = await Promise.all([
-    database.userIdentity.findUnique({
-      where: {
-        provider_providerUserId: {
-          provider: AuthProvider.DISCORD,
-          providerUserId: options.discordUserId
-        }
-      },
-      select: {
-        userId: true
+  // Role-bearing invites assign access directly in Discord. Do not infer
+  // which space a member joined from invite counters: existing members also
+  // accept those links, so a changed counter cannot identify this newcomer.
+  const identity = await database.userIdentity.findUnique({
+    where: {
+      provider_providerUserId: {
+        provider: AuthProvider.DISCORD,
+        providerUserId: options.discordUserId
       }
-    }),
-    database.playIntentDiscordSpace.findMany({
-      where: {
-        serverId: options.serverId,
-        status: {
-          in: complementarySpaceActiveStatuses
-        },
-        roleId: {
-          not: null
-        }
-      },
-      select: {
-        id: true,
-        roleId: true,
-        inviteCode: true,
-        inviteUseCount: true
-      }
-    }),
-    dependencies.fetchGuildInviteUses(options.serverId)
-  ])
+    },
+    select: {
+      userId: true
+    }
+  })
 
   if (identity) {
     joinedUserId = identity.userId
@@ -1615,34 +1451,6 @@ export async function handlePlayIntentDiscordSpaceMemberJoin(options: {
     }
   }
 
-  const spacesWithInviteDelta = spaces.filter((space) => {
-    if (!space.inviteCode) {
-      return false
-    }
-
-    const currentUses = inviteUses.get(space.inviteCode) ?? space.inviteUseCount
-    return currentUses > space.inviteUseCount
-  })
-
-  if (spacesWithInviteDelta.length === 1) {
-    const matchedSpace = spacesWithInviteDelta[0]!
-
-    if (matchedSpace.roleId) {
-      const roleGrantResult = await dependencies.tryGrantRoleToMember(options.serverId, options.discordUserId, matchedSpace.roleId)
-
-      if (!roleGrantResult.ok && roleGrantResult.reason !== 'member-missing') {
-        console.error('Failed to grant complementary role for invite-matched member join', {
-          serverId: options.serverId,
-          discordUserId: options.discordUserId,
-          spaceId: matchedSpace.id,
-          reason: roleGrantResult.reason,
-          error: roleGrantResult.message
-        })
-      }
-    }
-
-  }
-
   if (changed) {
     dependencies.publishPlayIntentInvalidation()
 
@@ -1651,24 +1459,4 @@ export async function handlePlayIntentDiscordSpaceMemberJoin(options: {
     }
   }
 
-  for (const space of spaces) {
-    if (!space.inviteCode) {
-      continue
-    }
-
-    const currentUses = inviteUses.get(space.inviteCode)
-
-    if (currentUses == null || currentUses === space.inviteUseCount) {
-      continue
-    }
-
-    await database.playIntentDiscordSpace.update({
-      where: {
-        id: space.id
-      },
-      data: {
-        inviteUseCount: currentUses
-      }
-    })
-  }
 }

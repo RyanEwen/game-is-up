@@ -186,7 +186,6 @@ test('guild member join upserts membership and clears creator recovery errors af
         }
       }
     },
-    fetchGuildInviteUses: async () => new Map(),
     tryGrantRoleToMember: async () => ({
       ok: true,
       reason: 'granted',
@@ -258,10 +257,6 @@ test('guild member join returns early for other servers', async () => {
         }
       }
     },
-    fetchGuildInviteUses: async () => {
-      called = true
-      return new Map()
-    },
     tryGrantRoleToMember: async () => {
       called = true
       return {
@@ -281,4 +276,25 @@ test('guild member join returns early for other servers', async () => {
   }, dependencies)
 
   assert.equal(called, false)
+})
+
+test('untracked server newcomers are not granted a role inferred from invite usage', async () => {
+  let roleGrants = 0
+  const dependencies = {
+    discordServerId: 'guild-1',
+    prisma: {
+      userIdentity: { findUnique: async () => null }
+    },
+    tryGrantRoleToMember: async () => {
+      roleGrants += 1
+      return { ok: true, reason: 'granted', message: null }
+    }
+  } as unknown as MemberJoinDependencies
+
+  await handlePlayIntentDiscordSpaceMemberJoin({
+    serverId: 'guild-1',
+    discordUserId: 'untracked-discord-user'
+  }, dependencies)
+
+  assert.equal(roleGrants, 0)
 })

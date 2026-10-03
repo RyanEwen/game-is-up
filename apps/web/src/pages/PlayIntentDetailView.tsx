@@ -862,13 +862,20 @@ export function PlayIntentDetailView() {
                           {intent.discordSpace?.inviteUrl ? (
                             <DiscordChannelButton
                               href={intent.discordSpace.inviteUrl}
-                              label="Open Discord invite"
+                              label="Open or share Discord invite"
                               icon={<OpenInNewRoundedIcon />}
                               color="neutral"
                               disabled={intent.discordSpace.status === 'deleted'}
                             />
                           ) : null}
                         </Box>
+                      ) : null}
+
+                      {intent.discordSpace?.inviteUrl && intent.discordSpace.status !== 'deleted' ? (
+                        <Typography level="body-xs">
+                          Share the Discord invite to give someone access to these temporary channels,
+                          even if they already belong to the server. Direct channel links require access first.
+                        </Typography>
                       ) : null}
 
                       {intent.discordSpace?.textChannelUrl == null && intent.discordSpace?.textChannelName ? (
