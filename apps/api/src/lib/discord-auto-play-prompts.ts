@@ -2,17 +2,20 @@
  * Discord auto-play prompts driven by presence observations.
  *
  * When the gateway-owning bot sees a linked user start a game we may DM them a
- * one-tap prompt to broadcast that as a call to play. This module owns prompt
+ * prompt to open the full call-to-play composer. This module owns prompt
  * creation, per-user cooldown enforcement, the prompt button-response flow
- * (which can synthesize a brand-new play intent at the chosen audience scope),
+ * (which hands off to the shared composer),
  * and the closed-state retention pattern (the original prompt DM stays as the
  * anchor; the closure reason is sent as a reply rather than replacing it).
  */
-
+import { scopeLabels } from './discord-ctp-composer-policy.js'
+import { launchAutoPlayCtpComposer } from './discord-auto-play-composer.js'
+import { updateDiscordActionMessage, acknowledgeDiscordAction } from './discord-action-lifecycle.js'
 import {
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
+  MessageFlags,
   EmbedBuilder,
   type ButtonInteraction,
   type MessageActionRowComponentBuilder,
@@ -46,19 +49,18 @@ import {
 } from './discord-dm-formatting.js'
 import { env } from './env.js'
 import { hasInterestedPlayIntentBlockingAutoPrompt } from './play-intent-interested-users.js'
-import { syncCreatorPlayIntentSummaryMessages } from './play-intent-notification-responses.js'
 import { autoPlayPromptPrefix } from './play-intent-interaction-ids.js'
 import { prisma } from './prisma.js'
 import {
   getPlayIntentRecipientUserIds,
-  minimumPlayIntentDurationMinutes,
-  upsertCurrentPlayIntent
+  minimumPlayIntentDurationMinutes
 } from './play-intents.js'
 
 const autoPlayPromptDurations = [60, 120, 240] as const
 const autoPlayPromptCooldownMinutes = 10
 
 type AutoPlayPromptAction =
+  | { kind: 'compose'; promptId: string }
   | { kind: 'duration'; promptId: string; durationMinutes: number }
   | { kind: 'confirm'; promptId: string; durationMinutes: number; notifyScope: 'friends-only' | 'network' }
   | { kind: 'decline'; promptId: string }
@@ -153,37 +155,11 @@ function buildInitialPromptHeading() {
   return buildDiscordMessageHeading('🎮 Do you want to send out a call to play?')
 }
 
-function buildDurationRows(promptId: string) {
+function buildComposerEntryRows(promptId: string) {
   return appendOpenInAppButton([
     new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
-      ...autoPlayPromptDurations.map((durationMinutes) => new ButtonBuilder()
-        .setCustomId(`${autoPlayPromptPrefix}:${promptId}:duration:${durationMinutes}`)
-        .setLabel(durationMinutes >= 60 ? `${durationMinutes / 60}h` : `${durationMinutes}m`)
-        .setStyle(ButtonStyle.Primary)),
-      new ButtonBuilder()
-        .setCustomId(`${autoPlayPromptPrefix}:${promptId}:decline`)
-        .setLabel('Not now')
-        .setStyle(ButtonStyle.Secondary)
-    )
-  ], buildPlayUrl(), 'Open App')
-}
-
-function buildAudienceRows(promptId: string, durationMinutes: number, friendRecipientCount: number, networkRecipientCount: number) {
-  return appendOpenInAppButton([
-    new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
-      new ButtonBuilder()
-        .setCustomId(`${autoPlayPromptPrefix}:${promptId}:confirm:friends-only:${durationMinutes}`)
-        .setLabel(`Friends only (${friendRecipientCount})`)
-        .setStyle(ButtonStyle.Secondary)
-        .setDisabled(friendRecipientCount === 0),
-      new ButtonBuilder()
-        .setCustomId(`${autoPlayPromptPrefix}:${promptId}:confirm:network:${durationMinutes}`)
-        .setLabel(`Your network + friends (${networkRecipientCount})`)
-        .setStyle(ButtonStyle.Primary),
-      new ButtonBuilder()
-        .setCustomId(`${autoPlayPromptPrefix}:${promptId}:decline`)
-        .setLabel('Cancel')
-        .setStyle(ButtonStyle.Secondary)
+      new ButtonBuilder().setCustomId(`${autoPlayPromptPrefix}:${promptId}:compose`).setLabel('Create call to play').setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId(`${autoPlayPromptPrefix}:${promptId}:decline`).setLabel('Not now').setStyle(ButtonStyle.Secondary)
     )
   ], buildPlayUrl(), 'Open App')
 }
@@ -201,28 +177,11 @@ function buildInitialPromptEmbeds(gameTitle: string, networkRecipientCount: numb
         },
         {
           name: formatPromptEmbedFieldName('Next Step'),
-          value: 'Pick a duration and I will ask who should receive it.',
+          value: 'Open the composer to choose audience, duration, voice setup, title, and note. The detected game and immediate start are already set.',
           inline: false
         }
       ]))
-      .setFooter({ text: 'Open the app if you want the full composer instead.' })
-  ]
-}
-
-function buildAudienceEmbeds(gameTitle: string, durationMinutes: number, friendRecipientCount: number, networkRecipientCount: number) {
-  return [
-    new EmbedBuilder()
-      .setColor(autoPlayEmbedColors.info)
-      .addFields(buildPromptEmbedFields([
-        { name: formatPromptEmbedFieldName('Game'), value: gameTitle, inline: false },
-        { name: formatPromptEmbedFieldName('Duration'), value: `Next ${formatDurationLabel(durationMinutes)}.`, inline: true },
-        {
-          name: formatPromptEmbedFieldName('Reach'),
-          value: `Friends only: ${friendRecipientCount}\nYour network + friends: ${networkRecipientCount}`,
-          inline: false
-        }
-      ]))
-      .setFooter({ text: 'Choose who should receive this call to play.' })
+      .setFooter({ text: 'The same full composer is available here in Discord.' })
   ]
 }
 
@@ -249,28 +208,11 @@ function buildActiveAutoPlayPromptPreview(options: {
   friendRecipientCount: number;
   networkRecipientCount: number;
 }): DirectMessagePreviewPayload {
-  if (options.durationMinutes != null) {
-    return {
-      content: buildDiscordMessageHeading('👥 Choose an Audience'),
-      embeds: buildAudienceEmbeds(
-        options.gameTitle,
-        options.durationMinutes,
-        options.friendRecipientCount,
-        options.networkRecipientCount
-      ),
-      components: buildAudienceRows(
-        options.promptId,
-        options.durationMinutes,
-        options.friendRecipientCount,
-        options.networkRecipientCount
-      )
-    }
-  }
 
   return {
     content: buildInitialPromptHeading(),
     embeds: buildInitialPromptEmbeds(options.gameTitle, options.networkRecipientCount),
-    components: buildDurationRows(options.promptId)
+    components: buildComposerEntryRows(options.promptId)
   }
 }
 
@@ -293,25 +235,6 @@ function buildLockedAutoPlayPromptPreview(options: {
         })
       : []
   }
-}
-
-function buildClosedPromptAnchorPreview(options: {
-  promptId: string;
-  gameTitle: string;
-  durationMinutes: number | null;
-  friendRecipientCount: number;
-  networkRecipientCount: number;
-  forceInteractive?: boolean;
-}) {
-  return buildLockedAutoPlayPromptPreview({
-    promptId: options.promptId,
-    gameTitle: options.gameTitle,
-    durationMinutes: options.durationMinutes,
-    friendRecipientCount: options.friendRecipientCount,
-    networkRecipientCount: options.networkRecipientCount,
-    includeCleanup: true,
-    forceInteractive: options.forceInteractive
-  })
 }
 
 function buildInactiveObservationClosedReason(gameTitle: string) {
@@ -482,7 +405,7 @@ export async function expireDiscordAutoPlayPromptsForInactiveObservations(observ
   }))
 }
 
-function buildAcceptedEmbeds(gameTitle: string, durationMinutes: number, notifyScope: 'friends-only' | 'network', deliveredCount: number) {
+function buildAcceptedEmbeds(gameTitle: string, durationMinutes: number, notifyScope: PlayIntentScope, deliveredCount: number) {
   return [
     new EmbedBuilder()
       .setColor(autoPlayEmbedColors.success)
@@ -491,7 +414,7 @@ function buildAcceptedEmbeds(gameTitle: string, durationMinutes: number, notifyS
         { name: formatPromptEmbedFieldName('Duration'), value: `Next ${formatDurationLabel(durationMinutes)}.`, inline: true },
         {
           name: formatPromptEmbedFieldName('Audience'),
-          value: notifyScope === 'friends-only' ? 'Friends only.' : 'Your network plus friends.',
+          value: `${scopeLabels[notifyScope]}.`,
           inline: true
         },
         {
@@ -555,7 +478,7 @@ export function buildDiscordAutoPlayPromptPreview(options: {
         embeds: buildAcceptedEmbeds(
           options.gameTitle,
           options.durationMinutes ?? autoPlayPromptDurations[0],
-          options.notifyScope === PlayIntentScope.FRIENDS_ONLY ? 'friends-only' : 'network',
+          options.notifyScope ?? PlayIntentScope.FRIENDS_ONLY,
           options.deliveredCount
         ),
         components: [buildLinkRow()]
@@ -653,6 +576,10 @@ function parseAction(customId: string): AutoPlayPromptAction | null {
 
   if (parts[0] !== autoPlayPromptPrefix) {
     return null
+  }
+
+  if (parts.length === 3 && parts[2] === 'compose') {
+    return { kind: 'compose', promptId }
   }
 
   if (parts.length === 4 && parts[2] === 'duration') {
@@ -995,7 +922,7 @@ export async function maybeSendDiscordAutoPlayPromptForObservation(observationId
       discordUserId: discordIdentity.providerUserId,
       content: buildInitialPromptHeading(),
       embeds: buildInitialPromptEmbeds(observation.game.title, networkRecipients.length),
-      components: buildDurationRows(prompt.id)
+      components: buildComposerEntryRows(prompt.id)
     }
   ]))[0]
 
@@ -1073,7 +1000,7 @@ export async function handleDiscordAutoPlayPromptInteraction(interaction: Button
   })
 
   if (!prompt) {
-    await interaction.update({
+    await updateDiscordActionMessage(interaction, {
       content: buildPromptNotice(
         '⌛ Prompt Closed',
         [buildPromptSection('Status', 'The saved prompt record could not be found.')],
@@ -1084,11 +1011,20 @@ export async function handleDiscordAutoPlayPromptInteraction(interaction: Button
     return
   }
 
+  const identity = await prisma.userIdentity.findUnique({
+    where: { provider_providerUserId: { provider: AuthProvider.DISCORD, providerUserId: interaction.user.id } },
+    select: { userId: true }
+  })
+  if (identity?.userId !== prompt.userId) {
+    await interaction.followUp({ content: 'This prompt belongs to another user.', flags: MessageFlags.Ephemeral })
+    return
+  }
+
   const expectedStatus = DiscordAutoPlayPromptStatus.SENT
 
   if (prompt.status !== expectedStatus) {
     if (action.kind === 'cleanup') {
-      await interaction.deferUpdate()
+      await acknowledgeDiscordAction(interaction)
 
       await deleteClosedAutoPlayPromptThread({
         channelId: interaction.channelId,
@@ -1120,7 +1056,7 @@ export async function handleDiscordAutoPlayPromptInteraction(interaction: Button
       deliveredCount: parseDeliveredPromptCount(prompt.statusDetail)
     })
 
-    await interaction.update({
+    await updateDiscordActionMessage(interaction, {
       content: preview?.content ?? buildPromptNotice(
         '⌛ Prompt Closed',
         [buildPromptSection('Status', prompt.statusDetail ?? 'It was already handled earlier.')],
@@ -1133,7 +1069,7 @@ export async function handleDiscordAutoPlayPromptInteraction(interaction: Button
   }
 
   if (action.kind === 'cleanup') {
-    await interaction.update({
+    await updateDiscordActionMessage(interaction, {
       content: buildPromptNotice(
         '⌛ Prompt Closed',
         [buildPromptSection('Status', 'This prompt is still active and cannot be archived yet.')],
@@ -1167,7 +1103,7 @@ export async function handleDiscordAutoPlayPromptInteraction(interaction: Button
       includeCleanup: true
     })
 
-    await interaction.update({
+    await updateDiscordActionMessage(interaction, {
       content: lockedPreview.content,
       embeds: lockedPreview.embeds,
       components: lockedPreview.components
@@ -1204,7 +1140,7 @@ export async function handleDiscordAutoPlayPromptInteraction(interaction: Button
       includeCleanup: true
     })
 
-    await interaction.update({
+    await updateDiscordActionMessage(interaction, {
       content: lockedPreview.content,
       embeds: lockedPreview.embeds,
       components: lockedPreview.components
@@ -1231,7 +1167,7 @@ export async function handleDiscordAutoPlayPromptInteraction(interaction: Button
         statusDetail: 'The user declined the prompt from Discord.'
       }
     })
-    await interaction.update({
+    await updateDiscordActionMessage(interaction, {
       content: buildDeclinedMessage(prompt.game.title),
       embeds: buildDeclinedEmbeds(prompt.game.title),
       components: buildDeclinedPromptRows(prompt.id)
@@ -1239,209 +1175,9 @@ export async function handleDiscordAutoPlayPromptInteraction(interaction: Button
     return
   }
 
-  if (action.kind === 'duration') {
-    await interaction.update({
-      content: buildDiscordMessageHeading('👥 Choose an Audience'),
-      embeds: buildAudienceEmbeds(prompt.game.title, action.durationMinutes, prompt.friendRecipientCount, prompt.networkRecipientCount),
-      components: buildAudienceRows(prompt.id, action.durationMinutes, prompt.friendRecipientCount, prompt.networkRecipientCount)
-    })
-    return
-  }
-
-  const selectedRecipientCount = action.notifyScope === 'friends-only'
-    ? prompt.friendRecipientCount
-    : prompt.networkRecipientCount
-
-  if (selectedRecipientCount === 0) {
-    const closedReason = 'That audience no longer has anyone who overlaps on this game.'
-
-    await prisma.discordAutoPlayPrompt.update({
-      where: {
-        id: prompt.id
-      },
-      data: {
-        status: DiscordAutoPlayPromptStatus.EXPIRED,
-        respondedAt: new Date(),
-        durationMinutes: action.durationMinutes,
-        notifyScope: action.notifyScope === 'friends-only' ? PlayIntentScope.FRIENDS_ONLY : PlayIntentScope.MUTUAL_FRIENDS,
-        statusDetail: closedReason
-      }
-    })
-
-    const lockedPreview = buildLockedAutoPlayPromptPreview({
-      promptId: prompt.id,
-      gameTitle: prompt.game.title,
-      durationMinutes: action.durationMinutes,
-      friendRecipientCount: prompt.friendRecipientCount,
-      networkRecipientCount: prompt.networkRecipientCount,
-      includeCleanup: true
-    })
-
-    await interaction.update({
-      content: lockedPreview.content,
-      embeds: lockedPreview.embeds,
-      components: lockedPreview.components
-    })
-
-    await sendClosedAutoPlayPromptReply({
-      discordUserId: interaction.user.id,
-      channelId: interaction.channelId,
-      messageId: interaction.message.id,
-      reason: closedReason
-    })
-
-    return
-  }
-
-  const activeIntent = await prisma.playIntent.findFirst({
-    where: {
-      userId: prompt.user.id,
-      windowStartsAt: {
-        lt: new Date(Date.now() + action.durationMinutes * 60 * 1000)
-      },
-      windowEndsAt: {
-        gt: new Date()
-      }
-    },
-    select: {
-      id: true
-    }
+  await acknowledgeDiscordAction(interaction)
+  await launchAutoPlayCtpComposer(interaction, prompt.id, {
+    durationMinutes: action.kind === 'duration' || action.kind === 'confirm' ? action.durationMinutes : undefined,
+    notifyScope: action.kind === 'confirm' ? action.notifyScope : undefined
   })
-
-  if (activeIntent) {
-    const closedReason = 'You already have an overlapping call to play.'
-
-    await prisma.discordAutoPlayPrompt.update({
-      where: {
-        id: prompt.id
-      },
-      data: {
-        status: DiscordAutoPlayPromptStatus.EXPIRED,
-        respondedAt: new Date(),
-        statusDetail: 'The user already had an overlapping call to play before accepting this prompt.'
-      }
-    })
-
-    const lockedPreview = buildLockedAutoPlayPromptPreview({
-      promptId: prompt.id,
-      gameTitle: prompt.game.title,
-      durationMinutes: action.durationMinutes,
-      friendRecipientCount: prompt.friendRecipientCount,
-      networkRecipientCount: prompt.networkRecipientCount,
-      includeCleanup: true
-    })
-
-    await interaction.update({
-      content: lockedPreview.content,
-      embeds: lockedPreview.embeds,
-      components: lockedPreview.components
-    })
-
-    await sendClosedAutoPlayPromptReply({
-      discordUserId: interaction.user.id,
-      channelId: interaction.channelId,
-      messageId: interaction.message.id,
-      reason: closedReason
-    })
-
-    return
-  }
-
-  await interaction.deferUpdate()
-
-  try {
-    const response = await upsertCurrentPlayIntent(prompt.user.id, {
-      selectionMode: 'subset',
-      notifyScope: action.notifyScope,
-      includeSelf: false,
-      createDiscordSpace: false,
-      gameIds: [prompt.game.id],
-      targetUserIds: [],
-      targetDiscordServerIds: [],
-      durationMinutes: action.durationMinutes,
-      note: ''
-    }, {
-      skipCreatorSummarySync: true
-    })
-
-    await prisma.discordAutoPlayPrompt.update({
-      where: {
-        id: prompt.id
-      },
-      data: {
-        status: DiscordAutoPlayPromptStatus.ACCEPTED,
-        respondedAt: new Date(),
-        durationMinutes: action.durationMinutes,
-        notifyScope: action.notifyScope === 'friends-only' ? PlayIntentScope.FRIENDS_ONLY : PlayIntentScope.MUTUAL_FRIENDS,
-        createdPlayIntentId: response.activeIntent.id,
-        statusDetail: `${response.notifiedFriendCount} Discord DM${response.notifiedFriendCount === 1 ? '' : 's'} delivered from this Discord-created call to play.`
-      }
-    })
-
-    if (prompt.discordDmChannelId && prompt.discordDmMessageId) {
-      await prisma.playIntent.update({
-        where: {
-          id: response.activeIntent.id
-        },
-        data: {
-          creatorDiscordDmChannelId: prompt.discordDmChannelId,
-          creatorDiscordDmMessageId: prompt.discordDmMessageId
-        }
-      })
-
-      await syncCreatorPlayIntentSummaryMessages([response.activeIntent.id], {
-        notifyOnActiveChange: false
-      })
-    } else {
-      await syncCreatorPlayIntentSummaryMessages([response.activeIntent.id])
-    }
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unable to create a call to play from Discord right now.'
-
-    await prisma.discordAutoPlayPrompt.update({
-      where: {
-        id: prompt.id
-      },
-      data: {
-        status: DiscordAutoPlayPromptStatus.FAILED,
-        respondedAt: new Date(),
-        durationMinutes: action.durationMinutes,
-        notifyScope: action.notifyScope === 'friends-only' ? PlayIntentScope.FRIENDS_ONLY : PlayIntentScope.MUTUAL_FRIENDS,
-        statusDetail: message,
-        dmError: message
-      }
-    })
-
-    const lockedPreview = buildClosedPromptAnchorPreview({
-      promptId: prompt.id,
-      gameTitle: prompt.game.title,
-      durationMinutes: action.durationMinutes,
-      friendRecipientCount: prompt.friendRecipientCount,
-      networkRecipientCount: prompt.networkRecipientCount
-    })
-
-    if (prompt.discordDmChannelId && prompt.discordDmMessageId) {
-      await editDiscordDirectMessage({
-        channelId: prompt.discordDmChannelId,
-        messageId: prompt.discordDmMessageId,
-        content: lockedPreview.content,
-        embeds: lockedPreview.embeds,
-        components: lockedPreview.components
-      })
-
-      await sendClosedAutoPlayPromptReply({
-        discordUserId: interaction.user.id,
-        channelId: prompt.discordDmChannelId,
-        messageId: prompt.discordDmMessageId,
-        reason: message
-      })
-
-      return
-    }
-
-    await interaction.editReply({
-      content: buildClosedAutoPlayPromptReplyMessage(message),
-      components: []
-    })
-  }
 }

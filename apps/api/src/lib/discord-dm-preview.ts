@@ -1,6 +1,9 @@
+/** Serializes Discord payloads and exposes transient message-action states to admins. */
+import { getPendingDiscordActionPreview } from './discord-action-state.js'
 import type { DebugDmPreview } from '@game-is-up/shared'
 import {
   ButtonStyle,
+  ComponentType,
   type APIEmbed,
   type ActionRowBuilder,
   type MessageActionRowComponentBuilder,
@@ -24,8 +27,14 @@ function toDebugButtonStyle(style: number | undefined): DebugDmPreview['buttonRo
 export function buildDebugDmPreview(
   content: string,
   components: ReadonlyArray<ActionRowBuilder<MessageActionRowComponentBuilder>>,
-  embeds: MessageCreateOptions['embeds'] = []
+  embeds: MessageCreateOptions['embeds'] = [],
+  messageId?: string | null
 ): DebugDmPreview {
+  const pending = getPendingDiscordActionPreview(messageId)
+  if (pending) {
+    return pending
+  }
+
   return {
     content: formatDiscordDirectMessageContent(content, embeds),
     embeds: (embeds ?? []).map((embed) => {
@@ -61,6 +70,19 @@ export function buildDebugDmPreview(
           : null
       }
     }),
+    selectMenus: components.flatMap((row) => row.toJSON().components.flatMap((component) => {
+      if (component.type !== ComponentType.StringSelect) {
+        return []
+      }
+      return [{
+        customId: component.custom_id,
+        placeholder: component.placeholder ?? 'Choose an option',
+        disabled: Boolean(component.disabled),
+        minValues: component.min_values ?? 1,
+        maxValues: component.max_values ?? 1,
+        options: component.options.map((option) => ({ label: option.label, value: option.value, description: option.description ?? null, selected: Boolean(option.default) }))
+      }]
+    })),
     buttonRows: components
       .map((row) => {
         const serializedRow = row.toJSON() as {

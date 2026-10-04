@@ -150,7 +150,7 @@ model User {
   mutesReceived                      PlayIntentMute[]                    @relation("mutes_received")
   notifications                      Notification[]                      @relation("notification_recipient")
   discordAutoPlayPrompts             DiscordAutoPlayPrompt[]
-  discordCtpComposerDraft            DiscordCtpComposerDraft?
+  discordCtpComposerDrafts           DiscordCtpComposerDraft[]
   acceptedDiscordInvites             DiscordInviteAttribution[]          @relation("discord_invite_acceptances")
   sentDiscordInvites                 DiscordInviteAttribution[]          @relation("discord_invite_senders")
   reportsFiled                       Report[]                            @relation("reporter")
@@ -595,6 +595,7 @@ model DiscordAutoPlayPrompt {
   observation           DiscordActivityObservation  @relation(fields: [observationId], references: [id], onDelete: Cascade)
   sourceServer          DiscordServer?              @relation(fields: [sourceServerId], references: [id], onDelete: SetNull)
   createdPlayIntent     PlayIntent?                 @relation("auto_prompt_play_intent", fields: [createdPlayIntentId], references: [id], onDelete: SetNull)
+  composerDraft         DiscordCtpComposerDraft?
 
   @@index([userId, createdAt])
   @@index([status, createdAt])
@@ -602,13 +603,16 @@ model DiscordAutoPlayPrompt {
 }
 
 /// Per-user scratch state for the Discord-side call-to-play composer wizard
-/// (channel button / slash-command entry points). One draft per user; the id
+/// (manual and detected-game entry points). One draft per user and context; the id
 /// arrays are transient UI selections, not product relationships - they are
 /// validated into the real PlayIntent join tables when the draft is posted
 /// through `upsertCurrentPlayIntent`, then the draft row is deleted.
 model DiscordCtpComposerDraft {
   id                     String                      @id @default(uuid())
-  userId                 String                      @unique
+  userId                 String
+  contextKey             String                      @default("manual")
+  autoPlayPromptId       String?                     @unique
+  autoPlayPrompt         DiscordAutoPlayPrompt?      @relation(fields: [autoPlayPromptId], references: [id], onDelete: Cascade)
   discordUserId          String
   step                   DiscordCtpComposerStep      @default(BASICS)
   title                  String                      @default("")
@@ -633,6 +637,7 @@ model DiscordCtpComposerDraft {
   user                   User                        @relation(fields: [userId], references: [id], onDelete: Cascade)
   sourceServer           DiscordServer?              @relation(fields: [sourceServerId], references: [id], onDelete: SetNull)
 
+  @@unique([userId, contextKey])
   @@index([expiresAt])
 }
 

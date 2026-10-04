@@ -8,6 +8,8 @@
  * actual current output rather than a separate emulator surface.
  */
 
+import { getAutoPlayComposerDebugPreview } from './discord-auto-play-composer.js'
+import { getPendingDiscordActionPreview } from './discord-action-state.js'
 import { debugAdminResponseSchema } from '@game-is-up/shared'
 import {
   AuthProvider,
@@ -395,6 +397,7 @@ export async function buildDebugAdminSnapshot() {
       take: 25,
       select: {
         id: true,
+        discordDmMessageId: true,
         createdAt: true,
         deliveredAt: true,
         responseChoice: true,
@@ -993,7 +996,7 @@ export async function buildDebugAdminSnapshot() {
         createdAt: notification.createdAt
       }))
     }, now)
-    const creatorPreview = getLatestRevisionPreview(creatorSummaryRevisions)
+    const creatorPreview = getPendingDiscordActionPreview(intent.creatorDiscordDmMessageId) ?? getLatestRevisionPreview(creatorSummaryRevisions)
 
     return {
       id: intent.id,
@@ -1027,7 +1030,7 @@ export async function buildDebugAdminSnapshot() {
     recentPlayIntentRows.flatMap((intent) => intent.creatorSummaryPreview ? [[intent.id, intent.creatorSummaryPreview]] : [])
   )
 
-  const recentAutoPlayPromptRows = recentAutoPlayPrompts.map((prompt) => {
+  const recentAutoPlayPromptRows = await Promise.all(recentAutoPlayPrompts.map(async (prompt) => {
     const previewPayload = buildDiscordAutoPlayPromptPreview({
       promptId: prompt.id,
       status: prompt.status,
@@ -1041,10 +1044,10 @@ export async function buildDebugAdminSnapshot() {
     })
     const dmPreview = prompt.status === DiscordAutoPlayPromptStatus.ACCEPTED && prompt.createdPlayIntentId
       ? creatorSummaryPreviewByPlayIntentId.get(prompt.createdPlayIntentId)
-        ?? (previewPayload ? buildDebugDmPreview(previewPayload.content, previewPayload.components, previewPayload.embeds) : null)
-      : previewPayload
-        ? buildDebugDmPreview(previewPayload.content, previewPayload.components, previewPayload.embeds)
-        : null
+        ?? (previewPayload ? buildDebugDmPreview(previewPayload.content, previewPayload.components, previewPayload.embeds, prompt.discordDmMessageId) : null)
+      : (prompt.status === DiscordAutoPlayPromptStatus.SENT ? await getAutoPlayComposerDebugPreview(prompt.id) : null) ?? (previewPayload
+        ? buildDebugDmPreview(previewPayload.content, previewPayload.components, previewPayload.embeds, prompt.discordDmMessageId)
+        : null)
 
     return {
       id: prompt.id,
@@ -1065,7 +1068,7 @@ export async function buildDebugAdminSnapshot() {
       game: prompt.game,
       dmPreview
     }
-  })
+  }))
 
   // SYSTEM notification DMs are a single per-recipient updates log, so the
   // preview needs every sibling SYSTEM entry for the same (playIntent,
@@ -1283,7 +1286,7 @@ export async function buildDebugAdminSnapshot() {
       gameTitle: notification.game?.title ?? null,
       recipient: notification.user,
       triggeredBy: notification.triggeredByUserId ? (triggeredByUserMap.get(notification.triggeredByUserId) ?? null) : null,
-      dmPreview: buildDebugDmPreview(previewPayload.content, previewPayload.components, previewPayload.embeds)
+      dmPreview: buildDebugDmPreview(previewPayload.content, previewPayload.components, previewPayload.embeds, notification.discordDmMessageId)
     }
   })
 

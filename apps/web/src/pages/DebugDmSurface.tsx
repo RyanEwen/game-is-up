@@ -14,6 +14,8 @@ import {
   FormLabel,
   IconButton,
   Input,
+  Select,
+  Option,
   Link,
   Stack,
   Textarea,
@@ -213,7 +215,7 @@ function DmPreviewBody({
   showNoButtonsNotice?: boolean;
 }) {
   return (
-    <Stack spacing={2}>
+    <Stack spacing={2} aria-busy={Boolean(preview.pending)}>
       {preview.content ? (
         <Card variant="outlined" sx={{ p: 2, bgcolor: '#14181f' }}>
           <DmMarkdown content={preview.content} />
@@ -314,6 +316,16 @@ function DmPreviewBody({
             ) : null}
           </Stack>
         </Card>
+      ))}
+
+      {(preview.selectMenus ?? []).map((menu) => (
+        <FormControl key={menu.customId}>
+          <FormLabel>{menu.placeholder}</FormLabel>
+          <Select multiple value={menu.options.filter((option) => option.selected).map((option) => option.value)} disabled placeholder={menu.placeholder}>
+            {menu.options.map((option) => <Option key={option.value} value={option.value}>{option.label}</Option>)}
+          </Select>
+          <Typography level="body-xs">Options: {menu.options.map((option) => option.label).join(', ')}</Typography>
+        </FormControl>
       ))}
 
       {preview.buttonRows.length > 0 ? (

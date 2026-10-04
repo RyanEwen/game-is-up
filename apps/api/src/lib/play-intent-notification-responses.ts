@@ -16,7 +16,7 @@
  * notification. This module only creates/updates the notification rows and
  * asks the log module to sync.
  */
-
+import { updateDiscordActionMessage, acknowledgeDiscordAction } from './discord-action-lifecycle.js'
 import {
   ActionRowBuilder,
   ButtonBuilder,
@@ -4337,7 +4337,7 @@ export async function handleScheduledPlayIntentCheckInInteraction(interaction: B
   ])
 
   if (!notification || !identity || identity.userId !== notification.userId) {
-    await interaction.update({
+    await updateDiscordActionMessage(interaction, {
       content: buildExpiredMessage('This scheduled call-to-play check-in is not available for your account anymore.'),
       components: [buildLinkRow(notification?.playIntentId ?? undefined)]
     })
@@ -4345,7 +4345,7 @@ export async function handleScheduledPlayIntentCheckInInteraction(interaction: B
   }
 
   if (notification.respondedAt) {
-    await interaction.update({
+    await updateDiscordActionMessage(interaction, {
       content: buildCreatorCheckInAlreadyHandledMessage(notification.responseChoice),
       components: [buildLinkRow(notification.playIntentId ?? undefined)]
     })
@@ -4353,7 +4353,7 @@ export async function handleScheduledPlayIntentCheckInInteraction(interaction: B
   }
 
   if (!notification.playIntent || notification.playIntent.expiresAt <= new Date()) {
-    await interaction.update({
+    await updateDiscordActionMessage(interaction, {
       content: buildExpiredMessage('This call to play is no longer active.'),
       components: [buildLinkRow(notification.playIntentId ?? undefined)]
     })
@@ -4400,7 +4400,7 @@ export async function handleScheduledPlayIntentCheckInInteraction(interaction: B
     })
 
     if (endResult.notificationEnded && notification.playIntentId) {
-      await interaction.deferUpdate()
+      await acknowledgeDiscordAction(interaction)
 
       await expirePendingPlayIntentNotifications([notification.playIntentId])
 
@@ -4408,7 +4408,7 @@ export async function handleScheduledPlayIntentCheckInInteraction(interaction: B
     }
 
     if (!endResult.notificationEnded) {
-      await interaction.update({
+      await updateDiscordActionMessage(interaction, {
         content: buildCreatorCheckInAlreadyHandledMessage(NotificationResponseChoice.CANCELED),
         components: [buildLinkRow(notification.playIntentId ?? undefined)]
       })
@@ -4423,7 +4423,7 @@ export async function handleScheduledPlayIntentCheckInInteraction(interaction: B
       resolved: true
     })
 
-    await interaction.update({
+    await updateDiscordActionMessage(interaction, {
       content: preservedPrompt.content,
       embeds: preservedPrompt.embeds,
       components: preservedPrompt.components
@@ -4453,7 +4453,7 @@ export async function handleScheduledPlayIntentCheckInInteraction(interaction: B
   })
 
   if (!result) {
-    await interaction.update({
+    await updateDiscordActionMessage(interaction, {
       content: buildCreatorCheckInAlreadyHandledMessage(NotificationResponseChoice.CONFIRMED),
       components: [buildLinkRow()]
     })
@@ -4473,7 +4473,7 @@ export async function handleScheduledPlayIntentCheckInInteraction(interaction: B
     resolved: true
   })
 
-  await interaction.update({
+  await updateDiscordActionMessage(interaction, {
     content: preservedPrompt.content,
     embeds: preservedPrompt.embeds,
     components: preservedPrompt.components
@@ -4602,7 +4602,7 @@ export async function handlePlayIntentNotificationInteraction(interaction: Butto
   ])
 
   if (!notification || !identity || identity.userId !== notification.userId) {
-    await interaction.update({
+    await updateDiscordActionMessage(interaction, {
       content: buildExpiredMessage('This prompt is not available for your account anymore.'),
       components: [buildLinkRow(notification?.playIntentId ?? undefined)]
     })
@@ -4611,14 +4611,14 @@ export async function handlePlayIntentNotificationInteraction(interaction: Butto
 
   if (cleanupAction) {
     if (!notification.playIntentId) {
-      await interaction.update({
+      await updateDiscordActionMessage(interaction, {
         content: buildExpiredMessage('These messages are not available for cleanup anymore.'),
         components: [buildLinkRow()]
       })
       return
     }
 
-    await interaction.deferUpdate()
+    await acknowledgeDiscordAction(interaction)
     await deleteUserPlayIntentDirectMessages(notification.playIntentId, notification.userId, {
       anchorMessage: {
         channelId: interaction.channelId,
@@ -4634,7 +4634,7 @@ export async function handlePlayIntentNotificationInteraction(interaction: Butto
   }
 
   if (!notification.playIntentId || !notification.playIntent || notification.playIntent.expiresAt <= new Date()) {
-    await interaction.update({
+    await updateDiscordActionMessage(interaction, {
       content: buildExpiredMessage('The original call to play is no longer active.'),
       components: [buildLinkRow(notification.playIntentId ?? undefined)]
     })
@@ -4709,7 +4709,7 @@ export async function handlePlayIntentNotificationInteraction(interaction: Butto
   const playIntent = notification.playIntent
 
   if (action.kind === 'running-late' && responseNotification.responseChoice !== NotificationResponseChoice.JOIN) {
-    await interaction.update({
+    await updateDiscordActionMessage(interaction, {
       content: buildExpiredMessage('Mark yourself interested before letting everyone know you will be late.'),
       components: [buildLinkRow(playIntent.id)]
     })
@@ -4771,7 +4771,7 @@ export async function handlePlayIntentNotificationInteraction(interaction: Butto
   // instead of sending a separate "You're In" follow-up DM. The pressed message is
   // held out of the tracked refresh below so the flash is not immediately
   // overwritten, then restored to the steady prompt once the flash clears.
-  await interaction.update({
+  await updateDiscordActionMessage(interaction, {
     content: preservedPrompt.content,
     embeds: steadyEmbeds,
     components: buildResponseConfirmationComponents(confirmationKind, playIntent.id)
@@ -4788,7 +4788,7 @@ export async function handlePlayIntentNotificationInteraction(interaction: Butto
   ])
 
   try {
-    await interaction.editReply({
+    await updateDiscordActionMessage(interaction, {
       content: preservedPrompt.content,
       embeds: steadyEmbeds,
       components: preservedPrompt.components
@@ -4814,7 +4814,7 @@ async function handlePlayIntentMuteInteraction(interaction: ButtonInteraction, a
   })
 
   if (!identity) {
-    await interaction.update({
+    await updateDiscordActionMessage(interaction, {
       content: 'Unable to verify your account. Please sign in to Game\'s Up.',
       components: [buildLinkRow()]
     })
@@ -4840,7 +4840,7 @@ async function handlePlayIntentMuteInteraction(interaction: ButtonInteraction, a
   })
 
   if (!creatorUser) {
-    await interaction.update({
+    await updateDiscordActionMessage(interaction, {
       content: 'This player was not found.',
       components: [buildLinkRow()]
     })
@@ -4867,7 +4867,7 @@ async function handlePlayIntentMuteInteraction(interaction: ButtonInteraction, a
 
   publishPlayIntentInvalidation()
 
-  await interaction.update({
+  await updateDiscordActionMessage(interaction, {
     content: `Muted ${buildDiscordUserLabel(creatorUser.displayName, creatorUser.identities[0]?.providerUserId)}'s calls to play. You won't see them in your feed.`,
     components: [buildLinkRow()]
   })
@@ -4907,7 +4907,7 @@ export async function handleCreatorPlayIntentSummaryInteraction(interaction: But
   ])
 
   if (!playIntent || !identity || identity.userId !== playIntent.userId) {
-    await interaction.update({
+    await updateDiscordActionMessage(interaction, {
       content: 'This call-to-play summary is not available for your account anymore.',
       components: [buildLinkRow()]
     })
@@ -4916,14 +4916,14 @@ export async function handleCreatorPlayIntentSummaryInteraction(interaction: But
 
   if (action.action === 'cleanup') {
     if (playIntent.expiresAt > new Date()) {
-      await interaction.update({
+      await updateDiscordActionMessage(interaction, {
         content: 'This call to play is still active.',
         components: [buildLinkRow()]
       })
       return
     }
 
-    await interaction.deferUpdate()
+    await acknowledgeDiscordAction(interaction)
     await deleteCreatorPlayIntentDirectMessages(playIntent.id, identity.userId, {
       summaryMessage: {
         channelId: interaction.channelId,
@@ -4935,14 +4935,14 @@ export async function handleCreatorPlayIntentSummaryInteraction(interaction: But
 
   if (action.action === 'delete-space') {
     if (playIntent.expiresAt > new Date()) {
-      await interaction.update({
+      await updateDiscordActionMessage(interaction, {
         content: 'This call to play is still active.',
         components: [buildLinkRow()]
       })
       return
     }
 
-    await interaction.deferUpdate()
+    await acknowledgeDiscordAction(interaction)
 
     if (
       playIntent.creatorDiscordDmChannelId !== interaction.channelId
@@ -4971,7 +4971,7 @@ export async function handleCreatorPlayIntentSummaryInteraction(interaction: But
       await startScheduledPlayIntentNow(playIntent.id, identity.userId)
     } catch (error) {
       if (error instanceof ScheduledPlayIntentStartError) {
-        await interaction.update({
+        await updateDiscordActionMessage(interaction, {
           content: error.message,
           components: [buildLinkRow(playIntent.id)]
         })
@@ -4983,7 +4983,7 @@ export async function handleCreatorPlayIntentSummaryInteraction(interaction: But
   }
 
   if (action.action === 'end' && playIntent.expiresAt > new Date()) {
-    await interaction.deferUpdate()
+    await acknowledgeDiscordAction(interaction)
 
     const now = new Date()
 
@@ -5000,7 +5000,7 @@ export async function handleCreatorPlayIntentSummaryInteraction(interaction: But
     await expirePendingPlayIntentNotifications([playIntent.id])
     return
   } else if (action.action === 'end') {
-    await interaction.deferUpdate()
+    await acknowledgeDiscordAction(interaction)
 
     await markPlayIntentDiscordSpacesRetained([playIntent.id])
     await archivePlayIntentDirectMessages({
@@ -5012,7 +5012,7 @@ export async function handleCreatorPlayIntentSummaryInteraction(interaction: But
   const refreshedSnapshot = await getCreatorPlayIntentSummarySnapshot(playIntent.id)
   const currentTime = new Date()
 
-  await interaction.update({
+  await updateDiscordActionMessage(interaction, {
     content: refreshedSnapshot ? '' : 'This call to play already ended.',
     embeds: refreshedSnapshot ? buildCreatorPlayIntentSummaryEmbeds(refreshedSnapshot, currentTime) : [],
     components: refreshedSnapshot

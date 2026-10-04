@@ -40,6 +40,7 @@ export type SimulatedLifecycleAction =
 
 export type SimulatedAutoPlayAction =
   | 'session-created'
+  | 'auto-play-composer-opened'
   | 'auto-play-duration-selected'
   | 'auto-play-audience-confirmed'
   | 'auto-play-declined'
@@ -78,6 +79,7 @@ export type SimulatedScenarioHistoryEntry = SimulatedLifecycleEntryWithAction | 
 export type SimulatedSimulatorStartMode = 'scheduled' | 'live'
 
 type SimulatedAutoPlayResolvedAction =
+  | { action: 'auto-play-composer-opened' }
   | { action: 'auto-play-duration-selected'; durationMinutes: number }
   | { action: 'auto-play-audience-confirmed'; durationMinutes: number; notifyScope: 'friends-only' | 'network' }
   | { action: 'auto-play-declined' }
@@ -286,6 +288,10 @@ function mapSimulatorCustomIdToAutoPlayAction(customId: string): SimulatedAutoPl
 
   if (customId === simulatedAutoPlayDmActionIds.cleanup) {
     return { action: 'auto-play-archived' }
+  }
+
+  if (customId === simulatedAutoPlayDmActionIds.compose) {
+    return { action: 'auto-play-composer-opened' }
   }
 
   const durationMatch = /^auto-play:[^:]+:duration:(\d+)$/.exec(customId)
@@ -532,6 +538,15 @@ function resolveAutoPlayPromptResolvedAction(
   actor: SimulatedLifecycleEntry['actor'];
 } | null {
   switch (resolvedAction.action) {
+    case 'auto-play-composer-opened':
+      if (currentState.status !== 'initial') {
+        return null
+      }
+      return {
+        nextState: { ...currentState, status: 'composing', durationMinutes: 60, notifyScope: 'friends-only', closedReason: null },
+        summary: `${draft.creatorName} opened the full detected-game composer.`,
+        actor: 'creator'
+      }
     case 'auto-play-duration-selected':
       if (currentState.status !== 'initial') {
         return null
@@ -549,7 +564,7 @@ function resolveAutoPlayPromptResolvedAction(
         actor: 'creator'
       }
     case 'auto-play-audience-confirmed':
-      if (currentState.status !== 'audience' || currentState.durationMinutes !== resolvedAction.durationMinutes) {
+      if ((currentState.status !== 'audience' && currentState.status !== 'composing') || currentState.durationMinutes !== resolvedAction.durationMinutes) {
         return null
       }
 
@@ -566,7 +581,7 @@ function resolveAutoPlayPromptResolvedAction(
         actor: 'creator'
       }
     case 'auto-play-declined':
-      if (currentState.status !== 'initial' && currentState.status !== 'audience') {
+      if (currentState.status !== 'initial' && currentState.status !== 'audience' && currentState.status !== 'composing') {
         return null
       }
 
@@ -720,7 +735,7 @@ export function applyAutoPlayObservationEnded(
   draft: SimulatedAutoPlayPromptDraft,
   now = new Date()
 ) {
-  if (currentState.status !== 'initial' && currentState.status !== 'audience') {
+  if (currentState.status !== 'initial' && currentState.status !== 'audience' && currentState.status !== 'composing') {
     return currentState
   }
 

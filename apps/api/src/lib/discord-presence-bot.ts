@@ -10,7 +10,10 @@
  * recipient response buttons, creator action buttons, and the call-to-play
  * composer's buttons/selects/modals).
  */
-
+import { MessageFlags } from 'discord.js'
+import { composerDraftId } from './discord-ctp-composer-policy.js'
+import { runDiscordMessageAction } from './discord-action-lifecycle.js'
+import { ctpComposerInteractionOpensModal } from './discord-ctp-composer.js'
 import {
   ActionRowBuilder,
   ActivityType,
@@ -1038,14 +1041,18 @@ export async function startDiscordPresenceBot() {
 
     if (interaction.isStringSelectMenu()) {
       if (isCtpComposerCustomId(interaction.customId)) {
-        void handleCtpComposerSelectInteraction(interaction)
+        void runDiscordMessageAction(interaction, () => handleCtpComposerSelectInteraction(interaction), {
+          lockKey: composerDraftId(interaction.customId),
+          opensModal: ctpComposerInteractionOpensModal(interaction),
+          privateLaunch: interaction.customId === 'guild-ctp:open' && !interaction.message.flags.has(MessageFlags.Ephemeral)
+        })
       }
       return
     }
 
     if (interaction.isModalSubmit()) {
       if (isCtpComposerCustomId(interaction.customId)) {
-        void handleCtpComposerModalSubmit(interaction)
+        void runDiscordMessageAction(interaction, () => handleCtpComposerModalSubmit(interaction), { lockKey: composerDraftId(interaction.customId) })
       } else if (isRunningLateModalCustomId(interaction.customId)) {
         void handleRunningLateModalSubmit(interaction)
       }
@@ -1057,32 +1064,36 @@ export async function startDiscordPresenceBot() {
     }
 
     if (isCtpComposerCustomId(interaction.customId)) {
-      void handleCtpComposerButtonInteraction(interaction)
+      void runDiscordMessageAction(interaction, () => handleCtpComposerButtonInteraction(interaction), {
+        lockKey: composerDraftId(interaction.customId),
+        opensModal: ctpComposerInteractionOpensModal(interaction),
+        privateLaunch: interaction.customId === 'guild-ctp:open' && !interaction.message.flags.has(MessageFlags.Ephemeral)
+      })
       return
     }
 
     if (interaction.customId.startsWith('dm-command:')) {
-      void handleDiscordDirectMessageButtonInteraction(interaction)
+      void runDiscordMessageAction(interaction, () => handleDiscordDirectMessageButtonInteraction(interaction))
       return
     }
 
     if (interaction.customId.startsWith('auto-play:')) {
-      void handleDiscordAutoPlayPromptInteraction(interaction)
+      void runDiscordMessageAction(interaction, () => handleDiscordAutoPlayPromptInteraction(interaction))
       return
     }
 
     if (isPlayIntentNotificationCustomId(interaction.customId)) {
-      void handlePlayIntentNotificationInteraction(interaction)
+      void runDiscordMessageAction(interaction, () => handlePlayIntentNotificationInteraction(interaction), { opensModal: interaction.customId.endsWith(':late') })
       return
     }
 
     if (isCreatorPlayIntentSummaryCustomId(interaction.customId)) {
-      void handleCreatorPlayIntentSummaryInteraction(interaction)
+      void runDiscordMessageAction(interaction, () => handleCreatorPlayIntentSummaryInteraction(interaction))
       return
     }
 
     if (isScheduledPlayIntentCheckInCustomId(interaction.customId)) {
-      void handleScheduledPlayIntentCheckInInteraction(interaction)
+      void runDiscordMessageAction(interaction, () => handleScheduledPlayIntentCheckInInteraction(interaction))
     }
   })
 

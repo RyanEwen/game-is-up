@@ -8,6 +8,11 @@
  * downstream feature can run end-to-end without a live Discord connection.
  */
 
+import { buildPendingDiscordDmPreview } from '@game-is-up/shared'
+import { buildDebugDmPreview } from './discord-dm-preview.js'
+import { ActionRowBuilder, type MessageActionRowComponentBuilder } from 'discord.js'
+import { discordActionStates, type DiscordActionComponents } from './discord-action-state.js'
+import { buildPendingDiscordComponents } from './discord-action-lifecycle.js'
 import { REST, Routes, type Client, type MessageCreateOptions } from 'discord.js'
 import { env } from './env.js'
 import { formatDiscordDirectMessageContent } from './discord-dm-formatting.js'
@@ -395,11 +400,23 @@ export async function editDiscordDirectMessage(message: DiscordDirectMessageEdit
     }
   }
 
+  const actionState = discordActionStates.get(message.messageId)
+  let components = toDiscordApiComponents(message.components) ?? []
+  if (actionState) {
+    actionState.preview = buildPendingDiscordDmPreview(buildDebugDmPreview(
+      message.content,
+      (components as DiscordActionComponents).map((row) => ActionRowBuilder.from(row) as ActionRowBuilder<MessageActionRowComponentBuilder>),
+      message.embeds
+    ), actionState.pressedCustomId)
+    actionState.restoreComponents = components as DiscordActionComponents
+    components = buildPendingDiscordComponents(actionState.restoreComponents, actionState.pressedCustomId)
+  }
+
   try {
     await discordBotRest.patch(Routes.channelMessage(message.channelId, message.messageId), {
       body: {
         content: formatDiscordDirectMessageContent(message.content, message.embeds),
-        components: toDiscordApiComponents(message.components) ?? [],
+        components,
         embeds: toDiscordApiEmbeds(message.embeds) ?? []
       }
     })

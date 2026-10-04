@@ -95,6 +95,7 @@ export type SimulatedAutoPlayNotifyScope = 'friends-only' | 'network' | null
  */
 export type SimulatedAutoPlayPromptStatus =
   | 'initial'
+  | 'composing'
   | 'audience'
   | 'created'
   | 'created-ended'
@@ -148,6 +149,8 @@ export const simulatedLifecycleShortcutActionIds = {
 const simulatedAutoPlayPromptId = 'simulated-auto-play-prompt'
 
 export const simulatedAutoPlayDmActionIds = {
+  compose: `auto-play:${simulatedAutoPlayPromptId}:compose`,
+  post: `auto-play:${simulatedAutoPlayPromptId}:confirm:friends-only:60`,
   duration60: `auto-play:${simulatedAutoPlayPromptId}:duration:60`,
   duration120: `auto-play:${simulatedAutoPlayPromptId}:duration:120`,
   duration240: `auto-play:${simulatedAutoPlayPromptId}:duration:240`,
@@ -917,25 +920,11 @@ export function buildSimulatedDmMessages(
 function buildSimulatorAutoPlayInitialButtons(): SimulatorDebugDmPreview['buttonRows'] {
   return [[
     {
-      label: '1h',
+      label: 'Create call to play',
       style: 'primary',
       disabled: false,
       url: null,
-      customId: simulatedAutoPlayDmActionIds.duration60
-    },
-    {
-      label: '2h',
-      style: 'primary',
-      disabled: false,
-      url: null,
-      customId: simulatedAutoPlayDmActionIds.duration120
-    },
-    {
-      label: '4h',
-      style: 'primary',
-      disabled: false,
-      url: null,
-      customId: simulatedAutoPlayDmActionIds.duration240
+      customId: simulatedAutoPlayDmActionIds.compose
     },
     {
       label: 'Not now',
@@ -1057,11 +1046,11 @@ function buildSimulatorAutoPlayInitialPreview(
           },
           {
             name: decorateFieldLabel('Next Step'),
-            value: 'Pick a duration and I will ask who should receive it.',
+            value: 'Open the composer to choose audience, duration, voice setup, title, and note. The detected game and immediate start are already set.',
             inline: false
           }
         ],
-        footerText: 'Open the app if you want the full composer instead.',
+        footerText: 'The same full composer is available here in Discord.',
         imageUrl: null,
         thumbnailUrl: null
       }
@@ -1259,9 +1248,36 @@ export function buildSimulatedAutoPlayDmMessages(
       label: 'Auto-play prompt anchor',
       preview: buildSimulatorAutoPlayInitialPreview(draft),
       explanation: [
-        'This is the retained prompt anchor that starts as the duration picker when Discord sees someone launch a game.',
-        'The same message edits in place into the audience picker rather than sending a second standalone prompt.'
+        'This prompt offers the full bot composer when Discord detects someone launching a game.',
+        'The detected game and immediate start are fixed; the remaining settings use the same composer as manual calls.'
       ],
+      isInteractive: true
+    })
+  }
+
+  if (state.status === 'composing') {
+    promptMessages.push({
+      id: 'auto-play-anchor',
+      label: 'Auto-play prompt anchor',
+      preview: buildSimulatorAutoPlayInitialPreview(draft),
+      explanation: ['The original prompt stays available while a separate private composer draft is open.'],
+      isInteractive: false
+    })
+    promptMessages.push({
+      id: 'auto-play-composer',
+      label: 'Detected-game composer review',
+      preview: {
+        content: '',
+        embeds: [{
+          title: 'Post a call to play - Review',
+          description: 'Check everything, then post your call to play.',
+          color: 0x33d7a6,
+          fields: [{ name: 'Your call to play so far', value: `Game: ${draft.gameTitle}\nStart: Now\nDuration: 1 hour\nAudience: Friends only\nTitle: Call to play\nNote: None\nVoice: No voice channel`, inline: false }],
+          footerText: null, imageUrl: null, thumbnailUrl: null
+        }],
+        buttonRows: [[{ label: 'Post call to play', style: 'primary', disabled: false, url: null, customId: simulatedAutoPlayDmActionIds.post }]]
+      },
+      explanation: ['The lifecycle simulator resumes at review with a sample draft. Live admin previews show the saved composer step, selections, and controls.'],
       isInteractive: true
     })
   }
@@ -1269,7 +1285,7 @@ export function buildSimulatedAutoPlayDmMessages(
   if (state.status === 'audience') {
     promptMessages.push({
       id: 'auto-play-anchor',
-      label: 'Auto-play audience picker',
+      label: 'Legacy auto-play audience picker',
       preview: buildSimulatorAutoPlayAudiencePreview(draft, state.durationMinutes ?? 120),
       explanation: [
         'This is still the original prompt anchor, now edited in place to the audience-selection step.',

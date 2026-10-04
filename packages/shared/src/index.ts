@@ -845,7 +845,23 @@ export const debugDmPreviewEmbedSchema = z.object({
   thumbnailUrl: z.string().min(1).nullable()
 })
 
+export const debugDmPreviewSelectMenuSchema = z.object({
+  customId: z.string(),
+  placeholder: z.string(),
+  disabled: z.boolean(),
+  minValues: z.number().int(),
+  maxValues: z.number().int(),
+  options: z.array(z.object({
+    label: z.string(),
+    value: z.string(),
+    description: z.string().nullable(),
+    selected: z.boolean()
+  }))
+})
+
 export const debugDmPreviewSchema = z.object({
+  selectMenus: z.array(debugDmPreviewSelectMenuSchema).optional(),
+  pending: z.boolean().optional(),
   content: z.string(),
   embeds: z.array(debugDmPreviewEmbedSchema),
   buttonRows: z.array(z.array(debugDmPreviewButtonSchema))
@@ -1190,3 +1206,5 @@ export type PlayIntentMutesResponse = z.infer<typeof playIntentMutesResponseSche
 export * from './debug-dm-simulator.js'
 export * from './dateTime.js'
 export * from './api-errors.js'
+
+export * from './discord-action-pending.js'

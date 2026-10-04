@@ -7,7 +7,7 @@
  * dismiss buttons so the linked user's DM history stays uncluttered after a
  * command finishes.
  */
-
+import { acknowledgeDiscordAction } from './discord-action-lifecycle.js'
 import {
   ActionRowBuilder,
   ButtonBuilder,
@@ -574,14 +574,14 @@ export async function handleDiscordDirectMessageButtonInteraction(interaction: B
   }
 
   if (interaction.user.id !== action.discordUserId) {
-    await interaction.reply({
+    await interaction.followUp({
       content: 'This message belongs to another user.',
       allowedMentions: { parse: [] }
     })
     return true
   }
 
-  await interaction.deferUpdate()
+  await acknowledgeDiscordAction(interaction)
   const deleteResult = await deleteDiscordDirectMessage({
     channelId: interaction.channelId,
     messageId: interaction.message.id
