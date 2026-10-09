@@ -46,7 +46,7 @@ import {
   toLocalDateTimeInputValue
 } from '../components/dashboard/dashboardUtils'
 import { dashboardTabPaths } from '../components/dashboard/dashboardUtils'
-import { formatMonthDayTime } from '../lib/dateTime'
+import { formatMonthDayTime, roundToNearestQuarterHour } from '../lib/dateTime'
 import { useLocation } from 'react-router-dom'
 import type {
   DashboardLibraryQuickAddGame,
@@ -57,8 +57,10 @@ import type {
   PlayIntentVoiceMode
 } from '../components/dashboard/types'
 
+/** Suggests a scheduled start about one hour ahead, aligned to the nearest quarter hour. */
 function buildDefaultScheduledStartAtInput() {
-  return toLocalDateTimeInputValue(new Date(Date.now() + 60 * 60 * 1000))
+  const suggestedStart = new Date(Date.now() + 60 * 60 * 1000)
+  return toLocalDateTimeInputValue(roundToNearestQuarterHour(suggestedStart))
 }
 
 const defaultPlayIntentDurationMinutes: number = playIntentPresetDurations[0]

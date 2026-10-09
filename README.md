@@ -351,6 +351,8 @@ Calls to play can also control who sees them:
 
 Calls to play can start immediately or be scheduled for later, and they remain visible until the configured end time. If a currently active call starts applying to someone later because their library changes, the app will surface it retroactively and backfill the missing invite or go-time reminder.
 
+In the web composer, choosing "Schedule later" suggests a start one hour ahead, rounded to the nearest 15 minutes. Exact halfway points round later. The default one-hour duration and manually selected times are unchanged.
+
 The Play view keeps recently ended calls to play visible for a short closed-history window and marks whether each visible call currently applies to the signed-in viewer's library.
 
 Automatic detected-game prompts open the same Discord call-to-play wizard, with the detected game and immediate start preset. Title, audience, duration, note, and voice setup remain available. Automatic drafts are saved separately from manual drafts for 24 hours. While bot message actions are processing, the selected control shows "Working..." and action controls remain disabled until processing finishes.
