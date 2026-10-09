@@ -456,6 +456,7 @@ async function buildDraftSummaryLines(draft: DiscordCtpComposerDraft, user: Comp
     `Audience: ${await buildAudienceSummary(draft)}`,
     `When: ${formatWhenSummary(draft, user.timezoneId)}`,
     `Note: ${draft.note.trim().length > 0 ? draft.note.trim() : '(none)'}`,
+    `Participant invitations: ${draft.allowParticipantInvites ? 'Allowed' : 'Disabled'}`,
     `Voice: ${buildVoiceSummary(draft)}`
   ]
 }
@@ -816,6 +817,9 @@ export async function renderComposerView(draft: DiscordCtpComposerDraft, user: C
       break
     }
     case DiscordCtpComposerStep.REVIEW: {
+      components.push(new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
+        composerButton('participant-invites:toggle', draft.allowParticipantInvites ? 'Friend invites: on' : 'Friend invites: off', ButtonStyle.Secondary)
+      ))
       if (reviewIssues.length === 0) {
         extraGuidance = 'Everything looks ready.'
       }
@@ -1100,6 +1104,8 @@ export async function handleCtpComposerButtonInteraction(interaction: ButtonInte
       }).catch(() => undefined)
       await updateDiscordActionMessage(interaction, buildClosedView('Draft discarded', 'Nothing was posted. Start a new call to play whenever you are ready.'))
       return
+    } else if (action === 'participant-invites:toggle') {
+      updatedDraft = await updateDraft(draft.id, { allowParticipantInvites: !draft.allowParticipantInvites })
     } else if (action === 'title:clear') {
       updatedDraft = await updateDraft(draft.id, { title: '' })
     } else if (action === 'note:clear') {

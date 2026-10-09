@@ -7,3 +7,5 @@ export const playIntentMutePrefix = 'play-intent-mute'
 export const scheduledPlayIntentCheckInPrefix = 'scheduled-play-intent-check-in'
 export const creatorPlayIntentSummaryPrefix = 'creator-play-intent-summary'
 export const autoPlayPromptPrefix = 'auto-play'
+
+export const playIntentFriendInvitePrefix = 'ctp-friend-invite:'

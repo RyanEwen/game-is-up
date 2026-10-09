@@ -29,6 +29,7 @@
  *   end-of-call DM belongs to the cleanup flow in `discord-dm-cleanup.ts`.
  */
 
+import { prioritizePlayIntentAudienceResponses } from './play-intent-audience-response.js'
 import { NotificationType } from '@prisma/client'
 import { formatPlayIntentLogTimestampLabel } from './play-intent-time-format.js'
 import {
@@ -255,6 +256,7 @@ export async function getPendingResponsePlayIntentPairKeys(
     select: {
       playIntentId: true,
       userId: true,
+      type: true,
       responseChoice: true
     }
   })
@@ -262,7 +264,7 @@ export async function getPendingResponsePlayIntentPairKeys(
   const seenPairKeys = new Set<string>()
   const pendingPairKeys = new Set<string>()
 
-  for (const row of rows) {
+  for (const row of prioritizePlayIntentAudienceResponses(rows)) {
     const pairKey = `${row.playIntentId}:${row.userId}`
 
     if (seenPairKeys.has(pairKey)) {

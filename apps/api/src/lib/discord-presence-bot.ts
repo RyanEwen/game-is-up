@@ -10,6 +10,7 @@
  * recipient response buttons, creator action buttons, and the call-to-play
  * composer's buttons/selects/modals).
  */
+import { handlePlayIntentFriendInviteInteraction, playIntentFriendInvitePrefix } from './discord-play-intent-friend-invites.js'
 import { MessageFlags } from 'discord.js'
 import { composerDraftId } from './discord-ctp-composer-policy.js'
 import { runDiscordMessageAction } from './discord-action-lifecycle.js'
@@ -1036,6 +1037,13 @@ export async function startDiscordPresenceBot() {
   client.on(Events.InteractionCreate, (interaction) => {
     if (interaction.isChatInputCommand()) {
       void handleDiscordSlashCommand(interaction)
+      return
+    }
+
+    if ((interaction.isButton() || interaction.isStringSelectMenu()) && interaction.customId.startsWith(playIntentFriendInvitePrefix)) {
+      void handlePlayIntentFriendInviteInteraction(interaction).catch((error) => {
+        console.error('Discord friend invitation handler failed', error)
+      })
       return
     }
 

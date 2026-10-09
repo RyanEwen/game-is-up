@@ -16,6 +16,7 @@
  * notification. This module only creates/updates the notification rows and
  * asks the log module to sync.
  */
+import { findPlayIntentAudienceResponseId, prioritizePlayIntentAudienceResponses } from './play-intent-audience-response.js'
 import { updateDiscordActionMessage, acknowledgeDiscordAction } from './discord-action-lifecycle.js'
 import {
   ActionRowBuilder,
@@ -108,6 +109,7 @@ import { prisma } from './prisma.js'
 import { formatPlayIntentDateLabel, formatPlayIntentWindowLabel } from './play-intent-time-format.js'
 import {
   creatorPlayIntentSummaryPrefix,
+  playIntentFriendInvitePrefix,
   playIntentMutePrefix,
   playIntentNotificationPrefix,
   scheduledPlayIntentCheckInPrefix
@@ -386,7 +388,7 @@ async function createScheduledGoTimeAudienceNotifications(
   const latestRecipientStatusByUserId = new Map<string, { respondedAt: Date | null; responseChoice: NotificationResponseChoice | null }>()
   const latestInviteMessageByUserId = new Map<string, { channelId: string; messageId: string }>()
 
-  for (const recipientNotification of recipientNotifications) {
+  for (const recipientNotification of prioritizePlayIntentAudienceResponses(recipientNotifications)) {
     if (!latestRecipientStatusByUserId.has(recipientNotification.userId)) {
       latestRecipientStatusByUserId.set(recipientNotification.userId, {
         respondedAt: recipientNotification.respondedAt,
@@ -822,7 +824,8 @@ const dmEmbedColors = {
 
 type AudiencePlayIntentSummaryStatus = 'scheduled' | 'live'
 
-function resolveAudiencePlayIntentSummaryStatus(startsAt: Date, currentTime = new Date()): AudiencePlayIntentSummaryStatus {
+/** Chooses live or scheduled styling from the call start, including the existing go-time tolerance. */
+export function resolveAudiencePlayIntentSummaryStatus(startsAt: Date, currentTime = new Date()): AudiencePlayIntentSummaryStatus {
   return startsAt.getTime() > currentTime.getTime() + 60 * 1000 ? 'scheduled' : 'live'
 }
 
@@ -1139,6 +1142,7 @@ export function buildPlayIntentDirectMessageEmbeds(
   })
   const bodyGamesField = fieldsFromBody.find((field) => field.label.trim().toLowerCase() === 'games')
   const bodyAudienceField = fieldsFromBody.find((field) => field.label.trim().toLowerCase() === 'audience')
+  const invitedByField = fieldsFromBody.find((field) => field.label.trim().toLowerCase() === 'invited by')
   const bodyNoteField = fieldsFromBody.find((field) => field.label.trim().toLowerCase() === 'note')
   const gamesValue = options.intentDetails
     ? summarizePlayIntentGames(options.intentDetails.selectionMode, options.intentDetails.selectedGameTitles)
@@ -1166,6 +1170,11 @@ export function buildPlayIntentDirectMessageEmbeds(
       {
         name: formatPlayIntentEmbedFieldName('Creator'),
         value: creatorLabel,
+        inline: false
+      },
+      {
+        name: formatPlayIntentEmbedFieldName('Invited by'),
+        value: invitedByField?.value ?? null,
         inline: false
       },
       {
@@ -1283,6 +1292,7 @@ export function buildPlayIntentNotificationComponents(
   responseChoice?: NotificationResponseChoice | null,
   notificationType: NotificationType = NotificationType.FRIEND_PLAYING,
   options: {
+    allowParticipantInvites?: boolean;
     forceInteractive?: boolean;
     playIntentId?: string;
     responseCustomIdBuilder?: (response: 'interested' | 'pass' | 'late') => string;
@@ -1317,6 +1327,12 @@ export function buildPlayIntentNotificationComponents(
   // itself. This access used to live on the separate response follow-up DM, which
   // is no longer sent, so surface it here instead.
   if (responseChoice === NotificationResponseChoice.JOIN) {
+    if (options.playIntentId && options.allowParticipantInvites !== false) {
+      rows.push(new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
+        new ButtonBuilder().setCustomId(`${playIntentFriendInvitePrefix}${options.playIntentId}:open`)
+          .setLabel('Invite a friend').setStyle(ButtonStyle.Secondary)
+      ))
+    }
     rows.push(...buildRecipientDiscordSpaceLinkComponents(options.discordSpace))
   }
 
@@ -1350,6 +1366,7 @@ export function buildScheduledPlayIntentCheckInComponents(
 export function buildPlayIntentNotificationPromptPreview(options: {
   notificationId: string;
   playIntentId?: string;
+  allowParticipantInvites?: boolean;
   notificationType: NotificationType;
   title: string;
   body: string;
@@ -1412,6 +1429,7 @@ export function buildPlayIntentNotificationPromptPreview(options: {
       options.notificationType,
       {
         forceInteractive: true,
+        allowParticipantInvites: options.allowParticipantInvites,
         playIntentId: options.playIntentId,
         responseCustomIdBuilder: options.responseCustomIdBuilder,
         runningLate: options.runningLate,
@@ -1447,6 +1465,7 @@ export function buildScheduledCheckInPromptPreview(options: {
 export function buildNotificationDirectMessagePreview(options: {
   notificationId: string;
   playIntentId?: string;
+  allowParticipantInvites?: boolean;
   notificationType: NotificationType;
   title: string;
   body: string;
@@ -1546,6 +1565,7 @@ export function buildNotificationDirectMessagePreview(options: {
 
     const promptPreview = buildPlayIntentNotificationPromptPreview({
       notificationId: options.notificationId,
+      allowParticipantInvites: options.allowParticipantInvites,
       playIntentId: options.playIntentId,
       notificationType: options.notificationType,
       title: options.title,
@@ -1744,7 +1764,7 @@ function getCreatorSummaryRecipientStats(snapshot: CreatorPlayIntentSummarySnaps
   }>()
   const deliveredUserIds = new Set<string>()
 
-  for (const notification of relevantNotifications) {
+  for (const notification of prioritizePlayIntentAudienceResponses(relevantNotifications)) {
     if (notification.deliveredAt) {
       deliveredUserIds.add(notification.userId)
     }
@@ -2320,6 +2340,15 @@ export async function refreshTrackedCreatorPlayIntentSummaryMessages() {
   }
 }
 
+/** Keeps debug preview rendering intact while applying runtime ownership only to actionable controls. */
+export function buildRuntimeNotificationDirectMessagePreview(options: Parameters<typeof buildNotificationDirectMessagePreview>[0]): DirectMessagePreviewPayload {
+  const preview = buildNotificationDirectMessagePreview(options)
+  if (!supportsDiscordInteractiveMessages() && preview.components.length > 0) {
+    return { ...preview, components: [buildLinkRow(options.playIntentId)] }
+  }
+  return preview
+}
+
 export async function refreshTrackedPlayIntentNotificationDirectMessages(options: {
   playIntentIds?: string[];
   userIds?: string[];
@@ -2380,6 +2409,7 @@ export async function refreshTrackedPlayIntentNotificationDirectMessages(options
           id: true,
           userId: true,
           scope: true,
+          allowParticipantInvites: true,
           headline: true,
           selectionMode: true,
           note: true,
@@ -2608,27 +2638,19 @@ export async function refreshTrackedPlayIntentNotificationDirectMessages(options
     recipientServerIdsByUserId.set(membership.userId, serverIds)
   }
 
-  const latestExplicitAudienceResponseByRecipientKey = new Map<string, NotificationResponseChoice>()
+  const latestExplicitAudienceResponseByRecipientKey = new Map<string, NotificationResponseChoice | null>()
   const runningLateRecipientKeys = new Set<string>()
-
-  for (const notification of notifications) {
-    if (
-      !notification.playIntentId
-      || (
-        notification.type !== NotificationType.FRIEND_PLAYING
-        && notification.type !== NotificationType.SCHEDULED_PLAY_INTENT_REMINDER
-        && notification.type !== NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED
-      )
-      || !notification.responseChoice
-      || notification.responseChoice === NotificationResponseChoice.EXPIRED
-    ) {
+  const audienceResponses = await prisma.notification.findMany({
+    where: { playIntentId: { in: playIntentIds }, type: { in: [NotificationType.FRIEND_PLAYING, NotificationType.SCHEDULED_PLAY_INTENT_REMINDER, NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED] } },
+    orderBy: { createdAt: 'desc' }
+  })
+  for (const notification of prioritizePlayIntentAudienceResponses(audienceResponses)) {
+    const recipientKey = `${notification.playIntentId}:${notification.userId}`
+    if (latestExplicitAudienceResponseByRecipientKey.has(recipientKey)) {
       continue
     }
-
-    const recipientKey = `${notification.playIntentId}:${notification.userId}`
     latestExplicitAudienceResponseByRecipientKey.set(recipientKey, notification.responseChoice)
-
-    if (notification.runningLateAt) {
+    if (notification.runningLateAt && notification.responseChoice === NotificationResponseChoice.JOIN) {
       runningLateRecipientKeys.add(recipientKey)
     }
   }
@@ -2689,6 +2711,7 @@ export async function refreshTrackedPlayIntentNotificationDirectMessages(options
       && runningLateRecipientKeys.has(`${notification.playIntentId}:${notification.userId}`)
     const previewOptions = {
       notificationId: notification.id,
+      allowParticipantInvites: playIntent?.allowParticipantInvites,
       playIntentId: notification.playIntentId ?? undefined,
       notificationType: notification.type,
       title: notification.title,
@@ -2728,7 +2751,7 @@ export async function refreshTrackedPlayIntentNotificationDirectMessages(options
         : undefined
     }
 
-    const preview = buildNotificationDirectMessagePreview(previewOptions)
+    const preview = buildRuntimeNotificationDirectMessagePreview(previewOptions)
 
     const embeds = notification.type === NotificationType.FRIEND_PLAYING && playIntent
       ? [
@@ -3115,7 +3138,8 @@ export async function deleteCreatorResponseSystemNotifications(options: {
 }
 
 
-function buildPlayIntentGameEmbeds(playIntent: {
+/** Builds the selected-game cover embeds shared by original and participant invitations. */
+export function buildPlayIntentGameEmbeds(playIntent: {
   selectionMode: 'ENTIRE_LIBRARY' | 'SELECTED_GAMES';
   games: { game: { title: string; coverUrl: string | null } }[];
 }) {
@@ -3637,18 +3661,9 @@ export async function respondToPlayIntentFromWeb(options: {
   playIntentId: string;
   response: PlayIntentRecipientResponse;
 }) {
+  const responseId = await findPlayIntentAudienceResponseId(prisma, options.playIntentId, options.userId)
   const notification = await prisma.notification.findFirst({
-    where: {
-      userId: options.userId,
-      playIntentId: options.playIntentId,
-      type: {
-        in: [
-          NotificationType.FRIEND_PLAYING,
-          NotificationType.SCHEDULED_PLAY_INTENT_REMINDER,
-          NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED
-        ]
-      }
-    },
+    where: { id: responseId ?? '' },
     select: {
       id: true,
       userId: true,
@@ -3739,18 +3754,9 @@ export async function markRunningLateFromWeb(options: {
   playIntentId: string;
   runningLateMinutes?: number | null;
 }) {
+  const responseId = await findPlayIntentAudienceResponseId(prisma, options.playIntentId, options.userId)
   const notification = await prisma.notification.findFirst({
-    where: {
-      userId: options.userId,
-      playIntentId: options.playIntentId,
-      type: {
-        in: [
-          NotificationType.FRIEND_PLAYING,
-          NotificationType.SCHEDULED_PLAY_INTENT_REMINDER,
-          NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED
-        ]
-      }
-    },
+    where: { id: responseId ?? '' },
     select: {
       id: true,
       userId: true,
@@ -4552,6 +4558,7 @@ export async function handlePlayIntentNotificationInteraction(interaction: Butto
             id: true,
             userId: true,
             scope: true,
+            allowParticipantInvites: true,
             headline: true,
             selectionMode: true,
             voiceChannelId: true,
@@ -4736,6 +4743,7 @@ export async function handlePlayIntentNotificationInteraction(interaction: Butto
     .get(notification.userId) ?? null
   const preservedPrompt = buildNotificationDirectMessagePreview({
     notificationId: notification.id,
+    allowParticipantInvites: playIntent.allowParticipantInvites,
     playIntentId: playIntent.id,
     notificationType: notification.type,
     title: notification.title,

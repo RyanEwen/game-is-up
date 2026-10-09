@@ -1,4 +1,5 @@
 /** Loads recipient response summaries, including optional delays, from their latest prompts. */
+import { prioritizePlayIntentAudienceResponses } from './play-intent-audience-response.js'
 import { AuthProvider, NotificationResponseChoice, NotificationType } from '@prisma/client'
 import { toClientAvatarUrl } from './game-media.js'
 import { prisma } from './prisma.js'
@@ -53,13 +54,13 @@ async function getResponseUsersByPlayIntentId(playIntentIds: string[], responseC
       playIntentId: {
         in: uniquePlayIntentIds
       },
-      ...(responseChoice ? { responseChoice } : {}),
       type: {
         in: recipientResponseNotificationTypes
       }
     },
     select: {
       playIntentId: true,
+      type: true,
       responseChoice: true,
       runningLateAt: true,
       runningLateMinutes: true,
@@ -88,7 +89,8 @@ async function getResponseUsersByPlayIntentId(playIntentIds: string[], responseC
   const responseUsersByPlayIntentId = new Map<string, PlayIntentRecipientResponseUser[]>()
   const seenKeys = new Set<string>()
 
-  for (const notification of notifications) {
+  const orderedNotifications = prioritizePlayIntentAudienceResponses(notifications)
+  for (const notification of orderedNotifications) {
     if (!notification.playIntentId) {
       continue
     }
@@ -100,6 +102,9 @@ async function getResponseUsersByPlayIntentId(playIntentIds: string[], responseC
     }
 
     seenKeys.add(dedupeKey)
+    if (responseChoice && notification.responseChoice !== responseChoice) {
+      continue
+    }
 
     const responseUsers = responseUsersByPlayIntentId.get(notification.playIntentId) ?? []
     responseUsers.push({

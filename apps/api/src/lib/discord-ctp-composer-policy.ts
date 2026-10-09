@@ -43,11 +43,12 @@ export function composerModalId(draftId: string, field: string) {
 }
 
 /** Build the complete shared request; detected-game contexts force the source game and start now. */
-export function buildComposerPlayIntentRequest(draft: Pick<DiscordCtpComposerDraft, 'gameIds' | 'notifyScope' | 'targetDiscordServerIds' | 'targetUserIds' | 'targetFriendsListId' | 'title' | 'note' | 'durationMinutes' | 'startMode' | 'startAt' | 'voiceMode' | 'voiceChannelId' | 'voiceChannelName'>, detectedGameId?: string): UpsertPlayIntentRequest {
+export function buildComposerPlayIntentRequest(draft: Pick<DiscordCtpComposerDraft, 'allowParticipantInvites' | 'gameIds' | 'notifyScope' | 'targetDiscordServerIds' | 'targetUserIds' | 'targetFriendsListId' | 'title' | 'note' | 'durationMinutes' | 'startMode' | 'startAt' | 'voiceMode' | 'voiceChannelId' | 'voiceChannelName'>, detectedGameId?: string): UpsertPlayIntentRequest {
   return {
     selectionMode: 'subset',
     notifyScope: scopeSlugByScope[draft.notifyScope],
     includeSelf: false,
+    allowParticipantInvites: draft.allowParticipantInvites,
     createDiscordSpace: draft.voiceMode === DiscordCtpComposerVoiceMode.TEMPORARY_SPACE,
     gameIds: detectedGameId ? [detectedGameId] : draft.gameIds,
     targetUserIds: draft.notifyScope === PlayIntentScope.SPECIFIC_FRIENDS ? draft.targetUserIds : [],

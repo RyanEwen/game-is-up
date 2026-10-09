@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Avatar, Button, Card, Chip, DialogContent, DialogTitle, Input, Option, Select, Stack, Step, StepButton, StepIndicator, Stepper, Typography } from '@mui/joy'
+/** Call composer follows the shared dashboard modal and lets organizers control participant invitations. */
+import { Checkbox, Avatar, Button, Card, Chip, DialogContent, DialogTitle, Input, Option, Select, Stack, Step, StepButton, StepIndicator, Stepper, Typography } from '@mui/joy'
 import { THEME_ID as MATERIAL_THEME_ID, ThemeProvider, createTheme } from '@mui/material/styles'
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
 import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker'
@@ -235,6 +236,8 @@ export function PlayIntentComposerCard({
   onPlayIntentTitleChange,
   playIntentNote,
   onPlayIntentNoteChange,
+  playIntentAllowParticipantInvites,
+  onPlayIntentAllowParticipantInvitesChange,
   playIntentVoiceMode,
   onPlayIntentVoiceModeChange,
   playIntentVoiceChannelId,
@@ -287,6 +290,8 @@ export function PlayIntentComposerCard({
   onPlayIntentTitleChange: (value: string) => void;
   playIntentNote: string;
   onPlayIntentNoteChange: (value: string) => void;
+  playIntentAllowParticipantInvites: boolean;
+  onPlayIntentAllowParticipantInvitesChange: (value: boolean) => void;
   playIntentVoiceMode: PlayIntentVoiceMode;
   onPlayIntentVoiceModeChange: (mode: PlayIntentVoiceMode) => void;
   playIntentVoiceChannelId: string;
@@ -779,6 +784,13 @@ export function PlayIntentComposerCard({
                 ))}
               </Stack>
 
+              <Checkbox
+                label="Allow participants to invite friends"
+                checked={playIntentAllowParticipantInvites}
+                disabled={playIntentSaving}
+                onChange={(event) => onPlayIntentAllowParticipantInvitesChange(event.target.checked)}
+              />
+              <Typography level="body-xs">Accepted participants can invite their own friends, one at a time.</Typography>
               {playIntentVoiceMode === 'existing' ? (
                 <>
                   <Select

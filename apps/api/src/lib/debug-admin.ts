@@ -8,6 +8,8 @@
  * actual current output rather than a separate emulator surface.
  */
 
+import { getPlayIntentInvitableFriends } from './play-intent-friend-invites.js'
+import { buildPlayIntentFriendInvitePicker } from './play-intent-friend-invite-picker.js'
 import { getAutoPlayComposerDebugPreview } from './discord-auto-play-composer.js'
 import { getPendingDiscordActionPreview } from './discord-action-state.js'
 import { debugAdminResponseSchema } from '@game-is-up/shared'
@@ -573,6 +575,7 @@ export async function buildDebugAdminSnapshot() {
           id: true,
           userId: true,
           scope: true,
+          allowParticipantInvites: true,
           headline: true,
           selectionMode: true,
           note: true,
@@ -1144,7 +1147,7 @@ export async function buildDebugAdminSnapshot() {
     }
   }
 
-  const recentNotificationRows = recentNotifications.map((notification) => {
+  const recentNotificationRows = await Promise.all(recentNotifications.map(async (notification) => {
     const playIntent = notification.playIntentId ? (previewPlayIntentMap.get(notification.playIntentId) ?? null) : null
     const discordSpaceRecipientContext = notification.playIntentId
       ? recentNotificationDiscordSpaceRecipientContextsByPlayIntentId.get(notification.playIntentId)?.get(notification.user.id) ?? null
@@ -1157,6 +1160,7 @@ export async function buildDebugAdminSnapshot() {
     const previewPayload = notification.type === NotificationType.SCHEDULED_PLAY_INTENT_CHECK_IN
       ? buildScheduledCheckInPromptPreview({
           notificationId: notification.id,
+          playIntentId: notification.playIntentId ?? undefined,
           creatorDiscordUserId: playIntent?.user.identities[0]?.providerUserId ?? null,
           creatorDisplayName: playIntent?.user.displayName ?? null,
           resolved: Boolean(notification.responseChoice)
@@ -1167,6 +1171,8 @@ export async function buildDebugAdminSnapshot() {
         ? notification.responseChoice === NotificationResponseChoice.EXPIRED
           ? buildNotificationDirectMessagePreview({
               notificationId: notification.id,
+              playIntentId: notification.playIntentId ?? undefined,
+              allowParticipantInvites: playIntent?.allowParticipantInvites,
               notificationType: notification.type,
               title: notification.title,
               body: notification.body,
@@ -1204,6 +1210,8 @@ export async function buildDebugAdminSnapshot() {
             })
           : buildPlayIntentNotificationPromptPreview({
             notificationId: notification.id,
+            playIntentId: notification.playIntentId ?? undefined,
+            allowParticipantInvites: playIntent?.allowParticipantInvites,
             notificationType: notification.type,
             title: notification.title,
             body: notification.body,
@@ -1239,6 +1247,8 @@ export async function buildDebugAdminSnapshot() {
           })
         : buildNotificationDirectMessagePreview({
             notificationId: notification.id,
+            playIntentId: notification.playIntentId ?? undefined,
+            allowParticipantInvites: playIntent?.allowParticipantInvites,
             notificationType: notification.type,
             title: notification.title,
             body: notification.body,
@@ -1286,9 +1296,21 @@ export async function buildDebugAdminSnapshot() {
       gameTitle: notification.game?.title ?? null,
       recipient: notification.user,
       triggeredBy: notification.triggeredByUserId ? (triggeredByUserMap.get(notification.triggeredByUserId) ?? null) : null,
+      friendInvitePreview: playIntent && playIntent.allowParticipantInvites && notification.responseChoice === NotificationResponseChoice.JOIN && playIntent.expiresAt > now
+        ? await (async () => {
+            try {
+              const friends = await getPlayIntentInvitableFriends(playIntent.id, notification.user.id)
+              const picker = buildPlayIntentFriendInvitePicker(playIntent.id, friends)
+              return buildDebugDmPreview(picker.content, picker.components)
+            } catch {
+              // An ended call or changed answer has no active friend picker.
+              return null
+            }
+          })()
+        : null,
       dmPreview: buildDebugDmPreview(previewPayload.content, previewPayload.components, previewPayload.embeds, notification.discordDmMessageId)
     }
-  })
+  }))
 
   const recentInviteAttributionRows = recentInviteAttributions.map((attribution) => ({
     id: attribution.id,

@@ -48,6 +48,7 @@ import {
   respondToPlayIntentFromWeb,
   startScheduledPlayIntentNow
 } from '../lib/play-intent-notification-responses.js'
+import { playIntentFriendInviteRouter } from './play-intent-friend-invites.js'
 import { prisma } from '../lib/prisma.js'
 import { getAuthSession } from '../lib/session.js'
 import { getUserAdminStatus, requireSignedInUserId } from '../lib/route-auth.js'
@@ -568,3 +569,5 @@ playIntentRouter.delete('/:playIntentId/discord-space', async (request, response
     next(error)
   }
 })
+
+playIntentRouter.use(playIntentFriendInviteRouter)

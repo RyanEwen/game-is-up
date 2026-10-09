@@ -78,6 +78,8 @@ The Play tab now keeps both active and recently ended calls to play visible acro
 
 Interested players can choose "I'll be late" on the call's detail page or Discord invite and enter an optional delay in minutes. Leave it blank when unsure, or use "Update delay" to revise it later. Estimates appear alongside the player's response and in updates to the creator and other invited players who have not declined. Saving the same estimate again does not send another notification.
 
+Organizers can allow accepted participants to invite their own friends, one at a time. This is enabled by default and can be turned off in the web composer or the bot composer's review step. Participants use "Invite a friend" on the call's web detail page or their Discord invitation. Friends must have a matching playable game and respect existing blocks, mutes, and schedule eligibility. Turning invitations off prevents new additions; it does not remove friends already invited, and organizer edits retain those additions. Some existing calls may ask participants to accept again after upgrading, before they can invite friends.
+
 The Friends page also supports reusable friends lists so creators can save common audience groups and target those saved lists directly from the Play composer.
 
 Signed-in dashboard sessions now also keep themselves fresh through a same-origin Server-Sent Events invalidation stream. When impactful shared state changes land on the API, open tabs can automatically reload discovery, play, library, network, and session data without a polling loop.

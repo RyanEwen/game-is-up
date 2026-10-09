@@ -206,6 +206,8 @@ function PlayViewContent({
   onPlayIntentTitleChange,
   playIntentNote,
   onPlayIntentNoteChange,
+  playIntentAllowParticipantInvites,
+  onPlayIntentAllowParticipantInvitesChange,
   playIntentVoiceMode,
   onPlayIntentVoiceModeChange,
   playIntentVoiceChannelId,
@@ -271,6 +273,8 @@ function PlayViewContent({
   onPlayIntentTitleChange: (value: string) => void;
   playIntentNote: string;
   onPlayIntentNoteChange: (value: string) => void;
+  playIntentAllowParticipantInvites: boolean;
+  onPlayIntentAllowParticipantInvitesChange: (value: boolean) => void;
   playIntentVoiceMode: PlayIntentVoiceMode;
   onPlayIntentVoiceModeChange: (mode: PlayIntentVoiceMode) => void;
   playIntentVoiceChannelId: string;
@@ -412,6 +416,8 @@ function PlayViewContent({
               onPlayIntentTitleChange={onPlayIntentTitleChange}
               playIntentNote={playIntentNote}
               onPlayIntentNoteChange={onPlayIntentNoteChange}
+              playIntentAllowParticipantInvites={playIntentAllowParticipantInvites}
+              onPlayIntentAllowParticipantInvitesChange={onPlayIntentAllowParticipantInvitesChange}
               playIntentVoiceMode={playIntentVoiceMode}
               onPlayIntentVoiceModeChange={onPlayIntentVoiceModeChange}
               playIntentVoiceChannelId={playIntentVoiceChannelId}

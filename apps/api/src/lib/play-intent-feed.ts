@@ -9,7 +9,7 @@
  * interested-user identity data so the web app does not need a second
  * lookup for that summary.
  */
-
+import { prioritizePlayIntentAudienceResponses } from './play-intent-audience-response.js'
 import type { PlayIntentFeed, PlayIntentPreview } from '@game-is-up/shared'
 import { GameIntentType, NotificationResponseChoice, NotificationType, PlayIntentSelectionMode, PlayIntentScope } from '@prisma/client'
 import {
@@ -90,6 +90,7 @@ export async function buildPlayIntentFeed(viewerId?: string | null): Promise<Pla
           }
         : undefined,
       OR: [
+        { participantInvites: { some: { inviteeUserId: viewer.id } } },
         {
           userId: viewer.id
         },
@@ -212,6 +213,7 @@ export async function buildPlayIntentFeed(viewerId?: string | null): Promise<Pla
         },
         select: {
           playIntentId: true,
+          type: true,
           responseChoice: true,
           runningLateAt: true,
           runningLateMinutes: true
@@ -227,7 +229,9 @@ export async function buildPlayIntentFeed(viewerId?: string | null): Promise<Pla
           runningLateMinutes: number | null;
         }>()
 
-        for (const row of rows) {
+        // Invitation anchors precede informational reminders, including unanswered anchors.
+        const orderedRows = prioritizePlayIntentAudienceResponses(rows)
+        for (const row of orderedRows) {
           if (!row.playIntentId || map.has(row.playIntentId)) {
             continue
           }
@@ -269,6 +273,7 @@ export async function buildPlayIntentFeed(viewerId?: string | null): Promise<Pla
 
       if (!isPlayIntentVisibleToViewer({
         isOwnIntent,
+        hasDirectNotification: recipientNotificationStateByPlayIntentId.has(intent.id),
         scope: intent.scope,
         isExplicitFriend,
         isInDiscoveryAudience,
@@ -293,6 +298,7 @@ export async function buildPlayIntentFeed(viewerId?: string | null): Promise<Pla
         : matchingSelectedGames.length > 0
       const appliesToViewer = isViewerIncludedByPlayIntentAudience({
         isOwnIntent,
+        hasDirectNotification: recipientNotificationStateByPlayIntentId.has(intent.id),
         scope: intent.scope,
         isExplicitFriend,
         isInDiscoveryAudience,
@@ -307,6 +313,7 @@ export async function buildPlayIntentFeed(viewerId?: string | null): Promise<Pla
 
       return {
         id: intent.id,
+        allowParticipantInvites: intent.allowParticipantInvites,
         title: intent.headline,
         status: intent.expiresAt.getTime() > now.getTime() ? 'active' : 'ended',
         appliesToViewer,

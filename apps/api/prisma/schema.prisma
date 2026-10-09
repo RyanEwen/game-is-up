@@ -143,6 +143,8 @@ model User {
   blocksGiven                        Block[]                             @relation("blocks_given")
   blocksReceived                     Block[]                             @relation("blocks_received")
   playIntents                        PlayIntent[]
+  participantInvitationsSent         PlayIntentParticipantInvite[]       @relation("participant_inviter")
+  participantInvitationsReceived     PlayIntentParticipantInvite[]       @relation("participant_invitee")
   targetedPlayIntents                PlayIntentTargetFriend[]            @relation("play_intent_target_friend")
   friendsLists                       FriendsList[]
   friendsListMemberships             FriendsListMember[]                 @relation("friends_list_member")
@@ -375,6 +377,8 @@ model PlayIntent {
   id                        String                          @id @default(uuid())
   userId                    String
   selectionMode             PlayIntentSelectionMode         @default(SELECTED_GAMES)
+  allowParticipantInvites    Boolean                         @default(true)
+  participantInvites        PlayIntentParticipantInvite[]
   headline                  String
   note                      String                          @default("")
   voiceChannelId            String?
@@ -514,6 +518,7 @@ model Notification {
   body                                String
   readAt                              DateTime?
   responseChoice                      NotificationResponseChoice?
+  responseResetAt                     DateTime?
   respondedAt                         DateTime?
   runningLateAt                       DateTime?
   runningLateMinutes                  Int?
@@ -610,6 +615,7 @@ model DiscordAutoPlayPrompt {
 model DiscordCtpComposerDraft {
   id                     String                      @id @default(uuid())
   userId                 String
+  allowParticipantInvites Boolean                     @default(true)
   contextKey             String                      @default("manual")
   autoPlayPromptId       String?                     @unique
   autoPlayPrompt         DiscordAutoPlayPrompt?      @relation(fields: [autoPlayPromptId], references: [id], onDelete: Cascade)
@@ -698,4 +704,20 @@ model PlayIntentMute {
 
   @@unique([userId, mutedUserId])
   @@index([userId])
+}
+
+// Participant invitations persist independently from the organizer's audience selection.
+model PlayIntentParticipantInvite {
+  id            String     @id @default(uuid())
+  playIntentId  String
+  inviterUserId String
+  inviteeUserId String
+  createdAt     DateTime   @default(now())
+  playIntent    PlayIntent @relation(fields: [playIntentId], references: [id], onDelete: Cascade)
+  inviter       User       @relation("participant_inviter", fields: [inviterUserId], references: [id], onDelete: Cascade)
+  invitee       User       @relation("participant_invitee", fields: [inviteeUserId], references: [id], onDelete: Cascade)
+
+  @@unique([playIntentId, inviteeUserId])
+  @@index([inviterUserId])
+  @@index([inviteeUserId])
 }

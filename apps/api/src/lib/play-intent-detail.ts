@@ -7,7 +7,7 @@
  * calls), and enriches Discord-space info with the viewer's current access
  * state so the web view can describe what they are or are not invited to.
  */
-
+import { resolvePlayIntentAudienceResponse } from './play-intent-audience-response.js'
 import type { PlayIntentDetail, PlayIntentExpandedGame } from '@game-is-up/shared'
 import {
   GameIntentType,
@@ -361,6 +361,7 @@ export async function buildPlayIntentDetail(viewerId: string, playIntentId: stri
             }
           },
           select: {
+            type: true,
             responseChoice: true,
             runningLateAt: true,
             runningLateMinutes: true,
@@ -419,7 +420,7 @@ export async function buildPlayIntentDetail(viewerId: string, playIntentId: stri
     isTargetedFriend,
     isTargetedServer
   }) && matchesViewerLibrary
-  const recipientNotificationState = intent.notifications[0] ?? null
+  const recipientNotificationState = resolvePlayIntentAudienceResponse(intent.notifications)
   const interestedUsersByPlayIntentId = await getInterestedUsersByPlayIntentId([intent.id])
   const interestedUsers = interestedUsersByPlayIntentId.get(intent.id) ?? []
   // The creator always sees who passed on their own call. Other viewers only
@@ -473,6 +474,7 @@ export async function buildPlayIntentDetail(viewerId: string, playIntentId: stri
 
   return {
     id: intent.id,
+    allowParticipantInvites: intent.allowParticipantInvites,
     title: intent.headline,
     status: intent.expiresAt.getTime() > now.getTime() ? 'active' : 'ended',
     appliesToViewer,

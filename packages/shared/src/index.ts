@@ -340,6 +340,7 @@ export const playIntentInterestedUserSchema = playIntentPreviewUserSchema.extend
 })
 
 export const playIntentPreviewSchema = z.object({
+  allowParticipantInvites: z.boolean().default(true),
   id: z.string().uuid(),
   title: z.string().min(1),
   status: z.enum(['active', 'ended']),
@@ -393,11 +394,26 @@ export const playIntentFeedSchema = z.object({
   intents: z.array(playIntentPreviewSchema)
 })
 
+/** A participant invitation always targets exactly one existing friend. */
+export const playIntentFriendInviteRequestSchema = z.object({
+  friendUserId: z.string().uuid()
+}).strict()
+
+export const playIntentInvitableFriendsResponseSchema = z.object({
+  friends: z.array(playIntentPreviewUserSchema)
+})
+
+export const playIntentFriendInviteResponseSchema = z.object({
+  invited: z.boolean(),
+  message: z.string().min(1)
+})
+
 export const playIntentDetailResponseSchema = z.object({
   intent: playIntentDetailSchema
 })
 
 export const activePlayIntentSchema = z.object({
+  allowParticipantInvites: z.boolean().default(true),
   id: z.string().uuid(),
   title: z.string().min(1),
   selectionMode: playIntentSelectionModeSchema,
@@ -492,6 +508,7 @@ export const upsertPlayIntentRequestSchema = z.object({
   notifyScope: playIntentNotifyScopeSchema,
   includeSelf: z.boolean().optional().default(false),
   createDiscordSpace: z.boolean().optional().default(false),
+  allowParticipantInvites: z.boolean().optional(),
   note: z.string().trim().max(140).optional(),
   voiceChannelId: z.string().trim().min(1).max(32).optional(),
   voiceChannelName: z.string().trim().min(1).max(100).optional(),
@@ -912,6 +929,7 @@ export const debugNotificationDeliverySchema = z.object({
     handle: z.string().min(2).max(32),
     displayName: z.string().min(2).max(60)
   }).nullable(),
+  friendInvitePreview: debugDmPreviewSchema.nullable().default(null),
   dmPreview: debugDmPreviewSchema.nullable()
 })
 

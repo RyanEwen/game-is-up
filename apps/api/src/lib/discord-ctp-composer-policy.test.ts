@@ -4,6 +4,7 @@ import { DiscordAutoPlayPromptStatus, DiscordCtpComposerStartMode, DiscordCtpCom
 import { buildComposerPlayIntentRequest, composerAction, composerDraftId, composerModalId, isAutoPlayComposerPromptAvailable } from './discord-ctp-composer-policy.js'
 
 const draft: Parameters<typeof buildComposerPlayIntentRequest>[0] = {
+  allowParticipantInvites: true,
   gameIds: ['another-game'],
   targetFriendsListId: null,
   notifyScope: PlayIntentScope.SPECIFIC_DISCORD_SERVER,
@@ -66,4 +67,11 @@ test('automatic composer rejects stale detections, handled prompts, opt-out, and
     assert.equal(isAutoPlayComposerPromptAvailable({ ...prompt, status }, 'owner'), false)
   }
   assert.equal(isAutoPlayComposerPromptAvailable(null, 'owner'), false)
+})
+
+
+test('both manual and detected-game composers preserve participant invitation opt-out', () => {
+  assert.equal(buildComposerPlayIntentRequest(draft).allowParticipantInvites, true)
+  assert.equal(buildComposerPlayIntentRequest({ ...draft, allowParticipantInvites: false }).allowParticipantInvites, false)
+  assert.equal(buildComposerPlayIntentRequest({ ...draft, allowParticipantInvites: false }, 'detected-game').allowParticipantInvites, false)
 })

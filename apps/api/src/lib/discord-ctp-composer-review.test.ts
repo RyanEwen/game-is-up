@@ -30,6 +30,7 @@ const draft: DiscordCtpComposerDraft = {
   autoPlayPromptId: null,
   step: DiscordCtpComposerStep.REVIEW,
   title: '',
+  allowParticipantInvites: true,
   gameIds: ['game'],
   gamePage: 0,
   notifyScope: PlayIntentScope.SPECIFIC_DISCORD_SERVER,

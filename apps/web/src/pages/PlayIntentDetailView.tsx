@@ -18,6 +18,7 @@ import { buildApiUrl } from '../lib/apiUrl'
 import { useDashboardSseInvalidation } from '../hooks/useDashboardSseInvalidation'
 import { formatMonthDayTime } from '../lib/dateTime'
 import { formatRunningLateLabel } from '@game-is-up/shared'
+import { InvitePlayIntentFriendDialog } from '../components/dashboard/InvitePlayIntentFriendDialog'
 import { RunningLateDialog } from '../components/dashboard/RunningLateDialog'
 
 function formatDateTimeLabel(value: string) {
@@ -186,6 +187,7 @@ export function PlayIntentDetailView() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [showNonOverlappingGames, setShowNonOverlappingGames] = useState(false)
   const [invalidationVersion, setInvalidationVersion] = useState(0)
+  const [inviteFriendDialogOpen, setInviteFriendDialogOpen] = useState(false)
   const [runningLateDialogOpen, setRunningLateDialogOpen] = useState(false)
 
   const discoveryPeopleById = useMemo(
@@ -205,9 +207,11 @@ export function PlayIntentDetailView() {
       preview?.status ?? '',
       preview?.discordSpace?.status ?? '',
       preview?.viewerResponseChoice ?? '',
+      String(preview?.allowParticipantInvites ?? ''),
       String(preview?.interestedCount ?? ''),
       activeIntent?.id ?? '',
       activeIntent?.discordSpace?.status ?? '',
+      String(activeIntent?.allowParticipantInvites ?? ''),
       String(activeIntent?.interestedCount ?? '')
     ].join(':')
   }, [playIntentId, playViewProps.activePlayIntent, playViewProps.playIntentPreviews])
@@ -603,6 +607,9 @@ export function PlayIntentDetailView() {
             </Card>
           ) : null}
 
+          {intent.status === 'active' && !isOwnIntent && intent.viewerResponseChoice === 'interested' && intent.allowParticipantInvites ? (
+            <Button variant="soft" onClick={() => setInviteFriendDialogOpen(true)} sx={{ alignSelf: 'flex-start' }}>Invite a friend</Button>
+          ) : null}
           {responsePending ? (
             <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
               Updating your response...
@@ -984,6 +991,7 @@ export function PlayIntentDetailView() {
           <Typography level="body-sm">{errorMessage}</Typography>
         </Card>
       ) : null}
+      <InvitePlayIntentFriendDialog key={intent.id} playIntentId={intent.id} open={inviteFriendDialogOpen} onClose={() => setInviteFriendDialogOpen(false)} />
       <RunningLateDialog
         open={runningLateDialogOpen}
         minutes={intent.viewerRunningLateMinutes}

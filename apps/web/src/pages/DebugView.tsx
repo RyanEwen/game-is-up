@@ -1028,7 +1028,7 @@ function NotificationLogCard({
 }: {
   debugAdmin: DebugAdminResponse;
   formatDateTime: (value: string | null) => string;
-  onOpenPreview: (notification: DebugNotificationDelivery) => void;
+  onOpenPreview: (notification: DebugNotificationDelivery, friendPicker?: boolean) => void;
 }) {
   const [query, setQuery] = useState('')
   const [deliveryFilter, setDeliveryFilter] = useState<'all' | 'delivered' | 'stored'>('all')
@@ -1189,6 +1189,7 @@ function NotificationLogCard({
                         <Button size="sm" variant="outlined" color="neutral" disabled={!notification.dmPreview} onClick={() => onOpenPreview(notification)}>
                           Preview DM
                         </Button>
+                        {notification.friendInvitePreview ? <Button size="sm" variant="outlined" color="neutral" onClick={() => onOpenPreview(notification, true)}>Preview friend picker</Button> : null}
                       </td>
                     </tr>
                   ))}
@@ -1340,10 +1341,10 @@ function DebugViewContent({
               <NotificationLogCard
                 debugAdmin={debugAdmin}
                 formatDateTime={formatDateTime}
-                onOpenPreview={(notification) => setSelectedDmPreview({
+                onOpenPreview={(notification, friendPicker) => setSelectedDmPreview({
                   title: `Notification DM: ${notification.title}`,
                   subtitle: `${notification.recipient.displayName} @${notification.recipient.handle}`,
-                  preview: notification.dmPreview
+                  preview: friendPicker ? notification.friendInvitePreview : notification.dmPreview
                 })}
               />
             </Box>

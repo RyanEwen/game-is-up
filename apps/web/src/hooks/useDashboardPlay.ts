@@ -78,6 +78,7 @@ function toComposerPlayIntent(intent: ActivePlayIntent | PlayIntentDetail): Acti
 
   return {
     id: intent.id,
+    allowParticipantInvites: intent.allowParticipantInvites,
     title: intent.title,
     selectionMode: intent.selectionMode,
     notifyScope: intent.notifyScope,
@@ -165,6 +166,8 @@ export type DashboardPlayViewProps = {
   onPlayIntentTitleChange: (value: string) => void;
   playIntentNote: string;
   onPlayIntentNoteChange: (value: string) => void;
+  playIntentAllowParticipantInvites: boolean;
+  onPlayIntentAllowParticipantInvitesChange: (value: boolean) => void;
   playIntentVoiceMode: PlayIntentVoiceMode;
   onPlayIntentVoiceModeChange: (mode: PlayIntentVoiceMode) => void;
   playIntentVoiceChannelId: string;
@@ -231,6 +234,7 @@ export function useDashboardPlay({
   const [playIntentEndAtInput, setPlayIntentEndAtInput] = useState(() => buildPlayIntentEndTimeInputValue(defaultPlayIntentDurationMinutes))
   const [playIntentTitle, setPlayIntentTitle] = useState('')
   const [playIntentNote, setPlayIntentNote] = useState('')
+  const [playIntentAllowParticipantInvites, setPlayIntentAllowParticipantInvites] = useState(true)
   const [playIntentVoiceMode, setPlayIntentVoiceMode] = useState<PlayIntentVoiceMode>('none')
   const [playIntentVoiceChannelId, setPlayIntentVoiceChannelId] = useState('')
   const [playIntentVoiceChannelName, setPlayIntentVoiceChannelName] = useState('')
@@ -259,6 +263,7 @@ export function useDashboardPlay({
     setPlayIntentEndAtInput(buildPlayIntentEndTimeInputValue(defaultPlayIntentDurationMinutes))
     setPlayIntentTitle('')
     setPlayIntentNote('')
+    setPlayIntentAllowParticipantInvites(true)
     setPlayIntentVoiceMode('none')
     setPlayIntentVoiceChannelId('')
     setPlayIntentVoiceChannelName('')
@@ -286,6 +291,7 @@ export function useDashboardPlay({
     setPlayIntentCustomDurationInput(String(durationMinutes))
     setPlayIntentStartAtInput(toLocalDateTimeInputValue(intent.windowStartsAt))
     setPlayIntentEndAtInput(toLocalDateTimeInputValue(intent.windowEndsAt))
+    setPlayIntentAllowParticipantInvites(intent.allowParticipantInvites)
     setPlayIntentTitle(intent.title)
     setPlayIntentNote(intent.note)
     setPlayIntentVoiceMode(
@@ -663,6 +669,7 @@ export function useDashboardPlay({
           selectionMode: 'subset',
           notifyScope: playIntentNotifyScope,
           createDiscordSpace: playIntentVoiceMode === 'temporary',
+          allowParticipantInvites: playIntentAllowParticipantInvites,
           ...schedulingPayload,
           ...timingPayload,
           note: playIntentNote.trim() || undefined,
@@ -727,6 +734,7 @@ export function useDashboardPlay({
     playIntentDurationMinutes,
     playIntentTitle,
     playIntentNote,
+    playIntentAllowParticipantInvites,
     playIntentVoiceMode,
     playIntentVoiceChannelId,
     playIntentVoiceChannelName,
@@ -1244,6 +1252,8 @@ export function useDashboardPlay({
     onPlayIntentTitleChange: handlePlayIntentTitleChange,
     playIntentNote,
     onPlayIntentNoteChange: handlePlayIntentNoteChange,
+    playIntentAllowParticipantInvites,
+    onPlayIntentAllowParticipantInvitesChange: setPlayIntentAllowParticipantInvites,
     playIntentVoiceMode,
     onPlayIntentVoiceModeChange: handlePlayIntentVoiceModeChange,
     playIntentVoiceChannelId,
