@@ -119,11 +119,23 @@ development data.
 Useful commands:
 
 - `npm run dev:doctor` reports prerequisites and their fixes.
+- `npm run dev:prepare-worktree` inherits missing local configuration and installs checkout-local
+  dependencies without starting Docker or the application.
+- `npm run dev:background` starts the same development runner detached, prints its PID and log
+  path after preflight succeeds, and returns control to the terminal. Application readiness still
+  depends on the container finishing its database preparation and watcher startup.
 - `npm run dev:host -- snapshot` refreshes the project database baseline.
 - `npm run dev:host -- reset` recreates a worktree database volume from that baseline.
 - `npm run dev:host -- prune` lists volumes whose worktrees no longer exist.
 - `npm run dev:host -- infra` restarts the machine proxy and this checkout's PostgreSQL container.
 - `npm run dev:down` removes this checkout's containers and network while preserving its database volume.
+
+Paseo reads `paseo.json` to prepare new worktrees automatically and stop their checkout stack on
+teardown. The configuration also exposes foreground `dev`, detached `dev-background`, `dev-down`,
+preparation, diagnostics, validation, and build scripts. Use foreground `dev` for Paseo's running
+status and Stop control. A completed `dev-background` launcher leaves its runner active until
+`dev-down` is run. Run `npm run dev:bootstrap` once on each host before using the development
+scripts; bootstrap also places `devkit` on the host PATH for setup in worktrees without dependencies.
 
 
 ## Validation

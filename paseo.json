@@ -1,0 +1,29 @@
+{
+  "worktree": {
+    "setup": "npm run dev:prepare-worktree",
+    "teardown": "npm run dev:down"
+  },
+  "scripts": {
+    "dev": {
+      "command": "npm run dev"
+    },
+    "dev-background": {
+      "command": "npm run dev:background"
+    },
+    "dev-down": {
+      "command": "npm run dev:down"
+    },
+    "dev-prepare-worktree": {
+      "command": "npm run dev:prepare-worktree"
+    },
+    "dev-doctor": {
+      "command": "npm run dev:doctor"
+    },
+    "validate": {
+      "command": "npm run validate"
+    },
+    "build": {
+      "command": "npm run build"
+    }
+  }
+}
