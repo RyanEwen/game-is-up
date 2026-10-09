@@ -502,7 +502,7 @@ function composerButton(action: string, label: string, style: ButtonStyle, disab
     .setDisabled(disabled)
 }
 
-function buildNavRow(step: DiscordCtpComposerStep) {
+function buildNavRow(step: DiscordCtpComposerStep, postDisabled = false) {
   const stepIndex = stepOrder.indexOf(step)
   const previousStep = stepIndex > 0 ? stepOrder[stepIndex - 1] : null
   const nextStep = stepIndex < stepOrder.length - 1 ? stepOrder[stepIndex + 1] : null
@@ -515,7 +515,7 @@ function buildNavRow(step: DiscordCtpComposerStep) {
   if (nextStep) {
     row.addComponents(composerButton(`goto:${nextStep}`, `Next: ${stepLabels[nextStep]}`, ButtonStyle.Primary))
   } else {
-    row.addComponents(composerButton('post', 'Post call to play', ButtonStyle.Success))
+    row.addComponents(composerButton('post', 'Post call to play', ButtonStyle.Success, postDisabled))
   }
 
   row.addComponents(composerButton('cancel', 'Discard', ButtonStyle.Danger))
@@ -560,13 +560,12 @@ function describeComposerStep(draft: DiscordCtpComposerDraft) {
   return stepDescriptions[draft.step]
 }
 
-function buildComposerEmbed(draft: DiscordCtpComposerDraft, summaryLines: string[], notice: string | null, extraGuidance: string | null = null) {
+function buildComposerEmbed(draft: DiscordCtpComposerDraft, summaryLines: string[], extraGuidance: string | null = null) {
   const stepIndex = stepOrder.indexOf(draft.step)
   const embed = new EmbedBuilder()
     .setColor(composerEmbedColor)
     .setTitle(`Post a call to play - ${stepLabels[draft.step]} (step ${stepIndex + 1} of ${stepOrder.length})`)
     .setDescription([
-      notice ? `**${notice}**` : null,
       describeComposerStep(draft),
       extraGuidance
     ].filter((line): line is string => Boolean(line)).join('\n\n'))
@@ -582,6 +581,7 @@ function buildComposerEmbed(draft: DiscordCtpComposerDraft, summaryLines: string
 export async function renderComposerView(draft: DiscordCtpComposerDraft, user: ComposerUser, notice: string | null = null): Promise<ComposerView> {
   const summaryLines = await buildDraftSummaryLines(draft, user)
   const components: ActionRowBuilder<MessageActionRowComponentBuilder>[] = []
+  const reviewIssues = draft.step === DiscordCtpComposerStep.REVIEW ? collectDraftIssues(draft) : []
   let extraGuidance: string | null = null
 
   switch (draft.step) {
@@ -816,18 +816,14 @@ export async function renderComposerView(draft: DiscordCtpComposerDraft, user: C
       break
     }
     case DiscordCtpComposerStep.REVIEW: {
-      const issues = collectDraftIssues(draft)
-
-      if (issues.length > 0) {
-        extraGuidance = `Before this can be posted:\n${issues.map((issue) => `- ${issue}`).join('\n')}`
-      } else {
+      if (reviewIssues.length === 0) {
         extraGuidance = 'Everything looks ready.'
       }
       break
     }
   }
 
-  components.push(buildNavRow(draft.step))
+  components.push(buildNavRow(draft.step, reviewIssues.length > 0))
 
   // Every control carries the draft id, so separate manual and automatic
   // sessions cannot accidentally edit each other's selections.
@@ -841,8 +837,15 @@ export async function renderComposerView(draft: DiscordCtpComposerDraft, user: C
   }
 
   return {
-    content: '',
-    embeds: [buildComposerEmbed(draft, summaryLines, notice, extraGuidance)],
+    // Keep blockers and action failures above the embed, where they remain
+    // visible when Discord restores the controls after a rejected action.
+    content: [
+      notice,
+      reviewIssues.length > 0
+        ? `Before this can be posted:\n${reviewIssues.map((issue) => `- ${issue}`).join('\n')}`
+        : null
+    ].filter((line): line is string => Boolean(line)).join('\n\n'),
+    embeds: [buildComposerEmbed(draft, summaryLines, extraGuidance)],
     components
   }
 }
@@ -1365,7 +1368,7 @@ async function postDraft(interaction: ButtonInteraction, draft: DiscordCtpCompos
 
   if (issues.length > 0) {
     const reviewDraft = draft.step === DiscordCtpComposerStep.REVIEW ? draft : await updateDraft(draft.id, { step: DiscordCtpComposerStep.REVIEW })
-    await updateDiscordActionMessage(interaction, await renderComposerView(reviewDraft, user, 'A few things need attention before posting.'))
+    await updateDiscordActionMessage(interaction, await renderComposerView(reviewDraft, user, 'This call to play cannot be posted yet.'))
     return
   }
 
