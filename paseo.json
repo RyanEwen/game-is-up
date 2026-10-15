@@ -1,29 +1,29 @@
 {
   "worktree": {
-    "setup": "npm run dev:prepare-worktree",
-    "teardown": "npm run dev:down"
+    "setup": "node \"$PASEO_SOURCE_CHECKOUT_PATH/node_modules/@ryanewen/devkit/bin/devkit.mjs\" run npm run dev:prepare-worktree",
+    "teardown": "node node_modules/@ryanewen/devkit/bin/devkit.mjs run npm run dev:down"
   },
   "scripts": {
     "dev": {
-      "command": "npm run dev"
+      "command": "node node_modules/@ryanewen/devkit/bin/devkit.mjs run npm run dev"
     },
     "dev-background": {
-      "command": "npm run dev:background"
+      "command": "node node_modules/@ryanewen/devkit/bin/devkit.mjs run npm run dev:background"
     },
     "dev-down": {
-      "command": "npm run dev:down"
+      "command": "node node_modules/@ryanewen/devkit/bin/devkit.mjs run npm run dev:down"
     },
     "dev-prepare-worktree": {
-      "command": "npm run dev:prepare-worktree"
+      "command": "node node_modules/@ryanewen/devkit/bin/devkit.mjs run npm run dev:prepare-worktree"
     },
     "dev-doctor": {
-      "command": "npm run dev:doctor"
+      "command": "node node_modules/@ryanewen/devkit/bin/devkit.mjs run npm run dev:doctor"
     },
     "validate": {
-      "command": "npm run validate"
+      "command": "node node_modules/@ryanewen/devkit/bin/devkit.mjs run npm run validate"
     },
     "build": {
-      "command": "npm run build"
+      "command": "node node_modules/@ryanewen/devkit/bin/devkit.mjs run npm run build"
     }
   }
 }
