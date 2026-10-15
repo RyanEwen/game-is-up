@@ -17,6 +17,7 @@
     "deploy:prod:ssh": "node scripts/deploy/deploy-over-ssh.mjs",
     "db:wait": "node scripts/dev/wait-for-db.mjs",
     "dev": "devkit run node scripts/dev/run-dev.mjs",
+    "dev:cleanup": "devkit cleanup --yes",
     "dev:background": "npm run dev -- --background",
     "dev:down": "npm run dev -- --down",
     "dev:bootstrap": "devkit bootstrap",
@@ -40,7 +41,7 @@
   "devDependencies": {
     "@eslint/js": "^9.24.0",
     "@resvg/resvg-js": "^2.6.2",
-    "@ryanewen/devkit": "github:RyanEwen/devkit#v0.15.1",
+    "@ryanewen/devkit": "github:RyanEwen/devkit#v0.16.0",
     "@typescript/native": "npm:typescript@^7.0.2",
     "concurrently": "^9.1.2",
     "eslint": "^9.24.0",
