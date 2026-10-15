@@ -40,7 +40,7 @@
   "devDependencies": {
     "@eslint/js": "^9.24.0",
     "@resvg/resvg-js": "^2.6.2",
-    "@ryanewen/devkit": "github:RyanEwen/devkit#v0.15.0",
+    "@ryanewen/devkit": "github:RyanEwen/devkit#v0.15.1",
     "@typescript/native": "npm:typescript@^7.0.2",
     "concurrently": "^9.1.2",
     "eslint": "^9.24.0",
