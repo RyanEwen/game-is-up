@@ -356,3 +356,17 @@ In the web composer, choosing "Schedule later" suggests a start one hour ahead, 
 The Play view keeps recently ended calls to play visible for a short closed-history window and marks whether each visible call currently applies to the signed-in viewer's library.
 
 Automatic detected-game prompts open the same Discord call-to-play wizard, with the detected game and immediate start preset. Title, audience, duration, note, and voice setup remain available. Automatic drafts are saved separately from manual drafts for 24 hours. While bot message actions are processing, the selected control shows "Working..." and action controls remain disabled until processing finishes.
+
+## Remote development with Devkit
+
+Devkit v0.14 keeps `*.localhost` as the default and can add secondary domains in
+the machine's `~/.config/devkit/host.json`. For a remote server, configure
+`secondaryDomains: ["dev.example.com"]` and `preferredDomain: "dev.example.com"`;
+`npm run dev` then uses the preferred hostname while retaining localhost aliases.
+The DNS wildcard must point to the server, and an existing nginx server can forward
+those names to Devkit's private proxy listener. Run `devkit nginx --allow <client-subnet>`
+to generate that forwarding configuration. See the Devkit README for bootstrap
+options and Docker networking.
+
+Use `npm run dev:doctor` to see this checkout's preferred and alternate URLs.
+The domain preference is machine configuration; project settings stay portable.
