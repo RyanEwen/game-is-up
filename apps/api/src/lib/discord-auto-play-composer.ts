@@ -33,7 +33,7 @@ export async function launchAutoPlayCtpComposer(interaction: ButtonInteraction, 
       expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000)
     }
   })
-  await interaction.followUp({ ...await renderComposerView(draft, user, existingDraft ? 'Resumed your detected-game draft.' : null), flags: MessageFlags.Ephemeral })
+  await interaction.followUp({ ...await renderComposerView(draft, user, existingDraft ? { severity: 'info', message: 'Resumed your detected-game draft.' } : null), flags: MessageFlags.Ephemeral })
 }
 
 /** Serialize the saved automatic composer for the admin's read-only DM inspection. */

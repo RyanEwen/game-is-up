@@ -8,7 +8,7 @@
  */
 
 import { Router } from 'express'
-import { AuthProvider as PrismaAuthProvider, GameIntentType } from '@prisma/client'
+import { AuthProvider as PrismaAuthProvider } from '@prisma/client'
 import {
   gameDetailsResponseSchema,
   gameSearchResponseSchema,
@@ -16,28 +16,21 @@ import {
   libraryResponseSchema,
   steamLibraryImportPreviewResponseSchema,
   upsertLibraryEntryRequestSchema,
-  type CatalogGameMatch,
-  type ImportSteamLibrarySelectionRequest,
-  type LibraryEntryIntent,
-  type LibraryResponse
+  type ImportSteamLibrarySelectionRequest
 } from '@game-is-up/shared'
 import { z } from 'zod'
 import {
-  findOrCreateGameByTitle,
-  findOrCreateGameFromCatalogMatch,
   findOrCreateGameFromSteamImport,
   normalizeGameTitleForMatch,
   searchGamesByTitle
 } from '../lib/game-catalog.js'
 import { getGameDetails } from '../lib/game-details.js'
 import { publishDashboardInvalidation } from '../lib/dashboard-events.js'
-import { toClientGameCoverUrl } from '../lib/game-media.js'
-import { getNetworkTrendingGames, getObservedLibrarySuggestions } from '../lib/library-suggestions.js'
 import { backfillPlayIntentNotificationsForUserLibraryChange } from '../lib/play-intents.js'
 import { prisma } from '../lib/prisma.js'
 import { fetchSteamOwnedGames, fetchSteamProfileSummary, isSteamImportConfigured } from '../lib/steam-auth.js'
+import { buildLibraryResponse, writeLibraryGame, upsertLibraryEntry, removeLibraryEntry } from '../lib/library.js'
 import { requireSignedInUserId } from '../lib/route-auth.js'
-import { resolveAvailability } from '../lib/availability.js'
 
 const libraryEntryParamsSchema = z.object({
   entryId: z.string().uuid()
@@ -53,86 +46,6 @@ const libraryCatalogDetailsParamsSchema = z.object({
 })
 
 export const libraryRouter = Router()
-
-function toLibraryEntryIntent(intentType: GameIntentType): LibraryEntryIntent {
-  switch (intentType) {
-    case GameIntentType.WISHLIST:
-      return 'wishlist'
-    case GameIntentType.PLAYING_NOW:
-      return 'playing-now'
-    default:
-      return 'interested'
-  }
-}
-
-function toPrismaIntentType(intent: LibraryEntryIntent): GameIntentType {
-  switch (intent) {
-    case 'wishlist':
-      return GameIntentType.WISHLIST
-    case 'playing-now':
-      return GameIntentType.PLAYING_NOW
-    default:
-      return GameIntentType.INTERESTED
-  }
-}
-
-async function buildLibraryResponse(userId: string): Promise<LibraryResponse> {
-  const user = await prisma.user.findUnique({
-    where: {
-      id: userId
-    },
-    select: {
-      usualAvailability: true,
-      gameInterests: {
-        where: {
-          intentType: {
-            not: GameIntentType.COMPLETED
-          }
-        },
-        include: {
-          game: true,
-          platforms: {
-            orderBy: {
-              platformLabel: 'asc'
-            }
-          }
-        }
-      }
-    }
-  })
-
-  const entries = (user?.gameInterests ?? [])
-    .map((entry) => ({
-      id: entry.id,
-      gameId: entry.gameId,
-      title: entry.game.title,
-      coverUrl: toClientGameCoverUrl(entry.game.coverUrl),
-      platformLabels: entry.platforms.map((platform) => platform.platformLabel),
-      intent: toLibraryEntryIntent(entry.intentType),
-      ...resolveAvailability(entry.availability, user?.usualAvailability ?? null)
-    }))
-    .sort((left, right) => left.title.localeCompare(right.title))
-  const entryGameIds = entries.map((entry) => entry.gameId)
-  const [suggestedGames, trendingGames] = await Promise.all([
-    getObservedLibrarySuggestions(userId, entryGameIds),
-    getNetworkTrendingGames(userId, entryGameIds)
-  ])
-
-  return {
-    usualAvailability: user?.usualAvailability ?? null,
-    entries,
-    suggestedGames,
-    trendingGames
-  }
-}
-
-async function resolveGame(catalogMatch: CatalogGameMatch | undefined, title: string) {
-  if (catalogMatch) {
-    return findOrCreateGameFromCatalogMatch(catalogMatch)
-  }
-
-  return findOrCreateGameByTitle(title)
-}
 
 function compareSteamImportPreviewGames(
   left: { alreadyInLibrary: boolean; title: string; sourceId: string },
@@ -252,7 +165,6 @@ async function importSteamGamesForUser(userId: string, selections: ImportSteamLi
     }
 
     const platformLabels = [...new Set(selection.platformLabels.map((platformLabel) => platformLabel.trim()).filter(Boolean))]
-    const availability = selection.availability?.trim() ? selection.availability.trim() : null
     const resolvedGame = await findOrCreateGameFromSteamImport({
       sourceId: game.sourceId,
       title: game.title,
@@ -260,38 +172,11 @@ async function importSteamGamesForUser(userId: string, selections: ImportSteamLi
       platformLabels
     })
 
-    await prisma.$transaction(async (transaction) => {
-      const interest = await transaction.userGameInterest.upsert({
-        where: {
-          userId_gameId: {
-            userId,
-            gameId: resolvedGame.id
-          }
-        },
-        update: {
-          intentType: toPrismaIntentType(selection.intent),
-          availability
-        },
-        create: {
-          userId,
-          gameId: resolvedGame.id,
-          intentType: toPrismaIntentType(selection.intent),
-          availability
-        }
-      })
-
-      await transaction.userGameInterestPlatform.deleteMany({
-        where: {
-          userGameInterestId: interest.id
-        }
-      })
-
-      await transaction.userGameInterestPlatform.createMany({
-        data: platformLabels.map((platformLabel) => ({
-          userGameInterestId: interest.id,
-          platformLabel
-        }))
-      })
+    await writeLibraryGame(userId, resolvedGame.id, {
+      title: resolvedGame.title.slice(0, 80),
+      platformLabels,
+      intent: selection.intent,
+      availability: selection.availability
     })
   }
 }
@@ -365,49 +250,7 @@ libraryRouter.post('/me', async (request, response, next) => {
 
   try {
     const payload = upsertLibraryEntryRequestSchema.parse(request.body)
-    const game = await resolveGame(payload.catalogMatch, payload.title)
-    const availability = payload.availability?.trim() ? payload.availability.trim() : null
-    const platformLabels = [...new Set(payload.platformLabels.map((platformLabel) => platformLabel.trim()).filter(Boolean))]
-
-    await prisma.$transaction(async (transaction) => {
-      const interest = await transaction.userGameInterest.upsert({
-        where: {
-          userId_gameId: {
-            userId,
-            gameId: game.id
-          }
-        },
-        update: {
-          intentType: toPrismaIntentType(payload.intent),
-          availability
-        },
-        create: {
-          userId,
-          gameId: game.id,
-          intentType: toPrismaIntentType(payload.intent),
-          availability
-        }
-      })
-
-      await transaction.userGameInterestPlatform.deleteMany({
-        where: {
-          userGameInterestId: interest.id
-        }
-      })
-
-      await transaction.userGameInterestPlatform.createMany({
-        data: platformLabels.map((platformLabel) => ({
-          userGameInterestId: interest.id,
-          platformLabel
-        }))
-      })
-    })
-
-    await backfillPlayIntentNotificationsForUserLibraryChange(userId)
-
-    publishDashboardInvalidation({
-      domains: ['library', 'discovery', 'play-intents']
-    })
+    await upsertLibraryEntry(userId, payload)
 
     response.json(libraryResponseSchema.parse(await buildLibraryResponse(userId)))
   } catch (error) {
@@ -454,23 +297,10 @@ libraryRouter.delete('/me/:entryId', async (request, response, next) => {
 
   try {
     const { entryId } = libraryEntryParamsSchema.parse(request.params)
-    const deleted = await prisma.userGameInterest.deleteMany({
-      where: {
-        id: entryId,
-        userId
-      }
-    })
-
-    if (deleted.count === 0) {
-      response.status(404).json({
-        error: 'Library entry not found.'
-      })
+    if (!await removeLibraryEntry(userId, entryId)) {
+      response.status(404).json({ error: 'Library entry not found.' })
       return
     }
-
-    publishDashboardInvalidation({
-      domains: ['library', 'discovery', 'play-intents']
-    })
 
     response.status(204).send()
   } catch (error) {

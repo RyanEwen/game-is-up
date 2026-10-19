@@ -10,6 +10,7 @@
  * recipient response buttons, creator action buttons, and the call-to-play
  * composer's buttons/selects/modals).
  */
+import { handleAccountHubInteraction, isAccountHubCustomId } from './discord-account-hub.js'
 import { handlePlayIntentFriendInviteInteraction, playIntentFriendInvitePrefix } from './discord-play-intent-friend-invites.js'
 import { MessageFlags } from 'discord.js'
 import { composerDraftId } from './discord-ctp-composer-policy.js'
@@ -1037,6 +1038,13 @@ export async function startDiscordPresenceBot() {
   client.on(Events.InteractionCreate, (interaction) => {
     if (interaction.isChatInputCommand()) {
       void handleDiscordSlashCommand(interaction)
+      return
+    }
+
+    if ((interaction.isButton() || interaction.isStringSelectMenu() || interaction.isModalSubmit()) && isAccountHubCustomId(interaction.customId)) {
+      void handleAccountHubInteraction(interaction).catch((error) => {
+        console.error('Discord account hub interaction failed', error)
+      })
       return
     }
 

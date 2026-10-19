@@ -15,7 +15,6 @@ import {
   friendsListsResponseSchema,
   upsertFriendsListRequestSchema
 } from '@game-is-up/shared'
-import { publishDashboardInvalidation } from '../lib/dashboard-events.js'
 import {
   FriendsListValidationError,
   createFriendsList,
@@ -68,8 +67,6 @@ friendsListsRouter.post('/', async (request, response, next) => {
     const payload = upsertFriendsListRequestSchema.parse(request.body)
     const list = await createFriendsList(userId, payload.name, payload.friendUserIds)
 
-    publishDashboardInvalidation({ domains: ['network', 'play-intents'], userIds: [userId] })
-
     response.status(201).json(friendsListResponseSchema.parse({ list }))
   } catch (error) {
     if (handleValidationError(error, response)) {
@@ -92,8 +89,6 @@ friendsListsRouter.put('/:listId', async (request, response, next) => {
     const payload = upsertFriendsListRequestSchema.parse(request.body)
     const list = await updateFriendsList(userId, listId, payload.name, payload.friendUserIds)
 
-    publishDashboardInvalidation({ domains: ['network', 'play-intents'], userIds: [userId] })
-
     response.json(friendsListResponseSchema.parse({ list }))
   } catch (error) {
     if (handleValidationError(error, response)) {
@@ -114,10 +109,6 @@ friendsListsRouter.delete('/:listId', async (request, response, next) => {
   try {
     const { listId } = friendsListParamSchema.parse(request.params)
     const deleted = await deleteFriendsList(userId, listId)
-
-    if (deleted) {
-      publishDashboardInvalidation({ domains: ['network', 'play-intents'], userIds: [userId] })
-    }
 
     response.json(
       deleteFriendsListResponseSchema.parse({

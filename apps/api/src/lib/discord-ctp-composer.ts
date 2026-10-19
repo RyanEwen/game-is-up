@@ -3,7 +3,7 @@
  * app's PlayIntentComposerCard (Basics -> Audience -> Timing -> Details ->
  * Review) rendered as one ephemeral message that updates in place.
  *
- * Entry points: the persistent "Start a call to play" button posted into an
+ * Entry points: the persistent "Send out a call to play" button posted into an
  * adopted server channel by /setup-ctp-post, and the /post-ctp slash command
  * (guild or bot DM). All interactions use the `guild-ctp:` customId prefix so
  * routing stays stateless across bot restarts; per-user form state lives in a
@@ -53,6 +53,8 @@ import { buildOpenInAppButton } from './discord-dm-formatting.js'
 import { parseComposerDurationInput, parseComposerStartInput } from './discord-ctp-composer-time.js'
 import { buildInviteButtonRow, buildInviteLandingUrl, buildPlayUrl } from './discord-invite-links.js'
 import { buildDiscordServerPreferences, buildSelectedDiscordVoiceChannels } from './discord-servers.js'
+import { buildAccountHubPostPayload } from './discord-account-hub-post.js'
+import { buildDiscordNoticeEmbeds, type DiscordNotice } from './discord-notices.js'
 import { env } from './env.js'
 import {
   getPlayableLibraryEntries,
@@ -503,11 +505,12 @@ function composerButton(action: string, label: string, style: ButtonStyle, disab
     .setDisabled(disabled)
 }
 
-function buildNavRow(step: DiscordCtpComposerStep, postDisabled = false) {
+/** Group step-specific edits with navigation so small actions do not float beside wide selects. */
+function buildNavRow(step: DiscordCtpComposerStep, postDisabled = false, actions: ButtonBuilder[] = []) {
   const stepIndex = stepOrder.indexOf(step)
   const previousStep = stepIndex > 0 ? stepOrder[stepIndex - 1] : null
   const nextStep = stepIndex < stepOrder.length - 1 ? stepOrder[stepIndex + 1] : null
-  const row = new ActionRowBuilder<MessageActionRowComponentBuilder>()
+  const row = new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(...actions)
 
   if (previousStep) {
     row.addComponents(composerButton(`goto:${previousStep}`, `Back: ${stepLabels[previousStep]}`, ButtonStyle.Secondary))
@@ -579,9 +582,10 @@ function buildComposerEmbed(draft: DiscordCtpComposerDraft, summaryLines: string
 }
 
 /** Render a draft with the same selections and navigation in every bot entry flow. */
-export async function renderComposerView(draft: DiscordCtpComposerDraft, user: ComposerUser, notice: string | null = null): Promise<ComposerView> {
+export async function renderComposerView(draft: DiscordCtpComposerDraft, user: ComposerUser, notice: DiscordNotice | null = null): Promise<ComposerView> {
   const summaryLines = await buildDraftSummaryLines(draft, user)
   const components: ActionRowBuilder<MessageActionRowComponentBuilder>[] = []
+  const stepActions: ButtonBuilder[] = []
   const reviewIssues = draft.step === DiscordCtpComposerStep.REVIEW ? collectDraftIssues(draft) : []
   let extraGuidance: string | null = null
 
@@ -593,7 +597,7 @@ export async function renderComposerView(draft: DiscordCtpComposerDraft, user: C
         extraGuidance = 'The detected game is selected automatically. Add a title if you want.'
       } else if (gameOptions.length === 0) {
         extraGuidance = 'Your Game\'s Up library has no playable games yet. Add games in the app first, then come back.'
-        components.push(new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(buildOpenInAppButton(buildPlayUrl(), 'Open Game\'s Up')))
+        components.push(new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(buildOpenInAppButton(buildPlayUrl(), 'App')))
       } else {
         const { items, page, pageCount } = pageSlice(gameOptions, draft.gamePage)
         const select = new StringSelectMenuBuilder()
@@ -617,15 +621,14 @@ export async function renderComposerView(draft: DiscordCtpComposerDraft, user: C
         extraGuidance = `${draft.gameIds.length} / ${maximumPlayIntentGameSelectionCount} games selected.`
       }
 
-      const titleRow = new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
+      stepActions.push(
         composerButton('title:edit', draft.title.trim().length > 0 ? 'Edit title' : 'Set title (optional)', ButtonStyle.Secondary)
       )
 
       if (draft.title.trim().length > 0) {
-        titleRow.addComponents(composerButton('title:clear', 'Clear title', ButtonStyle.Secondary))
+        stepActions.push(composerButton('title:clear', 'Clear title', ButtonStyle.Secondary))
       }
 
-      components.push(titleRow)
       break
     }
     case DiscordCtpComposerStep.AUDIENCE: {
@@ -767,15 +770,13 @@ export async function renderComposerView(draft: DiscordCtpComposerDraft, user: C
       break
     }
     case DiscordCtpComposerStep.DETAILS: {
-      const noteRow = new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
+      stepActions.push(
         composerButton('note:edit', draft.note.trim().length > 0 ? 'Edit note' : 'Add note (optional)', ButtonStyle.Secondary)
       )
 
       if (draft.note.trim().length > 0) {
-        noteRow.addComponents(composerButton('note:clear', 'Clear note', ButtonStyle.Secondary))
+        stepActions.push(composerButton('note:clear', 'Clear note', ButtonStyle.Secondary))
       }
-
-      components.push(noteRow)
 
       const voiceChannels = (await buildSelectedDiscordVoiceChannels(user.id)).channels
       const temporarySpaceAvailable = Boolean(env.DISCORD_SERVER_ID)
@@ -817,9 +818,9 @@ export async function renderComposerView(draft: DiscordCtpComposerDraft, user: C
       break
     }
     case DiscordCtpComposerStep.REVIEW: {
-      components.push(new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
+      stepActions.push(
         composerButton('participant-invites:toggle', draft.allowParticipantInvites ? 'Friend invites: on' : 'Friend invites: off', ButtonStyle.Secondary)
-      ))
+      )
       if (reviewIssues.length === 0) {
         extraGuidance = 'Everything looks ready.'
       }
@@ -827,7 +828,7 @@ export async function renderComposerView(draft: DiscordCtpComposerDraft, user: C
     }
   }
 
-  components.push(buildNavRow(draft.step, reviewIssues.length > 0))
+  components.push(buildNavRow(draft.step, reviewIssues.length > 0, stepActions))
 
   // Every control carries the draft id, so separate manual and automatic
   // sessions cannot accidentally edit each other's selections.
@@ -840,34 +841,36 @@ export async function renderComposerView(draft: DiscordCtpComposerDraft, user: C
     }
   }
 
+  const blockerMessage = reviewIssues.length > 0
+    ? `Before this can be posted:\n${reviewIssues.map((issue) => `- ${issue}`).join('\n')}`
+    : null
+  const errors = [notice?.severity === 'error' ? notice.message : null, blockerMessage].filter(Boolean).join('\n\n')
   return {
-    // Keep blockers and action failures above the embed, where they remain
-    // visible when Discord restores the controls after a rejected action.
-    content: [
-      notice,
-      reviewIssues.length > 0
-        ? `Before this can be posted:\n${reviewIssues.map((issue) => `- ${issue}`).join('\n')}`
-        : null
-    ].filter((line): line is string => Boolean(line)).join('\n\n'),
-    embeds: [buildComposerEmbed(draft, summaryLines, extraGuidance)],
+    content: '',
+    embeds: [
+      ...buildDiscordNoticeEmbeds(errors ? { severity: 'error', message: errors } : null),
+      ...buildDiscordNoticeEmbeds(notice?.severity !== 'error' ? notice : null),
+      buildComposerEmbed(draft, summaryLines, extraGuidance)
+    ],
     components
   }
 }
 
-function buildClosedView(title: string, body: string, options: { includeRestart?: boolean; appUrl?: string | null } = {}): ComposerView {
+function buildClosedView(title: string, body: string, options: { includeRestart?: boolean; appUrl?: string | null; notice?: DiscordNotice } = {}): ComposerView {
   const row = new ActionRowBuilder<MessageActionRowComponentBuilder>()
 
   if (options.includeRestart ?? true) {
-    row.addComponents(composerButton('open', 'Start a call to play', ButtonStyle.Primary))
+    row.addComponents(composerButton('open', 'Send out a call to play', ButtonStyle.Primary))
   }
 
   if (options.appUrl) {
-    row.addComponents(buildOpenInAppButton(options.appUrl, 'Open Game\'s Up'))
+    row.addComponents(buildOpenInAppButton(options.appUrl, 'App'))
   }
 
   return {
     content: '',
     embeds: [
+      ...buildDiscordNoticeEmbeds(options.notice ?? null),
       new EmbedBuilder()
         .setColor(composerEmbedColor)
         .setTitle(title)
@@ -894,7 +897,7 @@ async function buildPostedView(draft: DiscordCtpComposerDraft, user: ComposerUse
     ],
     components: [
       new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
-        buildOpenInAppButton(buildPlayUrl(), 'Open Game\'s Up')
+        buildOpenInAppButton(buildPlayUrl(), 'App')
       )
     ]
   }
@@ -969,28 +972,33 @@ export async function launchCtpComposer(interaction: ComposerEntryInteraction, o
     await interaction.deferReply({ flags: MessageFlags.Ephemeral })
   }
 
-  await purgeExpiredDrafts()
-  const user = await resolveLinkedComposerUser(interaction.user.id)
+  try {
+    await purgeExpiredDrafts()
+    const user = await resolveLinkedComposerUser(interaction.user.id)
 
-  if (!user) {
-    const view = buildUnlinkedView(interaction)
+    if (!user) {
+      const view = buildUnlinkedView(interaction)
+
+      if (canUpdateInPlace && interaction.isButton()) {
+        await updateDiscordActionMessage(interaction, view)
+      } else {
+        await interaction.editReply(view)
+      }
+      return
+    }
+
+    const existingDraft = await loadDraftForUser(user.id)
+    const draft = existingDraft ?? await createDraft(user, interaction.user.id, options.sourceServerId)
+    const view = await renderComposerView(draft, user, existingDraft ? { severity: 'info', message: 'Resumed your saved draft.' } : null)
 
     if (canUpdateInPlace && interaction.isButton()) {
       await updateDiscordActionMessage(interaction, view)
     } else {
       await interaction.editReply(view)
     }
-    return
-  }
-
-  const existingDraft = await loadDraftForUser(user.id)
-  const draft = existingDraft ?? await createDraft(user, interaction.user.id, options.sourceServerId)
-  const view = await renderComposerView(draft, user, existingDraft ? 'Resumed your saved draft.' : null)
-
-  if (canUpdateInPlace && interaction.isButton()) {
-    await updateDiscordActionMessage(interaction, view)
-  } else {
-    await interaction.editReply(view)
+  } catch (error) {
+    console.error('Discord CTP composer launch failed', error)
+    await respondWithComposerFailure(interaction)
   }
 }
 
@@ -1015,7 +1023,8 @@ async function loadComposerSession(discordUserId: string, customId: string) {
 
 const sessionEndedView = buildClosedView(
   'This composer session has ended',
-  'The draft expired or was already posted. Start a new call to play whenever you are ready.'
+  'The draft expired or was already posted. Start a new call to play whenever you are ready.',
+  { notice: { severity: 'error', message: 'This saved composer is no longer available.' } }
 )
 
 // ---------------------------------------------------------------------------
@@ -1040,7 +1049,7 @@ export async function handleCtpComposerButtonInteraction(interaction: ButtonInte
 
     const { user, draft } = session
     if (draft.autoPlayPromptId && (action.startsWith('start:') || action === 'select:games' || action === 'modal:start')) {
-      await updateDiscordActionMessage(interaction, await renderComposerView(draft, user, 'The detected game and immediate start are fixed for this prompt.'))
+      await updateDiscordActionMessage(interaction, await renderComposerView(draft, user, { severity: 'info', message: 'The detected game and immediate start are fixed for this prompt.' }))
       return
     }
 
@@ -1088,7 +1097,7 @@ export async function handleCtpComposerButtonInteraction(interaction: ButtonInte
     }
 
     let updatedDraft = draft
-    let notice: string | null = null
+    let notice: DiscordNotice | null = null
 
     if (action.startsWith('goto:')) {
       const targetStep = action.slice('goto:'.length) as DiscordCtpComposerStep
@@ -1126,7 +1135,7 @@ export async function handleCtpComposerButtonInteraction(interaction: ButtonInte
     } else if (action.startsWith('friends:page:')) {
       updatedDraft = await updateDraft(draft.id, { targetPage: Math.max(0, Number(action.slice('friends:page:'.length)) || 0) })
     } else {
-      notice = 'That control is not available right now.'
+      notice = { severity: 'error', message: 'That control is not available right now.' }
     }
 
     await updateDiscordActionMessage(interaction, await renderComposerView(updatedDraft, user, notice))
@@ -1167,11 +1176,11 @@ export async function handleCtpComposerSelectInteraction(interaction: StringSele
 
     const { user, draft } = session
     if (draft.autoPlayPromptId && (action.startsWith('start:') || action === 'select:games' || action === 'modal:start')) {
-      await updateDiscordActionMessage(interaction, await renderComposerView(draft, user, 'The detected game and immediate start are fixed for this prompt.'))
+      await updateDiscordActionMessage(interaction, await renderComposerView(draft, user, { severity: 'info', message: 'The detected game and immediate start are fixed for this prompt.' }))
       return
     }
     let updatedDraft = draft
-    let notice: string | null = null
+    let notice: DiscordNotice | null = null
 
     if (action === 'select:games') {
       const gameOptions = await loadGameOptions(user.id)
@@ -1186,7 +1195,7 @@ export async function handleCtpComposerSelectInteraction(interaction: StringSele
       updatedDraft = await updateDraft(draft.id, { gameIds: merged })
 
       if (truncated) {
-        notice = `Calls to play can include up to ${maximumPlayIntentGameSelectionCount} games, so the extra picks were dropped.`
+        notice = { severity: 'error', message: `Calls to play can include up to ${maximumPlayIntentGameSelectionCount} games, so the extra picks were dropped.` }
       }
     } else if (action === 'select:scope') {
       const slug = interaction.values[0] as PlayIntentNotifyScope
@@ -1208,7 +1217,7 @@ export async function handleCtpComposerSelectInteraction(interaction: StringSele
       updatedDraft = await updateDraft(draft.id, { targetUserIds: merged })
 
       if (truncated) {
-        notice = `You can target up to ${maximumTargetFriendCount} specific friends, so the extra picks were dropped.`
+        notice = { severity: 'error', message: `You can target up to ${maximumTargetFriendCount} specific friends, so the extra picks were dropped.` }
       }
     } else if (action === 'select:friends-list') {
       updatedDraft = await updateDraft(draft.id, { targetFriendsListId: interaction.values[0] ?? null })
@@ -1273,7 +1282,7 @@ export async function handleCtpComposerSelectInteraction(interaction: StringSele
             voiceChannelName: channel.name
           })
         } else {
-          notice = 'That voice channel is no longer available.'
+          notice = { severity: 'error', message: 'That voice channel is no longer available.' }
         }
       }
     }
@@ -1295,7 +1304,7 @@ export async function handleCtpComposerModalSubmit(interaction: ModalSubmitInter
     const session = await loadComposerSession(interaction.user.id, interaction.customId)
 
     if (!interaction.isFromMessage()) {
-      await interaction.reply({ content: 'This composer session has ended.', flags: MessageFlags.Ephemeral })
+      await interaction.reply({ embeds: buildDiscordNoticeEmbeds({ severity: 'error', message: 'This composer session has ended.' }), flags: MessageFlags.Ephemeral })
       return
     }
 
@@ -1306,11 +1315,11 @@ export async function handleCtpComposerModalSubmit(interaction: ModalSubmitInter
 
     const { user, draft } = session
     if (draft.autoPlayPromptId && (action.startsWith('start:') || action === 'select:games' || action === 'modal:start')) {
-      await updateDiscordActionMessage(interaction, await renderComposerView(draft, user, 'The detected game and immediate start are fixed for this prompt.'))
+      await updateDiscordActionMessage(interaction, await renderComposerView(draft, user, { severity: 'info', message: 'The detected game and immediate start are fixed for this prompt.' }))
       return
     }
     let updatedDraft = draft
-    let notice: string | null = null
+    let notice: DiscordNotice | null = null
 
     if (action === 'modal:title') {
       updatedDraft = await updateDraft(draft.id, { title: interaction.fields.getTextInputValue('title').trim().slice(0, 80) })
@@ -1320,7 +1329,7 @@ export async function handleCtpComposerModalSubmit(interaction: ModalSubmitInter
       const parsed = parseComposerStartInput(interaction.fields.getTextInputValue('start'), user.timezoneId, new Date())
 
       if (parsed.kind === 'error') {
-        notice = parsed.error
+        notice = { severity: 'error', message: parsed.error }
       } else if (parsed.kind === 'now') {
         updatedDraft = await updateDraft(draft.id, { startMode: DiscordCtpComposerStartMode.NOW, startAt: null })
       } else {
@@ -1330,9 +1339,9 @@ export async function handleCtpComposerModalSubmit(interaction: ModalSubmitInter
       const parsed = parseComposerDurationInput(interaction.fields.getTextInputValue('duration'))
 
       if ('error' in parsed) {
-        notice = parsed.error
+        notice = { severity: 'error', message: parsed.error }
       } else if (parsed.minutes < minimumPlayIntentDurationMinutes || parsed.minutes > maximumDurationMinutes) {
-        notice = `Calls to play stay live between ${minimumPlayIntentDurationMinutes} minutes and 24 hours.`
+        notice = { severity: 'error', message: `Calls to play stay live between ${minimumPlayIntentDurationMinutes} minutes and 24 hours.` }
       } else {
         updatedDraft = await updateDraft(draft.id, { durationMinutes: parsed.minutes })
       }
@@ -1341,17 +1350,17 @@ export async function handleCtpComposerModalSubmit(interaction: ModalSubmitInter
       const parsed = parseComposerStartInput(interaction.fields.getTextInputValue('end'), user.timezoneId, now)
 
       if (parsed.kind === 'error') {
-        notice = parsed.error
+        notice = { severity: 'error', message: parsed.error }
       } else if (parsed.kind === 'now') {
-        notice = 'Choose an end time that is later than the start.'
+        notice = { severity: 'error', message: 'Choose an end time that is later than the start.' }
       } else {
         const startsAt = draft.startMode === DiscordCtpComposerStartMode.SCHEDULED && draft.startAt ? draft.startAt : now
         const minutes = Math.round((parsed.startAt.getTime() - startsAt.getTime()) / (60 * 1000))
 
         if (minutes < minimumPlayIntentDurationMinutes) {
-          notice = `Choose an end time at least ${minimumPlayIntentDurationMinutes} minutes after the session starts.`
+          notice = { severity: 'error', message: `Choose an end time at least ${minimumPlayIntentDurationMinutes} minutes after the session starts.` }
         } else if (minutes > maximumDurationMinutes) {
-          notice = 'Calls to play can stay live for up to 24 hours.'
+          notice = { severity: 'error', message: 'Calls to play can stay live for up to 24 hours.' }
         } else {
           updatedDraft = await updateDraft(draft.id, { durationMinutes: minutes })
         }
@@ -1374,7 +1383,7 @@ async function postDraft(interaction: ButtonInteraction, draft: DiscordCtpCompos
 
   if (issues.length > 0) {
     const reviewDraft = draft.step === DiscordCtpComposerStep.REVIEW ? draft : await updateDraft(draft.id, { step: DiscordCtpComposerStep.REVIEW })
-    await updateDiscordActionMessage(interaction, await renderComposerView(reviewDraft, user, 'This call to play cannot be posted yet.'))
+    await updateDiscordActionMessage(interaction, await renderComposerView(reviewDraft, user, { severity: 'error', message: 'This call to play cannot be posted yet.' }))
     return
   }
 
@@ -1384,13 +1393,13 @@ async function postDraft(interaction: ButtonInteraction, draft: DiscordCtpCompos
     ? await prisma.discordAutoPlayPrompt.findUnique({ where: { id: draft.autoPlayPromptId }, include: { observation: true, user: { select: { discordAutoPromptPlayIntent: true } } } })
     : null
   if (draft.autoPlayPromptId && !isAutoPlayComposerPromptAvailable(autoPrompt, user.id)) {
-    await updateDiscordActionMessage(interaction, buildClosedView('Automatic prompt ended', 'The detected game or prompt is no longer active. Start a manual call to play instead.'))
+    await updateDiscordActionMessage(interaction, buildClosedView('Automatic prompt ended', 'Start a manual call to play instead.', { notice: { severity: 'error', message: 'The detected game or prompt is no longer active.' } }))
     return
   }
   if (autoPrompt) {
     const overlap = await prisma.playIntent.findFirst({ where: { userId: user.id, windowStartsAt: { lt: new Date(Date.now() + draft.durationMinutes * 60 * 1000) }, windowEndsAt: { gt: new Date() } }, select: { id: true } })
     if (overlap) {
-      await updateDiscordActionMessage(interaction, buildClosedView('Call to play already active', 'You already have an overlapping call to play. Open the app to edit it.', { appUrl: buildPlayUrl() }))
+      await updateDiscordActionMessage(interaction, buildClosedView('Call to play already active', 'You already have an overlapping call to play. Open the app to edit it.', { appUrl: buildPlayUrl(), notice: { severity: 'error', message: 'You already have an overlapping call to play.' } }))
       return
     }
   }
@@ -1435,18 +1444,21 @@ async function postDraft(interaction: ButtonInteraction, draft: DiscordCtpCompos
     }
 
     const reviewDraft = draft.step === DiscordCtpComposerStep.REVIEW ? draft : await updateDraft(draft.id, { step: DiscordCtpComposerStep.REVIEW })
-    await updateDiscordActionMessage(interaction, await renderComposerView(reviewDraft, user, message))
+    await updateDiscordActionMessage(interaction, await renderComposerView(reviewDraft, user, { severity: 'error', message }))
   }
 }
 
-async function respondWithComposerFailure(interaction: ButtonInteraction | StringSelectMenuInteraction | ModalSubmitInteraction) {
-  const content = 'Something went wrong in the composer. Try that step again.'
-
+/** Resolve the original private reply with recovery controls even when database reads failed. */
+async function respondWithComposerFailure(interaction: ButtonInteraction | StringSelectMenuInteraction | ModalSubmitInteraction | ChatInputCommandInteraction) {
+  const view = buildClosedView('Composer unavailable', 'Reopen the composer to resume your saved draft when the service is available.', {
+    appUrl: buildPlayUrl(),
+    notice: { severity: 'error', message: 'Something went wrong in the composer. Try that step again.' }
+  })
   try {
     if (interaction.deferred || interaction.replied) {
-      await interaction.followUp({ content, flags: MessageFlags.Ephemeral })
+      await interaction.editReply(view)
     } else {
-      await interaction.reply({ content, flags: MessageFlags.Ephemeral })
+      await interaction.reply({ ...view, flags: MessageFlags.Ephemeral })
     }
   } catch {
     // The interaction token may have expired; nothing else to do.
@@ -1456,26 +1468,6 @@ async function respondWithComposerFailure(interaction: ButtonInteraction | Strin
 // ---------------------------------------------------------------------------
 // Channel launch post (/setup-ctp-post)
 // ---------------------------------------------------------------------------
-
-function buildLaunchPostPayload() {
-  return {
-    embeds: [
-      new EmbedBuilder()
-        .setColor(launchPostEmbedColor)
-        .setTitle('Game\'s Up - rally people to play')
-        .setDescription([
-          'Up for a game? Press the button below to post a call to play without leaving Discord. You choose who sees it - your whole Game\'s Up network, specific friends, or specific servers.',
-          'You will pick games, audience, and timing in a private step-by-step composer that only you can see. You need a Game\'s Up account linked to your Discord to post one.'
-        ].join('\n\n'))
-    ],
-    components: [
-      new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
-        composerButton('open', 'Start a call to play', ButtonStyle.Primary),
-        buildOpenInAppButton(buildPlayUrl(), 'Open Game\'s Up')
-      )
-    ]
-  }
-}
 
 /**
  * Applies or lifts the optional launch-channel lock: denying send/thread
@@ -1617,7 +1609,7 @@ export async function handleSetupCtpPostCommand(interaction: ChatInputCommandInt
   let message
 
   try {
-    message = await targetChannel.send(buildLaunchPostPayload())
+    message = await targetChannel.send(buildAccountHubPostPayload())
   } catch (error) {
     console.error('Failed to post the call-to-play launch message', error)
     await interaction.editReply({
@@ -1652,7 +1644,7 @@ export async function handleSetupCtpPostCommand(interaction: ChatInputCommandInt
 
   await interaction.editReply({
     content: [
-      `Done. The call-to-play button now lives in this channel${server.ctpComposerMessageId ? ' (the previous post was removed)' : ''}.`,
+      `Done. The Game's Up hub now lives in this channel${server.ctpComposerMessageId ? ' (the previous post was removed)' : ''}.`,
       lockNote,
       targetChannel.isThread()
         ? 'Heads up: threads auto-archive after inactivity, which hides this post - a regular text channel keeps the button visible.'

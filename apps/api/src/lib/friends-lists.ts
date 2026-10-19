@@ -13,12 +13,18 @@
  * never changes an already-sent call.
  */
 
-import { maximumFriendsListMemberCount } from '@game-is-up/shared'
-import type { FriendsList } from '@game-is-up/shared'
+import { maximumFriendsListMemberCount, upsertFriendsListRequestSchema, type FriendsList } from '@game-is-up/shared'
+import { publishDashboardInvalidation } from './dashboard-events.js'
+import { nextRecordUpdatedAt, RecordChangedError } from './mutation-conflict.js'
 import { prisma } from './prisma.js'
 import { toClientAvatarUrl } from './game-media.js'
 
 export class FriendsListValidationError extends Error {}
+
+/** Refresh both list-management and call-audience consumers after a list mutation. */
+function invalidateFriendsLists(userId: string) {
+  publishDashboardInvalidation({ domains: ['network', 'play-intents'], userIds: [userId] })
+}
 
 const friendsListInclude = {
   members: {
@@ -120,6 +126,9 @@ function resolveListMemberIds(requestedIds: string[], friendUserIdSet: Set<strin
 
 /** Create a new friends list for the user. */
 export async function createFriendsList(userId: string, name: string, friendUserIds: string[]): Promise<FriendsList> {
+  const payload = upsertFriendsListRequestSchema.parse({ name, friendUserIds })
+  name = payload.name
+  friendUserIds = payload.friendUserIds
   const friendUserIdSet = await getFriendUserIdSet(userId)
   const memberIds = resolveListMemberIds(friendUserIds, friendUserIdSet)
 
@@ -143,6 +152,7 @@ export async function createFriendsList(userId: string, name: string, friendUser
     include: friendsListInclude
   })
 
+  invalidateFriendsLists(userId)
   return serializeFriendsList(list, friendUserIdSet)
 }
 
@@ -151,19 +161,14 @@ export async function updateFriendsList(
   userId: string,
   listId: string,
   name: string,
-  friendUserIds: string[]
+  friendUserIds: string[],
+  expectedUpdatedAt?: Date
 ): Promise<FriendsList> {
+  const payload = upsertFriendsListRequestSchema.parse({ name, friendUserIds })
+  name = payload.name
+  friendUserIds = payload.friendUserIds
   const friendUserIdSet = await getFriendUserIdSet(userId)
   const memberIds = resolveListMemberIds(friendUserIds, friendUserIdSet)
-
-  const owned = await prisma.friendsList.findFirst({
-    where: { id: listId, userId },
-    select: { id: true }
-  })
-
-  if (!owned) {
-    throw new FriendsListValidationError('That friends list no longer exists.')
-  }
 
   const nameClash = await prisma.friendsList.findFirst({
     where: { userId, name, NOT: { id: listId } },
@@ -175,12 +180,30 @@ export async function updateFriendsList(
   }
 
   const list = await prisma.$transaction(async (transaction) => {
+    await transaction.$queryRaw`SELECT "id" FROM "FriendsList" WHERE "id" = ${listId} AND "userId" = ${userId} FOR UPDATE`
+    const owned = await transaction.friendsList.findFirst({
+      where: { id: listId, userId }, select: { id: true, updatedAt: true }
+    })
+    if (!owned) {
+      throw new FriendsListValidationError('That friends list no longer exists.')
+    }
+    const nextUpdatedAt = nextRecordUpdatedAt(owned.updatedAt)
+    if (expectedUpdatedAt) {
+      const claimed = await transaction.friendsList.updateMany({
+        where: { id: listId, userId, updatedAt: expectedUpdatedAt },
+        data: { updatedAt: nextUpdatedAt }
+      })
+      if (claimed.count === 0) {
+        throw new RecordChangedError('That list changed or was deleted. Reopen Friends lists before changing it again.')
+      }
+    }
     await transaction.friendsListMember.deleteMany({ where: { listId } })
 
     return transaction.friendsList.update({
       where: { id: listId },
       data: {
         name,
+        updatedAt: nextUpdatedAt,
         members: {
           create: memberIds.map((friendUserId) => ({ friendUserId }))
         }
@@ -189,15 +212,22 @@ export async function updateFriendsList(
     })
   })
 
+  invalidateFriendsLists(userId)
   return serializeFriendsList(list, friendUserIdSet)
 }
 
 /** Delete a friends list. Returns whether a list was actually removed. */
-export async function deleteFriendsList(userId: string, listId: string): Promise<boolean> {
+export async function deleteFriendsList(userId: string, listId: string, expectedUpdatedAt?: Date): Promise<boolean> {
   const result = await prisma.friendsList.deleteMany({
-    where: { id: listId, userId }
+    where: { id: listId, userId, ...(expectedUpdatedAt ? { updatedAt: expectedUpdatedAt } : {}) }
   })
 
+  if (result.count === 0 && expectedUpdatedAt) {
+    throw new RecordChangedError('That list changed or was deleted. Reopen Friends lists before deleting it.')
+  }
+  if (result.count > 0) {
+    invalidateFriendsLists(userId)
+  }
   return result.count > 0
 }
 
