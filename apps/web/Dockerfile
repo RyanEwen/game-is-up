@@ -14,6 +14,6 @@ COPY . .
 RUN npm run build --workspace @game-is-up/shared && npm run build --workspace @game-is-up/web
 
 FROM nginxinc/nginx-unprivileged:1.27-alpine AS runtime
-COPY apps/web/nginx.conf /etc/nginx/conf.d/default.conf
+COPY --chmod=644 apps/web/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/apps/web/dist /usr/share/nginx/html
 EXPOSE 8080
