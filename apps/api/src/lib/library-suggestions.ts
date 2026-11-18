@@ -2,31 +2,32 @@
  * Library-page suggestion sources.
  *
  * Surfaces titles the bot has observed the viewer playing on Discord that
- * are not yet in their library, plus a network-trending roll-up over a
- * 14-day lookback. Falls back to seeded development data when the live
- * observation set is sparse so dev environments still demonstrate the
- * feature.
+ * are not yet in their library, plus a network-trending roll-up of the
+ * viewer's friends over a 14-day lookback. Observed games exist only for
+ * signed-up users and are keyed by account. Falls back to the seeded sample
+ * user's observations outside production when the viewer has none, so dev
+ * environments still demonstrate the feature.
  */
 
 import type {
   LibrarySuggestedGame,
   LibraryTrendingGame,
 } from '@game-is-up/shared'
-import { AuthProvider } from '@prisma/client'
 import { env } from './env.js'
 import { prisma } from './prisma.js'
 import { toClientGameCoverUrl } from './game-media.js'
 
 const maxObservedLibrarySuggestions = 8
-const developmentSampleDiscordUserId = 'discord-alex'
+// The seeded sample viewer (apps/api/prisma/seed.ts) whose observations stand in during development.
+const developmentSampleUserHandle = 'technicallyreal'
 
 async function listObservedLibrarySuggestions(
-  discordUserId: string,
+  userId: string,
   excludedGameIds: string[],
 ) {
   const observations = await prisma.discordObservedGame.findMany({
     where: {
-      discordUserId,
+      userId,
       ...(excludedGameIds.length > 0
         ? {
             gameId: {
@@ -80,31 +81,26 @@ async function listObservedLibrarySuggestions(
     }))
 }
 
+/** The seeded sample viewer's suggestions, for development only; empty when it is not seeded. */
+async function listDevelopmentSampleSuggestions(excludedGameIds: string[]) {
+  const sampleUser = await prisma.user.findUnique({
+    where: { handle: developmentSampleUserHandle },
+    select: { id: true },
+  })
+
+  if (!sampleUser) {
+    return []
+  }
+
+  return listObservedLibrarySuggestions(sampleUser.id, excludedGameIds)
+}
+
 export async function getObservedLibrarySuggestions(
   userId: string,
   excludedGameIds: string[],
 ): Promise<LibrarySuggestedGame[]> {
-  const discordIdentity = await prisma.userIdentity.findFirst({
-    where: {
-      userId,
-      provider: AuthProvider.DISCORD,
-    },
-    select: {
-      providerUserId: true,
-    },
-  })
-
-  if (!discordIdentity) {
-    return env.NODE_ENV === 'production'
-      ? []
-      : listObservedLibrarySuggestions(
-          developmentSampleDiscordUserId,
-          excludedGameIds,
-        )
-  }
-
   const personalSuggestions = await listObservedLibrarySuggestions(
-    discordIdentity.providerUserId,
+    userId,
     excludedGameIds,
   )
 
@@ -112,10 +108,7 @@ export async function getObservedLibrarySuggestions(
     return personalSuggestions
   }
 
-  return listObservedLibrarySuggestions(
-    developmentSampleDiscordUserId,
-    excludedGameIds,
-  )
+  return listDevelopmentSampleSuggestions(excludedGameIds)
 }
 
 const maxTrendingGames = 10
@@ -140,27 +133,13 @@ export async function getNetworkTrendingGames(
     Date.now() - trendingGameLookbackDays * 24 * 60 * 60 * 1000,
   )
 
-  const friendDiscordIds = await prisma.userIdentity
-    .findMany({
-      where: {
-        provider: AuthProvider.DISCORD,
-        userId: { in: friendUserIds },
-      },
-      select: { providerUserId: true },
-    })
-    .then((rows) => rows.map((row) => row.providerUserId))
-
-  if (friendDiscordIds.length === 0) {
-    return []
-  }
-
   const observations = await prisma.discordObservedGame.findMany({
     where: {
-      discordUserId: { in: friendDiscordIds },
+      userId: { in: friendUserIds },
       lastObservedAt: { gte: since },
     },
     select: {
-      discordUserId: true,
+      userId: true,
       gameId: true,
       game: {
         select: {
@@ -183,7 +162,7 @@ export async function getNetworkTrendingGames(
       playersByGame.set(obs.gameId, new Set())
     }
 
-    playersByGame.get(obs.gameId)!.add(obs.discordUserId)
+    playersByGame.get(obs.gameId)!.add(obs.userId)
   }
 
   const uniqueGameIds = [...playersByGame.keys()]

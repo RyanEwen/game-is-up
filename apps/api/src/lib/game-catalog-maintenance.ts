@@ -326,22 +326,22 @@ async function mergeObservedDiscordGames(
     },
   })
 
-  const preferredObservedGamesByDiscordUserId = new Map(
+  const preferredObservedGamesByUserId = new Map(
     (
       await prisma.discordObservedGame.findMany({
         where: {
           gameId: preferredGameId,
-          discordUserId: {
-            in: duplicateObservedGames.map((entry) => entry.discordUserId),
+          userId: {
+            in: duplicateObservedGames.map((entry) => entry.userId),
           },
         },
       })
-    ).map((entry) => [entry.discordUserId, entry]),
+    ).map((entry) => [entry.userId, entry]),
   )
 
   for (const duplicateObservedGame of duplicateObservedGames) {
-    const preferredObservedGame = preferredObservedGamesByDiscordUserId.get(
-      duplicateObservedGame.discordUserId,
+    const preferredObservedGame = preferredObservedGamesByUserId.get(
+      duplicateObservedGame.userId,
     )
 
     if (!preferredObservedGame) {
@@ -393,6 +393,42 @@ async function mergeObservedDiscordGames(
         id: duplicateObservedGame.id,
       },
     })
+  }
+}
+
+/**
+ * Move a duplicate game's anonymous daily counts onto the preferred game, adding counts where
+ * both games already have a row for the same server, day and kind.
+ */
+async function mergeGameActivityDaily(
+  preferredGameId: string,
+  duplicateGameId: string,
+) {
+  const duplicateRows = await prisma.discordGameActivityDaily.findMany({
+    where: { gameId: duplicateGameId },
+  })
+
+  for (const row of duplicateRows) {
+    await prisma.discordGameActivityDaily.upsert({
+      where: {
+        gameId_serverId_day_countKind: {
+          gameId: preferredGameId,
+          serverId: row.serverId,
+          day: row.day,
+          countKind: row.countKind,
+        },
+      },
+      update: { count: { increment: row.count } },
+      create: {
+        gameId: preferredGameId,
+        serverId: row.serverId,
+        day: row.day,
+        countKind: row.countKind,
+        count: row.count,
+      },
+    })
+
+    await prisma.discordGameActivityDaily.delete({ where: { id: row.id } })
   }
 }
 
@@ -485,6 +521,7 @@ async function mergeGameIntoPreferred(
   await mergeUserGameAliases(preferredGameId, duplicateGameId)
   await mergePlayIntentGames(preferredGameId, duplicateGameId)
   await mergeObservedDiscordGames(preferredGameId, duplicateGameId)
+  await mergeGameActivityDaily(preferredGameId, duplicateGameId)
 
   await prisma.gameSource.updateMany({
     where: {

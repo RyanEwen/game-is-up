@@ -1,6 +1,7 @@
 import {
   AuthProvider,
   DiscordActivityType,
+  DiscordGameActivityCountKind,
   GameIntentType,
   NotificationResponseChoice,
   NotificationType,
@@ -59,6 +60,7 @@ async function main() {
     prisma.playIntentGame.deleteMany(),
     prisma.playIntent.deleteMany(),
     prisma.discordObservedGame.deleteMany(),
+    prisma.discordGameActivityDaily.deleteMany(),
     prisma.discordActivityObservation.deleteMany(),
     prisma.block.deleteMany(),
     prisma.friend.deleteMany(),
@@ -784,7 +786,7 @@ async function main() {
   await prisma.discordObservedGame.createMany({
     data: [
       {
-        discordUserId: 'discord-alex',
+        userId: viewer.id,
         gameId: bySlug['apex-legends'].id,
         sourceServerId: lateQueue.id,
         activityName: 'Apex Legends',
@@ -794,7 +796,7 @@ async function main() {
         lastObservedAt: minutesAgo(90),
       },
       {
-        discordUserId: 'discord-alex',
+        userId: viewer.id,
         gameId: bySlug['deep-rock-galactic'].id,
         sourceServerId: coopCorner.id,
         activityName: 'Deep Rock Galactic',
@@ -804,7 +806,7 @@ async function main() {
         lastObservedAt: hoursAgo(26),
       },
       {
-        discordUserId: 'discord-alex',
+        userId: viewer.id,
         gameId: bySlug['monster-hunter-wilds'].id,
         sourceServerId: coopCorner.id,
         activityName: 'Monster Hunter Wilds',
@@ -814,7 +816,7 @@ async function main() {
         lastObservedAt: hoursAgo(2),
       },
       {
-        discordUserId: 'discord-alex',
+        userId: viewer.id,
         gameId: bySlug['lethal-company'].id,
         sourceServerId: lateQueue.id,
         activityName: 'Lethal Company',
@@ -824,7 +826,7 @@ async function main() {
         lastObservedAt: hoursAgo(8),
       },
       {
-        discordUserId: 'discord-alex',
+        userId: viewer.id,
         gameId: bySlug['warframe'].id,
         sourceServerId: coopCorner.id,
         activityName: 'Warframe',
@@ -834,7 +836,7 @@ async function main() {
         lastObservedAt: hoursAgo(12),
       },
       {
-        discordUserId: 'discord-alex',
+        userId: viewer.id,
         gameId: bySlug['valheim'].id,
         sourceServerId: weekendRaid.id,
         activityName: 'Valheim',
@@ -844,7 +846,7 @@ async function main() {
         lastObservedAt: hoursAgo(16),
       },
       {
-        discordUserId: 'discord-alex',
+        userId: viewer.id,
         gameId: bySlug['phasmophobia'].id,
         sourceServerId: coopCorner.id,
         activityName: 'Phasmophobia',
@@ -854,7 +856,7 @@ async function main() {
         lastObservedAt: minutesAgo(35),
       },
       {
-        discordUserId: 'discord-mira',
+        userId: mira.id,
         gameId: bySlug['helldivers-2'].id,
         sourceServerId: coopCorner.id,
         activityName: 'Helldivers 2',
@@ -864,7 +866,7 @@ async function main() {
         lastObservedAt: minutesAgo(18),
       },
       {
-        discordUserId: 'discord-mira',
+        userId: mira.id,
         gameId: bySlug['monster-hunter-wilds'].id,
         sourceServerId: weekendRaid.id,
         activityName: 'Monster Hunter Wilds',
@@ -874,7 +876,7 @@ async function main() {
         lastObservedAt: hoursAgo(6),
       },
       {
-        discordUserId: 'discord-mira',
+        userId: mira.id,
         gameId: bySlug['destiny-2'].id,
         sourceServerId: coopCorner.id,
         activityName: 'Destiny 2',
@@ -884,7 +886,7 @@ async function main() {
         lastObservedAt: hoursAgo(10),
       },
       {
-        discordUserId: 'discord-jordan',
+        userId: jordan.id,
         gameId: bySlug['apex-legends'].id,
         sourceServerId: lateQueue.id,
         activityName: 'Apex Legends',
@@ -894,7 +896,7 @@ async function main() {
         lastObservedAt: minutesAgo(7),
       },
       {
-        discordUserId: 'discord-jordan',
+        userId: jordan.id,
         gameId: bySlug['helldivers-2'].id,
         sourceServerId: lateQueue.id,
         activityName: 'Helldivers 2',
@@ -904,7 +906,7 @@ async function main() {
         lastObservedAt: hoursAgo(14),
       },
       {
-        discordUserId: 'discord-jordan',
+        userId: jordan.id,
         gameId: bySlug['lethal-company'].id,
         sourceServerId: lateQueue.id,
         activityName: 'Lethal Company',
@@ -914,7 +916,7 @@ async function main() {
         lastObservedAt: minutesAgo(55),
       },
       {
-        discordUserId: 'discord-noa',
+        userId: noa.id,
         gameId: bySlug['deep-rock-galactic'].id,
         sourceServerId: coopCorner.id,
         activityName: 'Deep Rock Galactic',
@@ -924,7 +926,7 @@ async function main() {
         lastObservedAt: minutesAgo(32),
       },
       {
-        discordUserId: 'discord-noa',
+        userId: noa.id,
         gameId: bySlug['sea-of-thieves'].id,
         sourceServerId: weekendRaid.id,
         activityName: 'Sea of Thieves',
@@ -934,7 +936,7 @@ async function main() {
         lastObservedAt: hoursAgo(9),
       },
       {
-        discordUserId: 'discord-noa',
+        userId: noa.id,
         gameId: bySlug['monster-hunter-wilds'].id,
         sourceServerId: coopCorner.id,
         activityName: 'Monster Hunter Wilds',
@@ -943,17 +945,18 @@ async function main() {
         firstObservedAt: daysAgo(1),
         lastObservedAt: hoursAgo(3),
       },
-      {
-        discordUserId: 'discord-mystery-friend',
-        gameId: bySlug['lethal-company'].id,
-        sourceServerId: weekendRaid.id,
-        activityName: 'Lethal Company',
-        applicationId: 'discord-app-lethal-company',
-        activityType: DiscordActivityType.PLAYING,
-        firstObservedAt: daysAgo(1),
-        lastObservedAt: minutesAgo(45),
-      },
     ],
+  })
+
+  // A member who never signed up is counted only anonymously, per game, server and day.
+  await prisma.discordGameActivityDaily.create({
+    data: {
+      gameId: bySlug['lethal-company'].id,
+      serverId: weekendRaid.id,
+      day: new Date(new Date().toISOString().slice(0, 10)),
+      countKind: DiscordGameActivityCountKind.OBSERVATIONS,
+      count: 3,
+    },
   })
 
   console.log(

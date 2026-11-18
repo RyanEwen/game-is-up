@@ -6,6 +6,7 @@ import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import test, { mock } from 'node:test'
 import { prisma } from './prisma.js'
+import { assertDisposableDatabase } from '../test-utils/disposable-database.js'
 import {
   saveLibraryGame,
   writeLibraryGame,
@@ -18,17 +19,6 @@ import {
 } from './friends-lists.js'
 import { addFriend, removeFriend, removeOwnedFriend } from './friends.js'
 import { RecordChangedError } from './mutation-conflict.js'
-
-/** Refuse to touch any database that is not an obviously disposable `*_test` database. */
-function assertDisposableDatabase() {
-  const databaseName = new URL(
-    process.env.DATABASE_URL ?? 'postgresql://unset/unset',
-  ).pathname.slice(1)
-  assert.ok(
-    databaseName.endsWith('_test'),
-    `Refusing database tests outside a disposable *_test database (got "${databaseName}")`,
-  )
-}
 
 /** Create unrelated test identities and always remove their rows, including after a failed assertion. */
 async function withFixture(

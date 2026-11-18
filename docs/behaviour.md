@@ -86,6 +86,6 @@ Automatic detected-game prompts open the same Discord call-to-play wizard, with 
 
 Library entries store one canonical game with one or more selected platform flags, instead of requiring one separate library row per platform.
 
-When the Discord presence bot sees a user playing a game in a shared server, the API keeps a lossy observed-game history and uses it to suggest likely library additions above the library grid. In local development, signed-in accounts with no personal observed history yet fall back to the seeded sample observations so the suggestion row can still be reviewed.
+When the Discord presence bot sees a signed-up user playing a game in a shared server, the API keeps a lossy observed-game history for them and uses it to suggest likely library additions above the library grid. Games played before someone signs up are not remembered for them; people who never sign up are only counted anonymously, per game and day. In local development, signed-in accounts with no personal observed history yet fall back to the seeded sample observations so the suggestion row can still be reviewed.
 
 Users can also set one profile-level "when do you usually play" note and let individual games inherit it, while still attaching a game-specific schedule override when a title tends to happen at a different time.

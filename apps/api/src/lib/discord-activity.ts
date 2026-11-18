@@ -1,17 +1,26 @@
 /**
  * Discord presence observation persistence.
  *
- * Records per-Discord-identity activity rows when the gateway-mode bot sees a
- * user playing a game, deduplicated by (name, application id, type, started
- * at) so the same session doesn't fragment the observation set. Other modules
+ * Records activity rows when the gateway-mode bot sees a signed-up user
+ * playing a game, deduplicated by (name, application id, type, started at)
+ * so the same session doesn't fragment the observation set. Other modules
  * read these rows to power library suggestions, discovery enrichment, and
- * the auto-play prompt trigger flow. Observations are kept even for users
- * who are not (yet) Game's Up members so the data can attach later if they
- * sign up.
+ * the auto-play prompt trigger flow.
+ *
+ * Per-person records (activity observations and observed games) exist only
+ * for signed-up users, keyed by account so they are deleted with it. Anyone
+ * else the bot sees is counted only anonymously: one increment per presence
+ * update in DiscordGameActivityDaily (game, server, UTC day), with no
+ * identifier stored.
  */
 
 import type { DiscoveryPerson } from '@game-is-up/shared'
-import { AuthProvider, DiscordActivityType, type Prisma } from '@prisma/client'
+import {
+  AuthProvider,
+  DiscordActivityType,
+  DiscordGameActivityCountKind,
+  type Prisma,
+} from '@prisma/client'
 import {
   expireDiscordAutoPlayPromptsForInactiveObservations,
   maybeSendDiscordAutoPlayPromptForObservation,
@@ -107,19 +116,18 @@ async function getAppUserIdForDiscordUser(discordUserId: string) {
 }
 
 async function upsertObservedDiscordGame(options: {
-  discordUserId: string
+  userId: string
   sourceServerId: string | null
   activity: DiscordPresenceActivityInput
   gameId: string
   observedAt: Date
 }) {
-  const { activity, discordUserId, gameId, observedAt, sourceServerId } =
-    options
+  const { activity, userId, gameId, observedAt, sourceServerId } = options
 
   await prisma.discordObservedGame.upsert({
     where: {
-      discordUserId_gameId: {
-        discordUserId,
+      userId_gameId: {
+        userId,
         gameId,
       },
     },
@@ -131,7 +139,7 @@ async function upsertObservedDiscordGame(options: {
       lastObservedAt: observedAt,
     },
     create: {
-      discordUserId,
+      userId,
       gameId,
       sourceServerId,
       activityName: activity.name,
@@ -139,6 +147,48 @@ async function upsertObservedDiscordGame(options: {
       activityType: activity.activityType,
       firstObservedAt: observedAt,
       lastObservedAt: observedAt,
+    },
+  })
+}
+
+/** The UTC calendar day of an instant, as the midnight `Date` a Prisma `@db.Date` column stores. */
+export function toUtcDay(instant: Date): Date {
+  return new Date(
+    Date.UTC(
+      instant.getUTCFullYear(),
+      instant.getUTCMonth(),
+      instant.getUTCDate(),
+    ),
+  )
+}
+
+/**
+ * Count one presence update for a game in a server, anonymously. Nothing that identifies the
+ * person is stored, so this runs for everyone, signed up or not.
+ */
+async function countAnonymousGameActivity(options: {
+  gameId: string
+  serverId: string
+  observedAt: Date
+}) {
+  const day = toUtcDay(options.observedAt)
+
+  await prisma.discordGameActivityDaily.upsert({
+    where: {
+      gameId_serverId_day_countKind: {
+        gameId: options.gameId,
+        serverId: options.serverId,
+        day,
+        countKind: DiscordGameActivityCountKind.OBSERVATIONS,
+      },
+    },
+    update: { count: { increment: 1 } },
+    create: {
+      gameId: options.gameId,
+      serverId: options.serverId,
+      day,
+      countKind: DiscordGameActivityCountKind.OBSERVATIONS,
+      count: 1,
     },
   })
 }
@@ -172,17 +222,26 @@ export async function recordDiscordPresence(
       searchCatalog: true,
     })
 
+    if (sourceServerId) {
+      await countAnonymousGameActivity({
+        gameId: game.id,
+        serverId: sourceServerId,
+        observedAt: now,
+      })
+    }
+
+    // Only signed-up users get a per-person record.
+    if (!userId) {
+      continue
+    }
+
     await upsertObservedDiscordGame({
-      discordUserId,
+      userId,
       sourceServerId,
       activity,
       gameId: game.id,
       observedAt: now,
     })
-
-    if (!userId) {
-      continue
-    }
 
     const matchingObservation = activeObservations.find((existingObservation) =>
       activityMatches(existingObservation, activity),

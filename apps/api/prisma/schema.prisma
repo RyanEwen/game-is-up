@@ -158,6 +158,7 @@ model User {
   reportsFiled                       Report[]                            @relation("reporter")
   reportsReceived                    Report[]                            @relation("reported")
   playIntentDiscordSpaceAccessGrants PlayIntentDiscordSpaceAccessGrant[]
+  discordObservedGames               DiscordObservedGame[]
 }
 
 model UserIdentity {
@@ -193,6 +194,7 @@ model DiscordServer {
   playIntentTargetSelections PlayIntentTargetDiscordServer[]
   activityObservations       DiscordActivityObservation[]
   observedGames              DiscordObservedGame[]
+  gameActivityDaily          DiscordGameActivityDaily[]
   autoPlayPrompts            DiscordAutoPlayPrompt[]
   ctpComposerDrafts          DiscordCtpComposerDraft[]
 }
@@ -257,6 +259,7 @@ model Game {
   platforms                   GamePlatform[]
   discordActivityObservations DiscordActivityObservation[]
   observedOnDiscord           DiscordObservedGame[]
+  discordActivityDaily        DiscordGameActivityDaily[]
   interests                   UserGameInterest[]
   userAliases                 UserGameAlias[]
   playIntentGames             PlayIntentGame[]
@@ -377,7 +380,7 @@ model PlayIntent {
   id                        String                          @id @default(uuid())
   userId                    String
   selectionMode             PlayIntentSelectionMode         @default(SELECTED_GAMES)
-  allowParticipantInvites    Boolean                         @default(true)
+  allowParticipantInvites   Boolean                         @default(true)
   participantInvites        PlayIntentParticipantInvite[]
   headline                  String
   note                      String                          @default("")
@@ -508,27 +511,27 @@ model PlayIntentPlatform {
 }
 
 model Notification {
-  id                                  String                      @id @default(uuid())
-  userId                              String
-  triggeredByUserId                   String?
-  playIntentId                        String?
-  gameId                              String?
-  type                                NotificationType
-  title                               String
-  body                                String
-  readAt                              DateTime?
-  responseChoice                      NotificationResponseChoice?
-  responseResetAt                     DateTime?
-  respondedAt                         DateTime?
-  runningLateAt                       DateTime?
-  runningLateMinutes                  Int?
-  deliveredAt                         DateTime?
-  discordDmChannelId                  String?
-  discordDmMessageId                  String?
-  createdAt                           DateTime                    @default(now())
-  user                                User                        @relation("notification_recipient", fields: [userId], references: [id], onDelete: Cascade)
-  playIntent                          PlayIntent?                 @relation(fields: [playIntentId], references: [id], onDelete: SetNull)
-  game                                Game?                       @relation(fields: [gameId], references: [id], onDelete: SetNull)
+  id                 String                      @id @default(uuid())
+  userId             String
+  triggeredByUserId  String?
+  playIntentId       String?
+  gameId             String?
+  type               NotificationType
+  title              String
+  body               String
+  readAt             DateTime?
+  responseChoice     NotificationResponseChoice?
+  responseResetAt    DateTime?
+  respondedAt        DateTime?
+  runningLateAt      DateTime?
+  runningLateMinutes Int?
+  deliveredAt        DateTime?
+  discordDmChannelId String?
+  discordDmMessageId String?
+  createdAt          DateTime                    @default(now())
+  user               User                        @relation("notification_recipient", fields: [userId], references: [id], onDelete: Cascade)
+  playIntent         PlayIntent?                 @relation(fields: [playIntentId], references: [id], onDelete: SetNull)
+  game               Game?                       @relation(fields: [gameId], references: [id], onDelete: SetNull)
 
   @@index([userId, readAt, createdAt])
   @@index([playIntentId])
@@ -613,43 +616,46 @@ model DiscordAutoPlayPrompt {
 /// validated into the real PlayIntent join tables when the draft is posted
 /// through `upsertCurrentPlayIntent`, then the draft row is deleted.
 model DiscordCtpComposerDraft {
-  id                     String                      @id @default(uuid())
-  userId                 String
+  id                      String                      @id @default(uuid())
+  userId                  String
   allowParticipantInvites Boolean                     @default(true)
-  contextKey             String                      @default("manual")
-  autoPlayPromptId       String?                     @unique
-  autoPlayPrompt         DiscordAutoPlayPrompt?      @relation(fields: [autoPlayPromptId], references: [id], onDelete: Cascade)
-  discordUserId          String
-  step                   DiscordCtpComposerStep      @default(BASICS)
-  title                  String                      @default("")
-  gameIds                String[]                    @default([])
-  gamePage               Int                         @default(0)
-  notifyScope            PlayIntentScope             @default(FRIENDS_ONLY)
-  targetUserIds          String[]                    @default([])
-  targetPage             Int                         @default(0)
-  targetFriendsListId    String?
-  targetDiscordServerIds String[]                    @default([])
-  startMode              DiscordCtpComposerStartMode @default(NOW)
-  startAt                DateTime?
-  durationMinutes        Int                         @default(60)
-  note                   String                      @default("")
-  voiceMode              DiscordCtpComposerVoiceMode @default(NONE)
-  voiceChannelId         String?
-  voiceChannelName       String?
-  sourceServerId         String?
-  createdAt              DateTime                    @default(now())
-  updatedAt              DateTime                    @updatedAt
-  expiresAt              DateTime
-  user                   User                        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  sourceServer           DiscordServer?              @relation(fields: [sourceServerId], references: [id], onDelete: SetNull)
+  contextKey              String                      @default("manual")
+  autoPlayPromptId        String?                     @unique
+  autoPlayPrompt          DiscordAutoPlayPrompt?      @relation(fields: [autoPlayPromptId], references: [id], onDelete: Cascade)
+  discordUserId           String
+  step                    DiscordCtpComposerStep      @default(BASICS)
+  title                   String                      @default("")
+  gameIds                 String[]                    @default([])
+  gamePage                Int                         @default(0)
+  notifyScope             PlayIntentScope             @default(FRIENDS_ONLY)
+  targetUserIds           String[]                    @default([])
+  targetPage              Int                         @default(0)
+  targetFriendsListId     String?
+  targetDiscordServerIds  String[]                    @default([])
+  startMode               DiscordCtpComposerStartMode @default(NOW)
+  startAt                 DateTime?
+  durationMinutes         Int                         @default(60)
+  note                    String                      @default("")
+  voiceMode               DiscordCtpComposerVoiceMode @default(NONE)
+  voiceChannelId          String?
+  voiceChannelName        String?
+  sourceServerId          String?
+  createdAt               DateTime                    @default(now())
+  updatedAt               DateTime                    @updatedAt
+  expiresAt               DateTime
+  user                    User                        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sourceServer            DiscordServer?              @relation(fields: [sourceServerId], references: [id], onDelete: SetNull)
 
   @@unique([userId, contextKey])
   @@index([expiresAt])
 }
 
+/// Games the bot has seen a signed-up user play, one row per user and game. Only users with an
+/// account are recorded; the row is deleted with the account. Members who never signed up are
+/// counted anonymously in DiscordGameActivityDaily instead.
 model DiscordObservedGame {
   id              String              @id @default(uuid())
-  discordUserId   String
+  userId          String
   gameId          String
   sourceServerId  String?
   activityName    String
@@ -659,12 +665,42 @@ model DiscordObservedGame {
   lastObservedAt  DateTime            @default(now())
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt
+  user            User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   game            Game                @relation(fields: [gameId], references: [id], onDelete: Cascade)
   sourceServer    DiscordServer?      @relation(fields: [sourceServerId], references: [id], onDelete: SetNull)
 
-  @@unique([discordUserId, gameId])
-  @@index([discordUserId, lastObservedAt])
+  @@unique([userId, gameId])
+  @@index([userId, lastObservedAt])
   @@index([sourceServerId, lastObservedAt])
+}
+
+/// What a DiscordGameActivityDaily count measures.
+enum DiscordGameActivityCountKind {
+  /// Presence updates the bot saw for the game that day, from anyone in the server. Recorded
+  /// going forward. It measures activity, not people: one person can produce many updates.
+  OBSERVATIONS
+  /// Distinct people last seen playing the game that day. Only the one-off migration that
+  /// removed per-person records for non-users wrote these, from the identifiers it then deleted.
+  DISTINCT_PEOPLE
+}
+
+/// Anonymous per-game, per-server, per-day activity counts, for trending views. Holds no Discord
+/// id or any other identifier of a person, so it is not tied to any account and is kept when
+/// accounts are deleted. `day` is the UTC date.
+model DiscordGameActivityDaily {
+  id        String                       @id @default(uuid())
+  gameId    String
+  serverId  String
+  day       DateTime                     @db.Date
+  countKind DiscordGameActivityCountKind
+  count     Int                          @default(0)
+  createdAt DateTime                     @default(now())
+  updatedAt DateTime                     @updatedAt
+  game      Game                         @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  server    DiscordServer                @relation(fields: [serverId], references: [id], onDelete: Cascade)
+
+  @@unique([gameId, serverId, day, countKind])
+  @@index([serverId, day])
 }
 
 model UserPlatformAlias {

@@ -10,6 +10,7 @@ import test, { mock } from 'node:test'
 import { NotificationType } from '@prisma/client'
 import { upsertPlayIntentRequestSchema } from '@game-is-up/shared'
 import { prisma } from './prisma.js'
+import { assertDisposableDatabase } from '../test-utils/disposable-database.js'
 import {
   getPlayIntentInvitableFriends,
   inviteFriendToPlayIntent,
@@ -28,17 +29,6 @@ import { buildCurrentPlayIntentInvitationPayload } from './play-intent-invitatio
 import { setTimeout as delay } from 'node:timers/promises'
 import { withPlayIntentInvitationDelivery } from './play-intent-invitation-delivery.js'
 import { upsertCurrentPlayIntent } from './play-intents.js'
-
-/** Refuse to touch any database that is not an obviously disposable `*_test` database. */
-function assertDisposableDatabase() {
-  const databaseName = new URL(
-    process.env.DATABASE_URL ?? 'postgresql://unset/unset',
-  ).pathname.slice(1)
-  assert.ok(
-    databaseName.endsWith('_test'),
-    `Refusing database tests outside a disposable *_test database (got "${databaseName}")`,
-  )
-}
 
 test('participant invitation authorization, concurrency, access, and edit persistence', async () => {
   assertDisposableDatabase()

@@ -86,7 +86,7 @@ Account and product data lives in the PostgreSQL database in the `postgres-data`
 - **Linked accounts:** the Discord OAuth access and refresh tokens, the user's Discord server memberships, and, when linked, the Steam account id.
 - **Library and social graph:** games, platforms and interests; friends, blocks, mutes and friends lists; discovery server preferences.
 - **Calls to play:** each call, its audience and games, responses, participant invitations, notifications, and the ids of the Discord messages the bot sent for it.
-- **Discord activity:** the games the bot sees people playing in a server it shares with them, used for library suggestions and auto-play prompts. For signed-in users this is kept against their account. The bot also records the observed games of every other member of those servers, including people who have never signed in, keyed by Discord user id.
+- **Discord activity:** for signed-up users only, the games the bot sees them playing in a server it shares with them, kept against their account and used for library suggestions, the friends' trending row and auto-play prompts. A user who signs up later has no history from before sign-up. Everyone else the bot sees, including members who never signed up, is counted only anonymously: per game, per server and per UTC day, with no Discord id or other identifier (the `DiscordGameActivityDaily` table, for trending views). Since this change was deployed, the count is the number of presence updates seen, which measures activity, not people. Rows backfilled once from the old per-person records instead count distinct people last seen playing that day, and are marked as such.
 - **Discord bot state:** composer drafts, invite attribution, and reports.
 
 ### On the user's device
@@ -97,15 +97,14 @@ The web app keeps the chosen theme in the browser's local storage, and its servi
 
 - Bot DM chains for a call to play are deleted 12 hours after the call's window ends; temporary Discord spaces 12 hours after their last activity.
 - Discord composer drafts expire after 24 hours.
-- Everything else is kept until the account is deleted. Observed games keyed by Discord user id have no expiry and are not tied to an account, so they are kept indefinitely.
+- Everything else is kept until the account is deleted. The anonymous per-game daily counts hold no identifiers, belong to no account, and are kept.
 
 ### Account deletion
 
 There is no self-service account deletion in the app yet. A user asks the operator, who deletes the user's row in the `User` table. This procedure has not yet been tried on a real database. Going by the schema:
 
-- Records linked to the account (profile, linked accounts and tokens, library, friends, blocks, mutes, lists, calls to play, responses, notifications, activity observations, drafts, reports) are removed with it by cascading deletes.
+- Records linked to the account (profile, linked accounts and tokens, library, friends, blocks, mutes, lists, calls to play, responses, notifications, activity observations, observed games, drafts, reports) are removed with it by cascading deletes.
 - Invite attributions the user sent are kept, with the inviter's account cleared but their Discord user id kept.
-- Observed games keyed by the user's Discord id are not removed.
 - Other users' notifications and catalog aliases that name the user keep a dangling id.
 - Discord messages the bot already delivered stay in Discord. Because their tracking rows are deleted with the account, the retention sweep no longer cleans them up.
 
