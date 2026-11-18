@@ -8,7 +8,7 @@ services:
     environment:
       POSTGRES_DB: game_is_up
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
@@ -28,9 +28,9 @@ services:
     environment:
       NODE_ENV: production
       API_PORT: 4000
-      DATABASE_URL: postgresql://postgres:postgres@db:5432/game_is_up?schema=public
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@db:5432/game_is_up?schema=public
       CLIENT_ORIGIN: ${CLIENT_ORIGIN:-http://localhost:8080}
-      SESSION_SECRET: ${SESSION_SECRET:-change-me-to-a-long-random-secret}
+      SESSION_SECRET: ${SESSION_SECRET:?set SESSION_SECRET in .env}
       DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID:-}
       DISCORD_CLIENT_SECRET: ${DISCORD_CLIENT_SECRET:-}
       DISCORD_PUBLIC_KEY: ${DISCORD_PUBLIC_KEY:-}

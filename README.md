@@ -189,7 +189,7 @@ everywhere. After changing icon art or references, bump the icon version query s
 - `npm run db:generate` refreshes the Prisma client after schema changes.
 - `npm run dev:fresh` waits for PostgreSQL, resets the schema, reseeds demo data, and starts the full stack.
 
-Postgres is expected to run in Docker for both development and deployment, and the app uses the Compose service hostname: `postgresql://postgres:postgres@db:5432/game_is_up?schema=public`.
+Postgres runs in Docker for both development and deployment, and the app reaches it through the Compose service hostname `db`. Development uses the local default `postgresql://postgres:postgres@db:5432/game_is_up?schema=public`; deployment builds the URL from the required `POSTGRES_PASSWORD`.
 
 The development scripts default to that Docker network address unless you explicitly override `DATABASE_URL`.
 
@@ -198,7 +198,7 @@ The development scripts default to that Docker network address unless you explic
 The repository now includes a root `compose.yml` for production-style local or server deployment.
 Keep any `compose.prod.yml` override out of the repository; that file is intended to exist only on the production server when you need host-specific Compose overrides.
 
-1. Copy `.env.production.example` to `.env` and set at least `SESSION_SECRET` to a long random value.
+1. Copy `.env.production.example` to `.env` and set `POSTGRES_PASSWORD` and `SESSION_SECRET` to long random values. Compose refuses to start without them.
 2. For a real deployment, set `CLIENT_ORIGIN` to your public app URL and set `DISCORD_CALLBACK_URL` to `${CLIENT_ORIGIN}/api/auth/discord/callback`.
 3. If you want Play composer calls to create a temporary Discord space in the Game's Up Discord server, also set `DISCORD_SERVER_ID` to that server's guild id.
 4. If you want the web container to proxy API traffic on the same origin, leave `VITE_API_BASE_URL` empty.
