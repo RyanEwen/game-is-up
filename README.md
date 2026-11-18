@@ -7,7 +7,7 @@ Game's Up is a monorepo for a game-discovery PWA. It includes:
 - a shared package for contracts and schemas
 - a Prisma schema targeting PostgreSQL
 - a Devkit-managed development stack with Node and PostgreSQL
-- workspace prompts, instructions, and hooks for repeatable agent-assisted work
+- agent instructions, guides, and skills for repeatable agent-assisted work
 
 ## Workspace layout
 
@@ -19,10 +19,11 @@ packages/
   shared/     Shared Zod schemas, contracts, and domain types
 docker/dev/    Development process image
 .agents/
-  skills/      Codex workflows
-.codex/
-  hooks.json   Codex lifecycle hooks
-AGENTS.md      Codex workspace guidance
+  guides/      Agent topic guides
+  skills/      Agent workflows
+.claude/
+  skills       Symlink to .agents/skills
+AGENTS.md      Agent instructions
 compose.yml
 ```
 
@@ -351,9 +352,9 @@ Users can also set one profile-level "when do you usually play" note and let ind
 
 ## Repository automation
 
-- `AGENTS.md` and nested `AGENTS.md` files define Codex guidance at workspace, web, API, and Prisma scopes.
-- `.agents/skills/` provides reusable Codex workflows for documentation audits, commits, and deployments.
-- `.codex/hooks.json` runs the hooks in `.codex/hooks/` for session context, destructive-command protection, post-edit reminders, and targeted validation routing.
+- `AGENTS.md` and nested `AGENTS.md` files define agent guidance at workspace, web, API, and Prisma scopes.
+- `.agents/guides/` holds topic guides, starting with the UI conventions.
+- `.agents/skills/` provides reusable agent workflows for documentation audits, commits, and deployments; `.claude/skills` links to it.
 
 ## Play intent model
 

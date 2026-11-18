@@ -7,6 +7,8 @@ apps/api/prisma/dev.db
 apps/api/prisma/dev.db-journal
 *.log
 /compose.yml
+# Personal Claude Code settings; the tracked project settings are .claude/settings.json
+.claude/settings.local.json
 
 # Shared block (HYG-6), from winui-app-kit build/shared.gitignore. Paste it unchanged as the last part
 # of every repo's .gitignore, so no earlier line can un-ignore what it covers. Change it in the kit.

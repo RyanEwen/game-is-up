@@ -1,6 +1,6 @@
 # API Workspace Instructions
 
-Scope: applies when working in the Express API, route modules, service logic, auth, discovery, notifications, or server configuration (`apps/api/**`). Prisma-specific guidance is layered from `prisma/AGENTS.md` when working in that directory.
+Scope: applies when working in the Express API, route modules, service logic, auth, discovery, notifications, or server configuration (`apps/api/**`).
 
 - Validate external input at the boundary using shared Zod schemas or local Zod schemas when the contract is not shared yet.
 - Keep route handlers thin. Put reusable logic in modules under `src/lib` or future domain folders.
@@ -25,3 +25,11 @@ Scope: applies when working in the Express API, route modules, service logic, au
 
 - Private Discord notice payloads use `buildDiscordNoticeEmbeds` and `DiscordNotice` from `src/lib/discord-notices.ts`. Errors use a separate red embed before the normal content; success and informational notices must carry their own severity.
 - Game library mutations share `src/lib/library.ts`, including Steam imports through `writeLibraryGame` with batch finalization. Preserve its user/game transaction lock and strictly advancing revision so stale private forms cannot overwrite HTTP or import changes. Friends-list writes likewise retain their row lock and revision checks.
+
+## Prisma
+
+Applies when editing the Prisma schema, data model relationships, notification entities, play intents, or database constraints (`apps/api/prisma/**`).
+
+- Prefer explicit join tables when product semantics matter. Do not collapse many-to-many relationships into opaque arrays.
+- Keep indexes aligned with the product loop: shared-interest lookup, friend filtering, active play-intent lookup, and notification inbox reads.
+- When product behavior changes, update enum names and relation names to stay descriptive instead of preserving outdated terms.

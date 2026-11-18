@@ -140,7 +140,7 @@ Discord-linked identities now also persist Discord OAuth access and refresh toke
 
 ## Repository guidance
 
-Codex uses the root and nested `AGENTS.md` files for scoped project guidance, `.agents/skills/` for reusable workflows, and `.codex/hooks.json` with `.codex/hooks/` for lifecycle automation.
+Agents use the root and nested `AGENTS.md` files for scoped project guidance, `.agents/guides/` for topic guides, and `.agents/skills/` for reusable workflows (reached by Claude Code through the `.claude/skills` symlink).
 
 These files stay small and focused so they remain usable during day-to-day implementation.
 

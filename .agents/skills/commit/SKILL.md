@@ -1,6 +1,6 @@
 ---
 name: commit
-description: Review, validate, stage, and commit repository changes when the user asks Codex to create a Git commit.
+description: Review, validate, stage, and commit repository changes when the user asks for a Git commit.
 ---
 
 # Commit repository changes
@@ -14,7 +14,7 @@ Create one coherent, verified commit from the changes the user placed in scope.
    - `README.md` for setup, workflow, or user-visible behavior
    - `ARCHITECTURE.md` for structural or data-flow changes
    - Root and nested `AGENTS.md` files for guidance affected by the change
-   - `.agents/skills/` and `.codex/` when their workflows changed
+   - `.agents/skills/` and `.agents/guides/` when their workflows or conventions changed
    - Shared contract guidance when API/web boundaries changed
 3. Run validation proportional to the change. Prefer targeted checks, and use `npm run validate` for broad or cross-cutting changes.
 4. Stage explicit intended paths. Use `git add -A` only after confirming every worktree change belongs in the commit.
