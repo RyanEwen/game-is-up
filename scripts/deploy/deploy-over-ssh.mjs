@@ -8,8 +8,10 @@
  *   3. a HEAD that is not exactly `origin/main`, so only a pushed commit on main is deployed.
  * Then it runs the gate (`npm run validate`, unless --skip-validate), and on the server
  * refuses tracked changes in the checkout, dumps and verifies the database (CTR-11),
- * fast-forwards the checkout to `origin/main`, and rebuilds the stack. Prisma migrations run
- * when the API container starts, so the dump is always taken before a migration can run.
+ * fast-forwards the checkout to `origin/main`, rebuilds the stack and waits until every
+ * service reports healthy (stopping with their logs if one does not), then prunes dangling
+ * images. Prisma migrations run when the API container starts, so the dump is always taken
+ * before a migration can run.
  *
  * Run with `npm run deploy:prod`, which loads `.env` when it exists. Options:
  *   --host <user@host>      DEPLOY_SSH_HOST
@@ -20,6 +22,7 @@
  *   --skip-validate         skip the local gate
  *   --skip-backup           skip the pre-deploy database dump (or DEPLOY_BACKUP=0); only
  *                           when you have taken one another way
+ *   --no-prune              skip the post-deploy dangling-image prune (or DEPLOY_PRUNE=0)
  *   --dry-run               run the local refusals, then print the plan without validating or deploying
  */
 import path from 'node:path'
@@ -37,10 +40,13 @@ const deployBranch = 'main'
 const backupFolder = '.backups'
 const backupsKept = 5
 
+// How long `docker compose up --wait` may take for every service to report healthy.
+const healthWaitSeconds = 300
+
 /**
  * Read the deploy options from the environment, then let flags override them.
  * @param {string[]} argv Arguments after the script name.
- * @returns {{ composeFiles: string[], dryRun: boolean, host: string, port: string, repoPath: string, skipBackup: boolean, skipValidate: boolean }}
+ * @returns {{ composeFiles: string[], dryRun: boolean, host: string, port: string, repoPath: string, skipBackup: boolean, skipPrune: boolean, skipValidate: boolean }}
  */
 function parseArgs(argv) {
   const options = {
@@ -50,6 +56,7 @@ function parseArgs(argv) {
     port: process.env.DEPLOY_SSH_PORT?.trim() || '22',
     repoPath: process.env.DEPLOY_REPO_PATH?.trim() || '',
     skipBackup: process.env.DEPLOY_BACKUP?.trim() === '0',
+    skipPrune: process.env.DEPLOY_PRUNE?.trim() === '0',
     skipValidate: false,
   }
 
@@ -91,6 +98,11 @@ function parseArgs(argv) {
       continue
     }
 
+    if (argument === '--no-prune') {
+      options.skipPrune = true
+      continue
+    }
+
     // Accept both `--flag value` and `--flag=value`.
     const [name, inlineValue] = argument.split(/=(.*)/su)
     const apply = valueFlags[name]
@@ -127,6 +139,7 @@ Options:
   --compose-file <path> Repeatable Compose file; defaults to compose.yml, plus compose.prod.yml when present on the server
   --skip-validate       Skip the local npm run validate gate
   --skip-backup         Skip the pre-deploy database dump (or DEPLOY_BACKUP=0)
+  --no-prune            Skip the post-deploy dangling-image prune (or DEPLOY_PRUNE=0)
   --dry-run             Check the local tree, then print the plan without validating or deploying
   --help                Show this message
 `)
@@ -245,11 +258,46 @@ function buildBackupCommands(shortSha) {
 }
 
 /**
+ * Shell lines that start the new stack and wait for it to be healthy (CTR-11).
+ *
+ * `--wait` returns only when every service is running and, where it has a health check, healthy.
+ * A deploy that does not get there stops with the status and recent logs, instead of reporting
+ * success for a broken release; the previous containers have already been replaced by then, so
+ * the logs are what the operator needs to fix forward or restore.
+ *
+ * @returns {string[]} Bash lines; they expect `compose_args` to be set.
+ */
+function buildStartAndWaitCommands() {
+  return [
+    `if ! docker compose "\${compose_args[@]}" up --build -d --wait --wait-timeout ${healthWaitSeconds}; then`,
+    `  printf "%s\n" "A service did not become healthy within ${healthWaitSeconds} seconds; the deploy stopped. Status and recent logs:" >&2`,
+    '  docker compose "${compose_args[@]}" ps >&2 || true',
+    '  docker compose "${compose_args[@]}" logs --tail=100 >&2 || true',
+    '  exit 1',
+    'fi',
+    'docker compose "${compose_args[@]}" ps',
+  ]
+}
+
+/**
+ * Shell lines that reclaim the images the rebuild left untagged. Best effort: a prune failure
+ * never fails a deploy whose containers are already running and healthy.
+ *
+ * @returns {string[]} Bash lines.
+ */
+function buildPruneCommands() {
+  return [
+    'printf "%s\n" "Pruning dangling images..."',
+    'docker image prune -f || true',
+  ]
+}
+
+/**
  * Build the shell script run on the server.
- * @param {{ composeFiles: string[], repoPath: string, skipBackup: boolean }} options
+ * @param {{ composeFiles: string[], repoPath: string, skipBackup: boolean, skipPrune: boolean }} options
  * @param {string} shortSha The commit being deployed.
  * @returns {string} A bash script that refuses a dirty checkout, dumps the database, updates
- *   the checkout and rebuilds the stack.
+ *   the checkout, rebuilds the stack, waits for it to be healthy and prunes old images.
  */
 function buildRemoteDeployCommand(options, shortSha) {
   const branch = shellQuote(deployBranch)
@@ -283,8 +331,8 @@ function buildRemoteDeployCommand(options, shortSha) {
     `git fetch origin ${branch}`,
     `git checkout ${branch}`,
     `git pull --ff-only origin ${branch}`,
-    'docker compose "${compose_args[@]}" up --build -d',
-    'docker compose "${compose_args[@]}" ps',
+    ...buildStartAndWaitCommands(),
+    ...(options.skipPrune ? [] : buildPruneCommands()),
     'printf "%s %s\n" "Deployed commit:" "$(git rev-parse --short HEAD)"',
   ].join('\n')
 }
@@ -332,6 +380,9 @@ function main() {
     )
     process.stdout.write(
       `Will back up the database: ${options.skipBackup ? 'no' : `yes, into ${backupFolder}/`}\n`,
+    )
+    process.stdout.write(
+      `Will prune dangling images: ${options.skipPrune ? 'no' : 'yes'}\n`,
     )
     process.stdout.write(
       `SSH command: ssh ${sshArgs.map(shellQuote).join(' ')}\n`,

@@ -30,7 +30,7 @@ It deploys the current commit, and refuses before reaching the server when:
 - the local tree has uncommitted changes;
 - `HEAD` is not exactly `origin/main`, so push to `main` first.
 
-Then it runs `npm run validate` (skip it with `--skip-validate`), and on the server refuses a checkout with tracked changes, dumps the database to `.backups/` in the server checkout and verifies the dump (see Backup below), fast-forwards the checkout to `origin/main`, and runs `docker compose -f compose.yml up --build -d`, adding `-f compose.prod.yml` when that server-only file exists. `--dry-run` runs the local checks and prints the plan without validating or deploying.
+Then it runs `npm run validate` (skip it with `--skip-validate`), and on the server refuses a checkout with tracked changes, dumps the database to `.backups/` in the server checkout and verifies the dump (see Backup below), fast-forwards the checkout to `origin/main`, and runs `docker compose -f compose.yml up --build -d --wait`, adding `-f compose.prod.yml` when that server-only file exists. It waits up to five minutes for every service to report healthy; if one does not, it prints the service status and recent logs and stops with an error. After a healthy start it prunes dangling images (skip with `--no-prune` or `DEPLOY_PRUNE=0`). `--dry-run` runs the local checks and prints the plan without validating or deploying.
 
 The port defaults to `22` (`DEPLOY_SSH_PORT` or `--port`). `DEPLOY_COMPOSE_FILES` (comma separated) or a repeated `--compose-file` sets an exact Compose stack instead, for example `--compose-file compose.yml --compose-file compose.prod.yml`.
 
