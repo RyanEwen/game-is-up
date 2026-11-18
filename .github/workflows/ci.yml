@@ -1,8 +1,9 @@
 name: CI
 
-# Runs the local gate (npm run validate: lint, typecheck, unit tests, Prisma schema) and
-# the database integration tests against a disposable Postgres, on every push to main
-# and every pull request. No path filter: every change is checked (CI-1).
+# Runs the local gate (npm run validate: format, lint, typecheck, unit tests, Prisma schema),
+# the database integration tests against a disposable Postgres, and a build of both production
+# images, on every push to main and every pull request. No path filter: every change is
+# checked (CI-1).
 on:
   push:
     branches: [main]
@@ -66,3 +67,18 @@ jobs:
 
       - name: Integration tests
         run: npm run test:integration
+
+  # Production images are built only at deploy time otherwise, so a Dockerfile break would
+  # surface on the server. Build both here (no push) to catch it on every change.
+  images:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Build the API image
+        run: docker build --file apps/api/Dockerfile --tag game-is-up-api:ci .
+
+      - name: Build the web image
+        run: docker build --file apps/web/Dockerfile --tag game-is-up-web:ci .
