@@ -43,7 +43,7 @@
   "devDependencies": {
     "@eslint/js": "^9.24.0",
     "@resvg/resvg-js": "^2.6.2",
-    "@ryanewen/devkit": "github:RyanEwen/devkit#v0.16.2",
+    "@dynamic-solutions-canada/devkit": "github:Dynamic-Solutions-Canada/devkit#v0.18.0",
     "@typescript/native": "npm:typescript@^7.0.2",
     "concurrently": "^9.1.2",
     "eslint": "^9.24.0",

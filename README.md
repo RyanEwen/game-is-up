@@ -33,7 +33,7 @@ Start with [development and local setup](docs/development.md). More detail:
 
 - [Architecture](ARCHITECTURE.md) and [product behaviour](docs/behaviour.md).
 - [Production deployment](docs/deployment.md), including what data is stored and how it is deleted.
-- The local stack runs on [devkit](https://github.com/RyanEwen/devkit#readme).
+- The local stack runs on [devkit](https://github.com/Dynamic-Solutions-Canada/devkit#readme).
 
 ## License
 

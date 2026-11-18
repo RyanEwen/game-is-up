@@ -111,7 +111,7 @@ Useful commands:
 
 Paseo reads `paseo.json` to prepare new worktrees automatically and stop their checkout stack on teardown. The configuration also exposes foreground `dev`, detached `dev-background`, `dev-down`, preparation, diagnostics, validation, and build scripts. Use foreground `dev` for Paseo's running status and Stop control. A completed `dev-background` launcher leaves its runner active until `dev-down` is run. Run `npm run dev:bootstrap` once on each host before using the development scripts; bootstrap also places `devkit` on the host PATH for setup in worktrees without dependencies.
 
-Devkit itself (runtime selection, worktree cleanup, remote hosts and secondary domains) is documented in [devkit's README](https://github.com/RyanEwen/devkit#readme).
+Devkit itself (runtime selection, worktree cleanup, remote hosts and secondary domains) is documented in [devkit's README](https://github.com/Dynamic-Solutions-Canada/devkit#readme).
 
 ## Validation
 
