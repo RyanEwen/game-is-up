@@ -21,5 +21,3 @@ Create one coherent, verified commit from the changes the user placed in scope.
 5. Use an imperative commit subject. Add a short body only when it explains a non-obvious reason.
 6. Commit without an extra confirmation unless the user asked to review or approve the message first.
 7. Push only when the user explicitly requested it.
-
-Do not add AI attribution or co-author trailers.

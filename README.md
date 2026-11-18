@@ -1,6 +1,6 @@
 # Game's Up
 
-Game's Up is a monorepo for a game-discovery PWA. The initial scaffold includes:
+Game's Up is a monorepo for a game-discovery PWA. It includes:
 
 - a Vite + React + Joy UI web app
 - an Express + TypeScript API
@@ -167,10 +167,10 @@ npm run web:icons:export
 
 That regenerates the full set:
 
-- `icon-wordmark-gold-bubble` (SVG + 1024/512/192 PNG) — app, PWA, and Discord server icon
-- `icon-wordmark-gold-bubble-maskable` (SVG + 512/192 PNG) — PWA maskable variant with the art at 80% safe area
-- `icon-up-bang` (SVG + 64 PNG) — small-size favicon cut ("UP!" only)
-- `icon-gold-ping-bot` (SVG + 1024/512 PNG) — Discord bot avatar upload
+- `icon-wordmark-gold-bubble` (SVG + 1024/512/192 PNG): app, PWA, and Discord server icon
+- `icon-wordmark-gold-bubble-maskable` (SVG + 512/192 PNG): PWA maskable variant with the art at 80% safe area
+- `icon-up-bang` (SVG + 64 PNG): small-size favicon cut ("UP!" only)
+- `icon-gold-ping-bot` (SVG + 1024/512 PNG): Discord bot avatar upload
 
 Because the text is outlined, the emitted SVGs have no font dependency and rasterize identically
 everywhere. After changing icon art or references, bump the icon version query string in
@@ -224,16 +224,11 @@ That script:
 - refuses to deploy if the remote repo has tracked uncommitted changes
 - runs `docker compose -f compose.yml -f compose.prod.yml up --build -d` in the remote checkout when a server-only `compose.prod.yml` exists there
 
-Default SSH deployment values are:
+The SSH host and the server checkout path are required and have no defaults: set `DEPLOY_SSH_HOST` and `DEPLOY_REPO_PATH`, or pass `--host` and `--repo-path`. The port defaults to `22` and the branch to `main`.
 
-- host: `deploy-host`
-- port: `22`
-- repo path: `/srv/game-is-up`
-- branch: `main`
+Set them with flags such as `--host`, `--port`, `--repo-path`, `--branch`, and `--compose-file`, or with the env vars `DEPLOY_SSH_HOST`, `DEPLOY_SSH_PORT`, `DEPLOY_REPO_PATH`, `DEPLOY_GIT_BRANCH`, and `DEPLOY_COMPOSE_FILES`. Pass `--compose-file` multiple times when you need an exact Compose stack, for example `--compose-file compose.yml --compose-file compose.prod.yml`.
 
-Override them with flags such as `--host`, `--port`, `--repo-path`, `--branch`, and `--compose-file`, or with the env vars `DEPLOY_SSH_HOST`, `DEPLOY_SSH_PORT`, `DEPLOY_REPO_PATH`, `DEPLOY_GIT_BRANCH`, and `DEPLOY_COMPOSE_FILES`. Pass `--compose-file` multiple times when you need an exact Compose stack, for example `--compose-file compose.yml --compose-file compose.prod.yml`.
-
-The deploy helper runs on the host, so it uses your normal SSH config and host aliases directly. With the default host of `deploy-host`, any configured user, key selection, and host-specific settings come from your SSH config rather than deploy-script flags.
+The deploy helper runs on the host, so it uses your normal SSH config and host aliases directly. With a host alias, any configured user, key selection, and host-specific settings come from your SSH config rather than deploy-script flags.
 
 The public container runs unprivileged Nginx on internal port `8080`, and Docker maps host port `8080` to it by default. Nginx proxies `/api/*` to the API container so browser clients can stay same-origin in production.
 
@@ -253,6 +248,25 @@ When the web app is built for same-origin production hosting with `VITE_API_BASE
 For Cloudflare-backed deployments, no cache purge is needed: nginx serves the app-shell URLs (`/`, `/index.html`, `/sw.js`, `/registerSW.js`, `/manifest.webmanifest`) with `Cache-Control: no-store`, so the edge never caches them (`cf-cache-status: BYPASS`/`DYNAMIC`) and installed PWAs pick up new builds on their next service-worker check. Hashed assets stay long-lived and immutable. If a Cloudflare-level cache rule (for example "Cache Everything") is ever added, it must exclude those shell URLs or app updates will stall for installed clients.
 
 This repo now treats Prisma migrations as the source of truth for schema changes. Use `db:migrate` to create new migrations during development and `db:migrate:deploy` for deployment targets.
+
+### Changing the database password on an existing deployment
+
+The Postgres image reads `POSTGRES_PASSWORD` only when it creates an empty data volume. On a running deployment, changing the value in `.env` does not change the database password, and the API then fails to connect. Change the role's password inside the database first, then the configuration. Run these in the server checkout:
+
+1. Generate a URL-safe value, for example with `openssl rand -hex 32`.
+2. Set it on the database role. `\password` prompts for the value, so it stays out of shell history and the process list:
+
+  ```bash
+  docker compose exec db psql -U postgres -d game_is_up -c '\password postgres'
+  ```
+
+3. Put the same value in the server's `.env` as `POSTGRES_PASSWORD`.
+4. Make sure the server's `compose.yml` reads `${POSTGRES_PASSWORD}` for both the `db` service and the API's `DATABASE_URL`, as `compose.example.yml` does.
+5. Recreate the containers with `docker compose up -d`, then confirm the API reports healthy with `docker compose ps`.
+
+Between steps 2 and 5 the API cannot open new database connections, so do the steps together.
+
+The same order applies when moving an existing deployment off the old built-in default.
 
 ## Discord OAuth setup
 
@@ -276,7 +290,7 @@ This repo now treats Prisma migrations as the source of truth for schema changes
 12. Bot-based activity tracking only records activity while the bot is online and present in a shared server, so it should be treated as opportunistic rather than authoritative history.
 13. If you want the app to browse every member in a selected Discord server for invite targeting, the bot also needs the Server Members intent enabled in the Discord developer portal.
 14. When a call to play matches someone who should be notified and that user has a linked Discord account, the bot can DM them directly. If someone becomes newly eligible later because they add overlapping library games while the call is still active, the app now backfills the missing call notification for them as well. Quick response buttons in Discord are only active in the gateway-owning environment.
-15. If a notified recipient responds from Discord, the creator and every other invited recipient who has not passed — including invitees who have not answered yet — see it in their per-call updates-log DM: a single message per recipient listing every live update (interest, passes, running late, voice joins, game launches) newest-first with per-line timestamps in the recipient's timezone, rendered as pure plain text, and deleted and re-sent on each new event so Discord raises a fresh notification. Invitees who have not responded also get a call-to-action line in that log pointing back at their invite buttons, and choosing Can't make it is what stops those update pings for them. Passes always reach the creator and every other non-passed recipient, on every audience scope, so nobody has to guess who dropped out. A recipient who said they can't make it can still switch to interested later. Once interested, a recipient can also flag I'll be late (from the web app or the Discord invite); that notifies the creator and every other non-passed recipient and lists them separately from on-time interest in the call summaries. The original recipient invite stays in place and updates its buttons to match the current choice; instead of sending a separate confirmation DM, the pressed button briefly shows a confirmation ("You're in!", "Got it", or "Running late") before settling back to the updated invite. When the call uses a temporary Discord space, the invite itself carries link buttons for interested recipients: recipients already in the server get Text channel and Voice channel buttons, while everyone else gets a Join Discord invite button in their place. Recipients who already have an overlapping active call to play are still filtered out before those call notifications are sent.
+15. If a notified recipient responds from Discord, the creator and every other invited recipient who has not passed (including invitees who have not answered yet) sees it in their per-call updates-log DM: a single message per recipient listing every live update (interest, passes, running late, voice joins, game launches) newest-first with per-line timestamps in the recipient's timezone, rendered as pure plain text, and deleted and re-sent on each new event so Discord raises a fresh notification. Invitees who have not responded also get a call-to-action line in that log pointing back at their invite buttons, and choosing Can't make it is what stops those update pings for them. Passes always reach the creator and every other non-passed recipient, on every audience scope, so nobody has to guess who dropped out. A recipient who said they can't make it can still switch to interested later. Once interested, a recipient can also flag I'll be late (from the web app or the Discord invite); that notifies the creator and every other non-passed recipient and lists them separately from on-time interest in the call summaries. The original recipient invite stays in place and updates its buttons to match the current choice; instead of sending a separate confirmation DM, the pressed button briefly shows a confirmation ("You're in!", "Got it", or "Running late") before settling back to the updated invite. When the call uses a temporary Discord space, the invite itself carries link buttons for interested recipients: recipients already in the server get Text channel and Voice channel buttons, while everyone else gets a Join Discord invite button in their place. Recipients who already have an overlapping active call to play are still filtered out before those call notifications are sent.
 16. Calls to play can optionally request a temporary Discord space in the Game's Up Discord server. That space provisions a dedicated private category with paired text and voice channels. Share its Discord invite to grant access to either new or existing server members, including people outside the call's audience. Direct channel links require access first. Ordinary invites created inside Discord need the temporary space's role selected under Edit invite link > Roles to grant access. The bot needs Manage Roles permission and must sit above the temporary role. Background cleanup replaces older server-only invites with role-granting invites and refreshes tracked call summaries; previously shared invite URLs must be shared again using the replacement. Creators can delete the retained space early after the call ends.
 16. Users can leave a Play page setting on by default so the gateway-owning bot can DM them after it sees them start a game and offer to create a call to play straight from Discord. Those prompts only go out when there is no overlapping active call already, at least one person in the user's network with a matching game in their library could receive it, and the same game has not already prompted that user in the last 10 minutes.
 17. Unanswered Discord call-to-play invites and auto-play prompts are edited in place when they go stale, so users see that the session ended or the observed game activity stopped instead of keeping an outdated call to action. Manual call-to-play endings and clears instead replace audience DMs with a fresh ended-summary message so Discord sends a new notification, and retained ended summaries can expose an `Archive` action when interactive Discord buttons are available. The creator's ended summary keeps the richer call details, including who was interested and the temporary Discord channel links, until the space is deleted.
@@ -297,7 +311,7 @@ This repo now treats Prisma migrations as the source of truth for schema changes
 32. Calls to play now also have dedicated `/play/:playIntentId` detail pages. Discord DMs can deep-link straight into a specific call, Play cards expose a `Details` action, and legacy library-wide calls still expand the actual game options on that page so recipients can review what overlaps are in scope before they respond.
 33. Discovery-based play-intent visibility can now include both explicit friends and users from the Discord servers you opted into discovery.
 34. Discovery remains based on opted-in shared Discord servers plus explicit in-app friendships. The Discord friend-list import path has been removed.
-35. Discord is still the only sign-in path in this scaffold.
+35. Discord is the only sign-in path.
 36. Steam can now be linked as a secondary account for library import only. It does not replace Discord auth or discovery.
 37. Linked-account flows like Discord sign-in and Steam linking return directly to the current web URL after the provider callback completes.
 38. Call-to-play DMs now include a clickable creator Discord mention when available.

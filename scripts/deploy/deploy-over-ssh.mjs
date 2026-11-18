@@ -11,10 +11,10 @@ function parseArgs(argv) {
     branch: process.env.DEPLOY_GIT_BRANCH?.trim() || 'main',
     composeFiles: parseComposeFiles(process.env.DEPLOY_COMPOSE_FILES),
     dryRun: false,
-    host: process.env.DEPLOY_SSH_HOST?.trim() || 'deploy-host',
+    host: process.env.DEPLOY_SSH_HOST?.trim() || '',
     port: process.env.DEPLOY_SSH_PORT?.trim() || '22',
     push: false,
-    repoPath: process.env.DEPLOY_REPO_PATH?.trim() || '/srv/game-is-up',
+    repoPath: process.env.DEPLOY_REPO_PATH?.trim() || '',
     skipValidate: false
   }
 
@@ -124,11 +124,28 @@ function parseArgs(argv) {
     throw new Error(`Unknown argument: ${argument}`)
   }
 
+  requireTarget(options)
+
   return options
 }
 
+/**
+ * Refuses to continue without an explicit deployment target. The host and the
+ * remote checkout path are machine details, so the script carries no defaults
+ * for them; they come from the environment or from flags.
+ */
+function requireTarget(options) {
+  if (!options.host) {
+    throw new Error('Set DEPLOY_SSH_HOST (or pass --host) to the SSH host to deploy to.')
+  }
+
+  if (!options.repoPath) {
+    throw new Error('Set DEPLOY_REPO_PATH (or pass --repo-path) to the checkout path on the server.')
+  }
+}
+
 function printHelp() {
-  process.stdout.write(`Usage: npm run deploy:prod:ssh -- [options]\n\nOptions:\n  --push                Push local HEAD to origin/<branch> before deploying\n  --skip-validate       Skip local npm run validate before deployment\n  --host <value>        SSH host, default deploy-host\n  --port <value>        SSH port, default 22\n  --repo-path <path>    Remote repo path, default /srv/game-is-up\n  --branch <name>       Git branch to deploy, default main\n  --compose-file <path> Repeatable Docker Compose file override; defaults to compose.yml and auto-adds compose.prod.yml when present on the server\n  --dry-run             Print the planned commands without running them\n  --help                Show this message\n`)
+  process.stdout.write(`Usage: npm run deploy:prod:ssh -- [options]\n\nOptions:\n  --push                Push local HEAD to origin/<branch> before deploying\n  --skip-validate       Skip local npm run validate before deployment\n  --host <value>        SSH host (required; or DEPLOY_SSH_HOST)\n  --port <value>        SSH port, default 22\n  --repo-path <path>    Remote repo path (required; or DEPLOY_REPO_PATH)\n  --branch <name>       Git branch to deploy, default main\n  --compose-file <path> Repeatable Docker Compose file override; defaults to compose.yml and auto-adds compose.prod.yml when present on the server\n  --dry-run             Print the planned commands without running them\n  --help                Show this message\n`)
 }
 
 function parseComposeFiles(value) {

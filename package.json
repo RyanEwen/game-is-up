@@ -26,8 +26,9 @@
     "dev:fresh": "devkit run node scripts/dev/run-dev.mjs --fresh",
     "dev:host": "devkit",
     "lint": "eslint .",
+    "test": "node scripts/dev/run-tests.mjs",
     "typecheck": "npm run typecheck --workspace @game-is-up/shared && npm run build --workspace @game-is-up/shared && npm run typecheck --workspace @game-is-up/api && npm run typecheck --workspace @game-is-up/web",
-    "validate": "npm run lint && npm run typecheck && npm run prisma:validate --workspace @game-is-up/api",
+    "validate": "npm run lint && npm run typecheck && npm test && npm run prisma:validate --workspace @game-is-up/api",
     "db:generate": "npm run prisma:generate --workspace @game-is-up/api",
     "db:push": "npm run prisma:db:push --workspace @game-is-up/api",
     "db:validate": "npm run prisma:validate --workspace @game-is-up/api",
@@ -35,8 +36,7 @@
     "db:migrate:deploy": "npm run prisma:migrate:deploy --workspace @game-is-up/api",
     "db:migrate:bootstrap": "npm run prisma:migrate:bootstrap --workspace @game-is-up/api",
     "db:seed": "npm run prisma:seed --workspace @game-is-up/api",
-    "web:icons:export": "node scripts/dev/generate-brand-icons.mjs",
-    "prepare": "husky"
+    "web:icons:export": "node scripts/dev/generate-brand-icons.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.24.0",
@@ -48,7 +48,6 @@
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.19",
     "globals": "^16.0.0",
-    "husky": "^9.1.7",
     "opentype.js": "^2.0.0",
     "typescript": "npm:@typescript/typescript6@^6.0.2",
     "typescript-eslint": "^8.63.0"
