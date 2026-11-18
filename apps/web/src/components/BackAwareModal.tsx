@@ -1,0 +1,371 @@
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ComponentProps,
+} from 'react'
+import { Modal } from '@mui/joy'
+import React from 'react'
+import { backGestureCloseEvent } from './dialogBackGesture'
+import {
+  isDialogPopupEvent,
+  useDialogPopupAccessibility,
+} from './useDialogPopupAccessibility'
+
+type JoyModalProps = ComponentProps<typeof Modal>
+type BackAwareModalOnClose = NonNullable<JoyModalProps['onClose']>
+
+interface BackAwareModalProps extends JoyModalProps {
+  /**
+   * Let a click on the scrim dismiss this dialog. Off for every dialog by default.
+   *
+   * The app-wide rule is that a dialog closes only when the user aims at something that
+   * says it closes it -- the X, Cancel, Escape, or browser Back. A scrim click is none of
+   * those: it is the gesture a misjudged click at a dialog's edge produces, and the cost of
+   * getting it wrong is asymmetric, because the dialogs it is easiest to overshoot are the
+   * wide ones (editors and multi-step forms) that hold the most unsaved work.
+   *
+   * Opt in only where the surface holds nothing to lose AND the scrim reads as "the thing
+   * I am looking past", which in practice means an image viewer. Anything with a field in
+   * it does not qualify.
+   */
+  dismissOnBackdropClick?: boolean
+}
+
+const dialogHistoryStackStateKey = '__backAwareDialogStack'
+
+interface ActiveDialogEntry {
+  token: string
+  requestClose: () => void
+}
+
+interface ScrollPosition {
+  x: number
+  y: number
+}
+
+let dialogHistoryTokenCounter = 0
+let dialogHistoryListenerInstalled = false
+let dialogManualScrollRestorationDepth = 0
+let previousHistoryScrollRestoration: History['scrollRestoration'] | null = null
+const activeDialogEntries: ActiveDialogEntry[] = []
+const dismissedDialogTokens = new Set<string>()
+const closingDialogTokensFromHistory = new Set<string>()
+const dialogOpenScrollPositions = new Map<string, ScrollPosition>()
+const dialogCloseScrollPositions = new Map<string, ScrollPosition>()
+
+function createDialogHistoryToken() {
+  dialogHistoryTokenCounter += 1
+  return `dialog-${dialogHistoryTokenCounter}`
+}
+
+function isStringArray(value: unknown): value is string[] {
+  return (
+    Array.isArray(value) && value.every((entry) => typeof entry === 'string')
+  )
+}
+
+function readDialogHistoryStack(state: unknown): string[] {
+  if (state == null || typeof state !== 'object') return []
+  const stack = (state as Record<string, unknown>)[dialogHistoryStackStateKey]
+  return isStringArray(stack) ? stack : []
+}
+
+function buildDialogHistoryState(stack: string[]) {
+  const currentState = window.history.state
+  const baseState =
+    currentState != null && typeof currentState === 'object'
+      ? (currentState as Record<string, unknown>)
+      : {}
+  return {
+    ...baseState,
+    [dialogHistoryStackStateKey]: stack,
+  }
+}
+
+function getActiveDialogStack() {
+  return activeDialogEntries.map((entry) => entry.token)
+}
+
+function areDialogStacksEqual(left: string[], right: string[]) {
+  return (
+    left.length === right.length &&
+    left.every((entry, index) => entry === right[index])
+  )
+}
+
+function isDialogStackPrefix(prefix: string[], full: string[]) {
+  return (
+    prefix.length <= full.length &&
+    prefix.every((entry, index) => entry === full[index])
+  )
+}
+
+function isTopHistoryDialog(token: string) {
+  const stack = readDialogHistoryStack(window.history.state)
+  return stack[stack.length - 1] === token
+}
+
+function replaceCurrentDialogHistoryWithActiveStack() {
+  window.history.replaceState(
+    buildDialogHistoryState(getActiveDialogStack()),
+    document.title,
+  )
+}
+
+function registerActiveDialog(token: string, requestClose: () => void) {
+  const existingEntry = activeDialogEntries.find(
+    (entry) => entry.token === token,
+  )
+  if (existingEntry) {
+    existingEntry.requestClose = requestClose
+    return false
+  }
+  activeDialogEntries.push({ token, requestClose })
+  return true
+}
+
+function unregisterActiveDialog(token: string) {
+  const entryIndex = activeDialogEntries.findIndex(
+    (entry) => entry.token === token,
+  )
+  if (entryIndex === -1) return false
+  activeDialogEntries.splice(entryIndex, 1)
+  disableDialogManualScrollRestoration()
+  return true
+}
+
+function handleDialogHistoryPopState(event: PopStateEvent) {
+  const nextStack = readDialogHistoryStack(event.state)
+  const currentStack = getActiveDialogStack()
+
+  if (areDialogStacksEqual(nextStack, currentStack)) return
+
+  if (isDialogStackPrefix(nextStack, currentStack)) {
+    const dialogsToClose = activeDialogEntries.slice(nextStack.length).reverse()
+    const scrollPosition = readWindowScrollPosition()
+    dialogsToClose.forEach((entry) => {
+      dismissedDialogTokens.add(entry.token)
+      closingDialogTokensFromHistory.add(entry.token)
+      dialogCloseScrollPositions.set(entry.token, scrollPosition)
+      entry.requestClose()
+    })
+    return
+  }
+
+  const isStaleDialogEntry =
+    nextStack.some((token) => dismissedDialogTokens.has(token)) ||
+    !isDialogStackPrefix(currentStack, nextStack)
+  if (!isStaleDialogEntry) return
+
+  queueMicrotask(() => {
+    replaceCurrentDialogHistoryWithActiveStack()
+    if (window.history.length > 1) window.history.back()
+  })
+}
+
+function installDialogHistoryListener() {
+  if (dialogHistoryListenerInstalled) return
+  window.addEventListener('popstate', handleDialogHistoryPopState)
+  dialogHistoryListenerInstalled = true
+}
+
+function enableDialogManualScrollRestoration() {
+  if (dialogManualScrollRestorationDepth === 0) {
+    previousHistoryScrollRestoration = window.history.scrollRestoration
+    window.history.scrollRestoration = 'manual'
+  }
+  dialogManualScrollRestorationDepth += 1
+}
+
+function disableDialogManualScrollRestoration() {
+  if (dialogManualScrollRestorationDepth === 0) return
+  dialogManualScrollRestorationDepth -= 1
+  if (dialogManualScrollRestorationDepth > 0) return
+  if (previousHistoryScrollRestoration != null) {
+    window.history.scrollRestoration = previousHistoryScrollRestoration
+    previousHistoryScrollRestoration = null
+  }
+}
+
+function readWindowScrollPosition(): ScrollPosition {
+  return {
+    x: window.scrollX,
+    y: window.scrollY,
+  }
+}
+
+function restoreWindowScrollPosition(position: ScrollPosition | undefined) {
+  if (!position) return
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      window.scrollTo({ left: position.x, top: position.y, behavior: 'auto' })
+    })
+  })
+}
+
+/**
+ * Joy Modal wrapper that treats browser Back as dialog dismissal.
+ *
+ * Copied from printstream (which adapted it from this app's original `DashboardModal`) until
+ * web-app-kit ships it as a package (UI-9, KIT-10). Each open dialog appends a token to a
+ * history-backed stack, and browser Back closes the top dialog instead of navigating away.
+ * printstream's app-busy hook (which holds automatic reloads while a dialog is open) is left out
+ * because nothing in this app reads it yet.
+ *
+ * The entry is spent when the dialog CLOSES (`syncClosedDialog`), never when one is
+ * requested: `onClose` is a question the consumer may answer with "no", and popping
+ * first desynchronised the stack from the dialogs actually open. See `handleClose`.
+ *
+ * It also owns the app's DISMISSAL SET, which is the deliberate gestures only: the X,
+ * a footer button, Escape, and browser Back. A click on the scrim is not one of them and
+ * never reaches the consumer's `onClose` -- see `dismissOnBackdropClick`, and note that
+ * this is why the reason a dialog receives for Back is `closeClick`.
+ */
+export function BackAwareModal({
+  open,
+  onClose,
+  dismissOnBackdropClick = false,
+  ...props
+}: BackAwareModalProps) {
+  const previousOpenRef = useRef(open)
+  const onCloseRef = useRef(onClose)
+  const dialogTokenRef = useRef<string | null>(null)
+
+  onCloseRef.current = onClose
+
+  /**
+   * A real Back press (or a Back that popped past this dialog). It reports `closeClick`, the
+   * Joy reason for "the user aimed at something that dismisses this": Back is a deliberate
+   * dismissal gesture, and on a phone it is the primary one. It used to report `backdropClick`
+   * as the closest reason for "dismissed from outside the dialog", which stopped being usable
+   * once a scrim click became a NON-close -- `handleClose` would have swallowed Back with it.
+   *
+   * Back and the X are one reason on purpose, because they ask a dialog for the same thing. Where
+   * the two must be TOLD APART (a diagnostic naming the gesture, never a decision about what to
+   * do), the event carries the marker `isBackGestureClose` reads.
+   */
+  const requestClose = useCallback(() => {
+    onCloseRef.current?.(backGestureCloseEvent(), 'closeClick')
+  }, [])
+
+  const syncClosedDialog = useCallback(
+    (token: string, closeViaHistory: boolean) => {
+      const closedFromHistory = closingDialogTokensFromHistory.delete(token)
+      const scrollPosition =
+        dialogOpenScrollPositions.get(token) ??
+        dialogCloseScrollPositions.get(token)
+      dialogOpenScrollPositions.delete(token)
+      dialogCloseScrollPositions.delete(token)
+      dismissedDialogTokens.add(token)
+      unregisterActiveDialog(token)
+      dialogTokenRef.current = null
+
+      if (
+        !closedFromHistory &&
+        closeViaHistory &&
+        isTopHistoryDialog(token) &&
+        window.history.length > 1
+      ) {
+        window.history.back()
+        return
+      }
+
+      restoreWindowScrollPosition(scrollPosition)
+    },
+    [],
+  )
+
+  useEffect(() => {
+    if (!open || typeof window === 'undefined') return
+
+    installDialogHistoryListener()
+    const scrollPosition = readWindowScrollPosition()
+    const dialogToken = dialogTokenRef.current ?? createDialogHistoryToken()
+    dialogTokenRef.current = dialogToken
+    dialogOpenScrollPositions.set(dialogToken, scrollPosition)
+
+    const didRegister = registerActiveDialog(dialogToken, requestClose)
+    if (didRegister) {
+      enableDialogManualScrollRestoration()
+      window.history.pushState(
+        buildDialogHistoryState(getActiveDialogStack()),
+        document.title,
+      )
+    }
+
+    restoreWindowScrollPosition(scrollPosition)
+  }, [open, requestClose])
+
+  useEffect(() => {
+    const wasOpen = previousOpenRef.current
+    previousOpenRef.current = open
+    if (open || !wasOpen || typeof window === 'undefined') return
+
+    const dialogToken = dialogTokenRef.current
+    if (dialogToken) {
+      syncClosedDialog(dialogToken, true)
+    }
+  }, [open, syncClosedDialog])
+
+  useEffect(() => {
+    return () => {
+      const dialogToken = dialogTokenRef.current
+      if (!dialogToken) return
+      closingDialogTokensFromHistory.delete(dialogToken)
+      dialogOpenScrollPositions.delete(dialogToken)
+      dialogCloseScrollPositions.delete(dialogToken)
+      dismissedDialogTokens.add(dialogToken)
+      unregisterActiveDialog(dialogToken)
+      dialogTokenRef.current = null
+    }
+  }, [])
+
+  const [modalRoot, setModalRoot] = useState<HTMLDivElement | null>(null)
+
+  /**
+   * A close REQUEST, never a close: `onClose` is the consumer's to answer.
+   *
+   * Accepted reasons are handed over without touching history, and the entry is spent by
+   * `syncClosedDialog` if the dialog actually closes -- which is the only moment that knows.
+   * Hopping first spent the entry either way, which is wrong for any dialog that can DECLINE:
+   * an editor may back out of its active tool on Escape, or answer "Discard unsaved changes?"
+   * before it closes at all. A declined close then left the dialog open with nothing behind it,
+   * so Back navigated the route away instead of closing it, and the next dialog opened over it
+   * pushed a stack (`[editor, inner]`) that the entry underneath (`[]`) no longer matched -- so
+   * closing THAT dialog popped to a stack prefixing this one and fired this `onClose` again,
+   * raising "Discard unsaved changes?" a second time over a gesture nobody made.
+   *
+   * A scrim click is dropped here rather than passed on, so no dialog has to remember to ignore
+   * it: MUI removed `disableBackdropClick` in v5 and documents exactly this check as the
+   * replacement. See `dismissOnBackdropClick` for the opt-out and why it is off by default.
+   * An Escape from an expanded owned popup closes that popup before requesting dialog close.
+   */
+  const handleClose = useCallback<BackAwareModalOnClose>(
+    (event, reason) => {
+      if (reason === 'backdropClick' && !dismissOnBackdropClick) return
+      // Joy closes Select's portal on Escape but also bubbles the key to Modal.
+      // Let the active owned popup spend this key; the next Escape closes the dialog.
+      if (
+        reason === 'escapeKeyDown' &&
+        isDialogPopupEvent(modalRoot, 'target' in event ? event.target : null)
+      )
+        return
+      onCloseRef.current?.(event, reason)
+    },
+    [dismissOnBackdropClick, modalRoot],
+  )
+  useDialogPopupAccessibility(modalRoot, open)
+
+  return (
+    <Modal
+      ref={setModalRoot}
+      open={open}
+      onClose={handleClose}
+      disableAutoFocus
+      disableRestoreFocus
+      {...props}
+    />
+  )
+}

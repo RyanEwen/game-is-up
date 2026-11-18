@@ -1,0 +1,90 @@
+/**
+ * Shared jsdom bootstrap for web component tests.
+ *
+ * Every Joy UI render test needs the same ~35 lines: a JSDOM instance plus a pile of globals
+ * (`window`, `document`, `HTMLElement`, `matchMedia`, rAF shims, …) assigned onto `globalThis`. This
+ * centralises that so suites only declare what is *different* (their URL, a dynamic `matchMedia`
+ * matcher) and add any extra globals they need (`fetch`, `confirm`, …) after calling it.
+ *
+ * Call it from a `before()` hook and close the returned dom in `after()`:
+ *
+ *   let dom: JSDOM
+ *   before(() => { dom = installJsdomGlobals({ url: 'http://localhost/account' }) })
+ *   after(() => { dom.window.close() })
+ */
+import { JSDOM } from 'jsdom'
+
+export interface InstallJsdomOptions {
+  /** Document URL (sets `window.location`). Defaults to `http://localhost/`. */
+  url?: string
+  /** Returns `matchMedia(query).matches`. Defaults to always `false`. */
+  matchMedia?: (query: string) => boolean
+}
+
+export function installJsdomGlobals(options: InstallJsdomOptions = {}): JSDOM {
+  const dom = new JSDOM('<!doctype html><html><body></body></html>', {
+    url: options.url ?? 'http://localhost/',
+  })
+  const { window } = dom
+  const matches = options.matchMedia ?? (() => false)
+  // Scrollers use window's APIs while React helpers use globals. Keep both on
+  // the same DOM-owned timers so closing this fixture cancels every frame.
+  const requestAnimationFrame = (callback: FrameRequestCallback) =>
+    window.setTimeout(() => callback(Date.now()), 0)
+  const cancelAnimationFrame = (handle: number) => window.clearTimeout(handle)
+  Object.assign(window, { requestAnimationFrame, cancelAnimationFrame })
+
+  const matchMedia = (query: string) => ({
+    matches: matches(query),
+    media: query,
+    onchange: null,
+    addListener() {},
+    removeListener() {},
+    addEventListener() {},
+    removeEventListener() {},
+    dispatchEvent() {
+      return false
+    },
+  })
+
+  // `navigator` is defined rather than assigned because Node 21 added a built-in `globalThis.navigator`
+  // as a getter with NO setter, so `Object.assign` throws "Cannot set property navigator of #<Object>
+  // which has only a getter" and takes every jsdom-based test in the repo with it. The error names
+  // installJsdomGlobals and the component under test, never the runtime, so it reads as a broken
+  // component on any Node newer than the development image's. It stays `configurable`, so this works on
+  // every version: on Node 20 there is no such property and this simply creates one.
+  Object.defineProperty(globalThis, 'navigator', {
+    value: window.navigator,
+    configurable: true,
+    writable: true,
+  })
+
+  Object.assign(globalThis, {
+    window,
+    document: window.document,
+    HTMLElement: window.HTMLElement,
+    Element: window.Element,
+    Node: window.Node,
+    DocumentFragment: window.DocumentFragment,
+    MutationObserver: window.MutationObserver,
+    getComputedStyle: window.getComputedStyle.bind(window),
+    requestAnimationFrame,
+    cancelAnimationFrame,
+  })
+
+  Object.defineProperty(globalThis, 'matchMedia', {
+    configurable: true,
+    value: matchMedia,
+  })
+  Object.defineProperty(window, 'matchMedia', {
+    configurable: true,
+    value: matchMedia,
+  })
+  // Harmless no-op several layouts call on mount; always provided so callers don't each redefine it.
+  Object.defineProperty(window, 'scrollTo', {
+    configurable: true,
+    value: () => {},
+  })
+
+  return dom
+}
