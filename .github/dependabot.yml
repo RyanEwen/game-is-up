@@ -5,10 +5,21 @@ updates:
     directory: '/'
     schedule:
       interval: 'weekly'
+    ignore:
+      # Major versions move together in the stack upgrade to the store-sign-controller
+      # baseline (parity package 12: Node, TypeScript, zod, Prisma, React and the rest),
+      # one step at a time with its own checks. Remove this rule once that upgrade is done.
+      - dependency-name: '*'
+        update-types: ['version-update:semver-major']
+      # devkit is pinned to a release tag and bumped by hand, following the consumer
+      # steps in its release notes. Dependabot misreads its git tags (it proposed
+      # v0.18.0 -> v0.17.1).
+      - dependency-name: '@dynamic-solutions-canada/devkit'
     groups:
-      all-deps:
-        patterns:
-          - '*'
+      minor-and-patch:
+        update-types:
+          - 'minor'
+          - 'patch'
 
   # Workflows live only in the root .github/workflows.
   - package-ecosystem: 'github-actions'
