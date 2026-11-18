@@ -44,7 +44,7 @@
     "web:icons:export": "node scripts/dev/generate-brand-icons.mjs"
   },
   "devDependencies": {
-    "@dynamic-solutions-canada/devkit": "github:Dynamic-Solutions-Canada/devkit#v0.18.0",
+    "@dynamic-solutions-canada/devkit": "github:Dynamic-Solutions-Canada/devkit#v0.18.1",
     "@eslint/js": "^9.39.5",
     "@resvg/resvg-js": "^2.6.2",
     "@typescript/native": "npm:typescript@^7.0.2",
