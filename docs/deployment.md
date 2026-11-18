@@ -30,7 +30,7 @@ It deploys the current commit, and refuses before reaching the server when:
 - the local tree has uncommitted changes;
 - `HEAD` is not exactly `origin/main`, so push to `main` first.
 
-Then it runs `npm run validate` (skip it with `--skip-validate`), and on the server refuses a checkout with tracked changes, fast-forwards it to `origin/main`, and runs `docker compose -f compose.yml up --build -d`, adding `-f compose.prod.yml` when that server-only file exists. `--dry-run` runs the local checks and prints the plan without validating or deploying.
+Then it runs `npm run validate` (skip it with `--skip-validate`), and on the server refuses a checkout with tracked changes, dumps the database to `.backups/` in the server checkout and verifies the dump (see Backup below), fast-forwards the checkout to `origin/main`, and runs `docker compose -f compose.yml up --build -d`, adding `-f compose.prod.yml` when that server-only file exists. `--dry-run` runs the local checks and prints the plan without validating or deploying.
 
 The port defaults to `22` (`DEPLOY_SSH_PORT` or `--port`). `DEPLOY_COMPOSE_FILES` (comma separated) or a repeated `--compose-file` sets an exact Compose stack instead, for example `--compose-file compose.yml --compose-file compose.prod.yml`.
 
@@ -115,4 +115,6 @@ There is no data export.
 
 ### Backup
 
-Backup is the host's: the server is a virtual machine whose whole disk, including the `postgres-data` volume, is backed up by the hypervisor (Proxmox whole-machine backups). The operator, who runs the server, is responsible for those backups and for restoring from them. A restore has not yet been tried. Backups hold the same personal data and tokens as the live database and need the same protection.
+Every deploy first takes a database dump into `.backups/pre-deploy-<UTC time>-<commit>.sql.gz` in the server checkout, before any migration can run. The dump is checked for gzip integrity and for pg_dump's completion trailer, and the deploy stops if either check fails. The newest five are kept. Skip it with `--skip-backup` (or `DEPLOY_BACKUP=0`) only when you have taken a dump another way. To restore one into the running database: `gzip -dc .backups/<file> | docker compose exec -T db psql -U postgres -d game_is_up` (into an empty database, or after dropping and recreating it).
+
+Beyond those dumps, backup is the host's: the server is a virtual machine whose whole disk, including the `postgres-data` volume, is backed up by the hypervisor (Proxmox whole-machine backups). The operator, who runs the server, is responsible for those backups and for restoring from them. A restore has not yet been tried. Backups hold the same personal data and tokens as the live database and need the same protection.

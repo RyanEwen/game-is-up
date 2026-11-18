@@ -7,8 +7,9 @@
  *   2. uncommitted changes in the local tree;
  *   3. a HEAD that is not exactly `origin/main`, so only a pushed commit on main is deployed.
  * Then it runs the gate (`npm run validate`, unless --skip-validate), and on the server
- * refuses tracked changes in the checkout, fast-forwards it to `origin/main`, and rebuilds
- * the stack. Prisma migrations run when the API container starts.
+ * refuses tracked changes in the checkout, dumps and verifies the database (CTR-11),
+ * fast-forwards the checkout to `origin/main`, and rebuilds the stack. Prisma migrations run
+ * when the API container starts, so the dump is always taken before a migration can run.
  *
  * Run with `npm run deploy:prod`, which loads `.env` when it exists. Options:
  *   --host <user@host>      DEPLOY_SSH_HOST
@@ -17,6 +18,8 @@
  *   --compose-file <path>   DEPLOY_COMPOSE_FILES (comma separated); repeatable. Default:
  *                           compose.yml, plus compose.prod.yml when it exists on the server
  *   --skip-validate         skip the local gate
+ *   --skip-backup           skip the pre-deploy database dump (or DEPLOY_BACKUP=0); only
+ *                           when you have taken one another way
  *   --dry-run               run the local refusals, then print the plan without validating or deploying
  */
 import path from 'node:path'
@@ -30,10 +33,14 @@ const repoRoot = path.resolve(scriptDir, '../..')
 // Production is always the remote's main (SCRIPT-10); there is no branch option.
 const deployBranch = 'main'
 
+// Pre-deploy dumps live in the server checkout's .backups/ (git-ignored); the newest few are kept.
+const backupFolder = '.backups'
+const backupsKept = 5
+
 /**
  * Read the deploy options from the environment, then let flags override them.
  * @param {string[]} argv Arguments after the script name.
- * @returns {{ composeFiles: string[], dryRun: boolean, host: string, port: string, repoPath: string, skipValidate: boolean }}
+ * @returns {{ composeFiles: string[], dryRun: boolean, host: string, port: string, repoPath: string, skipBackup: boolean, skipValidate: boolean }}
  */
 function parseArgs(argv) {
   const options = {
@@ -42,6 +49,7 @@ function parseArgs(argv) {
     host: process.env.DEPLOY_SSH_HOST?.trim() || '',
     port: process.env.DEPLOY_SSH_PORT?.trim() || '22',
     repoPath: process.env.DEPLOY_REPO_PATH?.trim() || '',
+    skipBackup: process.env.DEPLOY_BACKUP?.trim() === '0',
     skipValidate: false,
   }
 
@@ -75,6 +83,11 @@ function parseArgs(argv) {
 
     if (argument === '--skip-validate') {
       options.skipValidate = true
+      continue
+    }
+
+    if (argument === '--skip-backup') {
+      options.skipBackup = true
       continue
     }
 
@@ -113,6 +126,7 @@ Options:
   --repo-path <path>    Server checkout path (required; or DEPLOY_REPO_PATH)
   --compose-file <path> Repeatable Compose file; defaults to compose.yml, plus compose.prod.yml when present on the server
   --skip-validate       Skip the local npm run validate gate
+  --skip-backup         Skip the pre-deploy database dump (or DEPLOY_BACKUP=0)
   --dry-run             Check the local tree, then print the plan without validating or deploying
   --help                Show this message
 `)
@@ -195,11 +209,49 @@ function requireCleanPushedMain() {
 }
 
 /**
- * Build the shell script run on the server.
- * @param {{ composeFiles: string[], repoPath: string }} options
- * @returns {string} A bash script that refuses a dirty checkout, updates it and rebuilds the stack.
+ * Shell lines that dump the database before the stack is rebuilt (CTR-11).
+ *
+ * Migrations run when the new API container starts, so this dump is the only way back from a
+ * migration that loses data. It is verified rather than trusted: pg_dump can exit 0 after
+ * writing a partial file if the connection drops, and a truncated dump restores far enough to
+ * look fine. So the archive is integrity-checked and must end with pg_dump's own completion
+ * trailer, or the deploy stops before the checkout or the containers change.
+ *
+ * Credentials come from the db container's own environment, so nothing sensitive reaches the
+ * command line or this script. A first deploy, with no db container yet, has nothing to dump.
+ *
+ * @param {string} shortSha The commit being deployed, recorded in the dump's file name.
+ * @returns {string[]} Bash lines; they expect `compose_args` to be set.
  */
-function buildRemoteDeployCommand(options) {
+function buildBackupCommands(shortSha) {
+  return [
+    'printf "%s\n" "Backing up the database before deploying..."',
+    'backup_db_container="$(docker compose "${compose_args[@]}" ps -q db 2>/dev/null || true)"',
+    'if [[ -z "$backup_db_container" ]]; then',
+    '  printf "%s\n" "No database container yet: nothing to back up."',
+    'else',
+    `  mkdir -p ${backupFolder}`,
+    `  backup_file="${backupFolder}/pre-deploy-$(date -u +%Y%m%dT%H%M%SZ)-${shortSha}.sql.gz"`,
+    `  docker compose "\${compose_args[@]}" exec -T db sh -c 'exec pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB"' | gzip > "$backup_file"`,
+    '  gzip -t "$backup_file"',
+    '  if ! gzip -dc "$backup_file" | tail -5 | grep -q "PostgreSQL database dump complete"; then',
+    '    printf "%s\n" "Backup $backup_file is incomplete; refusing to deploy. Check the database, or rerun with --skip-backup once you have a dump another way." >&2',
+    '    exit 1',
+    '  fi',
+    '  printf "%s %s (%s)\n" "Database backed up to" "$backup_file" "$(du -h "$backup_file" | cut -f1)"',
+    `  ls -1t ${backupFolder}/pre-deploy-*.sql.gz 2>/dev/null | tail -n +${backupsKept + 1} | xargs -r rm -f || true`,
+    'fi',
+  ]
+}
+
+/**
+ * Build the shell script run on the server.
+ * @param {{ composeFiles: string[], repoPath: string, skipBackup: boolean }} options
+ * @param {string} shortSha The commit being deployed.
+ * @returns {string} A bash script that refuses a dirty checkout, dumps the database, updates
+ *   the checkout and rebuilds the stack.
+ */
+function buildRemoteDeployCommand(options, shortSha) {
   const branch = shellQuote(deployBranch)
   const repoPath = shellQuote(options.repoPath)
   const composeFileCommands =
@@ -225,6 +277,9 @@ function buildRemoteDeployCommand(options) {
     '  git status --short --untracked-files=no >&2',
     '  exit 1',
     'fi',
+    ...(options.skipBackup
+      ? ['printf "%s\n" "Skipping the database backup (--skip-backup)."']
+      : buildBackupCommands(shortSha)),
     `git fetch origin ${branch}`,
     `git checkout ${branch}`,
     `git pull --ff-only origin ${branch}`,
@@ -260,19 +315,23 @@ function main() {
 
   requireCleanPushedMain()
 
-  const remoteShellCommand = `bash -lc ${shellQuote(buildRemoteDeployCommand(options))}`
+  const shortSha = runCommand('git', ['rev-parse', '--short', 'HEAD'], {
+    captureOutput: true,
+  })
+  const remoteShellCommand = `bash -lc ${shellQuote(buildRemoteDeployCommand(options, shortSha))}`
   const sshArgs = ['-p', options.port, options.host, remoteShellCommand]
 
   if (options.dryRun) {
     process.stdout.write(`Local repo: ${repoRoot}\n`)
-    process.stdout.write(
-      `Commit: ${runCommand('git', ['rev-parse', '--short', 'HEAD'], { captureOutput: true })} (origin/${deployBranch})\n`,
-    )
+    process.stdout.write(`Commit: ${shortSha} (origin/${deployBranch})\n`)
     process.stdout.write(`Remote host: ${options.host}:${options.port}\n`)
     process.stdout.write(`Remote repo: ${options.repoPath}\n`)
     process.stdout.write(`Compose files: ${describeComposeFiles(options)}\n`)
     process.stdout.write(
       `Will validate first: ${options.skipValidate ? 'no' : 'yes'}\n`,
+    )
+    process.stdout.write(
+      `Will back up the database: ${options.skipBackup ? 'no' : `yes, into ${backupFolder}/`}\n`,
     )
     process.stdout.write(
       `SSH command: ssh ${sshArgs.map(shellQuote).join(' ')}\n`,
