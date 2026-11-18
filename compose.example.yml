@@ -1,8 +1,17 @@
 # Copy this file to compose.yml for a real deployment and keep the
 # server-specific copy out of git.
 
+# Caps each container's log at 50 MB (5 files of 10 MB), so a noisy or crash-looping
+# container cannot fill the server's disk. Every service references this anchor.
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
 services:
   db:
+    logging: *default-logging
     image: postgres:16-bookworm
     restart: unless-stopped
     environment:
@@ -18,6 +27,7 @@ services:
       retries: 10
 
   api:
+    logging: *default-logging
     build:
       context: .
       dockerfile: apps/api/Dockerfile
@@ -49,6 +59,7 @@ services:
       retries: 10
 
   web:
+    logging: *default-logging
     build:
       context: .
       dockerfile: apps/web/Dockerfile

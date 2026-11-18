@@ -6,7 +6,7 @@ How Game's Up runs in production: the Docker Compose stack, the SSH deploy scrip
 
 Production runs from `compose.example.yml`, copied to an untracked `compose.yml` in the server checkout. Keep any `compose.prod.yml` override out of the repository; that file exists only on the production server, for host-specific Compose overrides.
 
-1. Copy `.env.production.example` to `.env` and set `POSTGRES_PASSWORD` and `SESSION_SECRET` to long random values. Compose refuses to start without them.
+1. Copy `.env.server.example` to `.env` and set `POSTGRES_PASSWORD` and `SESSION_SECRET` to long random values. Compose refuses to start without them.
 2. For a real deployment, set `CLIENT_ORIGIN` to your public app URL and set `DISCORD_CALLBACK_URL` to `${CLIENT_ORIGIN}/api/auth/discord/callback`.
 3. If you want Play composer calls to create a temporary Discord space in the Game's Up Discord server, also set `DISCORD_SERVER_ID` to that server's guild id.
 4. If you want the web container to proxy API traffic on the same origin, leave `VITE_API_BASE_URL` empty.

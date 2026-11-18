@@ -34,7 +34,7 @@ compose.example.yml   Production stack template
 
 ## Quick start
 
-1. Copy `.env.development.example` to `.env` if you need local overrides.
+1. Copy `.env.dev.example` to `.env` if you need local overrides.
 2. Select the exact Node and npm toolchain, then install dependencies:
 
    ```bash
@@ -163,7 +163,7 @@ The development scripts default to that Docker network address unless you explic
 ## Discord OAuth setup
 
 1. In the Discord developer portal, add your OAuth redirect URI.
-2. For local development, use the callback in `.env.development.example` unless you intentionally change the API port.
+2. For local development, use the callback in `.env.dev.example` unless you intentionally change the API port.
 3. Set `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`, and `DISCORD_CALLBACK_URL` in your environment or `.env` file. In Devkit host mode the runner replaces the callback with `http://game-is-up.localhost/api/auth/discord/callback` in the primary checkout, or the corresponding `<worktree>.game-is-up.localhost` URI in a worktree. Discord requires an exact redirect URI match, so sign-in only works after that checkout-specific URI is registered in the Discord developer portal. Use `DEVKIT=0 npm run dev` when you need the single registered fixed-port callback instead.
 4. Start the app with `npm run dev` and use the "Sign in with Discord" button in the web UI.
 5. Discord sign-in also requests the `guilds` scope so the app can sync which servers you share with other users.
@@ -182,7 +182,7 @@ How the bot behaves once it is set up (calls to play, DMs, slash commands, clean
 
 1. Create a Steam Web API key at `https://steamcommunity.com/dev/apikey`.
 2. Set `STEAM_WEB_API_KEY` and `STEAM_CALLBACK_URL` in your environment or `.env` file.
-3. For local development, use the callback in `.env.development.example` unless you intentionally change the API port. Devkit host mode instead uses the routed checkout origin at `/api/auth/steam/callback`; Steam verifies that dynamic return URL and realm. If the provider setup cannot accept the checkout-specific URL, use `DEVKIT=0 npm run dev` for the fixed callback.
+3. For local development, use the callback in `.env.dev.example` unless you intentionally change the API port. Devkit host mode instead uses the routed checkout origin at `/api/auth/steam/callback`; Steam verifies that dynamic return URL and realm. If the provider setup cannot accept the checkout-specific URL, use `DEVKIT=0 npm run dev` for the fixed callback.
 
 How the import picker and title matching behave is in [behaviour.md](behaviour.md#steam-import).
 

@@ -1,11 +1,15 @@
-node_modules
-dist
-.vite
-.turbo
-coverage
-apps/api/prisma/dev.db
-apps/api/prisma/dev.db-journal
+# Stack template (Web)
+node_modules/
+dist/
+
+# Project rules
+# Vite's dependency cache, written into apps/web/.vite by the dev server
+.vite/
+# Log files written by local runs
 *.log
+# Old development runner logs; nothing writes here any more, kept out of git until deleted
+/.enjoy-logs/
+# The server's real compose file, copied from compose.example.yml and never committed
 /compose.yml
 # Personal Claude Code settings; the tracked project settings are .claude/settings.json
 .claude/settings.local.json
