@@ -1,6 +1,22 @@
 import { useEffect, useState } from 'react'
-import { Box, Button, Chip, DialogContent, DialogTitle, Input, Link, Sheet, Stack, Typography } from '@mui/joy'
-import type { GameSearchResponse, GameSearchResult, LibraryEntry, LibraryEntryIntent } from '@game-is-up/shared'
+import {
+  Box,
+  Button,
+  Chip,
+  DialogContent,
+  DialogTitle,
+  Input,
+  Link,
+  Sheet,
+  Stack,
+  Typography,
+} from '@mui/joy'
+import type {
+  GameSearchResponse,
+  GameSearchResult,
+  LibraryEntry,
+  LibraryEntryIntent,
+} from '@game-is-up/shared'
 import { DashboardDeferredImage } from './DashboardDeferredImage'
 import { formatLibraryIntentLabel } from './dashboardUtils'
 import { DashboardModalActionBar } from './DashboardModalActionBar'
@@ -28,30 +44,30 @@ export function LibraryEditorCard({
   onDeleteGameAlias,
   librarySaving,
   onAddLibraryEntry,
-  onCancelLibraryEdit
+  onCancelLibraryEdit,
 }: {
-  editingLibraryEntry: LibraryEntry | null;
-  libraryTitle: string;
-  onLibraryTitleChange: (value: string) => void;
-  selectedCatalogResult: GameSearchResult | null;
-  gameSuggestions: GameSearchResponse['results'];
-  gameSuggestionsLoading: boolean;
-  onSelectSuggestion: (result: GameSearchResult) => void;
-  platformOptions: string[];
-  selectedPlatformLabels: string[];
-  onTogglePlatformLabel: (platform: string) => void;
-  libraryIntent: LibraryEntryIntent;
-  onLibraryIntentChange: (intent: LibraryEntryIntent) => void;
-  currentUsualAvailability: string | null;
-  libraryAvailability: string;
-  onLibraryAvailabilityChange: (value: string) => void;
-  gameAlias: string | null;
-  aliasSaving: boolean;
-  onSaveGameAlias: (gameId: string, aliasValue: string) => Promise<void>;
-  onDeleteGameAlias: (gameId: string) => Promise<void>;
-  librarySaving: boolean;
-  onAddLibraryEntry: () => Promise<void>;
-  onCancelLibraryEdit: () => void;
+  editingLibraryEntry: LibraryEntry | null
+  libraryTitle: string
+  onLibraryTitleChange: (value: string) => void
+  selectedCatalogResult: GameSearchResult | null
+  gameSuggestions: GameSearchResponse['results']
+  gameSuggestionsLoading: boolean
+  onSelectSuggestion: (result: GameSearchResult) => void
+  platformOptions: string[]
+  selectedPlatformLabels: string[]
+  onTogglePlatformLabel: (platform: string) => void
+  libraryIntent: LibraryEntryIntent
+  onLibraryIntentChange: (intent: LibraryEntryIntent) => void
+  currentUsualAvailability: string | null
+  libraryAvailability: string
+  onLibraryAvailabilityChange: (value: string) => void
+  gameAlias: string | null
+  aliasSaving: boolean
+  onSaveGameAlias: (gameId: string, aliasValue: string) => Promise<void>
+  onDeleteGameAlias: (gameId: string) => Promise<void>
+  librarySaving: boolean
+  onAddLibraryEntry: () => Promise<void>
+  onCancelLibraryEdit: () => void
 }) {
   const { gameDetailsViewProps } = useDashboardContext()
   const [aliasDraft, setAliasDraft] = useState(gameAlias ?? '')
@@ -60,17 +76,23 @@ export function LibraryEditorCard({
     setAliasDraft(gameAlias ?? '')
   }, [gameAlias])
 
-  const aliasTarget = editingLibraryEntry ?? (selectedCatalogResult ? {
-    gameId: selectedCatalogResult.id,
-    title: selectedCatalogResult.title
-  } : null)
+  const aliasTarget =
+    editingLibraryEntry ??
+    (selectedCatalogResult
+      ? {
+          gameId: selectedCatalogResult.id,
+          title: selectedCatalogResult.title,
+        }
+      : null)
   const hasAlias = (gameAlias?.trim().length ?? 0) > 0
   const aliasChanged = aliasDraft.trim() !== (gameAlias ?? '')
 
   return (
     <>
       <DialogTitle sx={{ pr: 6 }}>
-        {editingLibraryEntry ? `Edit ${editingLibraryEntry.title}` : 'Add game to library'}
+        {editingLibraryEntry
+          ? `Edit ${editingLibraryEntry.title}`
+          : 'Add game to library'}
       </DialogTitle>
       <DialogContent
         sx={{
@@ -79,13 +101,17 @@ export function LibraryEditorCard({
           gap: 2,
           pr: 0.5,
           overscrollBehavior: 'contain',
-          WebkitOverflowScrolling: 'touch'
+          WebkitOverflowScrolling: 'touch',
         }}
       >
         <Stack spacing={1}>
           <Typography level="title-sm">Game title</Typography>
           <Input
-            placeholder={editingLibraryEntry ? 'Game title is fixed while editing this entry' : 'Start typing a game title'}
+            placeholder={
+              editingLibraryEntry
+                ? 'Game title is fixed while editing this entry'
+                : 'Start typing a game title'
+            }
             value={libraryTitle}
             disabled={Boolean(editingLibraryEntry)}
             onChange={(event) => onLibraryTitleChange(event.target.value)}
@@ -102,18 +128,23 @@ export function LibraryEditorCard({
             </Link>
             .
           </Typography>
-          {libraryTitle.trim().length >= 2 && !selectedCatalogResult && !editingLibraryEntry ? (
+          {libraryTitle.trim().length >= 2 &&
+          !selectedCatalogResult &&
+          !editingLibraryEntry ? (
             <Sheet
               variant="soft"
               sx={{
                 mt: 1,
                 borderRadius: 'md',
                 border: '1px solid #272f3c',
-                overflow: 'hidden'
+                overflow: 'hidden',
               }}
             >
               {gameSuggestionsLoading ? (
-                <Typography level="body-sm" sx={{ px: 1.5, py: 1.25, color: 'neutral.300' }}>
+                <Typography
+                  level="body-sm"
+                  sx={{ px: 1.5, py: 1.25, color: 'neutral.300' }}
+                >
                   Searching the external game catalog...
                 </Typography>
               ) : gameSuggestions.length > 0 ? (
@@ -128,10 +159,15 @@ export function LibraryEditorCard({
                         justifyContent: 'flex-start',
                         px: 1.25,
                         py: 1,
-                        borderRadius: 0
+                        borderRadius: 0,
                       }}
                     >
-                      <Stack direction="row" spacing={1.25} alignItems="center" sx={{ width: '100%' }}>
+                      <Stack
+                        direction="row"
+                        spacing={1.25}
+                        alignItems="center"
+                        sx={{ width: '100%' }}
+                      >
                         <Box
                           component="button"
                           type="button"
@@ -142,7 +178,7 @@ export function LibraryEditorCard({
                               sourceId: result.sourceId,
                               title: result.title,
                               coverUrl: result.coverUrl,
-                              platformLabels: result.platformLabels
+                              platformLabels: result.platformLabels,
                             })
                           }}
                           sx={{
@@ -154,22 +190,40 @@ export function LibraryEditorCard({
                             flexShrink: 0,
                             border: 'none',
                             padding: 0,
-                            cursor: 'pointer'
+                            cursor: 'pointer',
                           }}
                         >
                           {result.coverUrl ? (
-                            <DashboardDeferredImage src={result.coverUrl} alt={result.title} rootMargin="160px 0px" />
+                            <DashboardDeferredImage
+                              src={result.coverUrl}
+                              alt={result.title}
+                              rootMargin="160px 0px"
+                            />
                           ) : null}
                         </Box>
                         <Box sx={{ textAlign: 'left', minWidth: 0 }}>
-                          <Stack direction="row" spacing={0.75} alignItems="center" sx={{ flexWrap: 'wrap' }}>
-                            <Typography level="title-sm">{result.title}</Typography>
-                            {result.gameplayClassification === 'singleplayer-only' ? (
-                              <Chip size="sm" color="warning" variant="soft">Single-player</Chip>
+                          <Stack
+                            direction="row"
+                            spacing={0.75}
+                            alignItems="center"
+                            sx={{ flexWrap: 'wrap' }}
+                          >
+                            <Typography level="title-sm">
+                              {result.title}
+                            </Typography>
+                            {result.gameplayClassification ===
+                            'singleplayer-only' ? (
+                              <Chip size="sm" color="warning" variant="soft">
+                                Single-player
+                              </Chip>
                             ) : null}
                           </Stack>
-                          <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
-                            {result.platformLabels.join(', ') || 'Platforms unknown'}
+                          <Typography
+                            level="body-xs"
+                            sx={{ color: 'neutral.400' }}
+                          >
+                            {result.platformLabels.join(', ') ||
+                              'Platforms unknown'}
                           </Typography>
                         </Box>
                       </Stack>
@@ -177,8 +231,12 @@ export function LibraryEditorCard({
                   ))}
                 </Stack>
               ) : (
-                <Typography level="body-sm" sx={{ px: 1.5, py: 1.25, color: 'neutral.300' }}>
-                  No catalog matches yet. Keep typing to save the title manually.
+                <Typography
+                  level="body-sm"
+                  sx={{ px: 1.5, py: 1.25, color: 'neutral.300' }}
+                >
+                  No catalog matches yet. Keep typing to save the title
+                  manually.
                 </Typography>
               )}
             </Sheet>
@@ -189,13 +247,15 @@ export function LibraryEditorCard({
                 <Box
                   component="button"
                   type="button"
-                  onClick={() => gameDetailsViewProps.openGameDetails({
-                    source: selectedCatalogResult.source,
-                    sourceId: selectedCatalogResult.sourceId,
-                    title: selectedCatalogResult.title,
-                    coverUrl: selectedCatalogResult.coverUrl,
-                    platformLabels: selectedCatalogResult.platformLabels
-                  })}
+                  onClick={() =>
+                    gameDetailsViewProps.openGameDetails({
+                      source: selectedCatalogResult.source,
+                      sourceId: selectedCatalogResult.sourceId,
+                      title: selectedCatalogResult.title,
+                      coverUrl: selectedCatalogResult.coverUrl,
+                      platformLabels: selectedCatalogResult.platformLabels,
+                    })
+                  }
                   sx={{
                     width: 36,
                     height: 48,
@@ -205,25 +265,38 @@ export function LibraryEditorCard({
                     flexShrink: 0,
                     border: 'none',
                     padding: 0,
-                    cursor: 'pointer'
+                    cursor: 'pointer',
                   }}
                 >
                   {selectedCatalogResult.coverUrl ? (
-                    <DashboardDeferredImage src={selectedCatalogResult.coverUrl} alt={selectedCatalogResult.title} eager />
+                    <DashboardDeferredImage
+                      src={selectedCatalogResult.coverUrl}
+                      alt={selectedCatalogResult.title}
+                      eager
+                    />
                   ) : null}
                 </Box>
                 <Box>
-                  <Stack direction="row" spacing={0.75} alignItems="center" sx={{ flexWrap: 'wrap' }}>
+                  <Stack
+                    direction="row"
+                    spacing={0.75}
+                    alignItems="center"
+                    sx={{ flexWrap: 'wrap' }}
+                  >
                     <Typography level="body-sm" sx={{ color: 'primary.300' }}>
                       Catalog match selected: {selectedCatalogResult.title}
                     </Typography>
-                    {selectedCatalogResult.gameplayClassification === 'singleplayer-only' ? (
-                      <Chip size="sm" color="warning" variant="soft">Single-player</Chip>
+                    {selectedCatalogResult.gameplayClassification ===
+                    'singleplayer-only' ? (
+                      <Chip size="sm" color="warning" variant="soft">
+                        Single-player
+                      </Chip>
                     ) : null}
                   </Stack>
                   {selectedCatalogResult.platformLabels.length ? (
                     <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
-                      Known platforms: {selectedCatalogResult.platformLabels.join(', ')}.
+                      Known platforms:{' '}
+                      {selectedCatalogResult.platformLabels.join(', ')}.
                     </Typography>
                   ) : null}
                 </Box>
@@ -234,15 +307,24 @@ export function LibraryEditorCard({
         <Stack spacing={1}>
           <Typography level="title-sm">Platform</Typography>
           <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
-            Choose every platform where you actually play this game. One library entry can hold multiple platform flags.
+            Choose every platform where you actually play this game. One library
+            entry can hold multiple platform flags.
           </Typography>
           <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
             {platformOptions.map((platform) => (
               <Button
                 key={platform}
                 size="sm"
-                variant={selectedPlatformLabels.includes(platform) ? 'solid' : 'outlined'}
-                color={selectedPlatformLabels.includes(platform) ? 'primary' : 'neutral'}
+                variant={
+                  selectedPlatformLabels.includes(platform)
+                    ? 'solid'
+                    : 'outlined'
+                }
+                color={
+                  selectedPlatformLabels.includes(platform)
+                    ? 'primary'
+                    : 'neutral'
+                }
                 onClick={() => onTogglePlatformLabel(platform)}
               >
                 {platform}
@@ -254,26 +336,37 @@ export function LibraryEditorCard({
           <Stack spacing={1}>
             <Typography level="title-sm">Game alias</Typography>
             <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
-              Your in-game name for {aliasTarget.title}, if different than your usual name.
+              Your in-game name for {aliasTarget.title}, if different than your
+              usual name.
             </Typography>
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'center' }}>
+            <Stack
+              direction={{ xs: 'column', sm: 'row' }}
+              spacing={1}
+              alignItems={{ xs: 'stretch', sm: 'center' }}
+            >
               <Input
                 value={aliasDraft}
                 placeholder="Optional in-game alias"
                 onChange={(event) => setAliasDraft(event.target.value)}
                 sx={{ flex: 1 }}
               />
-              <Stack direction="row" spacing={1} sx={{ width: { xs: '100%', sm: 'auto' }, flexShrink: 0 }}>
+              <Stack
+                direction="row"
+                spacing={1}
+                sx={{ width: { xs: '100%', sm: 'auto' }, flexShrink: 0 }}
+              >
                 <Button
                   size="sm"
                   variant="solid"
                   color="primary"
                   disabled={aliasSaving || !aliasDraft.trim() || !aliasChanged}
-                  onClick={() => void onSaveGameAlias(aliasTarget.gameId, aliasDraft)}
+                  onClick={() =>
+                    void onSaveGameAlias(aliasTarget.gameId, aliasDraft)
+                  }
                   sx={{
                     flex: { xs: 1, sm: 'none' },
                     minWidth: { sm: '8rem' },
-                    whiteSpace: 'nowrap'
+                    whiteSpace: 'nowrap',
                   }}
                 >
                   Save alias
@@ -290,7 +383,7 @@ export function LibraryEditorCard({
                   sx={{
                     flex: { xs: 1, sm: 'none' },
                     minWidth: { sm: '6rem' },
-                    whiteSpace: 'nowrap'
+                    whiteSpace: 'nowrap',
                   }}
                 >
                   Clear
@@ -302,38 +395,56 @@ export function LibraryEditorCard({
         <Stack spacing={1}>
           <Typography level="title-sm">Interest level</Typography>
           <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-            {(['interested', 'wishlist', 'playing-now'] as const).map((intent) => (
-              <Button
-                key={intent}
-                size="sm"
-                variant={libraryIntent === intent ? 'solid' : 'outlined'}
-                color={libraryIntent === intent ? 'primary' : 'neutral'}
-                onClick={() => onLibraryIntentChange(intent)}
-              >
-                {formatLibraryIntentLabel(intent)}
-              </Button>
-            ))}
+            {(['interested', 'wishlist', 'playing-now'] as const).map(
+              (intent) => (
+                <Button
+                  key={intent}
+                  size="sm"
+                  variant={libraryIntent === intent ? 'solid' : 'outlined'}
+                  color={libraryIntent === intent ? 'primary' : 'neutral'}
+                  onClick={() => onLibraryIntentChange(intent)}
+                >
+                  {formatLibraryIntentLabel(intent)}
+                </Button>
+              ),
+            )}
           </Stack>
         </Stack>
         <Stack spacing={1}>
-          <Typography level="title-sm">Game-specific schedule override</Typography>
+          <Typography level="title-sm">
+            Game-specific schedule override
+          </Typography>
           <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
-            Leave this blank to use your profile schedule. Only fill it in when this game usually happens at a different time.
+            Leave this blank to use your profile schedule. Only fill it in when
+            this game usually happens at a different time.
           </Typography>
           <Input
-            placeholder={currentUsualAvailability ? `Usually ${currentUsualAvailability}` : 'Example: Friday nights'}
+            placeholder={
+              currentUsualAvailability
+                ? `Usually ${currentUsualAvailability}`
+                : 'Example: Friday nights'
+            }
             value={libraryAvailability}
-            onChange={(event) => onLibraryAvailabilityChange(event.target.value)}
+            onChange={(event) =>
+              onLibraryAvailabilityChange(event.target.value)
+            }
           />
         </Stack>
       </DialogContent>
       <DashboardModalActionBar
-        cancelAction={(
-          <Button size="lg" variant="outlined" color="neutral" disabled={librarySaving} onClick={onCancelLibraryEdit} sx={{ minHeight: 52 }}>
+        cancelAction={
+          <Button
+            size="lg"
+            variant="outlined"
+            color="neutral"
+            disabled={librarySaving}
+            onClick={onCancelLibraryEdit}
+            sx={{ minHeight: 52 }}
+          >
             Cancel
           </Button>
-        )}
-        primaryAction={(
+        }
+        primaryAction={
           <Button
             size="lg"
             color="success"
@@ -343,12 +454,16 @@ export function LibraryEditorCard({
               flex: 1,
               minHeight: 52,
               fontWeight: 700,
-              boxShadow: 'none'
+              boxShadow: 'none',
             }}
           >
-            {librarySaving ? 'Saving game...' : editingLibraryEntry ? 'Save library changes' : 'Add game to library'}
+            {librarySaving
+              ? 'Saving game...'
+              : editingLibraryEntry
+                ? 'Save library changes'
+                : 'Add game to library'}
           </Button>
-        )}
+        }
       />
     </>
   )

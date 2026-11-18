@@ -20,29 +20,35 @@ const DISCORD_STATE_TTL_SECONDS = 60 * 10
 const STEAM_LINK_STATE_TTL_SECONDS = 60 * 10
 
 type SessionPayload = {
-  userId: string;
-  authProvider: AuthProvider;
-  issuedAt: string;
-};
-
-type DiscordStatePayload = {
-  state: string;
-  issuedAt: string;
-  redirectTo: string;
-};
-
-type SteamLinkStatePayload = {
-  userId: string;
-  redirectTo: string;
-  issuedAt: string;
-};
-
-function signValue(encodedPayload: string): string {
-  return createHmac('sha256', env.SESSION_SECRET).update(encodedPayload).digest('base64url')
+  userId: string
+  authProvider: AuthProvider
+  issuedAt: string
 }
 
-function encodeSignedPayload(payload: SessionPayload | DiscordStatePayload | SteamLinkStatePayload): string {
-  const encodedPayload = Buffer.from(JSON.stringify(payload), 'utf8').toString('base64url')
+type DiscordStatePayload = {
+  state: string
+  issuedAt: string
+  redirectTo: string
+}
+
+type SteamLinkStatePayload = {
+  userId: string
+  redirectTo: string
+  issuedAt: string
+}
+
+function signValue(encodedPayload: string): string {
+  return createHmac('sha256', env.SESSION_SECRET)
+    .update(encodedPayload)
+    .digest('base64url')
+}
+
+function encodeSignedPayload(
+  payload: SessionPayload | DiscordStatePayload | SteamLinkStatePayload,
+): string {
+  const encodedPayload = Buffer.from(JSON.stringify(payload), 'utf8').toString(
+    'base64url',
+  )
   const signature = signValue(encodedPayload)
   return `${encodedPayload}.${signature}`
 }
@@ -62,12 +68,16 @@ function decodeSignedPayload<T>(value: string | undefined): T | null {
     return null
   }
 
-  if (!timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSignature))) {
+  if (
+    !timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSignature))
+  ) {
     return null
   }
 
   try {
-    return JSON.parse(Buffer.from(encodedPayload, 'base64url').toString('utf8')) as T
+    return JSON.parse(
+      Buffer.from(encodedPayload, 'base64url').toString('utf8'),
+    ) as T
   } catch {
     return null
   }
@@ -89,7 +99,7 @@ function defaultCookieOptions(maxAge: number) {
     sameSite: 'Lax' as const,
     secure: env.NODE_ENV === 'production',
     path: '/',
-    maxAge
+    maxAge,
   }
 }
 
@@ -98,34 +108,56 @@ export function getAuthSession(request: Request): SessionPayload | null {
   return decodeSignedPayload<SessionPayload>(cookies[SESSION_COOKIE_NAME])
 }
 
-export function setAuthSession(response: Response, userId: string, authProvider: AuthProvider): void {
+export function setAuthSession(
+  response: Response,
+  userId: string,
+  authProvider: AuthProvider,
+): void {
   const payload: SessionPayload = {
     userId,
     authProvider,
-    issuedAt: new Date().toISOString()
+    issuedAt: new Date().toISOString(),
   }
 
-  response.append('Set-Cookie', serializeCookie(SESSION_COOKIE_NAME, encodeSignedPayload(payload), defaultCookieOptions(SESSION_TTL_SECONDS)))
+  response.append(
+    'Set-Cookie',
+    serializeCookie(
+      SESSION_COOKIE_NAME,
+      encodeSignedPayload(payload),
+      defaultCookieOptions(SESSION_TTL_SECONDS),
+    ),
+  )
 }
 
 export function clearAuthSession(response: Response): void {
-  response.append('Set-Cookie', serializeCookie(SESSION_COOKIE_NAME, '', defaultCookieOptions(0)))
+  response.append(
+    'Set-Cookie',
+    serializeCookie(SESSION_COOKIE_NAME, '', defaultCookieOptions(0)),
+  )
 }
 
-export function createSteamLinkState(userId: string, redirectTo: string): string {
+export function createSteamLinkState(
+  userId: string,
+  redirectTo: string,
+): string {
   const payload: SteamLinkStatePayload = {
     userId,
     redirectTo,
-    issuedAt: new Date().toISOString()
+    issuedAt: new Date().toISOString(),
   }
 
   return encodeSignedPayload(payload)
 }
 
-export function consumeSteamLinkState(value: string | undefined): SteamLinkStatePayload | null {
+export function consumeSteamLinkState(
+  value: string | undefined,
+): SteamLinkStatePayload | null {
   const payload = decodeSignedPayload<SteamLinkStatePayload>(value)
 
-  if (!payload || !isFreshPayload(payload.issuedAt, STEAM_LINK_STATE_TTL_SECONDS)) {
+  if (
+    !payload ||
+    !isFreshPayload(payload.issuedAt, STEAM_LINK_STATE_TTL_SECONDS)
+  ) {
     return null
   }
 
@@ -136,23 +168,42 @@ export function createDiscordState(): string {
   return randomBytes(24).toString('hex')
 }
 
-export function setDiscordState(response: Response, state: string, redirectTo: string): void {
+export function setDiscordState(
+  response: Response,
+  state: string,
+  redirectTo: string,
+): void {
   const payload: DiscordStatePayload = {
     state,
     issuedAt: new Date().toISOString(),
-    redirectTo
+    redirectTo,
   }
 
-  response.append('Set-Cookie', serializeCookie(DISCORD_STATE_COOKIE_NAME, encodeSignedPayload(payload), defaultCookieOptions(DISCORD_STATE_TTL_SECONDS)))
+  response.append(
+    'Set-Cookie',
+    serializeCookie(
+      DISCORD_STATE_COOKIE_NAME,
+      encodeSignedPayload(payload),
+      defaultCookieOptions(DISCORD_STATE_TTL_SECONDS),
+    ),
+  )
 }
 
 export function clearDiscordState(response: Response): void {
-  response.append('Set-Cookie', serializeCookie(DISCORD_STATE_COOKIE_NAME, '', defaultCookieOptions(0)))
+  response.append(
+    'Set-Cookie',
+    serializeCookie(DISCORD_STATE_COOKIE_NAME, '', defaultCookieOptions(0)),
+  )
 }
 
-export function consumeDiscordState(request: Request, state: string): DiscordStatePayload | null {
+export function consumeDiscordState(
+  request: Request,
+  state: string,
+): DiscordStatePayload | null {
   const cookies = parseCookies(request.headers.cookie)
-  const payload = decodeSignedPayload<DiscordStatePayload>(cookies[DISCORD_STATE_COOKIE_NAME])
+  const payload = decodeSignedPayload<DiscordStatePayload>(
+    cookies[DISCORD_STATE_COOKIE_NAME],
+  )
 
   if (!payload || payload.state !== state) {
     return null

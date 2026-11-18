@@ -13,14 +13,17 @@ type CapturedResponse = {
   ended: boolean
 }
 
-function buildFakeResponse(): { response: Response; captured: CapturedResponse } {
+function buildFakeResponse(): {
+  response: Response
+  captured: CapturedResponse
+} {
   const captured: CapturedResponse = {
     statusCode: 200,
     jsonBody: undefined,
     headers: {},
     type: null,
     sent: undefined,
-    ended: false
+    ended: false,
   }
   const response = {
     status(code: number) {
@@ -46,7 +49,7 @@ function buildFakeResponse(): { response: Response; captured: CapturedResponse }
     end() {
       captured.ended = true
       return this
-    }
+    },
   } as unknown as Response
 
   return { response, captured }
@@ -55,7 +58,7 @@ function buildFakeResponse(): { response: Response; captured: CapturedResponse }
 function buildFakeRequest(token: string, ifNoneMatch?: string): Request {
   return {
     params: { token },
-    headers: ifNoneMatch ? { 'if-none-match': ifNoneMatch } : {}
+    headers: ifNoneMatch ? { 'if-none-match': ifNoneMatch } : {},
   } as unknown as Request
 }
 
@@ -63,17 +66,18 @@ const samplePayload: MediaPayload = {
   body: Buffer.from([0x89, 0x50, 0x4e, 0x47]),
   contentType: 'image/png',
   etag: 'abc123',
-  lastModified: 'Wed, 22 Apr 2026 12:00:00 GMT'
+  lastModified: 'Wed, 22 Apr 2026 12:00:00 GMT',
 }
 
 test('serves the media body with cache headers when fetched', async () => {
   const handler = createMediaHandler({
     fetcher: async () => samplePayload,
     cacheControl: 'public, max-age=60',
-    notFoundMessage: 'Not found.'
+    notFoundMessage: 'Not found.',
   })
   const { response, captured } = buildFakeResponse()
-  const next = () => assert.fail('next should not be called on the success path')
+  const next = () =>
+    assert.fail('next should not be called on the success path')
 
   await handler(buildFakeRequest('valid-token'), response, next)
 
@@ -90,7 +94,7 @@ test('returns 404 with the configured message when the fetcher returns null', as
   const handler = createMediaHandler({
     fetcher: async () => null,
     cacheControl: 'public, max-age=60',
-    notFoundMessage: 'Game cover not found.'
+    notFoundMessage: 'Game cover not found.',
   })
   const { response, captured } = buildFakeResponse()
 
@@ -105,7 +109,7 @@ test('returns 304 when If-None-Match matches the current etag', async () => {
   const handler = createMediaHandler({
     fetcher: async () => samplePayload,
     cacheControl: 'public, max-age=60',
-    notFoundMessage: 'Not found.'
+    notFoundMessage: 'Not found.',
   })
   const { response, captured } = buildFakeResponse()
 
@@ -123,7 +127,7 @@ test('omits Last-Modified header when payload does not provide one', async () =>
   const handler = createMediaHandler({
     fetcher: async () => ({ ...samplePayload, lastModified: null }),
     cacheControl: 'public, max-age=60',
-    notFoundMessage: 'Not found.'
+    notFoundMessage: 'Not found.',
   })
   const { response, captured } = buildFakeResponse()
 
@@ -139,7 +143,7 @@ test('forwards fetcher errors to next() instead of crashing the response', async
       throw boom
     },
     cacheControl: 'public, max-age=60',
-    notFoundMessage: 'Not found.'
+    notFoundMessage: 'Not found.',
   })
   const { response } = buildFakeResponse()
   let forwarded: unknown = null
@@ -154,7 +158,7 @@ test('rejects empty tokens via zod validation forwarded to next()', async () => 
   const handler = createMediaHandler({
     fetcher: async () => samplePayload,
     cacheControl: 'public, max-age=60',
-    notFoundMessage: 'Not found.'
+    notFoundMessage: 'Not found.',
   })
   const { response } = buildFakeResponse()
   let forwarded: unknown = null

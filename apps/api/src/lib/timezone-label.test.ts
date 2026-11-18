@@ -22,7 +22,10 @@ test('normalizeTimezoneId maps legacy UTC and GMT aliases case-insensitively', (
   assert.match(normalizeTimezoneId('GMT') ?? '', /^(UTC|Etc\/UTC)$/)
   assert.equal(normalizeTimezoneId('gmt-5'), 'America/New_York')
   // Older ICU canonicalises Asia/Kolkata to Asia/Calcutta — accept either.
-  assert.match(normalizeTimezoneId('UTC+5:30') ?? '', /^Asia\/(Kolkata|Calcutta)$/)
+  assert.match(
+    normalizeTimezoneId('UTC+5:30') ?? '',
+    /^Asia\/(Kolkata|Calcutta)$/,
+  )
 })
 
 test('normalizeTimezoneId returns null for unrecognized identifiers', () => {
@@ -31,7 +34,10 @@ test('normalizeTimezoneId returns null for unrecognized identifiers', () => {
 })
 
 test('normalizeTimezoneId passes valid IANA ids through unchanged', () => {
-  assert.equal(normalizeTimezoneId('America/Los_Angeles'), 'America/Los_Angeles')
+  assert.equal(
+    normalizeTimezoneId('America/Los_Angeles'),
+    'America/Los_Angeles',
+  )
   assert.equal(normalizeTimezoneId('Europe/Helsinki'), 'Europe/Helsinki')
   assert.equal(normalizeTimezoneId('Asia/Tokyo'), 'Asia/Tokyo')
 })

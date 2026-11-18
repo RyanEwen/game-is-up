@@ -11,7 +11,9 @@ app.listen(env.API_PORT, () => {
       const repairResult = await repairNormalizedDuplicateGames()
 
       if (repairResult.mergedGameCount > 0) {
-        console.log(`Merged ${repairResult.mergedGameCount} duplicate game rows across ${repairResult.mergedGroupCount} normalized title groups.`)
+        console.log(
+          `Merged ${repairResult.mergedGameCount} duplicate game rows across ${repairResult.mergedGroupCount} normalized title groups.`,
+        )
       }
     } catch (error) {
       console.error('Failed to repair normalized duplicate games', error)

@@ -12,7 +12,10 @@ import type { Notice } from '../components/dashboard/types'
  * to wire up timers themselves. Cancels the pending timeout if the notice
  * changes (or unmounts) before it fires.
  */
-export function useTimedNotice(notice: Notice | null, setNotice: Dispatch<SetStateAction<Notice | null>>): void {
+export function useTimedNotice(
+  notice: Notice | null,
+  setNotice: Dispatch<SetStateAction<Notice | null>>,
+): void {
   useEffect(() => {
     if (!notice) {
       return

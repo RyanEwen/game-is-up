@@ -10,9 +10,9 @@ test('blocks auto-prompt when the interested call to play is already live', () =
     isInterestedPlayIntentWindowBlockingAutoPrompt(
       new Date('2026-05-14T17:45:00.000Z'),
       new Date('2026-05-14T18:30:00.000Z'),
-      now
+      now,
     ),
-    true
+    true,
   )
 })
 
@@ -23,9 +23,9 @@ test('blocks auto-prompt when the interested call to play starts within ten minu
     isInterestedPlayIntentWindowBlockingAutoPrompt(
       new Date('2026-05-14T18:10:00.000Z'),
       new Date('2026-05-14T19:00:00.000Z'),
-      now
+      now,
     ),
-    true
+    true,
   )
 })
 
@@ -36,9 +36,9 @@ test('does not block auto-prompt when the interested call to play starts after t
     isInterestedPlayIntentWindowBlockingAutoPrompt(
       new Date('2026-05-14T18:11:00.000Z'),
       new Date('2026-05-14T19:00:00.000Z'),
-      now
+      now,
     ),
-    false
+    false,
   )
 })
 
@@ -49,8 +49,8 @@ test('does not block auto-prompt when the interested call to play already ended'
     isInterestedPlayIntentWindowBlockingAutoPrompt(
       new Date('2026-05-14T17:30:00.000Z'),
       new Date('2026-05-14T18:00:00.000Z'),
-      now
+      now,
     ),
-    false
+    false,
   )
 })

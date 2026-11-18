@@ -14,45 +14,54 @@ import {
   ButtonStyle,
   type ButtonInteraction,
   type Message,
-  type MessageActionRowComponentBuilder
+  type MessageActionRowComponentBuilder,
 } from 'discord.js'
 import { AuthProvider } from '@prisma/client'
 import { deleteDiscordDirectMessage } from './discord-bot-runtime.js'
-import { buildOpenInAppButton, buildDiscordMessageHeading } from './discord-dm-formatting.js'
+import {
+  buildOpenInAppButton,
+  buildDiscordMessageHeading,
+} from './discord-dm-formatting.js'
 import { deleteSettledDiscordDirectMessagesForUser } from './discord-dm-cleanup.js'
 import { env } from './env.js'
 import { clearCurrentPlayIntent, getCurrentPlayIntent } from './play-intents.js'
 import { formatPlayIntentWindowLabel } from './play-intent-time-format.js'
 import { prisma } from './prisma.js'
 
-type DirectMessageCommandName = 'help' | 'status' | 'end' | 'autoplay' | 'cleanup'
+type DirectMessageCommandName =
+  'help' | 'status' | 'end' | 'autoplay' | 'cleanup'
 
-type ParsedDirectMessageCommand = {
-  name: DirectMessageCommandName;
-  args: string[];
-} | {
-  name: 'unknown';
-  args: string[];
-}
+type ParsedDirectMessageCommand =
+  | {
+      name: DirectMessageCommandName
+      args: string[]
+    }
+  | {
+      name: 'unknown'
+      args: string[]
+    }
 
 export type DirectMessageReplyOptions = {
-  dismissButtonForUserId?: string;
-  autoDeleteAfterMs?: number;
-  includeOpenAppButton?: boolean;
+  dismissButtonForUserId?: string
+  autoDeleteAfterMs?: number
+  includeOpenAppButton?: boolean
 }
 
-type DirectMessageReply = (content: string, options?: DirectMessageReplyOptions) => Promise<void>
+type DirectMessageReply = (
+  content: string,
+  options?: DirectMessageReplyOptions,
+) => Promise<void>
 
 type DirectMessageCommandContext = {
-  authorId: string;
-  reply: DirectMessageReply;
+  authorId: string
+  reply: DirectMessageReply
 }
 
 type DirectMessageCommandPayload = {
-  authorId: string;
-  content: string;
-  source: string;
-  reply: DirectMessageReply;
+  authorId: string
+  content: string
+  source: string
+  reply: DirectMessageReply
 }
 
 const directMessageCommandAliases = new Map<string, DirectMessageCommandName>([
@@ -68,7 +77,7 @@ const directMessageCommandAliases = new Map<string, DirectMessageCommandName>([
   ['autoprompt', 'autoplay'],
   ['auto-prompt', 'autoplay'],
   ['cleanup', 'cleanup'],
-  ['clean', 'cleanup']
+  ['clean', 'cleanup'],
 ])
 
 const DISCORD_DM_FETCH_TIMEOUT_MS = 5_000
@@ -85,7 +94,7 @@ function buildPlayUrl() {
 
 function buildOpenAppRow() {
   return new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
-    buildOpenInAppButton(buildPlayUrl(), 'Open App')
+    buildOpenInAppButton(buildPlayUrl(), 'Open App'),
   )
 }
 
@@ -99,11 +108,14 @@ function buildDismissAndOpenAppRow(discordUserId: string) {
       .setCustomId(buildDirectMessageDismissCustomId(discordUserId))
       .setLabel('Dismiss')
       .setStyle(ButtonStyle.Secondary),
-    buildOpenInAppButton(buildPlayUrl(), 'Open App')
+    buildOpenInAppButton(buildPlayUrl(), 'Open App'),
   )
 }
 
-export function buildDirectMessageReplyPayload(content: string, options: DirectMessageReplyOptions = {}) {
+export function buildDirectMessageReplyPayload(
+  content: string,
+  options: DirectMessageReplyOptions = {},
+) {
   const components = options.dismissButtonForUserId
     ? [buildDismissAndOpenAppRow(options.dismissButtonForUserId)]
     : options.includeOpenAppButton === false
@@ -112,7 +124,7 @@ export function buildDirectMessageReplyPayload(content: string, options: DirectM
 
   return {
     content,
-    components
+    components,
   }
 }
 
@@ -120,7 +132,7 @@ function scheduleDirectMessageDeletion(message: Message, delayMs: number) {
   const timeout = setTimeout(() => {
     void deleteDiscordDirectMessage({
       channelId: message.channelId,
-      messageId: message.id
+      messageId: message.id,
     }).catch(() => {
       void message.delete().catch(() => {})
     })
@@ -132,17 +144,23 @@ function scheduleDirectMessageDeletion(message: Message, delayMs: number) {
 function parseDirectMessageCommandButtonAction(customId: string) {
   const [prefix, discordUserId, action] = customId.split(':')
 
-  if (prefix !== directMessageCommandDismissPrefix || !discordUserId || action !== 'dismiss') {
+  if (
+    prefix !== directMessageCommandDismissPrefix ||
+    !discordUserId ||
+    action !== 'dismiss'
+  ) {
     return null
   }
 
   return {
     discordUserId,
-    action
+    action,
   }
 }
 
-function parseDirectMessageCommand(content: string): ParsedDirectMessageCommand | null {
+function parseDirectMessageCommand(
+  content: string,
+): ParsedDirectMessageCommand | null {
   const trimmed = content.trim()
 
   if (trimmed.length === 0) {
@@ -155,7 +173,7 @@ function parseDirectMessageCommand(content: string): ParsedDirectMessageCommand 
   if (normalized.length === 0) {
     return {
       name: 'help',
-      args: []
+      args: [],
     }
   }
 
@@ -166,51 +184,68 @@ function parseDirectMessageCommand(content: string): ParsedDirectMessageCommand 
     return isSlashLike
       ? {
           name: 'unknown',
-          args: rawArgs.map((arg) => arg.toLowerCase())
+          args: rawArgs.map((arg) => arg.toLowerCase()),
         }
       : null
   }
 
   return {
     name,
-    args: rawArgs.map((arg) => arg.toLowerCase())
+    args: rawArgs.map((arg) => arg.toLowerCase()),
   }
 }
 
 async function resolveDirectMessageContent(message: Message) {
-  const gatewayContent = typeof message.content === 'string' ? message.content : ''
+  const gatewayContent =
+    typeof message.content === 'string' ? message.content : ''
 
   if (gatewayContent.trim().length > 0) {
     return {
       content: gatewayContent,
-      source: 'gateway' as const
+      source: 'gateway' as const,
     }
   }
 
   try {
-    console.log(`Discord DM missing gateway content for ${message.author.id}; attempting message.fetch().`)
+    console.log(
+      `Discord DM missing gateway content for ${message.author.id}; attempting message.fetch().`,
+    )
 
     const fetchedMessage = await new Promise<Message>((resolve, reject) => {
       const timeout = setTimeout(() => {
-        reject(new Error(`Discord DM fetch timed out after ${DISCORD_DM_FETCH_TIMEOUT_MS}ms`))
+        reject(
+          new Error(
+            `Discord DM fetch timed out after ${DISCORD_DM_FETCH_TIMEOUT_MS}ms`,
+          ),
+        )
       }, DISCORD_DM_FETCH_TIMEOUT_MS)
 
-      void message.fetch().then(resolve, reject).finally(() => {
-        clearTimeout(timeout)
-      })
+      void message
+        .fetch()
+        .then(resolve, reject)
+        .finally(() => {
+          clearTimeout(timeout)
+        })
     })
 
-    const fetchedContent = typeof fetchedMessage.content === 'string' ? fetchedMessage.content : ''
+    const fetchedContent =
+      typeof fetchedMessage.content === 'string' ? fetchedMessage.content : ''
 
     return {
       content: fetchedContent,
-      source: fetchedContent.trim().length > 0 ? 'fetch' as const : 'empty' as const
+      source:
+        fetchedContent.trim().length > 0
+          ? ('fetch' as const)
+          : ('empty' as const),
     }
   } catch (error) {
     console.error('Failed to fetch Discord DM content', error)
     return {
       content: gatewayContent,
-      source: error instanceof Error && error.message.includes('timed out') ? 'fetch-timeout' as const : 'fetch-failed' as const
+      source:
+        error instanceof Error && error.message.includes('timed out')
+          ? ('fetch-timeout' as const)
+          : ('fetch-failed' as const),
     }
   }
 }
@@ -232,7 +267,10 @@ function summarizeDirectMessageToken(content: string) {
   return token.toLowerCase()
 }
 
-function summarizeGames(games: { title: string }[], selectionMode: 'library' | 'subset') {
+function summarizeGames(
+  games: { title: string }[],
+  selectionMode: 'library' | 'subset',
+) {
   if (selectionMode === 'library') {
     return 'Any game in your library.'
   }
@@ -246,7 +284,9 @@ function summarizeGames(games: { title: string }[], selectionMode: 'library' | '
   return `${titles.slice(0, 4).join(', ')} +${titles.length - 4} more`
 }
 
-function describeNotifyScope(activeIntent: NonNullable<Awaited<ReturnType<typeof getCurrentPlayIntent>>>) {
+function describeNotifyScope(
+  activeIntent: NonNullable<Awaited<ReturnType<typeof getCurrentPlayIntent>>>,
+) {
   switch (activeIntent.notifyScope) {
     case 'friends-only':
       return 'Friends only.'
@@ -256,7 +296,9 @@ function describeNotifyScope(activeIntent: NonNullable<Awaited<ReturnType<typeof
         : 'Selected friends.'
     case 'specific-discord-server':
       return activeIntent.targetServers.length > 0
-        ? activeIntent.targetServers.map((server: { name: string }) => server.name).join(', ')
+        ? activeIntent.targetServers
+            .map((server: { name: string }) => server.name)
+            .join(', ')
         : 'Selected Discord servers.'
     default:
       return 'Your network plus friends.'
@@ -268,8 +310,8 @@ async function resolveDiscordIdentity(discordUserId: string) {
     where: {
       provider_providerUserId: {
         provider: AuthProvider.DISCORD,
-        providerUserId: discordUserId
-      }
+        providerUserId: discordUserId,
+      },
     },
     select: {
       userId: true,
@@ -277,14 +319,18 @@ async function resolveDiscordIdentity(discordUserId: string) {
         select: {
           displayName: true,
           timezoneId: true,
-          discordAutoPromptPlayIntent: true
-        }
-      }
-    }
+          discordAutoPromptPlayIntent: true,
+        },
+      },
+    },
   })
 }
 
-async function replyToDirectMessage(message: Message, content: string, options: DirectMessageReplyOptions = {}) {
+async function replyToDirectMessage(
+  message: Message,
+  content: string,
+  options: DirectMessageReplyOptions = {},
+) {
   const payload = buildDirectMessageReplyPayload(content, options)
 
   try {
@@ -296,7 +342,10 @@ async function replyToDirectMessage(message: Message, content: string, options: 
 
     return
   } catch {
-    if ('send' in message.channel && typeof message.channel.send === 'function') {
+    if (
+      'send' in message.channel &&
+      typeof message.channel.send === 'function'
+    ) {
       const sentMessage = await message.channel.send(payload)
 
       if (options.autoDeleteAfterMs && options.autoDeleteAfterMs > 0) {
@@ -313,16 +362,16 @@ async function replyToDirectMessage(message: Message, content: string, options: 
 async function replyWithLinkPrompt(reply: DirectMessageReply) {
   await reply(
     [
-      buildDiscordMessageHeading('Link your Game\'s Up account'),
-      'I could not match this Discord DM to a linked Game\'s Up account.',
-      'Open the app, sign in with Discord, and then try again.'
-    ].join('\n\n')
+      buildDiscordMessageHeading("Link your Game's Up account"),
+      "I could not match this Discord DM to a linked Game's Up account.",
+      'Open the app, sign in with Discord, and then try again.',
+    ].join('\n\n'),
   )
 }
 
 function buildHelpMessage() {
   return [
-    buildDiscordMessageHeading('Game\'s Up DM commands'),
+    buildDiscordMessageHeading("Game's Up DM commands"),
     'Send any of these commands in this DM. A leading slash also works.',
     '- `help` shows this command list.',
     '- `status` shows your latest active call to play and auto-play prompt setting.',
@@ -330,11 +379,14 @@ function buildHelpMessage() {
     '- `autoplay` shows whether Discord auto-play prompts are on.',
     '- `autoplay on` enables Discord auto-play prompts.',
     '- `autoplay off` disables Discord auto-play prompts.',
-    '- `cleanup` removes old bot messages and settled prompts while preserving any still-active tracked messages.'
+    '- `cleanup` removes old bot messages and settled prompts while preserving any still-active tracked messages.',
   ].join('\n\n')
 }
 
-async function handleStatusCommand(context: DirectMessageCommandContext, identity: NonNullable<Awaited<ReturnType<typeof resolveDiscordIdentity>>>) {
+async function handleStatusCommand(
+  context: DirectMessageCommandContext,
+  identity: NonNullable<Awaited<ReturnType<typeof resolveDiscordIdentity>>>,
+) {
   const activeIntent = await getCurrentPlayIntent(identity.userId)
 
   if (!activeIntent) {
@@ -342,8 +394,8 @@ async function handleStatusCommand(context: DirectMessageCommandContext, identit
       [
         buildDiscordMessageHeading('Current status'),
         'Calls to play: None active.',
-        `Auto-play prompts: ${identity.user.discordAutoPromptPlayIntent ? 'On' : 'Off'}.`
-      ].join('\n\n')
+        `Auto-play prompts: ${identity.user.discordAutoPromptPlayIntent ? 'On' : 'Off'}.`,
+      ].join('\n\n'),
     )
     return
   }
@@ -351,11 +403,12 @@ async function handleStatusCommand(context: DirectMessageCommandContext, identit
   const whenLabel = formatPlayIntentWindowLabel(
     new Date(activeIntent.windowStartsAt),
     new Date(activeIntent.windowEndsAt),
-    identity.user.timezoneId
+    identity.user.timezoneId,
   )
-  const interestedSummary = activeIntent.interestedCount === 0
-    ? 'Nobody has responded yet.'
-    : `${activeIntent.interestedCount} ${activeIntent.interestedCount === 1 ? 'person is' : 'people are'} interested.`
+  const interestedSummary =
+    activeIntent.interestedCount === 0
+      ? 'Nobody has responded yet.'
+      : `${activeIntent.interestedCount} ${activeIntent.interestedCount === 1 ? 'person is' : 'people are'} interested.`
 
   await context.reply(
     [
@@ -366,20 +419,27 @@ async function handleStatusCommand(context: DirectMessageCommandContext, identit
       `Audience: ${describeNotifyScope(activeIntent)}`,
       `Interest: ${interestedSummary}`,
       `Auto-play prompts: ${identity.user.discordAutoPromptPlayIntent ? 'On' : 'Off'}.`,
-      activeIntent.note.trim().length > 0 ? `Note: ${activeIntent.note.trim()}` : null
-    ].filter((part): part is string => Boolean(part)).join('\n\n')
+      activeIntent.note.trim().length > 0
+        ? `Note: ${activeIntent.note.trim()}`
+        : null,
+    ]
+      .filter((part): part is string => Boolean(part))
+      .join('\n\n'),
   )
 }
 
-async function handleEndCommand(context: DirectMessageCommandContext, identity: NonNullable<Awaited<ReturnType<typeof resolveDiscordIdentity>>>) {
+async function handleEndCommand(
+  context: DirectMessageCommandContext,
+  identity: NonNullable<Awaited<ReturnType<typeof resolveDiscordIdentity>>>,
+) {
   const activeIntent = await getCurrentPlayIntent(identity.userId)
 
   if (!activeIntent) {
     await context.reply(
       [
         buildDiscordMessageHeading('No active call to play'),
-        'There are no active calls to play to end right now.'
-      ].join('\n\n')
+        'There are no active calls to play to end right now.',
+      ].join('\n\n'),
     )
     return
   }
@@ -390,15 +450,15 @@ async function handleEndCommand(context: DirectMessageCommandContext, identity: 
     [
       buildDiscordMessageHeading('Call to play ended'),
       `Ended: ${activeIntent.title}`,
-      'Any of your currently active calls to play are now marked as ended.'
-    ].join('\n\n')
+      'Any of your currently active calls to play are now marked as ended.',
+    ].join('\n\n'),
   )
 }
 
 async function handleAutoplayCommand(
   context: DirectMessageCommandContext,
   identity: NonNullable<Awaited<ReturnType<typeof resolveDiscordIdentity>>>,
-  args: string[]
+  args: string[],
 ) {
   const requestedState = args[0]
 
@@ -406,24 +466,25 @@ async function handleAutoplayCommand(
     await context.reply(
       [
         buildDiscordMessageHeading('Auto-play prompts'),
-        `Discord auto-play prompts are currently ${identity.user.discordAutoPromptPlayIntent ? 'on' : 'off'}.`
-      ].join('\n\n')
+        `Discord auto-play prompts are currently ${identity.user.discordAutoPromptPlayIntent ? 'on' : 'off'}.`,
+      ].join('\n\n'),
     )
     return
   }
 
-  const nextValue = requestedState === 'on' || requestedState === 'enable'
-    ? true
-    : requestedState === 'off' || requestedState === 'disable'
-      ? false
-      : null
+  const nextValue =
+    requestedState === 'on' || requestedState === 'enable'
+      ? true
+      : requestedState === 'off' || requestedState === 'disable'
+        ? false
+        : null
 
   if (nextValue == null) {
     await context.reply(
       [
         buildDiscordMessageHeading('Auto-play prompts'),
-        'Use `autoplay`, `autoplay on`, or `autoplay off`.'
-      ].join('\n\n')
+        'Use `autoplay`, `autoplay on`, or `autoplay off`.',
+      ].join('\n\n'),
     )
     return
   }
@@ -432,63 +493,69 @@ async function handleAutoplayCommand(
     await context.reply(
       [
         buildDiscordMessageHeading('Auto-play prompts'),
-        `Discord auto-play prompts are already ${nextValue ? 'on' : 'off'}.`
-      ].join('\n\n')
+        `Discord auto-play prompts are already ${nextValue ? 'on' : 'off'}.`,
+      ].join('\n\n'),
     )
     return
   }
 
   await prisma.user.update({
     where: {
-      id: identity.userId
+      id: identity.userId,
     },
     data: {
-      discordAutoPromptPlayIntent: nextValue
-    }
+      discordAutoPromptPlayIntent: nextValue,
+    },
   })
 
   await context.reply(
     [
       buildDiscordMessageHeading('Auto-play prompts updated'),
-      `Discord auto-play prompts are now ${nextValue ? 'on' : 'off'}.`
-    ].join('\n\n')
+      `Discord auto-play prompts are now ${nextValue ? 'on' : 'off'}.`,
+    ].join('\n\n'),
   )
 }
 
-async function handleCleanupCommand(context: DirectMessageCommandContext, identity: NonNullable<Awaited<ReturnType<typeof resolveDiscordIdentity>>>) {
-  const result = await deleteSettledDiscordDirectMessagesForUser(identity.userId)
+async function handleCleanupCommand(
+  context: DirectMessageCommandContext,
+  identity: NonNullable<Awaited<ReturnType<typeof resolveDiscordIdentity>>>,
+) {
+  const result = await deleteSettledDiscordDirectMessagesForUser(
+    identity.userId,
+  )
 
   if (result.attemptedCount === 0) {
     await context.reply(
       [
         buildDiscordMessageHeading('Nothing to clean up'),
-        'There are no older bot messages or settled prompts to remove right now.'
+        'There are no older bot messages or settled prompts to remove right now.',
       ].join('\n\n'),
       {
         autoDeleteAfterMs: CLEANUP_COMMAND_REPLY_LIFETIME_MS,
-        includeOpenAppButton: false
-      }
+        includeOpenAppButton: false,
+      },
     )
     return
   }
 
-  const summary = result.deletedCount === result.attemptedCount
-    ? `Removed ${result.deletedCount} Discord bot message${result.deletedCount === 1 ? '' : 's'}.`
-    : `Removed ${result.deletedCount} of ${result.attemptedCount} Discord bot messages.`
+  const summary =
+    result.deletedCount === result.attemptedCount
+      ? `Removed ${result.deletedCount} Discord bot message${result.deletedCount === 1 ? '' : 's'}.`
+      : `Removed ${result.deletedCount} of ${result.attemptedCount} Discord bot messages.`
 
   await context.reply(
-    [
-      buildDiscordMessageHeading('Cleanup complete'),
-      summary
-    ].join('\n\n'),
+    [buildDiscordMessageHeading('Cleanup complete'), summary].join('\n\n'),
     {
       autoDeleteAfterMs: CLEANUP_COMMAND_REPLY_LIFETIME_MS,
-      includeOpenAppButton: false
-    }
+      includeOpenAppButton: false,
+    },
   )
 }
 
-async function executeDirectMessageCommand(context: DirectMessageCommandContext, parsedCommand: ParsedDirectMessageCommand) {
+async function executeDirectMessageCommand(
+  context: DirectMessageCommandContext,
+  parsedCommand: ParsedDirectMessageCommand,
+) {
   if (parsedCommand.name === 'help') {
     await context.reply(buildHelpMessage())
     return
@@ -498,8 +565,8 @@ async function executeDirectMessageCommand(context: DirectMessageCommandContext,
     await context.reply(
       [
         buildDiscordMessageHeading('Unknown command'),
-        'Use `help` to see the available DM commands.'
-      ].join('\n\n')
+        'Use `help` to see the available DM commands.',
+      ].join('\n\n'),
     )
     return
   }
@@ -529,11 +596,13 @@ async function executeDirectMessageCommand(context: DirectMessageCommandContext,
   }
 }
 
-export async function handleDiscordDirectMessagePayload(payload: DirectMessageCommandPayload) {
+export async function handleDiscordDirectMessagePayload(
+  payload: DirectMessageCommandPayload,
+) {
   const parsedCommand = parseDirectMessageCommand(payload.content)
 
   console.log(
-    `Discord DM received from ${payload.authorId}: source=${payload.source}; token=${summarizeDirectMessageToken(payload.content)}; parsed=${parsedCommand?.name ?? 'none'}`
+    `Discord DM received from ${payload.authorId}: source=${payload.source}; token=${summarizeDirectMessageToken(payload.content)}; parsed=${parsedCommand?.name ?? 'none'}`,
   )
 
   if (!parsedCommand) {
@@ -543,9 +612,9 @@ export async function handleDiscordDirectMessagePayload(payload: DirectMessageCo
   await executeDirectMessageCommand(
     {
       authorId: payload.authorId,
-      reply: payload.reply
+      reply: payload.reply,
     },
-    parsedCommand
+    parsedCommand,
   )
 }
 
@@ -562,11 +631,13 @@ export async function handleDiscordDirectMessageCommand(message: Message) {
     source,
     reply: async (replyContent, options) => {
       await replyToDirectMessage(message, replyContent, options)
-    }
+    },
   })
 }
 
-export async function handleDiscordDirectMessageButtonInteraction(interaction: ButtonInteraction) {
+export async function handleDiscordDirectMessageButtonInteraction(
+  interaction: ButtonInteraction,
+) {
   const action = parseDirectMessageCommandButtonAction(interaction.customId)
 
   if (!action) {
@@ -576,7 +647,7 @@ export async function handleDiscordDirectMessageButtonInteraction(interaction: B
   if (interaction.user.id !== action.discordUserId) {
     await interaction.followUp({
       content: 'This message belongs to another user.',
-      allowedMentions: { parse: [] }
+      allowedMentions: { parse: [] },
     })
     return true
   }
@@ -584,7 +655,7 @@ export async function handleDiscordDirectMessageButtonInteraction(interaction: B
   await acknowledgeDiscordAction(interaction)
   const deleteResult = await deleteDiscordDirectMessage({
     channelId: interaction.channelId,
-    messageId: interaction.message.id
+    messageId: interaction.message.id,
   })
 
   if (deleteResult.status !== 'deleted') {

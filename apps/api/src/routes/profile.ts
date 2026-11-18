@@ -8,7 +8,10 @@
  */
 
 import { Router } from 'express'
-import { updateUserProfileRequestSchema, userProfileResponseSchema } from '@game-is-up/shared'
+import {
+  updateUserProfileRequestSchema,
+  userProfileResponseSchema,
+} from '@game-is-up/shared'
 import { publishDashboardInvalidation } from '../lib/dashboard-events.js'
 import { prisma } from '../lib/prisma.js'
 import { requireSignedInUserId } from '../lib/route-auth.js'
@@ -25,35 +28,42 @@ profileRouter.put('/me', async (request, response, next) => {
 
   try {
     const payload = updateUserProfileRequestSchema.parse(request.body)
-    const usualAvailability = payload.usualAvailability?.trim() ? payload.usualAvailability.trim() : null
-    const timezoneId = payload.timezoneId == null ? undefined : normalizeTimezoneId(payload.timezoneId)
+    const usualAvailability = payload.usualAvailability?.trim()
+      ? payload.usualAvailability.trim()
+      : null
+    const timezoneId =
+      payload.timezoneId == null
+        ? undefined
+        : normalizeTimezoneId(payload.timezoneId)
 
     if (payload.timezoneId != null && !timezoneId) {
       response.status(400).json({
-        error: 'Use a valid IANA time zone like America/New_York.'
+        error: 'Use a valid IANA time zone like America/New_York.',
       })
       return
     }
 
     const user = await prisma.user.update({
       where: {
-        id: userId
+        id: userId,
       },
       select: {
         timezoneId: true,
         usualAvailability: true,
-        discordAutoPromptPlayIntent: true
+        discordAutoPromptPlayIntent: true,
       },
       data: {
         usualAvailability,
-        ...(payload.discordAutoPromptPlayIntent != null ? { discordAutoPromptPlayIntent: payload.discordAutoPromptPlayIntent } : {}),
-        ...(timezoneId ? { timezoneId } : {})
-      }
+        ...(payload.discordAutoPromptPlayIntent != null
+          ? { discordAutoPromptPlayIntent: payload.discordAutoPromptPlayIntent }
+          : {}),
+        ...(timezoneId ? { timezoneId } : {}),
+      },
     })
 
     publishDashboardInvalidation({
       domains: ['auth', 'profile', 'library', 'play-intents'],
-      userIds: [userId]
+      userIds: [userId],
     })
 
     response.json(userProfileResponseSchema.parse(user))

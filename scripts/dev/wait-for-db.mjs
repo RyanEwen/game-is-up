@@ -1,6 +1,7 @@
 import net from 'node:net'
 
-const defaultDatabaseUrl = 'postgresql://postgres:postgres@db:5432/game_is_up?schema=public'
+const defaultDatabaseUrl =
+  'postgresql://postgres:postgres@db:5432/game_is_up?schema=public'
 const timeoutMs = Number.parseInt(process.env.DB_WAIT_TIMEOUT_MS ?? '60000', 10)
 const retryDelayMs = Number.parseInt(process.env.DB_WAIT_RETRY_MS ?? '1000', 10)
 
@@ -58,7 +59,9 @@ async function main() {
     await delay(retryDelayMs)
   }
 
-  console.error(`Timed out waiting for database at ${redactDatabaseUrl(databaseUrl)}`)
+  console.error(
+    `Timed out waiting for database at ${redactDatabaseUrl(databaseUrl)}`,
+  )
   process.exit(1)
 }
 

@@ -12,7 +12,7 @@ import {
   ButtonBuilder,
   ButtonStyle,
   type MessageCreateOptions,
-  type MessageActionRowComponentBuilder
+  type MessageActionRowComponentBuilder,
 } from 'discord.js'
 import { buildDiscordNotice, buildDiscordSubtext } from '@game-is-up/shared'
 
@@ -23,8 +23,8 @@ const discordEmbedSpacer = '\n\u200b'
 type DiscordHeadingResolver = (label: string) => string
 
 type FormatLabeledDiscordLinesOptions = {
-  quotedLabels?: readonly string[];
-  subtextLabels?: readonly string[];
+  quotedLabels?: readonly string[]
+  subtextLabels?: readonly string[]
 }
 
 function normalizeLabel(label: string) {
@@ -39,7 +39,7 @@ export function buildDiscordSection(
   label: string,
   value: string,
   resolveHeading: DiscordHeadingResolver,
-  options: FormatLabeledDiscordLinesOptions = {}
+  options: FormatLabeledDiscordLinesOptions = {},
 ) {
   const trimmedValue = value.trim()
 
@@ -61,7 +61,7 @@ export function buildDiscordSection(
 export function formatLabeledDiscordLines(
   text: string,
   resolveHeading: DiscordHeadingResolver,
-  options: FormatLabeledDiscordLinesOptions = {}
+  options: FormatLabeledDiscordLinesOptions = {},
 ) {
   return text
     .split('\n')
@@ -85,8 +85,14 @@ export function formatLabeledDiscordLines(
     })
 }
 
-export function buildDiscordBulletSection(label: string, items: string[], resolveHeading: DiscordHeadingResolver) {
-  const visibleItems = items.map((item) => item.trim()).filter((item) => item.length > 0)
+export function buildDiscordBulletSection(
+  label: string,
+  items: string[],
+  resolveHeading: DiscordHeadingResolver,
+) {
+  const visibleItems = items
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0)
 
   if (visibleItems.length === 0) {
     return null
@@ -99,20 +105,26 @@ export function buildDiscordPlainMessage(
   title: string,
   bodyLines: Array<string | null | undefined>,
   options: {
-    trailingSubtext?: string | null;
-  } = {}
+    trailingSubtext?: string | null
+  } = {},
 ) {
   const visibleBodyLines = bodyLines
     .map((line) => line?.trim() ?? '')
     .filter((line) => line.length > 0)
 
-  const formattedBodyLines = visibleBodyLines.map((line) => buildDiscordSubtext(line))
+  const formattedBodyLines = visibleBodyLines.map((line) =>
+    buildDiscordSubtext(line),
+  )
 
   return [
     title.trim(),
     ...formattedBodyLines,
-    options.trailingSubtext ? buildDiscordSubtext(options.trailingSubtext) : null
-  ].filter((part): part is string => Boolean(part)).join('\n\n')
+    options.trailingSubtext
+      ? buildDiscordSubtext(options.trailingSubtext)
+      : null,
+  ]
+    .filter((part): part is string => Boolean(part))
+    .join('\n\n')
 }
 
 export function buildDiscordMessageHeading(title: string) {
@@ -127,7 +139,7 @@ export function buildDiscordMessageHeading(title: string) {
 
 export function formatDiscordDirectMessageContent(
   content: string,
-  embeds?: MessageCreateOptions['embeds']
+  embeds?: MessageCreateOptions['embeds'],
 ) {
   const trimmed = content.trim()
 
@@ -150,7 +162,7 @@ export function buildOpenInAppButton(url: string, label = 'Open in App') {
 export function appendOpenInAppButton(
   rows: ActionRowBuilder<MessageActionRowComponentBuilder>[],
   url: string,
-  label = 'Open in App'
+  label = 'Open in App',
 ) {
   const linkButton = buildOpenInAppButton(url, label)
 
@@ -165,7 +177,9 @@ export function appendOpenInAppButton(
 
   return [
     ...rows,
-    new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(linkButton)
+    new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
+      linkButton,
+    ),
   ]
 }
 
@@ -173,26 +187,34 @@ export function appendOpenInAppButton(
 // the shared package so the debug DM simulator can render the same field
 // labels as the live bot. They are re-exported below for backwards
 // compatibility with existing API call sites.
-export { decorateFieldLabel, buildDecoratedSectionHeading } from '@game-is-up/shared'
+export {
+  decorateFieldLabel,
+  buildDecoratedSectionHeading,
+} from '@game-is-up/shared'
 
 // Standard "Archive" + "Open in App" row used by terminal-state DMs across
 // play-intent notifications, creator summaries, and auto-play prompts.
 export function buildArchiveCleanupRow(options: {
-  archiveCustomId: string;
-  openInAppUrl: string;
-  openInAppLabel?: string;
-  extraButtons?: ButtonBuilder[];
+  archiveCustomId: string
+  openInAppUrl: string
+  openInAppLabel?: string
+  extraButtons?: ButtonBuilder[]
 }): ActionRowBuilder<MessageActionRowComponentBuilder>[] {
-  const row = new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
-    new ButtonBuilder()
-      .setCustomId(options.archiveCustomId)
-      .setLabel('Archive')
-      .setStyle(ButtonStyle.Secondary)
-  )
+  const row =
+    new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
+      new ButtonBuilder()
+        .setCustomId(options.archiveCustomId)
+        .setLabel('Archive')
+        .setStyle(ButtonStyle.Secondary),
+    )
 
   if (options.extraButtons && options.extraButtons.length > 0) {
     row.addComponents(...options.extraButtons)
   }
 
-  return appendOpenInAppButton([row], options.openInAppUrl, options.openInAppLabel)
+  return appendOpenInAppButton(
+    [row],
+    options.openInAppUrl,
+    options.openInAppLabel,
+  )
 }

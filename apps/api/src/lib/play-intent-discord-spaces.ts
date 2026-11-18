@@ -8,11 +8,23 @@
  * they accept later.
  */
 
-import { AuthProvider, PlayIntentDiscordSpaceAccessSource, PlayIntentDiscordSpaceStatus } from '@prisma/client'
-import { ChannelType, OverwriteType, PermissionFlagsBits, Routes } from 'discord.js'
+import {
+  AuthProvider,
+  PlayIntentDiscordSpaceAccessSource,
+  PlayIntentDiscordSpaceStatus,
+} from '@prisma/client'
+import {
+  ChannelType,
+  OverwriteType,
+  PermissionFlagsBits,
+  Routes,
+} from 'discord.js'
 import { publishPlayIntentInvalidation } from './dashboard-events.js'
 import { buildDiscordChannelUrl } from './discord-channel-urls.js'
-import { deleteDiscordSpaceInvite as deleteInvite, ensurePlayIntentDiscordSpaceInvite } from './discord-space-invites.js'
+import {
+  deleteDiscordSpaceInvite as deleteInvite,
+  ensurePlayIntentDiscordSpaceInvite,
+} from './discord-space-invites.js'
 import { getDiscordBotClient } from './discord-bot-runtime.js'
 import { env } from './env.js'
 import { getDiscordBotRest } from './discord-bot-runtime.js'
@@ -20,38 +32,46 @@ import { prisma } from './prisma.js'
 
 type ProvisionableSpace = Awaited<ReturnType<typeof loadProvisionableSpace>>
 type LegacyBackfillCandidateSpace = {
-  id: string;
-  status: PlayIntentDiscordSpaceStatus;
-  categoryChannelId: string | null;
-  textChannelId: string | null;
-  voiceChannelId: string | null;
+  id: string
+  status: PlayIntentDiscordSpaceStatus
+  categoryChannelId: string | null
+  textChannelId: string | null
+  voiceChannelId: string | null
 }
 
 export type PlayIntentDiscordSpaceRecipientContext = {
-  status: 'active' | 'retained' | 'delete-requested';
-  recipientInServer: boolean;
-  textChannelName: string | null;
-  textChannelUrl: string | null;
-  voiceChannelName: string | null;
-  voiceChannelUrl: string | null;
-  inviteUrl: string | null;
+  status: 'active' | 'retained' | 'delete-requested'
+  recipientInServer: boolean
+  textChannelName: string | null
+  textChannelUrl: string | null
+  voiceChannelName: string | null
+  voiceChannelUrl: string | null
+  inviteUrl: string | null
 }
 
 const complementarySpaceActiveStatuses: PlayIntentDiscordSpaceStatus[] = [
   PlayIntentDiscordSpaceStatus.ACTIVE,
   PlayIntentDiscordSpaceStatus.RETAINED,
-  PlayIntentDiscordSpaceStatus.DELETE_REQUESTED
+  PlayIntentDiscordSpaceStatus.DELETE_REQUESTED,
 ]
 const complementarySpaceRetentionMs = 12 * 60 * 60 * 1000
-const discordSpaceGrantFailureMessage = 'Some Discord channel access grants could not be applied. Check that the Game\'s Up bot can manage roles in the Discord server.'
-const discordSpaceCreatorMissingIdentityMessage = 'The call-to-play creator no longer has a linked Discord account, so the temporary Discord channel access could not be granted.'
-const discordSpaceCreatorJoinServerMessage = 'The call-to-play creator is not currently in the Game\'s Up Discord server. Join the server to reveal the temporary Discord channel.'
-const discordSpaceCreatorGrantFailureMessage = 'The call-to-play creator could not be granted the temporary Discord channel role. Check that the Game\'s Up bot can manage roles in the Discord server.'
+const discordSpaceGrantFailureMessage =
+  "Some Discord channel access grants could not be applied. Check that the Game's Up bot can manage roles in the Discord server."
+const discordSpaceCreatorMissingIdentityMessage =
+  'The call-to-play creator no longer has a linked Discord account, so the temporary Discord channel access could not be granted.'
+const discordSpaceCreatorJoinServerMessage =
+  "The call-to-play creator is not currently in the Game's Up Discord server. Join the server to reveal the temporary Discord channel."
+const discordSpaceCreatorGrantFailureMessage =
+  "The call-to-play creator could not be granted the temporary Discord channel role. Check that the Game's Up bot can manage roles in the Discord server."
 
-export function resolveComplementarySpaceDeleteAfter(baseTime: Date, lastActiveAt: Date | null = null) {
-  const anchorTime = lastActiveAt && lastActiveAt.getTime() > baseTime.getTime()
-    ? lastActiveAt.getTime()
-    : baseTime.getTime()
+export function resolveComplementarySpaceDeleteAfter(
+  baseTime: Date,
+  lastActiveAt: Date | null = null,
+) {
+  const anchorTime =
+    lastActiveAt && lastActiveAt.getTime() > baseTime.getTime()
+      ? lastActiveAt.getTime()
+      : baseTime.getTime()
 
   return new Date(anchorTime + complementarySpaceRetentionMs)
 }
@@ -67,29 +87,39 @@ function normalizeNameSegment(value: string, fallback: string) {
 }
 
 function normalizeCategorySegment(value: string, fallback: string) {
-  const normalized = value
-    .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, 40)
+  const normalized = value.replace(/\s+/g, ' ').trim().slice(0, 40)
 
   return normalized.length > 0 ? normalized : fallback
 }
 
-export function buildComplementarySpaceNames(playIntent: { id: string; headline: string; user: { displayName: string } }) {
+export function buildComplementarySpaceNames(playIntent: {
+  id: string
+  headline: string
+  user: { displayName: string }
+}) {
   const shortId = playIntent.id.slice(0, 6)
   const titleSegment = normalizeNameSegment(playIntent.headline, 'call-to-play')
-  const categoryTitleSegment = normalizeCategorySegment(playIntent.headline, 'Call to Play')
-  const categoryCreatorSegment = normalizeCategorySegment(playIntent.user.displayName, 'Player')
+  const categoryTitleSegment = normalizeCategorySegment(
+    playIntent.headline,
+    'Call to Play',
+  )
+  const categoryCreatorSegment = normalizeCategorySegment(
+    playIntent.user.displayName,
+    'Player',
+  )
   const base = `${titleSegment}-${shortId}`.slice(0, 42)
 
   return {
     roleName: `ctp-${base}`.slice(0, 100),
-    categoryName: `${categoryTitleSegment} by ${categoryCreatorSegment} ${shortId}`.slice(0, 100),
+    categoryName:
+      `${categoryTitleSegment} by ${categoryCreatorSegment} ${shortId}`.slice(
+        0,
+        100,
+      ),
     textChannelName: `chat-${base}`.slice(0, 100),
-    voiceChannelName: `voice-${base}`.slice(0, 100)
+    voiceChannelName: `voice-${base}`.slice(0, 100),
   }
 }
-
 
 function isUnknownDiscordResourceError(error: unknown) {
   const message = error instanceof Error ? error.message : String(error ?? '')
@@ -103,14 +133,14 @@ function buildBasePermissionOverwrites(roleId: string) {
       id: env.DISCORD_SERVER_ID ?? '',
       type: OverwriteType.Role,
       deny: PermissionFlagsBits.ViewChannel.toString(),
-      allow: '0'
+      allow: '0',
     },
     {
       id: roleId,
       type: OverwriteType.Role,
       allow: PermissionFlagsBits.ViewChannel.toString(),
-      deny: '0'
-    }
+      deny: '0',
+    },
   ]
 }
 
@@ -120,26 +150,26 @@ function buildTextPermissionOverwrites(roleId: string) {
       id: env.DISCORD_SERVER_ID ?? '',
       type: OverwriteType.Role,
       deny: (
-        PermissionFlagsBits.ViewChannel
-        | PermissionFlagsBits.SendMessages
-        | PermissionFlagsBits.ReadMessageHistory
-        | PermissionFlagsBits.AttachFiles
-        | PermissionFlagsBits.EmbedLinks
+        PermissionFlagsBits.ViewChannel |
+        PermissionFlagsBits.SendMessages |
+        PermissionFlagsBits.ReadMessageHistory |
+        PermissionFlagsBits.AttachFiles |
+        PermissionFlagsBits.EmbedLinks
       ).toString(),
-      allow: '0'
+      allow: '0',
     },
     {
       id: roleId,
       type: OverwriteType.Role,
       allow: (
-        PermissionFlagsBits.ViewChannel
-        | PermissionFlagsBits.SendMessages
-        | PermissionFlagsBits.ReadMessageHistory
-        | PermissionFlagsBits.AttachFiles
-        | PermissionFlagsBits.EmbedLinks
+        PermissionFlagsBits.ViewChannel |
+        PermissionFlagsBits.SendMessages |
+        PermissionFlagsBits.ReadMessageHistory |
+        PermissionFlagsBits.AttachFiles |
+        PermissionFlagsBits.EmbedLinks
       ).toString(),
-      deny: '0'
-    }
+      deny: '0',
+    },
   ]
 }
 
@@ -149,31 +179,31 @@ function buildVoicePermissionOverwrites(roleId: string) {
       id: env.DISCORD_SERVER_ID ?? '',
       type: OverwriteType.Role,
       deny: (
-        PermissionFlagsBits.ViewChannel
-        | PermissionFlagsBits.Connect
-        | PermissionFlagsBits.SendMessages
-        | PermissionFlagsBits.ReadMessageHistory
-        | PermissionFlagsBits.AttachFiles
-        | PermissionFlagsBits.EmbedLinks
+        PermissionFlagsBits.ViewChannel |
+        PermissionFlagsBits.Connect |
+        PermissionFlagsBits.SendMessages |
+        PermissionFlagsBits.ReadMessageHistory |
+        PermissionFlagsBits.AttachFiles |
+        PermissionFlagsBits.EmbedLinks
       ).toString(),
-      allow: '0'
+      allow: '0',
     },
     {
       id: roleId,
       type: OverwriteType.Role,
       allow: (
-        PermissionFlagsBits.ViewChannel
-        | PermissionFlagsBits.Connect
-        | PermissionFlagsBits.Speak
-        | PermissionFlagsBits.Stream
-        | PermissionFlagsBits.UseVAD
-        | PermissionFlagsBits.SendMessages
-        | PermissionFlagsBits.ReadMessageHistory
-        | PermissionFlagsBits.AttachFiles
-        | PermissionFlagsBits.EmbedLinks
+        PermissionFlagsBits.ViewChannel |
+        PermissionFlagsBits.Connect |
+        PermissionFlagsBits.Speak |
+        PermissionFlagsBits.Stream |
+        PermissionFlagsBits.UseVAD |
+        PermissionFlagsBits.SendMessages |
+        PermissionFlagsBits.ReadMessageHistory |
+        PermissionFlagsBits.AttachFiles |
+        PermissionFlagsBits.EmbedLinks
       ).toString(),
-      deny: '0'
-    }
+      deny: '0',
+    },
   ]
 }
 
@@ -187,10 +217,10 @@ async function loadProvisionableSpace(spaceId: string) {
           headline: true,
           user: {
             select: {
-              displayName: true
-            }
-          }
-        }
+              displayName: true,
+            },
+          },
+        },
       },
       accessGrants: {
         include: {
@@ -199,17 +229,17 @@ async function loadProvisionableSpace(spaceId: string) {
               id: true,
               identities: {
                 where: {
-                  provider: AuthProvider.DISCORD
+                  provider: AuthProvider.DISCORD,
                 },
                 select: {
-                  providerUserId: true
-                }
-              }
-            }
-          }
-        }
-      }
-    }
+                  providerUserId: true,
+                },
+              },
+            },
+          },
+        },
+      },
+    },
   })
 }
 
@@ -225,12 +255,14 @@ async function loadDeletableSpace(spaceId: string) {
       categoryChannelId: true,
       textChannelId: true,
       voiceChannelId: true,
-      lastActiveAt: true
-    }
+      lastActiveAt: true,
+    },
   })
 }
 
-async function hasActiveVoiceUsersInDiscordSpaceChannel(channelId: string | null | undefined) {
+async function hasActiveVoiceUsersInDiscordSpaceChannel(
+  channelId: string | null | undefined,
+) {
   if (!channelId) {
     return false
   }
@@ -250,7 +282,10 @@ async function hasActiveVoiceUsersInDiscordSpaceChannel(channelId: string | null
   return channel.members.some((member) => !member.user.bot)
 }
 
-export async function markPlayIntentDiscordSpaceChannelActivity(channelIds: string[], occurredAt = new Date()) {
+export async function markPlayIntentDiscordSpaceChannelActivity(
+  channelIds: string[],
+  occurredAt = new Date(),
+) {
   const uniqueChannelIds = [...new Set(channelIds.filter(Boolean))]
 
   if (uniqueChannelIds.length === 0) {
@@ -261,42 +296,45 @@ export async function markPlayIntentDiscordSpaceChannelActivity(channelIds: stri
     OR: [
       {
         textChannelId: {
-          in: uniqueChannelIds
-        }
+          in: uniqueChannelIds,
+        },
       },
       {
         voiceChannelId: {
-          in: uniqueChannelIds
-        }
-      }
-    ]
+          in: uniqueChannelIds,
+        },
+      },
+    ],
   }
 
   await prisma.playIntentDiscordSpace.updateMany({
     where: {
       deletedAt: null,
       status: {
-        in: complementarySpaceActiveStatuses
+        in: complementarySpaceActiveStatuses,
       },
-      ...matchingChannels
+      ...matchingChannels,
     },
     data: {
-      lastActiveAt: occurredAt
-    }
+      lastActiveAt: occurredAt,
+    },
   })
 
   const retainedSpaces = await prisma.playIntentDiscordSpace.updateMany({
     where: {
       deletedAt: null,
       status: {
-        in: [PlayIntentDiscordSpaceStatus.RETAINED, PlayIntentDiscordSpaceStatus.DELETE_REQUESTED]
+        in: [
+          PlayIntentDiscordSpaceStatus.RETAINED,
+          PlayIntentDiscordSpaceStatus.DELETE_REQUESTED,
+        ],
       },
-      ...matchingChannels
+      ...matchingChannels,
     },
     data: {
       lastActiveAt: occurredAt,
-      deleteAfter: resolveComplementarySpaceDeleteAfter(occurredAt, occurredAt)
-    }
+      deleteAfter: resolveComplementarySpaceDeleteAfter(occurredAt, occurredAt),
+    },
   })
 
   if (retainedSpaces.count > 0) {
@@ -309,72 +347,95 @@ function findLegacyBackfillCandidateSpaces() {
     where: {
       status: PlayIntentDiscordSpaceStatus.ACTIVE,
       voiceChannelId: {
-        not: null
+        not: null,
       },
       OR: [
         {
-          categoryChannelId: null
+          categoryChannelId: null,
         },
         {
-          textChannelId: null
-        }
-      ]
+          textChannelId: null,
+        },
+      ],
     },
     select: {
       id: true,
       status: true,
       categoryChannelId: true,
       textChannelId: true,
-      voiceChannelId: true
+      voiceChannelId: true,
     },
     take: 10,
     orderBy: {
-      createdAt: 'asc'
-    }
+      createdAt: 'asc',
+    },
   })
 }
 
-export function shouldBackfillLegacyPlayIntentDiscordSpace(space: LegacyBackfillCandidateSpace) {
-  return space.status === PlayIntentDiscordSpaceStatus.ACTIVE
-    && Boolean(space.voiceChannelId)
-    && (!space.categoryChannelId || !space.textChannelId)
+export function shouldBackfillLegacyPlayIntentDiscordSpace(
+  space: LegacyBackfillCandidateSpace,
+) {
+  return (
+    space.status === PlayIntentDiscordSpaceStatus.ACTIVE &&
+    Boolean(space.voiceChannelId) &&
+    (!space.categoryChannelId || !space.textChannelId)
+  )
 }
 
 async function createRole(serverId: string, name: string) {
   const rest = getDiscordBotRest()
 
   if (!rest) {
-    throw new Error('Discord role creation needs the bot token to be configured.')
+    throw new Error(
+      'Discord role creation needs the bot token to be configured.',
+    )
   }
 
   const role = await rest.post(Routes.guildRoles(serverId), {
     body: {
       name,
       mentionable: false,
-      hoist: false
-    }
+      hoist: false,
+    },
   })
 
-  if (!role || typeof role !== 'object' || !('id' in role) || typeof role.id !== 'string') {
-    throw new Error('Discord did not return a role id for the complementary space.')
+  if (
+    !role ||
+    typeof role !== 'object' ||
+    !('id' in role) ||
+    typeof role.id !== 'string'
+  ) {
+    throw new Error(
+      'Discord did not return a role id for the complementary space.',
+    )
   }
 
   return {
     id: role.id,
-    name: 'name' in role && typeof role.name === 'string' ? role.name : name
+    name: 'name' in role && typeof role.name === 'string' ? role.name : name,
   }
 }
 
-async function createChannel(serverId: string, options: {
-  name: string;
-  type: ChannelType;
-  parentId?: string;
-  permissionOverwrites: Array<{ id: string; type: OverwriteType; allow: string; deny: string }>;
-}) {
+async function createChannel(
+  serverId: string,
+  options: {
+    name: string
+    type: ChannelType
+    parentId?: string
+    permissionOverwrites: Array<{
+      id: string
+      type: OverwriteType
+      allow: string
+      deny: string
+    }>
+  },
+) {
   const rest = getDiscordBotRest()
 
   if (!rest) {
-    throw new Error('Discord channel creation needs the bot token to be configured.')
+    throw new Error(
+      'Discord channel creation needs the bot token to be configured.',
+    )
   }
 
   const channel = await rest.post(Routes.guildChannels(serverId), {
@@ -382,17 +443,27 @@ async function createChannel(serverId: string, options: {
       name: options.name,
       type: options.type,
       parent_id: options.parentId,
-      permission_overwrites: options.permissionOverwrites
-    }
+      permission_overwrites: options.permissionOverwrites,
+    },
   })
 
-  if (!channel || typeof channel !== 'object' || !('id' in channel) || typeof channel.id !== 'string') {
-    throw new Error('Discord did not return a channel id for the complementary space.')
+  if (
+    !channel ||
+    typeof channel !== 'object' ||
+    !('id' in channel) ||
+    typeof channel.id !== 'string'
+  ) {
+    throw new Error(
+      'Discord did not return a channel id for the complementary space.',
+    )
   }
 
   return {
     id: channel.id,
-    name: 'name' in channel && typeof channel.name === 'string' ? channel.name : options.name
+    name:
+      'name' in channel && typeof channel.name === 'string'
+        ? channel.name
+        : options.name,
   }
 }
 
@@ -404,7 +475,9 @@ async function deleteChannel(channelId: string | null | undefined) {
   const rest = getDiscordBotRest()
 
   if (!rest) {
-    throw new Error('Discord channel deletion needs the bot token to be configured.')
+    throw new Error(
+      'Discord channel deletion needs the bot token to be configured.',
+    )
   }
 
   try {
@@ -418,11 +491,13 @@ async function deleteChannel(channelId: string | null | undefined) {
   }
 }
 
-async function resetLegacyProvisioningChannels(space: NonNullable<ProvisionableSpace>) {
-  const shouldReset = (
-    (space.status === PlayIntentDiscordSpaceStatus.REQUESTED || space.status === PlayIntentDiscordSpaceStatus.PROVISION_FAILED)
-    && Boolean(space.categoryChannelId || space.textChannelId)
-  )
+async function resetLegacyProvisioningChannels(
+  space: NonNullable<ProvisionableSpace>,
+) {
+  const shouldReset =
+    (space.status === PlayIntentDiscordSpaceStatus.REQUESTED ||
+      space.status === PlayIntentDiscordSpaceStatus.PROVISION_FAILED) &&
+    Boolean(space.categoryChannelId || space.textChannelId)
 
   if (!shouldReset) {
     return false
@@ -444,57 +519,84 @@ async function resetLegacyProvisioningChannels(space: NonNullable<ProvisionableS
       voiceChannelName: null,
       inviteCode: null,
       inviteUrl: null,
-      inviteUseCount: 0
-    }
+      inviteUseCount: 0,
+    },
   })
 
   return true
 }
 
-async function addRoleToMember(serverId: string, discordUserId: string, roleId: string) {
+async function addRoleToMember(
+  serverId: string,
+  discordUserId: string,
+  roleId: string,
+) {
   const rest = getDiscordBotRest()
 
   if (!rest) {
-    throw new Error('Discord member role assignment needs the bot token to be configured.')
+    throw new Error(
+      'Discord member role assignment needs the bot token to be configured.',
+    )
   }
 
   await rest.put(Routes.guildMemberRole(serverId, discordUserId, roleId))
 }
 
-async function removeRoleFromMember(serverId: string, discordUserId: string, roleId: string) {
+async function removeRoleFromMember(
+  serverId: string,
+  discordUserId: string,
+  roleId: string,
+) {
   const rest = getDiscordBotRest()
 
   if (!rest) {
-    throw new Error('Discord member role removal needs the bot token to be configured.')
+    throw new Error(
+      'Discord member role removal needs the bot token to be configured.',
+    )
   }
 
   await rest.delete(Routes.guildMemberRole(serverId, discordUserId, roleId))
 }
 
 type DiscordRoleGrantResult = {
-  ok: boolean;
-  reason: 'granted' | 'member-missing' | 'role-missing' | 'missing-access' | 'missing-permissions' | 'invalid-request' | 'unknown-error';
-  message: string | null;
+  ok: boolean
+  reason:
+    | 'granted'
+    | 'member-missing'
+    | 'role-missing'
+    | 'missing-access'
+    | 'missing-permissions'
+    | 'invalid-request'
+    | 'unknown-error'
+  message: string | null
 }
 
 type PlayIntentDiscordSpaceMemberJoinDependencies = {
-  discordServerId: string | null;
-  prisma: Pick<typeof prisma, 'userIdentity' | 'playIntentDiscordSpace' | 'playIntentDiscordSpaceAccessGrant' | 'discordServerMembership'>;
-  tryGrantRoleToMember: typeof tryGrantRoleToMember;
-  publishPlayIntentInvalidation: typeof publishPlayIntentInvalidation;
-  refreshTrackedRecipientDirectMessages?: (userIds: string[]) => Promise<void>;
+  discordServerId: string | null
+  prisma: Pick<
+    typeof prisma,
+    | 'userIdentity'
+    | 'playIntentDiscordSpace'
+    | 'playIntentDiscordSpaceAccessGrant'
+    | 'discordServerMembership'
+  >
+  tryGrantRoleToMember: typeof tryGrantRoleToMember
+  publishPlayIntentInvalidation: typeof publishPlayIntentInvalidation
+  refreshTrackedRecipientDirectMessages?: (userIds: string[]) => Promise<void>
 }
 
-const defaultPlayIntentDiscordSpaceMemberJoinDependencies: PlayIntentDiscordSpaceMemberJoinDependencies = {
-  discordServerId: env.DISCORD_SERVER_ID ?? null,
-  prisma,
-  tryGrantRoleToMember,
-  publishPlayIntentInvalidation,
-  refreshTrackedRecipientDirectMessages: async (userIds) => {
-    const { refreshTrackedPlayIntentNotificationDirectMessages } = await import('./play-intent-notification-responses.js')
-    await refreshTrackedPlayIntentNotificationDirectMessages({ userIds })
+const defaultPlayIntentDiscordSpaceMemberJoinDependencies: PlayIntentDiscordSpaceMemberJoinDependencies =
+  {
+    discordServerId: env.DISCORD_SERVER_ID ?? null,
+    prisma,
+    tryGrantRoleToMember,
+    publishPlayIntentInvalidation,
+    refreshTrackedRecipientDirectMessages: async (userIds) => {
+      const { refreshTrackedPlayIntentNotificationDirectMessages } =
+        await import('./play-intent-notification-responses.js')
+      await refreshTrackedPlayIntentNotificationDirectMessages({ userIds })
+    },
   }
-}
 
 function getDiscordApiErrorCode(error: unknown) {
   if (!error || typeof error !== 'object' || !('code' in error)) {
@@ -519,13 +621,16 @@ function getDiscordApiErrorStatus(error: unknown) {
 function describeDiscordRoleGrantError(error: unknown): DiscordRoleGrantResult {
   const code = getDiscordApiErrorCode(error)
   const status = getDiscordApiErrorStatus(error)
-  const message = error instanceof Error ? error.message : String(error ?? 'Unknown Discord role grant error.')
+  const message =
+    error instanceof Error
+      ? error.message
+      : String(error ?? 'Unknown Discord role grant error.')
 
   if (code === 10007 || /Unknown Member/i.test(message)) {
     return {
       ok: false,
       reason: 'member-missing',
-      message: 'Discord could not find that member in the server.'
+      message: 'Discord could not find that member in the server.',
     }
   }
 
@@ -533,7 +638,8 @@ function describeDiscordRoleGrantError(error: unknown): DiscordRoleGrantResult {
     return {
       ok: false,
       reason: 'role-missing',
-      message: 'Discord could not find the temporary role for this call to play.'
+      message:
+        'Discord could not find the temporary role for this call to play.',
     }
   }
 
@@ -541,15 +647,21 @@ function describeDiscordRoleGrantError(error: unknown): DiscordRoleGrantResult {
     return {
       ok: false,
       reason: 'missing-access',
-      message: 'The Game\'s Up bot does not have access to manage this Discord server.'
+      message:
+        "The Game's Up bot does not have access to manage this Discord server.",
     }
   }
 
-  if (code === 50013 || /Missing Permissions/i.test(message) || status === 403) {
+  if (
+    code === 50013 ||
+    /Missing Permissions/i.test(message) ||
+    status === 403
+  ) {
     return {
       ok: false,
       reason: 'missing-permissions',
-      message: 'The Game\'s Up bot cannot assign the temporary role in this Discord server. Check Manage Roles permission and bot role hierarchy.'
+      message:
+        "The Game's Up bot cannot assign the temporary role in this Discord server. Check Manage Roles permission and bot role hierarchy.",
     }
   }
 
@@ -557,37 +669,45 @@ function describeDiscordRoleGrantError(error: unknown): DiscordRoleGrantResult {
     return {
       ok: false,
       reason: 'invalid-request',
-      message: 'Discord rejected the temporary role grant request as invalid.'
+      message: 'Discord rejected the temporary role grant request as invalid.',
     }
   }
 
   return {
     ok: false,
     reason: 'unknown-error',
-    message
+    message,
   }
 }
 
-async function tryGrantRoleToMember(serverId: string, discordUserId: string, roleId: string): Promise<DiscordRoleGrantResult> {
+async function tryGrantRoleToMember(
+  serverId: string,
+  discordUserId: string,
+  roleId: string,
+): Promise<DiscordRoleGrantResult> {
   try {
     await addRoleToMember(serverId, discordUserId, roleId)
     return {
       ok: true,
       reason: 'granted',
-      message: null
+      message: null,
     }
   } catch (error) {
     return describeDiscordRoleGrantError(error)
   }
 }
 
-async function tryRemoveRoleFromMember(serverId: string, discordUserId: string, roleId: string): Promise<DiscordRoleGrantResult> {
+async function tryRemoveRoleFromMember(
+  serverId: string,
+  discordUserId: string,
+  roleId: string,
+): Promise<DiscordRoleGrantResult> {
   try {
     await removeRoleFromMember(serverId, discordUserId, roleId)
     return {
       ok: true,
       reason: 'granted',
-      message: null
+      message: null,
     }
   } catch (error) {
     return describeDiscordRoleGrantError(error)
@@ -602,7 +722,9 @@ async function deleteRole(serverId: string, roleId: string | null | undefined) {
   const rest = getDiscordBotRest()
 
   if (!rest) {
-    throw new Error('Discord role deletion needs the bot token to be configured.')
+    throw new Error(
+      'Discord role deletion needs the bot token to be configured.',
+    )
   }
 
   try {
@@ -619,7 +741,7 @@ async function deleteRole(serverId: string, roleId: string | null | undefined) {
 async function syncGrantedMembers(space: NonNullable<ProvisionableSpace>) {
   if (!space.roleId) {
     return {
-      lastSyncError: null
+      lastSyncError: null,
     }
   }
 
@@ -627,12 +749,12 @@ async function syncGrantedMembers(space: NonNullable<ProvisionableSpace>) {
     where: {
       serverId: space.serverId,
       userId: {
-        in: space.accessGrants.map((grant) => grant.userId)
-      }
+        in: space.accessGrants.map((grant) => grant.userId),
+      },
     },
     select: {
-      userId: true
-    }
+      userId: true,
+    },
   })
   const membershipSet = new Set(membershipRows.map((row) => row.userId))
   const now = new Date()
@@ -647,20 +769,28 @@ async function syncGrantedMembers(space: NonNullable<ProvisionableSpace>) {
       let roleRevokeResult: DiscordRoleGrantResult = {
         ok: false,
         reason: 'member-missing',
-        message: null
+        message: null,
       }
 
       if (discordUserId && grant.roleGrantedAt) {
-        roleRevokeResult = await tryRemoveRoleFromMember(space.serverId, discordUserId, space.roleId)
+        roleRevokeResult = await tryRemoveRoleFromMember(
+          space.serverId,
+          discordUserId,
+          space.roleId,
+        )
 
-        if (!roleRevokeResult.ok && roleRevokeResult.reason !== 'member-missing' && roleRevokeResult.reason !== 'role-missing') {
+        if (
+          !roleRevokeResult.ok &&
+          roleRevokeResult.reason !== 'member-missing' &&
+          roleRevokeResult.reason !== 'role-missing'
+        ) {
           hadGrantErrors = true
           console.error('Failed to revoke complementary Discord space role', {
             spaceId: space.id,
             userId: grant.userId,
             discordUserId,
             reason: roleRevokeResult.reason,
-            error: roleRevokeResult.message
+            error: roleRevokeResult.message,
           })
         }
       }
@@ -669,20 +799,19 @@ async function syncGrantedMembers(space: NonNullable<ProvisionableSpace>) {
         where: {
           spaceId_userId: {
             spaceId: space.id,
-            userId: grant.userId
-          }
+            userId: grant.userId,
+          },
         },
         data: {
           inServer: membershipSet.has(grant.userId),
-          roleGrantedAt: (
-            !discordUserId
-            || roleRevokeResult.ok
-            || roleRevokeResult.reason === 'member-missing'
-            || roleRevokeResult.reason === 'role-missing'
-          )
-            ? null
-            : grant.roleGrantedAt
-        }
+          roleGrantedAt:
+            !discordUserId ||
+            roleRevokeResult.ok ||
+            roleRevokeResult.reason === 'member-missing' ||
+            roleRevokeResult.reason === 'role-missing'
+              ? null
+              : grant.roleGrantedAt,
+        },
       })
 
       continue
@@ -692,11 +821,15 @@ async function syncGrantedMembers(space: NonNullable<ProvisionableSpace>) {
     let roleGrantResult: DiscordRoleGrantResult = {
       ok: false,
       reason: 'member-missing',
-      message: null
+      message: null,
     }
 
     if (discordUserId) {
-      roleGrantResult = await tryGrantRoleToMember(space.serverId, discordUserId, space.roleId)
+      roleGrantResult = await tryGrantRoleToMember(
+        space.serverId,
+        discordUserId,
+        space.roleId,
+      )
 
       if (!roleGrantResult.ok && roleGrantResult.reason !== 'member-missing') {
         hadGrantErrors = true
@@ -705,7 +838,7 @@ async function syncGrantedMembers(space: NonNullable<ProvisionableSpace>) {
           userId: grant.userId,
           discordUserId,
           reason: roleGrantResult.reason,
-          error: roleGrantResult.message
+          error: roleGrantResult.message,
         })
       }
     }
@@ -714,17 +847,22 @@ async function syncGrantedMembers(space: NonNullable<ProvisionableSpace>) {
 
     if (!hadRoleBefore && !roleGrantResult.ok) {
       if (isCreatorGrant) {
-        creatorSyncError = creatorSyncError ?? (
-          !discordUserId
+        creatorSyncError =
+          creatorSyncError ??
+          (!discordUserId
             ? discordSpaceCreatorMissingIdentityMessage
-            : roleGrantResult.reason === 'missing-access' || roleGrantResult.reason === 'missing-permissions'
-              ? roleGrantResult.message ?? discordSpaceCreatorGrantFailureMessage
-              : roleGrantResult.reason === 'role-missing' || roleGrantResult.reason === 'invalid-request' || roleGrantResult.reason === 'unknown-error'
-                ? roleGrantResult.message ?? discordSpaceCreatorGrantFailureMessage
+            : roleGrantResult.reason === 'missing-access' ||
+                roleGrantResult.reason === 'missing-permissions'
+              ? (roleGrantResult.message ??
+                discordSpaceCreatorGrantFailureMessage)
+              : roleGrantResult.reason === 'role-missing' ||
+                  roleGrantResult.reason === 'invalid-request' ||
+                  roleGrantResult.reason === 'unknown-error'
+                ? (roleGrantResult.message ??
+                  discordSpaceCreatorGrantFailureMessage)
                 : inServer
                   ? discordSpaceCreatorGrantFailureMessage
-                  : discordSpaceCreatorJoinServerMessage
-        )
+                  : discordSpaceCreatorJoinServerMessage)
       } else if (!discordUserId && inServer) {
         hadGrantErrors = true
       }
@@ -734,22 +872,28 @@ async function syncGrantedMembers(space: NonNullable<ProvisionableSpace>) {
       where: {
         spaceId_userId: {
           spaceId: space.id,
-          userId: grant.userId
-        }
+          userId: grant.userId,
+        },
       },
       data: {
         inServer,
-        roleGrantedAt: roleGrantResult.ok ? (grant.roleGrantedAt ?? now) : grant.roleGrantedAt
-      }
+        roleGrantedAt: roleGrantResult.ok
+          ? (grant.roleGrantedAt ?? now)
+          : grant.roleGrantedAt,
+      },
     })
   }
 
   return {
-    lastSyncError: creatorSyncError ?? (hadGrantErrors ? discordSpaceGrantFailureMessage : null)
+    lastSyncError:
+      creatorSyncError ??
+      (hadGrantErrors ? discordSpaceGrantFailureMessage : null),
   }
 }
 
-function toRecipientContextStatus(status: PlayIntentDiscordSpaceStatus): PlayIntentDiscordSpaceRecipientContext['status'] {
+function toRecipientContextStatus(
+  status: PlayIntentDiscordSpaceStatus,
+): PlayIntentDiscordSpaceRecipientContext['status'] {
   switch (status) {
     case PlayIntentDiscordSpaceStatus.RETAINED:
       return 'retained'
@@ -760,7 +904,10 @@ function toRecipientContextStatus(status: PlayIntentDiscordSpaceStatus): PlayInt
   }
 }
 
-export async function getPlayIntentDiscordSpaceRecipientContexts(playIntentId: string, userIds: string[]) {
+export async function getPlayIntentDiscordSpaceRecipientContexts(
+  playIntentId: string,
+  userIds: string[],
+) {
   const uniqueUserIds = [...new Set(userIds.filter(Boolean))]
 
   if (uniqueUserIds.length === 0) {
@@ -769,7 +916,7 @@ export async function getPlayIntentDiscordSpaceRecipientContexts(playIntentId: s
 
   const space = await prisma.playIntentDiscordSpace.findUnique({
     where: {
-      playIntentId
+      playIntentId,
     },
     select: {
       serverId: true,
@@ -782,38 +929,49 @@ export async function getPlayIntentDiscordSpaceRecipientContexts(playIntentId: s
       accessGrants: {
         where: {
           userId: {
-            in: uniqueUserIds
+            in: uniqueUserIds,
           },
-          revokedAt: null
+          revokedAt: null,
         },
         select: {
           userId: true,
           inServer: true,
-          roleGrantedAt: true
-        }
-      }
-    }
+          roleGrantedAt: true,
+        },
+      },
+    },
   })
 
   if (!space || !complementarySpaceActiveStatuses.includes(space.status)) {
     return new Map<string, PlayIntentDiscordSpaceRecipientContext>()
   }
 
-  return new Map(space.accessGrants.map((grant) => [
-    grant.userId,
-    {
-      status: toRecipientContextStatus(space.status),
-      recipientInServer: grant.inServer,
-      textChannelName: space.textChannelName,
-      textChannelUrl: buildDiscordChannelUrl(space.serverId, space.textChannelId),
-      voiceChannelName: space.voiceChannelName,
-      voiceChannelUrl: buildDiscordChannelUrl(space.serverId, space.voiceChannelId),
-      inviteUrl: space.inviteUrl
-    }
-  ]))
+  return new Map(
+    space.accessGrants.map((grant) => [
+      grant.userId,
+      {
+        status: toRecipientContextStatus(space.status),
+        recipientInServer: grant.inServer,
+        textChannelName: space.textChannelName,
+        textChannelUrl: buildDiscordChannelUrl(
+          space.serverId,
+          space.textChannelId,
+        ),
+        voiceChannelName: space.voiceChannelName,
+        voiceChannelUrl: buildDiscordChannelUrl(
+          space.serverId,
+          space.voiceChannelId,
+        ),
+        inviteUrl: space.inviteUrl,
+      },
+    ]),
+  )
 }
 
-export async function ensurePlayIntentDiscordSpaceAudienceAccess(playIntentId: string, userIds: string[]) {
+export async function ensurePlayIntentDiscordSpaceAudienceAccess(
+  playIntentId: string,
+  userIds: string[],
+) {
   const uniqueUserIds = [...new Set(userIds.filter(Boolean))]
 
   if (uniqueUserIds.length === 0) {
@@ -822,13 +980,13 @@ export async function ensurePlayIntentDiscordSpaceAudienceAccess(playIntentId: s
 
   const space = await prisma.playIntentDiscordSpace.findUnique({
     where: {
-      playIntentId
+      playIntentId,
     },
     select: {
       id: true,
       status: true,
-      roleId: true
-    }
+      roleId: true,
+    },
   })
 
   if (!space) {
@@ -840,12 +998,15 @@ export async function ensurePlayIntentDiscordSpaceAudienceAccess(playIntentId: s
       spaceId: space.id,
       userId,
       source: PlayIntentDiscordSpaceAccessSource.AUDIENCE_SYNC,
-      inServer: false
+      inServer: false,
     })),
-    skipDuplicates: true
+    skipDuplicates: true,
   })
 
-  if (!complementarySpaceActiveStatuses.includes(space.status) || !space.roleId) {
+  if (
+    !complementarySpaceActiveStatuses.includes(space.status) ||
+    !space.roleId
+  ) {
     return
   }
 
@@ -865,13 +1026,16 @@ export async function ensurePlayIntentDiscordSpaceAudienceAccess(playIntentId: s
  * dedicated invite DM, so a recipient who flips interested -> pass ->
  * interested is not invited twice.
  */
-export async function claimPlayIntentDiscordSpaceInviteSend(playIntentId: string, userId: string) {
+export async function claimPlayIntentDiscordSpaceInviteSend(
+  playIntentId: string,
+  userId: string,
+) {
   const space = await prisma.playIntentDiscordSpace.findUnique({
     where: { playIntentId },
     select: {
       id: true,
-      serverId: true
-    }
+      serverId: true,
+    },
   })
 
   if (!space) {
@@ -883,20 +1047,23 @@ export async function claimPlayIntentDiscordSpaceInviteSend(playIntentId: string
       spaceId: space.id,
       userId,
       revokedAt: null,
-      inviteSentAt: null
+      inviteSentAt: null,
     },
     data: {
-      inviteSentAt: new Date()
-    }
+      inviteSentAt: new Date(),
+    },
   })
 
   return {
     claimed: claim.count > 0,
-    serverId: space.serverId
+    serverId: space.serverId,
   }
 }
 
-export async function markPlayIntentDiscordSpacesRetained(playIntentIds: string[], baseTime = new Date()) {
+export async function markPlayIntentDiscordSpacesRetained(
+  playIntentIds: string[],
+  baseTime = new Date(),
+) {
   const uniquePlayIntentIds = [...new Set(playIntentIds.filter(Boolean))]
 
   if (uniquePlayIntentIds.length === 0) {
@@ -906,7 +1073,7 @@ export async function markPlayIntentDiscordSpacesRetained(playIntentIds: string[
   const retainedSpaces = await prisma.playIntentDiscordSpace.findMany({
     where: {
       playIntentId: {
-        in: uniquePlayIntentIds
+        in: uniquePlayIntentIds,
       },
       deletedAt: null,
       status: {
@@ -915,25 +1082,28 @@ export async function markPlayIntentDiscordSpacesRetained(playIntentIds: string[
           PlayIntentDiscordSpaceStatus.PROVISIONING,
           PlayIntentDiscordSpaceStatus.ACTIVE,
           PlayIntentDiscordSpaceStatus.PROVISION_FAILED,
-          PlayIntentDiscordSpaceStatus.RETAINED
-        ]
-      }
+          PlayIntentDiscordSpaceStatus.RETAINED,
+        ],
+      },
     },
     select: {
       id: true,
-      lastActiveAt: true
-    }
+      lastActiveAt: true,
+    },
   })
 
   for (const space of retainedSpaces) {
     await prisma.playIntentDiscordSpace.update({
       where: {
-        id: space.id
+        id: space.id,
       },
       data: {
         status: PlayIntentDiscordSpaceStatus.RETAINED,
-        deleteAfter: resolveComplementarySpaceDeleteAfter(baseTime, space.lastActiveAt)
-      }
+        deleteAfter: resolveComplementarySpaceDeleteAfter(
+          baseTime,
+          space.lastActiveAt,
+        ),
+      },
     })
   }
 
@@ -959,8 +1129,8 @@ async function deletePlayIntentDiscordSpace(spaceId: string) {
       status: PlayIntentDiscordSpaceStatus.DELETE_REQUESTED,
       deleteRequestedAt: new Date(),
       lastSyncError: null,
-      deleteAfter: null
-    }
+      deleteAfter: null,
+    },
   })
 
   try {
@@ -980,17 +1150,17 @@ async function deletePlayIntentDiscordSpace(spaceId: string) {
         inviteCode: null,
         inviteUrl: null,
         deleteAfter: null,
-        inviteUseCount: 0
-      }
+        inviteUseCount: 0,
+      },
     })
     await prisma.playIntentDiscordSpaceAccessGrant.updateMany({
       where: {
         spaceId: space.id,
-        revokedAt: null
+        revokedAt: null,
       },
       data: {
-        revokedAt: now
-      }
+        revokedAt: now,
+      },
     })
 
     publishPlayIntentInvalidation()
@@ -1001,13 +1171,19 @@ async function deletePlayIntentDiscordSpace(spaceId: string) {
       where: { id: space.id },
       data: {
         status: PlayIntentDiscordSpaceStatus.RETAINED,
-        deleteAfter: resolveComplementarySpaceDeleteAfter(new Date(), space.lastActiveAt),
-        lastSyncError: error instanceof Error ? error.message : 'Unknown complementary Discord space delete error.'
-      }
+        deleteAfter: resolveComplementarySpaceDeleteAfter(
+          new Date(),
+          space.lastActiveAt,
+        ),
+        lastSyncError:
+          error instanceof Error
+            ? error.message
+            : 'Unknown complementary Discord space delete error.',
+      },
     })
     console.error('Failed to delete complementary Discord space', {
       spaceId: space.id,
-      error
+      error,
     })
 
     publishPlayIntentInvalidation()
@@ -1016,14 +1192,16 @@ async function deletePlayIntentDiscordSpace(spaceId: string) {
   }
 }
 
-export async function deletePlayIntentDiscordSpaceByPlayIntentId(playIntentId: string) {
+export async function deletePlayIntentDiscordSpaceByPlayIntentId(
+  playIntentId: string,
+) {
   const space = await prisma.playIntentDiscordSpace.findUnique({
     where: {
-      playIntentId
+      playIntentId,
     },
     select: {
-      id: true
-    }
+      id: true,
+    },
   })
 
   if (!space) {
@@ -1045,8 +1223,9 @@ export async function provisionPlayIntentDiscordSpace(spaceId: string) {
       where: { id: space.id },
       data: {
         status: PlayIntentDiscordSpaceStatus.PROVISION_FAILED,
-        lastSyncError: "Game's Up Discord server configuration is missing or does not match this space."
-      }
+        lastSyncError:
+          "Game's Up Discord server configuration is missing or does not match this space.",
+      },
     })
     publishPlayIntentInvalidation()
     return { status: 'failed' as const }
@@ -1060,8 +1239,8 @@ export async function provisionPlayIntentDiscordSpace(spaceId: string) {
     where: { id: space.id },
     data: {
       status: PlayIntentDiscordSpaceStatus.PROVISIONING,
-      lastSyncError: null
-    }
+      lastSyncError: null,
+    },
   })
 
   try {
@@ -1075,58 +1254,70 @@ export async function provisionPlayIntentDiscordSpace(spaceId: string) {
         where: { id: space.id },
         data: {
           roleId: role.id,
-          roleName: role.name
-        }
+          roleName: role.name,
+        },
       })
     }
-    const category = !resetLegacyChannels && space.categoryChannelId
-      ? { id: space.categoryChannelId, name: space.categoryChannelName ?? names.categoryName }
-      : await createChannel(space.serverId, {
-          name: names.categoryName,
-          type: ChannelType.GuildCategory,
-          permissionOverwrites: buildBasePermissionOverwrites(role.id)
-        })
+    const category =
+      !resetLegacyChannels && space.categoryChannelId
+        ? {
+            id: space.categoryChannelId,
+            name: space.categoryChannelName ?? names.categoryName,
+          }
+        : await createChannel(space.serverId, {
+            name: names.categoryName,
+            type: ChannelType.GuildCategory,
+            permissionOverwrites: buildBasePermissionOverwrites(role.id),
+          })
     if (resetLegacyChannels || !space.categoryChannelId) {
       await prisma.playIntentDiscordSpace.update({
         where: { id: space.id },
         data: {
           categoryChannelId: category.id,
-          categoryChannelName: category.name
-        }
+          categoryChannelName: category.name,
+        },
       })
     }
-    const textChannel = !resetLegacyChannels && space.textChannelId
-      ? { id: space.textChannelId, name: space.textChannelName ?? names.textChannelName }
-      : await createChannel(space.serverId, {
-          name: names.textChannelName,
-          type: ChannelType.GuildText,
-          parentId: category.id,
-          permissionOverwrites: buildTextPermissionOverwrites(role.id)
-        })
+    const textChannel =
+      !resetLegacyChannels && space.textChannelId
+        ? {
+            id: space.textChannelId,
+            name: space.textChannelName ?? names.textChannelName,
+          }
+        : await createChannel(space.serverId, {
+            name: names.textChannelName,
+            type: ChannelType.GuildText,
+            parentId: category.id,
+            permissionOverwrites: buildTextPermissionOverwrites(role.id),
+          })
     if (resetLegacyChannels || !space.textChannelId) {
       await prisma.playIntentDiscordSpace.update({
         where: { id: space.id },
         data: {
           textChannelId: textChannel.id,
-          textChannelName: textChannel.name
-        }
+          textChannelName: textChannel.name,
+        },
       })
     }
-    const voiceChannel = !resetLegacyChannels && space.voiceChannelId
-      ? { id: space.voiceChannelId, name: space.voiceChannelName ?? names.voiceChannelName }
-      : await createChannel(space.serverId, {
-          name: names.voiceChannelName,
-          type: ChannelType.GuildVoice,
-          parentId: category.id,
-          permissionOverwrites: buildVoicePermissionOverwrites(role.id)
-        })
+    const voiceChannel =
+      !resetLegacyChannels && space.voiceChannelId
+        ? {
+            id: space.voiceChannelId,
+            name: space.voiceChannelName ?? names.voiceChannelName,
+          }
+        : await createChannel(space.serverId, {
+            name: names.voiceChannelName,
+            type: ChannelType.GuildVoice,
+            parentId: category.id,
+            permissionOverwrites: buildVoicePermissionOverwrites(role.id),
+          })
     if (resetLegacyChannels || !space.voiceChannelId) {
       await prisma.playIntentDiscordSpace.update({
         where: { id: space.id },
         data: {
           voiceChannelId: voiceChannel.id,
-          voiceChannelName: voiceChannel.name
-        }
+          voiceChannelName: voiceChannel.name,
+        },
       })
     }
     const invite = await ensurePlayIntentDiscordSpaceInvite({
@@ -1135,7 +1326,7 @@ export async function provisionPlayIntentDiscordSpace(spaceId: string) {
       roleId: role.id,
       textChannelId: textChannel.id,
       inviteCode: resetLegacyChannels ? null : space.inviteCode,
-      inviteUseCount: space.inviteUseCount
+      inviteUseCount: space.inviteUseCount,
     })
 
     await prisma.playIntentDiscordSpace.update({
@@ -1154,8 +1345,8 @@ export async function provisionPlayIntentDiscordSpace(spaceId: string) {
         inviteUseCount: invite.uses,
         inviteUrl: invite.url,
         provisionedAt: space.provisionedAt ?? new Date(),
-        lastSyncError: null
-      }
+        lastSyncError: null,
+      },
     })
 
     const refreshed = await loadProvisionableSpace(space.id)
@@ -1165,8 +1356,8 @@ export async function provisionPlayIntentDiscordSpace(spaceId: string) {
       await prisma.playIntentDiscordSpace.update({
         where: { id: space.id },
         data: {
-          lastSyncError: syncResult.lastSyncError
-        }
+          lastSyncError: syncResult.lastSyncError,
+        },
       })
     }
 
@@ -1178,26 +1369,31 @@ export async function provisionPlayIntentDiscordSpace(spaceId: string) {
       where: { id: space.id },
       data: {
         status: PlayIntentDiscordSpaceStatus.PROVISION_FAILED,
-        lastSyncError: error instanceof Error ? error.message : 'Unknown complementary Discord space provisioning error.'
-      }
+        lastSyncError:
+          error instanceof Error
+            ? error.message
+            : 'Unknown complementary Discord space provisioning error.',
+      },
     })
     console.error('Failed to provision complementary Discord space', {
       spaceId: space.id,
-      error
+      error,
     })
     publishPlayIntentInvalidation()
     return { status: 'failed' as const }
   }
 }
 
-export async function provisionPlayIntentDiscordSpaceByPlayIntentId(playIntentId: string) {
+export async function provisionPlayIntentDiscordSpaceByPlayIntentId(
+  playIntentId: string,
+) {
   const space = await prisma.playIntentDiscordSpace.findUnique({
     where: {
-      playIntentId
+      playIntentId,
     },
     select: {
-      id: true
-    }
+      id: true,
+    },
   })
 
   if (!space) {
@@ -1211,16 +1407,19 @@ export async function sweepProvisionPendingPlayIntentDiscordSpaces() {
   const spaces = await prisma.playIntentDiscordSpace.findMany({
     where: {
       status: {
-        in: [PlayIntentDiscordSpaceStatus.REQUESTED, PlayIntentDiscordSpaceStatus.PROVISION_FAILED]
-      }
+        in: [
+          PlayIntentDiscordSpaceStatus.REQUESTED,
+          PlayIntentDiscordSpaceStatus.PROVISION_FAILED,
+        ],
+      },
     },
     select: {
-      id: true
+      id: true,
     },
     take: 10,
     orderBy: {
-      createdAt: 'asc'
-    }
+      createdAt: 'asc',
+    },
   })
 
   for (const space of spaces) {
@@ -1228,11 +1427,15 @@ export async function sweepProvisionPendingPlayIntentDiscordSpaces() {
   }
 }
 
-export async function sweepBackfillLegacyPlayIntentDiscordSpaces(options: {
-  findSpaces?: () => Promise<LegacyBackfillCandidateSpace[]>;
-  provisionSpace?: (spaceId: string) => Promise<unknown>;
-} = {}) {
-  const spaces = await (options.findSpaces ?? findLegacyBackfillCandidateSpaces)()
+export async function sweepBackfillLegacyPlayIntentDiscordSpaces(
+  options: {
+    findSpaces?: () => Promise<LegacyBackfillCandidateSpace[]>
+    provisionSpace?: (spaceId: string) => Promise<unknown>
+  } = {},
+) {
+  const spaces = await (
+    options.findSpaces ?? findLegacyBackfillCandidateSpaces
+  )()
 
   for (const space of spaces) {
     if (!shouldBackfillLegacyPlayIntentDiscordSpace(space)) {
@@ -1256,17 +1459,17 @@ export async function sweepBackfillMissingPlayIntentDiscordSpaceDeleteAfter() {
     where: {
       deletedAt: null,
       deleteAfter: null,
-      status: PlayIntentDiscordSpaceStatus.RETAINED
+      status: PlayIntentDiscordSpaceStatus.RETAINED,
     },
     select: {
       id: true,
       lastActiveAt: true,
       playIntent: {
         select: {
-          expiresAt: true
-        }
-      }
-    }
+          expiresAt: true,
+        },
+      },
+    },
   })
 
   if (spacesMissingCountdown.length === 0) {
@@ -1278,41 +1481,59 @@ export async function sweepBackfillMissingPlayIntentDiscordSpaceDeleteAfter() {
     await prisma.playIntentDiscordSpace.update({
       where: { id: space.id },
       data: {
-        deleteAfter: resolveComplementarySpaceDeleteAfter(baseTime, space.lastActiveAt)
-      }
+        deleteAfter: resolveComplementarySpaceDeleteAfter(
+          baseTime,
+          space.lastActiveAt,
+        ),
+      },
     })
   }
 
   publishPlayIntentInvalidation()
 }
 
-export async function sweepDeleteDuePlayIntentDiscordSpaces(options: {
-  findDueSpaces?: () => Promise<Array<{ id: string; voiceChannelId: string | null }>>;
-  hasActiveVoiceUsers?: (voiceChannelId: string | null) => Promise<boolean>;
-  deleteSpace?: (spaceId: string) => Promise<unknown>;
-} = {}) {
-  const dueSpaces = await (options.findDueSpaces ?? (() => prisma.playIntentDiscordSpace.findMany({
-    where: {
-      deletedAt: null,
-      deleteAfter: {
-        lte: new Date()
-      },
-      status: {
-        in: [PlayIntentDiscordSpaceStatus.RETAINED, PlayIntentDiscordSpaceStatus.DELETE_REQUESTED]
-      }
-    },
-    select: {
-      id: true,
-      voiceChannelId: true
-    },
-    take: 10,
-    orderBy: {
-      deleteAfter: 'asc'
-    }
-  })))()
+export async function sweepDeleteDuePlayIntentDiscordSpaces(
+  options: {
+    findDueSpaces?: () => Promise<
+      Array<{ id: string; voiceChannelId: string | null }>
+    >
+    hasActiveVoiceUsers?: (voiceChannelId: string | null) => Promise<boolean>
+    deleteSpace?: (spaceId: string) => Promise<unknown>
+  } = {},
+) {
+  const dueSpaces = await (
+    options.findDueSpaces ??
+    (() =>
+      prisma.playIntentDiscordSpace.findMany({
+        where: {
+          deletedAt: null,
+          deleteAfter: {
+            lte: new Date(),
+          },
+          status: {
+            in: [
+              PlayIntentDiscordSpaceStatus.RETAINED,
+              PlayIntentDiscordSpaceStatus.DELETE_REQUESTED,
+            ],
+          },
+        },
+        select: {
+          id: true,
+          voiceChannelId: true,
+        },
+        take: 10,
+        orderBy: {
+          deleteAfter: 'asc',
+        },
+      }))
+  )()
 
   for (const space of dueSpaces) {
-    if (await (options.hasActiveVoiceUsers ?? hasActiveVoiceUsersInDiscordSpaceChannel)(space.voiceChannelId)) {
+    if (
+      await (
+        options.hasActiveVoiceUsers ?? hasActiveVoiceUsersInDiscordSpaceChannel
+      )(space.voiceChannelId)
+    ) {
       continue
     }
 
@@ -1320,10 +1541,13 @@ export async function sweepDeleteDuePlayIntentDiscordSpaces(options: {
   }
 }
 
-export async function handlePlayIntentDiscordSpaceMemberJoin(options: {
-  serverId: string;
-  discordUserId: string;
-}, dependencies: PlayIntentDiscordSpaceMemberJoinDependencies = defaultPlayIntentDiscordSpaceMemberJoinDependencies) {
+export async function handlePlayIntentDiscordSpaceMemberJoin(
+  options: {
+    serverId: string
+    discordUserId: string
+  },
+  dependencies: PlayIntentDiscordSpaceMemberJoinDependencies = defaultPlayIntentDiscordSpaceMemberJoinDependencies,
+) {
   if (options.serverId !== dependencies.discordServerId) {
     return
   }
@@ -1341,12 +1565,12 @@ export async function handlePlayIntentDiscordSpaceMemberJoin(options: {
     where: {
       provider_providerUserId: {
         provider: AuthProvider.DISCORD,
-        providerUserId: options.discordUserId
-      }
+        providerUserId: options.discordUserId,
+      },
     },
     select: {
-      userId: true
-    }
+      userId: true,
+    },
   })
 
   if (identity) {
@@ -1356,75 +1580,89 @@ export async function handlePlayIntentDiscordSpaceMemberJoin(options: {
       where: {
         userId_serverId: {
           userId: identity.userId,
-          serverId: options.serverId
-        }
+          serverId: options.serverId,
+        },
       },
       update: {},
       create: {
         userId: identity.userId,
-        serverId: options.serverId
-      }
+        serverId: options.serverId,
+      },
     })
 
-    const trackedGrantSpaces = await database.playIntentDiscordSpaceAccessGrant.findMany({
-      where: {
-        userId: identity.userId,
-        revokedAt: null,
-        space: {
-          serverId: options.serverId,
-          status: {
-            in: complementarySpaceActiveStatuses
+    const trackedGrantSpaces =
+      await database.playIntentDiscordSpaceAccessGrant.findMany({
+        where: {
+          userId: identity.userId,
+          revokedAt: null,
+          space: {
+            serverId: options.serverId,
+            status: {
+              in: complementarySpaceActiveStatuses,
+            },
+            roleId: {
+              not: null,
+            },
           },
-          roleId: {
-            not: null
-          }
-        }
-      },
-      select: {
-        spaceId: true,
-        source: true,
-        roleGrantedAt: true,
-        joinedViaInviteAt: true,
-        space: {
-          select: {
-            roleId: true
-          }
-        }
-      }
-    })
+        },
+        select: {
+          spaceId: true,
+          source: true,
+          roleGrantedAt: true,
+          joinedViaInviteAt: true,
+          space: {
+            select: {
+              roleId: true,
+            },
+          },
+        },
+      })
 
     for (const grant of trackedGrantSpaces) {
       if (!grant.space.roleId) {
         continue
       }
 
-      const roleGrantResult = await dependencies.tryGrantRoleToMember(options.serverId, options.discordUserId, grant.space.roleId)
+      const roleGrantResult = await dependencies.tryGrantRoleToMember(
+        options.serverId,
+        options.discordUserId,
+        grant.space.roleId,
+      )
 
       if (!roleGrantResult.ok && roleGrantResult.reason !== 'member-missing') {
-        console.error('Failed to grant complementary role on guild member join', {
-          serverId: options.serverId,
-          discordUserId: options.discordUserId,
-          spaceId: grant.spaceId,
-          reason: roleGrantResult.reason,
-          error: roleGrantResult.message
-        })
+        console.error(
+          'Failed to grant complementary role on guild member join',
+          {
+            serverId: options.serverId,
+            discordUserId: options.discordUserId,
+            spaceId: grant.spaceId,
+            reason: roleGrantResult.reason,
+            error: roleGrantResult.message,
+          },
+        )
       }
 
       await database.playIntentDiscordSpaceAccessGrant.update({
         where: {
           spaceId_userId: {
             spaceId: grant.spaceId,
-            userId: identity.userId
-          }
+            userId: identity.userId,
+          },
         },
         data: {
           inServer: true,
-          roleGrantedAt: roleGrantResult.ok ? (grant.roleGrantedAt ?? new Date()) : grant.roleGrantedAt,
-          joinedViaInviteAt: grant.joinedViaInviteAt ?? new Date()
-        }
+          roleGrantedAt: roleGrantResult.ok
+            ? (grant.roleGrantedAt ?? new Date())
+            : grant.roleGrantedAt,
+          joinedViaInviteAt: grant.joinedViaInviteAt ?? new Date(),
+        },
       })
 
-      if (grant.source === 'CREATOR' && roleGrantResult.ok && !grant.roleGrantedAt) {
+      if (
+        grant.source === 'CREATOR' &&
+        roleGrantResult.ok &&
+        !grant.roleGrantedAt
+      ) {
         creatorResolvedSpaceIds.add(grant.spaceId)
       }
 
@@ -1435,18 +1673,18 @@ export async function handlePlayIntentDiscordSpaceMemberJoin(options: {
       await database.playIntentDiscordSpace.updateMany({
         where: {
           id: {
-            in: [...creatorResolvedSpaceIds]
+            in: [...creatorResolvedSpaceIds],
           },
           lastSyncError: {
             in: [
               discordSpaceCreatorJoinServerMessage,
-              discordSpaceCreatorGrantFailureMessage
-            ]
-          }
+              discordSpaceCreatorGrantFailureMessage,
+            ],
+          },
         },
         data: {
-          lastSyncError: null
-        }
+          lastSyncError: null,
+        },
       })
     }
   }
@@ -1458,5 +1696,4 @@ export async function handlePlayIntentDiscordSpaceMemberJoin(options: {
       await dependencies.refreshTrackedRecipientDirectMessages([joinedUserId])
     }
   }
-
 }

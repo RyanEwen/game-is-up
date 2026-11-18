@@ -5,7 +5,7 @@ import {
   buildSimulatorLaunchedGameActivityReplyPreview,
   buildSimulatorUpdatedReplyPreview,
   buildSimulatorVoiceChannelActivityReplyPreview,
-  type SimulatedDmMessage
+  type SimulatedDmMessage,
 } from './debug-dm-simulator.js'
 import {
   type SimulatedAutoPlayAction,
@@ -14,25 +14,28 @@ import {
   type SimulatedLifecycleEntryWithAction,
   type SimulatedLifecycleSnapshot,
   type SimulatedScenarioHistoryEntry,
-  type SimulatedScenarioKind
+  type SimulatedScenarioKind,
 } from './debug-dm-simulator-state.js'
 
 export type SimulatedThreadMessageMeta = {
-  sentAt: string;
-  editedAt: string | null;
+  sentAt: string
+  editedAt: string | null
 }
 
-export type SimulatedThreadMessageMetaById = Record<string, SimulatedThreadMessageMeta>
+export type SimulatedThreadMessageMetaById = Record<
+  string,
+  SimulatedThreadMessageMeta
+>
 
 export function orderSimulatedThreadMessages(
   messages: SimulatedDmMessage[],
-  messageMetaById: SimulatedThreadMessageMetaById
+  messageMetaById: SimulatedThreadMessageMetaById,
 ) {
   return messages
     .map((message, index) => ({
       message,
       index,
-      sentAt: messageMetaById[message.id]?.sentAt ?? null
+      sentAt: messageMetaById[message.id]?.sentAt ?? null,
     }))
     .sort((left, right) => {
       if (left.sentAt && right.sentAt) {
@@ -56,122 +59,169 @@ export function orderSimulatedThreadMessages(
 function buildSimulatedMessagePreviewFingerprint(message: SimulatedDmMessage) {
   return JSON.stringify({
     preview: message.preview,
-    isInteractive: message.isInteractive ?? false
+    isInteractive: message.isInteractive ?? false,
   })
 }
 
-function buildSimulatedAudienceUpdateReplyMessages(history: SimulatedLifecycleEntryWithAction[]) {
+function buildSimulatedAudienceUpdateReplyMessages(
+  history: SimulatedLifecycleEntryWithAction[],
+) {
   const latestEntry = history[history.length - 1]
 
-  if (!latestEntry || latestEntry.stateSnapshot.stage === 'ended' || latestEntry.stateSnapshot.audienceThreadArchived) {
+  if (
+    !latestEntry ||
+    latestEntry.stateSnapshot.stage === 'ended' ||
+    latestEntry.stateSnapshot.audienceThreadArchived
+  ) {
     return []
   }
 
   return history
-    .filter((entry) => entry.action === 'scenario-updated' && Boolean(entry.stateSnapshot.latestAudienceUpdateFields?.length))
+    .filter(
+      (entry) =>
+        entry.action === 'scenario-updated' &&
+        Boolean(entry.stateSnapshot.latestAudienceUpdateFields?.length),
+    )
     .map<SimulatedDmMessage>((entry) => ({
       id: `audience-update-${entry.id}`,
       label: 'Audience update reply',
-      preview: buildSimulatorUpdatedReplyPreview(entry.stateSnapshot.latestAudienceUpdateFields ?? [], {
-        requiresFreshResponse: entry.stateSnapshot.latestAudienceUpdateRequiresFreshResponse
-      }),
+      preview: buildSimulatorUpdatedReplyPreview(
+        entry.stateSnapshot.latestAudienceUpdateFields ?? [],
+        {
+          requiresFreshResponse:
+            entry.stateSnapshot.latestAudienceUpdateRequiresFreshResponse,
+        },
+      ),
       explanation: [
         'Meaningful call edits add fresh update replies beneath the invite instead of overwriting the invite anchor.',
-        'Each update reply stays in the thread as a trail of changes while the invite above keeps the latest details.'
+        'Each update reply stays in the thread as a trail of changes while the invite above keeps the latest details.',
       ],
-      isInteractive: false
+      isInteractive: false,
     }))
 }
 
-function buildSimulatedCreatorActivityReplyMessages(history: SimulatedLifecycleEntryWithAction[]) {
+function buildSimulatedCreatorActivityReplyMessages(
+  history: SimulatedLifecycleEntryWithAction[],
+) {
   const latestEntry = history[history.length - 1]
 
-  if (!latestEntry || latestEntry.stateSnapshot.stage === 'ended' || latestEntry.stateSnapshot.creatorThreadArchived) {
+  if (
+    !latestEntry ||
+    latestEntry.stateSnapshot.stage === 'ended' ||
+    latestEntry.stateSnapshot.creatorThreadArchived
+  ) {
     return []
   }
 
   return history
-    .filter((entry) => entry.action === 'audience-joined-voice' || entry.action === 'audience-launched-game')
+    .filter(
+      (entry) =>
+        entry.action === 'audience-joined-voice' ||
+        entry.action === 'audience-launched-game',
+    )
     .map<SimulatedDmMessage>((entry) => ({
       id: `creator-activity-${entry.id}`,
-      label: entry.action === 'audience-joined-voice' ? 'Creator voice activity reply' : 'Creator game activity reply',
-      preview: entry.action === 'audience-joined-voice'
-        ? buildSimulatorVoiceChannelActivityReplyPreview({
-            actorName: entry.draftSnapshot.audienceName
-          })
-        : buildSimulatorLaunchedGameActivityReplyPreview({
-            actorName: entry.draftSnapshot.audienceName,
-            gameTitle: entry.draftSnapshot.gameTitle
-          }),
+      label:
+        entry.action === 'audience-joined-voice'
+          ? 'Creator voice activity reply'
+          : 'Creator game activity reply',
+      preview:
+        entry.action === 'audience-joined-voice'
+          ? buildSimulatorVoiceChannelActivityReplyPreview({
+              actorName: entry.draftSnapshot.audienceName,
+            })
+          : buildSimulatorLaunchedGameActivityReplyPreview({
+              actorName: entry.draftSnapshot.audienceName,
+              gameTitle: entry.draftSnapshot.gameTitle,
+            }),
       explanation: [
         'This dangling reply notifies the creator when an interested audience member starts joining or launching the live session.',
-        'It should disappear with the rest of the dangling thread replies once the call ends.'
+        'It should disappear with the rest of the dangling thread replies once the call ends.',
       ],
-      isInteractive: false
+      isInteractive: false,
     }))
 }
 
-function buildSimulatedAudienceActivityReplyMessages(history: SimulatedLifecycleEntryWithAction[]) {
+function buildSimulatedAudienceActivityReplyMessages(
+  history: SimulatedLifecycleEntryWithAction[],
+) {
   const latestEntry = history[history.length - 1]
 
-  if (!latestEntry || latestEntry.stateSnapshot.stage === 'ended' || latestEntry.stateSnapshot.audienceThreadArchived) {
+  if (
+    !latestEntry ||
+    latestEntry.stateSnapshot.stage === 'ended' ||
+    latestEntry.stateSnapshot.audienceThreadArchived
+  ) {
     return []
   }
 
   return history
-    .filter((entry) => entry.action === 'creator-joined-voice' || entry.action === 'creator-launched-game')
+    .filter(
+      (entry) =>
+        entry.action === 'creator-joined-voice' ||
+        entry.action === 'creator-launched-game',
+    )
     .map<SimulatedDmMessage>((entry) => ({
       id: `audience-activity-${entry.id}`,
-      label: entry.action === 'creator-joined-voice' ? 'Audience voice activity reply' : 'Audience game activity reply',
-      preview: entry.action === 'creator-joined-voice'
-        ? buildSimulatorVoiceChannelActivityReplyPreview({
-            actorName: entry.draftSnapshot.creatorName
-          })
-        : buildSimulatorLaunchedGameActivityReplyPreview({
-            actorName: entry.draftSnapshot.creatorName,
-            gameTitle: entry.draftSnapshot.gameTitle
-          }),
+      label:
+        entry.action === 'creator-joined-voice'
+          ? 'Audience voice activity reply'
+          : 'Audience game activity reply',
+      preview:
+        entry.action === 'creator-joined-voice'
+          ? buildSimulatorVoiceChannelActivityReplyPreview({
+              actorName: entry.draftSnapshot.creatorName,
+            })
+          : buildSimulatorLaunchedGameActivityReplyPreview({
+              actorName: entry.draftSnapshot.creatorName,
+              gameTitle: entry.draftSnapshot.gameTitle,
+            }),
       explanation: [
         'This dangling reply notifies interested audience members when the creator starts joining or launching the live session.',
-        'It should disappear with the rest of the dangling thread replies once the call ends.'
+        'It should disappear with the rest of the dangling thread replies once the call ends.',
       ],
-      isInteractive: false
+      isInteractive: false,
     }))
 }
 
-export function buildSimulatedCallToPlayMessagesForHistory(history: SimulatedLifecycleEntryWithAction[]) {
+export function buildSimulatedCallToPlayMessagesForHistory(
+  history: SimulatedLifecycleEntryWithAction[],
+) {
   const latestEntry = history[history.length - 1]
 
   if (!latestEntry) {
     return {
       creatorMessages: [],
-      audienceMessages: []
+      audienceMessages: [],
     }
   }
 
-  const messages = buildSimulatedDmMessages(
-    latestEntry.draftSnapshot,
-    {
-      ...latestEntry.stateSnapshot,
-      latestAudienceUpdateFields: latestEntry.stateSnapshot.latestAudienceUpdateFields
-        ? [...latestEntry.stateSnapshot.latestAudienceUpdateFields]
-        : null,
-      history: [],
-      nextEntryId: 0
-    }
-  )
+  const messages = buildSimulatedDmMessages(latestEntry.draftSnapshot, {
+    ...latestEntry.stateSnapshot,
+    latestAudienceUpdateFields: latestEntry.stateSnapshot
+      .latestAudienceUpdateFields
+      ? [...latestEntry.stateSnapshot.latestAudienceUpdateFields]
+      : null,
+    history: [],
+    nextEntryId: 0,
+  })
 
   return {
-    creatorMessages: [...messages.creatorMessages, ...buildSimulatedCreatorActivityReplyMessages(history)],
+    creatorMessages: [
+      ...messages.creatorMessages,
+      ...buildSimulatedCreatorActivityReplyMessages(history),
+    ],
     audienceMessages: [
       ...messages.audienceMessages,
       ...buildSimulatedAudienceUpdateReplyMessages(history),
-      ...buildSimulatedAudienceActivityReplyMessages(history)
-    ]
+      ...buildSimulatedAudienceActivityReplyMessages(history),
+    ],
   }
 }
 
-function buildSimulatedMessagesForHistory(history: SimulatedScenarioHistoryEntry[]) {
+function buildSimulatedMessagesForHistory(
+  history: SimulatedScenarioHistoryEntry[],
+) {
   const latestEntry = history[history.length - 1]
 
   if (!latestEntry) {
@@ -179,29 +229,28 @@ function buildSimulatedMessagesForHistory(history: SimulatedScenarioHistoryEntry
   }
 
   if (latestEntry.scenarioKind === 'call-to-play') {
-    const messages = buildSimulatedCallToPlayMessagesForHistory(history as SimulatedLifecycleEntryWithAction[])
+    const messages = buildSimulatedCallToPlayMessagesForHistory(
+      history as SimulatedLifecycleEntryWithAction[],
+    )
 
     return [...messages.creatorMessages, ...messages.audienceMessages]
   }
 
-  const messages = buildSimulatedAutoPlayDmMessages(
-    latestEntry.draftSnapshot,
-    {
-      ...latestEntry.stateSnapshot,
-      history: [],
-      nextEntryId: 0
-    }
-  )
+  const messages = buildSimulatedAutoPlayDmMessages(latestEntry.draftSnapshot, {
+    ...latestEntry.stateSnapshot,
+    history: [],
+    nextEntryId: 0,
+  })
 
   return [...messages.promptMessages, ...messages.createdCallMessages]
 }
 
 function shouldTreatSimulatorMessageChangeAsReplacement(options: {
-  scenarioKind: SimulatedScenarioKind;
-  messageId: string;
-  action: SimulatedLifecycleAction | SimulatedAutoPlayAction;
-  previousState: SimulatedLifecycleSnapshot | SimulatedAutoPlayPromptSnapshot;
-  nextState: SimulatedLifecycleSnapshot | SimulatedAutoPlayPromptSnapshot;
+  scenarioKind: SimulatedScenarioKind
+  messageId: string
+  action: SimulatedLifecycleAction | SimulatedAutoPlayAction
+  previousState: SimulatedLifecycleSnapshot | SimulatedAutoPlayPromptSnapshot
+  nextState: SimulatedLifecycleSnapshot | SimulatedAutoPlayPromptSnapshot
 }) {
   if (options.scenarioKind !== 'call-to-play') {
     return false
@@ -213,9 +262,10 @@ function shouldTreatSimulatorMessageChangeAsReplacement(options: {
   if (options.messageId !== 'creator-follow-up') {
     if (options.messageId === 'audience-follow-up') {
       if (
-        (options.action === 'creator-start-now' || options.action === 'creator-check-in-confirmed')
-        && nextState.stage === 'confirmed'
-        && nextState.audienceResponse !== 'pass'
+        (options.action === 'creator-start-now' ||
+          options.action === 'creator-check-in-confirmed') &&
+        nextState.stage === 'confirmed' &&
+        nextState.audienceResponse !== 'pass'
       ) {
         return true
       }
@@ -225,21 +275,30 @@ function shouldTreatSimulatorMessageChangeAsReplacement(options: {
   }
 
   if (options.action === 'audience-running-late') {
-    return nextState.audienceRunningLate
-      && (!previousState.audienceRunningLate || previousState.audienceRunningLateMinutes !== nextState.audienceRunningLateMinutes)
+    return (
+      nextState.audienceRunningLate &&
+      (!previousState.audienceRunningLate ||
+        previousState.audienceRunningLateMinutes !==
+          nextState.audienceRunningLateMinutes)
+    )
   }
 
-  if (options.action !== 'audience-interested' && options.action !== 'audience-pass') {
+  if (
+    options.action !== 'audience-interested' &&
+    options.action !== 'audience-pass'
+  ) {
     return false
   }
 
-  return previousState.audienceResponse != null
-    && nextState.audienceResponse != null
-    && previousState.audienceResponse !== nextState.audienceResponse
+  return (
+    previousState.audienceResponse != null &&
+    nextState.audienceResponse != null &&
+    previousState.audienceResponse !== nextState.audienceResponse
+  )
 }
 
 export function buildSimulatedThreadMessageMetaById(
-  history: SimulatedScenarioHistoryEntry[]
+  history: SimulatedScenarioHistoryEntry[],
 ): SimulatedThreadMessageMetaById {
   const chronologicalHistory = [...history].reverse()
 
@@ -250,7 +309,10 @@ export function buildSimulatedThreadMessageMetaById(
   let previousEntry = chronologicalHistory[0]!
   const initialMessages = buildSimulatedMessagesForHistory([previousEntry])
   let previousMessageFingerprints = new Map<string, string>(
-    initialMessages.map((message) => [message.id, buildSimulatedMessagePreviewFingerprint(message)])
+    initialMessages.map((message) => [
+      message.id,
+      buildSimulatedMessagePreviewFingerprint(message),
+    ]),
   )
 
   const messageMetaById: SimulatedThreadMessageMetaById = {}
@@ -259,15 +321,20 @@ export function buildSimulatedThreadMessageMetaById(
   for (const messageId of previousMessageFingerprints.keys()) {
     messageMetaById[messageId] = {
       sentAt: initialOccurredAt,
-      editedAt: null
+      editedAt: null,
     }
   }
 
   for (let index = 1; index < chronologicalHistory.length; index += 1) {
     const entry = chronologicalHistory[index]!
-    const nextMessages = buildSimulatedMessagesForHistory(chronologicalHistory.slice(0, index + 1))
+    const nextMessages = buildSimulatedMessagesForHistory(
+      chronologicalHistory.slice(0, index + 1),
+    )
     const nextMessageFingerprints = new Map<string, string>(
-      nextMessages.map((message) => [message.id, buildSimulatedMessagePreviewFingerprint(message)])
+      nextMessages.map((message) => [
+        message.id,
+        buildSimulatedMessagePreviewFingerprint(message),
+      ]),
     )
 
     for (const [messageId, fingerprint] of nextMessageFingerprints.entries()) {
@@ -276,29 +343,31 @@ export function buildSimulatedThreadMessageMetaById(
       if (!previousFingerprint) {
         messageMetaById[messageId] = {
           sentAt: entry.occurredAt,
-          editedAt: null
+          editedAt: null,
         }
         continue
       }
 
       if (previousFingerprint !== fingerprint) {
-        if (shouldTreatSimulatorMessageChangeAsReplacement({
-          scenarioKind: entry.scenarioKind,
-          messageId,
-          action: entry.action,
-          previousState: previousEntry.stateSnapshot,
-          nextState: entry.stateSnapshot
-        })) {
+        if (
+          shouldTreatSimulatorMessageChangeAsReplacement({
+            scenarioKind: entry.scenarioKind,
+            messageId,
+            action: entry.action,
+            previousState: previousEntry.stateSnapshot,
+            nextState: entry.stateSnapshot,
+          })
+        ) {
           messageMetaById[messageId] = {
             sentAt: entry.occurredAt,
-            editedAt: null
+            editedAt: null,
           }
           continue
         }
 
         messageMetaById[messageId] = {
           sentAt: messageMetaById[messageId]?.sentAt ?? entry.occurredAt,
-          editedAt: entry.occurredAt
+          editedAt: entry.occurredAt,
         }
       }
     }

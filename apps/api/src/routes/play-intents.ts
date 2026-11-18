@@ -27,26 +27,32 @@ import {
   playIntentRecipientResponseResultSchema,
   playIntentRecipientResponseRequestSchema,
   upsertPlayIntentRequestSchema,
-  upsertPlayIntentResponseSchema
+  upsertPlayIntentResponseSchema,
 } from '@game-is-up/shared'
-import { NotificationResponseChoice, PlayIntentDiscordSpaceStatus } from '@prisma/client'
+import {
+  NotificationResponseChoice,
+  PlayIntentDiscordSpaceStatus,
+} from '@prisma/client'
 import { publishPlayIntentInvalidation } from '../lib/dashboard-events.js'
 import { buildPlayIntentFeed } from '../lib/play-intent-feed.js'
 import { buildPlayIntentDetail } from '../lib/play-intent-detail.js'
-import { deletePlayIntentDiscordSpaceByPlayIntentId, provisionPlayIntentDiscordSpaceByPlayIntentId } from '../lib/play-intent-discord-spaces.js'
+import {
+  deletePlayIntentDiscordSpaceByPlayIntentId,
+  provisionPlayIntentDiscordSpaceByPlayIntentId,
+} from '../lib/play-intent-discord-spaces.js'
 import {
   clearCurrentPlayIntent,
   deletePlayIntentWithAdminCleanup,
   getCurrentPlayIntent,
   PlayIntentValidationError,
-  upsertCurrentPlayIntent
+  upsertCurrentPlayIntent,
 } from '../lib/play-intents.js'
 import {
   PlayIntentNotificationResponseError,
   ScheduledPlayIntentStartError,
   markRunningLateFromWeb,
   respondToPlayIntentFromWeb,
-  startScheduledPlayIntentNow
+  startScheduledPlayIntentNow,
 } from '../lib/play-intent-notification-responses.js'
 import { playIntentFriendInviteRouter } from './play-intent-friend-invites.js'
 import { prisma } from '../lib/prisma.js'
@@ -58,7 +64,11 @@ export const playIntentRouter = Router()
 const muteTargetParamSchema = z.object({ targetUserId: z.string().uuid() })
 const playIntentParamSchema = z.object({ playIntentId: z.string().uuid() })
 
-async function handleFeed(request: Request, response: Response, next: (error: unknown) => void) {
+async function handleFeed(
+  request: Request,
+  response: Response,
+  next: (error: unknown) => void,
+) {
   try {
     const session = getAuthSession(request)
     const feed = await buildPlayIntentFeed(session?.userId)
@@ -68,8 +78,8 @@ async function handleFeed(request: Request, response: Response, next: (error: un
       response.json(
         playIntentFeedSchema.parse({
           generatedAt: new Date().toISOString(),
-          intents: []
-        })
+          intents: [],
+        }),
       )
       return
     }
@@ -91,8 +101,8 @@ playIntentRouter.get('/me', async (request, response, next) => {
   try {
     response.json(
       playIntentCurrentResponseSchema.parse({
-        activeIntent: await getCurrentPlayIntent(userId)
-      })
+        activeIntent: await getCurrentPlayIntent(userId),
+      }),
     )
   } catch (error) {
     next(error)
@@ -111,12 +121,13 @@ playIntentRouter.put('/me', async (request, response, next) => {
 
     const requestUser = await prisma.user.findUnique({
       where: { id: userId },
-      select: { isAdmin: true }
+      select: { isAdmin: true },
     })
 
     if (payload.includeSelf && !requestUser?.isAdmin) {
       response.status(403).json({
-        error: 'Admin access is required to target yourself with a test call to play.'
+        error:
+          'Admin access is required to target yourself with a test call to play.',
       })
       return
     }
@@ -127,14 +138,14 @@ playIntentRouter.put('/me', async (request, response, next) => {
   } catch (error) {
     if (error instanceof z.ZodError) {
       response.status(400).json({
-        error: error.issues[0]?.message ?? 'Invalid call-to-play payload.'
+        error: error.issues[0]?.message ?? 'Invalid call-to-play payload.',
       })
       return
     }
 
     if (error instanceof PlayIntentValidationError) {
       response.status(400).json({
-        error: error.message
+        error: error.message,
       })
       return
     }
@@ -182,74 +193,80 @@ playIntentRouter.delete('/:playIntentId', async (request, response, next) => {
   }
 })
 
-playIntentRouter.post('/:playIntentId/start-now', async (request, response, next) => {
-  const userId = requireSignedInUserId(request, response)
+playIntentRouter.post(
+  '/:playIntentId/start-now',
+  async (request, response, next) => {
+    const userId = requireSignedInUserId(request, response)
 
-  if (!userId) {
-    return
-  }
+    if (!userId) {
+      return
+    }
 
-  const paramsParse = playIntentParamSchema.safeParse(request.params)
+    const paramsParse = playIntentParamSchema.safeParse(request.params)
 
-  if (!paramsParse.success) {
-    response.status(400).json({ error: 'Invalid play intent ID.' })
-    return
-  }
+    if (!paramsParse.success) {
+      response.status(400).json({ error: 'Invalid play intent ID.' })
+      return
+    }
 
-  try {
-    await startScheduledPlayIntentNow(paramsParse.data.playIntentId, userId)
+    try {
+      await startScheduledPlayIntentNow(paramsParse.data.playIntentId, userId)
 
-    response.status(204).send()
-  } catch (error) {
-    if (error instanceof ScheduledPlayIntentStartError) {
-      response.status(400).json({
-        error: error.message
+      response.status(204).send()
+    } catch (error) {
+      if (error instanceof ScheduledPlayIntentStartError) {
+        response.status(400).json({
+          error: error.message,
+        })
+        return
+      }
+
+      next(error)
+    }
+  },
+)
+
+playIntentRouter.delete(
+  '/:playIntentId/admin',
+  async (request, response, next) => {
+    const userId = requireSignedInUserId(request, response)
+
+    if (!userId) {
+      return
+    }
+
+    const paramsParse = playIntentParamSchema.safeParse(request.params)
+
+    if (!paramsParse.success) {
+      response.status(400).json({ error: 'Invalid play intent ID.' })
+      return
+    }
+
+    const requestUser = await getUserAdminStatus(userId)
+
+    if (!requestUser?.isAdmin) {
+      response.status(403).json({
+        error: 'Admin access required.',
       })
       return
     }
 
-    next(error)
-  }
-})
+    try {
+      await deletePlayIntentWithAdminCleanup(paramsParse.data.playIntentId)
 
-playIntentRouter.delete('/:playIntentId/admin', async (request, response, next) => {
-  const userId = requireSignedInUserId(request, response)
+      response.status(204).send()
+    } catch (error) {
+      if (error instanceof PlayIntentValidationError) {
+        response.status(404).json({
+          error: error.message,
+        })
+        return
+      }
 
-  if (!userId) {
-    return
-  }
-
-  const paramsParse = playIntentParamSchema.safeParse(request.params)
-
-  if (!paramsParse.success) {
-    response.status(400).json({ error: 'Invalid play intent ID.' })
-    return
-  }
-
-  const requestUser = await getUserAdminStatus(userId)
-
-  if (!requestUser?.isAdmin) {
-    response.status(403).json({
-      error: 'Admin access required.'
-    })
-    return
-  }
-
-  try {
-    await deletePlayIntentWithAdminCleanup(paramsParse.data.playIntentId)
-
-    response.status(204).send()
-  } catch (error) {
-    if (error instanceof PlayIntentValidationError) {
-      response.status(404).json({
-        error: error.message
-      })
-      return
+      next(error)
     }
-
-    next(error)
-  }
-})
+  },
+)
 
 playIntentRouter.get('/mutes', async (request, response, next) => {
   const userId = requireSignedInUserId(request, response)
@@ -268,89 +285,99 @@ playIntentRouter.get('/mutes', async (request, response, next) => {
           select: {
             displayName: true,
             handle: true,
-            avatarUrl: true
-          }
-        }
-      }
+            avatarUrl: true,
+          },
+        },
+      },
     })
 
-    response.json(playIntentMutesResponseSchema.parse({
-      mutes: mutes.map((mute) => ({
-        mutedUserId: mute.mutedUserId,
-        mutedUserDisplayName: mute.mutedUser.displayName,
-        mutedUserHandle: mute.mutedUser.handle,
-        mutedUserAvatarUrl: mute.mutedUser.avatarUrl
-      }))
-    }))
+    response.json(
+      playIntentMutesResponseSchema.parse({
+        mutes: mutes.map((mute) => ({
+          mutedUserId: mute.mutedUserId,
+          mutedUserDisplayName: mute.mutedUser.displayName,
+          mutedUserHandle: mute.mutedUser.handle,
+          mutedUserAvatarUrl: mute.mutedUser.avatarUrl,
+        })),
+      }),
+    )
   } catch (error) {
     next(error)
   }
 })
 
-playIntentRouter.put('/mutes/:targetUserId', async (request, response, next) => {
-  const userId = requireSignedInUserId(request, response)
+playIntentRouter.put(
+  '/mutes/:targetUserId',
+  async (request, response, next) => {
+    const userId = requireSignedInUserId(request, response)
 
-  if (!userId) {
-    return
-  }
+    if (!userId) {
+      return
+    }
 
-  const paramsParse = muteTargetParamSchema.safeParse(request.params)
+    const paramsParse = muteTargetParamSchema.safeParse(request.params)
 
-  if (!paramsParse.success) {
-    response.status(400).json({ error: 'Invalid user ID.' })
-    return
-  }
+    if (!paramsParse.success) {
+      response.status(400).json({ error: 'Invalid user ID.' })
+      return
+    }
 
-  const { targetUserId } = paramsParse.data
+    const { targetUserId } = paramsParse.data
 
-  if (targetUserId === userId) {
-    response.status(400).json({ error: 'Cannot mute your own calls to play.' })
-    return
-  }
+    if (targetUserId === userId) {
+      response
+        .status(400)
+        .json({ error: 'Cannot mute your own calls to play.' })
+      return
+    }
 
-  try {
-    await prisma.playIntentMute.upsert({
-      where: { userId_mutedUserId: { userId, mutedUserId: targetUserId } },
-      create: { userId, mutedUserId: targetUserId },
-      update: {}
-    })
+    try {
+      await prisma.playIntentMute.upsert({
+        where: { userId_mutedUserId: { userId, mutedUserId: targetUserId } },
+        create: { userId, mutedUserId: targetUserId },
+        update: {},
+      })
 
-    publishPlayIntentInvalidation()
+      publishPlayIntentInvalidation()
 
-    response.json({ muted: true })
-  } catch (error) {
-    next(error)
-  }
-})
+      response.json({ muted: true })
+    } catch (error) {
+      next(error)
+    }
+  },
+)
 
-playIntentRouter.delete('/mutes/:targetUserId', async (request, response, next) => {
-  const userId = requireSignedInUserId(request, response)
+playIntentRouter.delete(
+  '/mutes/:targetUserId',
+  async (request, response, next) => {
+    const userId = requireSignedInUserId(request, response)
 
-  if (!userId) {
-    return
-  }
+    if (!userId) {
+      return
+    }
 
-  const paramsParse = muteTargetParamSchema.safeParse(request.params)
+    const paramsParse = muteTargetParamSchema.safeParse(request.params)
 
-  if (!paramsParse.success) {
-    response.status(400).json({ error: 'Invalid user ID.' })
-    return
-  }
+    if (!paramsParse.success) {
+      response.status(400).json({ error: 'Invalid user ID.' })
+      return
+    }
 
-  const { targetUserId } = paramsParse.data
+    const { targetUserId } = paramsParse.data
 
-  try {
-    await prisma.playIntentMute.deleteMany({
-      where: { userId, mutedUserId: targetUserId }
-    })
+    try {
+      await prisma.playIntentMute.deleteMany({
+        where: { userId, mutedUserId: targetUserId },
+      })
 
-    publishPlayIntentInvalidation()
+      publishPlayIntentInvalidation()
 
-    response.json({ muted: false })
-  } catch (error) {
-    next(error)
-  }
-})
+      response.json({ muted: false })
+    } catch (error) {
+      next(error)
+    }
+  },
+)
 
 playIntentRouter.get('/:playIntentId', async (request, response, next) => {
   const userId = requireSignedInUserId(request, response)
@@ -367,7 +394,10 @@ playIntentRouter.get('/:playIntentId', async (request, response, next) => {
   }
 
   try {
-    const intent = await buildPlayIntentDetail(userId, paramsParse.data.playIntentId)
+    const intent = await buildPlayIntentDetail(
+      userId,
+      paramsParse.data.playIntentId,
+    )
 
     if (!intent) {
       response.status(404).json({ error: 'Call to play not found.' })
@@ -380,194 +410,241 @@ playIntentRouter.get('/:playIntentId', async (request, response, next) => {
   }
 })
 
-playIntentRouter.post('/:playIntentId/respond', async (request, response, next) => {
-  const userId = requireSignedInUserId(request, response)
+playIntentRouter.post(
+  '/:playIntentId/respond',
+  async (request, response, next) => {
+    const userId = requireSignedInUserId(request, response)
 
-  if (!userId) {
-    return
-  }
-
-  const paramsParse = playIntentParamSchema.safeParse(request.params)
-
-  if (!paramsParse.success) {
-    response.status(400).json({ error: 'Invalid play intent ID.' })
-    return
-  }
-
-  try {
-    const payload = playIntentRecipientResponseRequestSchema.parse(request.body)
-    const result = payload.choice === 'late'
-      ? await markRunningLateFromWeb({
-          userId,
-          playIntentId: paramsParse.data.playIntentId,
-          runningLateMinutes: payload.runningLateMinutes
-        })
-      : await respondToPlayIntentFromWeb({
-          userId,
-          playIntentId: paramsParse.data.playIntentId,
-          response: payload.choice === 'interested'
-            ? NotificationResponseChoice.JOIN
-            : NotificationResponseChoice.DECLINE
-        })
-
-    response.json(playIntentRecipientResponseResultSchema.parse(result))
-  } catch (error) {
-    if (error instanceof PlayIntentNotificationResponseError) {
-      response.status(error.statusCode).json({ error: error.message })
+    if (!userId) {
       return
     }
 
-    next(error)
-  }
-})
+    const paramsParse = playIntentParamSchema.safeParse(request.params)
 
-playIntentRouter.post('/:playIntentId/discord-space/retry', async (request, response, next) => {
-  const userId = requireSignedInUserId(request, response)
+    if (!paramsParse.success) {
+      response.status(400).json({ error: 'Invalid play intent ID.' })
+      return
+    }
 
-  if (!userId) {
-    return
-  }
+    try {
+      const payload = playIntentRecipientResponseRequestSchema.parse(
+        request.body,
+      )
+      const result =
+        payload.choice === 'late'
+          ? await markRunningLateFromWeb({
+              userId,
+              playIntentId: paramsParse.data.playIntentId,
+              runningLateMinutes: payload.runningLateMinutes,
+            })
+          : await respondToPlayIntentFromWeb({
+              userId,
+              playIntentId: paramsParse.data.playIntentId,
+              response:
+                payload.choice === 'interested'
+                  ? NotificationResponseChoice.JOIN
+                  : NotificationResponseChoice.DECLINE,
+            })
 
-  const paramsParse = playIntentParamSchema.safeParse(request.params)
-
-  if (!paramsParse.success) {
-    response.status(400).json({ error: 'Invalid play intent ID.' })
-    return
-  }
-
-  try {
-    const playIntent = await prisma.playIntent.findFirst({
-      where: {
-        id: paramsParse.data.playIntentId,
-        userId
-      },
-      select: {
-        id: true,
-        discordSpace: {
-          select: {
-            status: true,
-            lastSyncError: true
-          }
-        }
+      response.json(playIntentRecipientResponseResultSchema.parse(result))
+    } catch (error) {
+      if (error instanceof PlayIntentNotificationResponseError) {
+        response.status(error.statusCode).json({ error: error.message })
+        return
       }
-    })
 
-    if (!playIntent) {
-      response.status(404).json({ error: 'Call to play not found.' })
+      next(error)
+    }
+  },
+)
+
+playIntentRouter.post(
+  '/:playIntentId/discord-space/retry',
+  async (request, response, next) => {
+    const userId = requireSignedInUserId(request, response)
+
+    if (!userId) {
       return
     }
 
-    if (!playIntent.discordSpace) {
-      response.status(404).json({ error: 'No temporary Discord channel was found for this call to play.' })
+    const paramsParse = playIntentParamSchema.safeParse(request.params)
+
+    if (!paramsParse.success) {
+      response.status(400).json({ error: 'Invalid play intent ID.' })
       return
     }
 
-    if (playIntent.discordSpace.status === PlayIntentDiscordSpaceStatus.DELETED) {
-      response.status(409).json({ error: 'This temporary Discord channel has already been deleted.' })
-      return
-    }
+    try {
+      const playIntent = await prisma.playIntent.findFirst({
+        where: {
+          id: paramsParse.data.playIntentId,
+          userId,
+        },
+        select: {
+          id: true,
+          discordSpace: {
+            select: {
+              status: true,
+              lastSyncError: true,
+            },
+          },
+        },
+      })
 
-    if (!playIntent.discordSpace.lastSyncError) {
-      response.status(409).json({ error: 'There is no Discord access error to retry right now.' })
-      return
-    }
-
-    const result = await provisionPlayIntentDiscordSpaceByPlayIntentId(playIntent.id)
-
-    if (result.status === 'missing') {
-      response.json(playIntentDiscordSpaceRetryResponseSchema.parse({
-        status: 'missing',
-        message: 'No temporary Discord channel was found for this call to play.'
-      }))
-      return
-    }
-
-    if (result.status === 'failed') {
-      response.status(502).json({ error: 'Unable to retry the temporary Discord channel access right now.' })
-      return
-    }
-
-    if (result.status === 'skipped') {
-      response.status(409).json({ error: 'This temporary Discord channel can no longer be retried.' })
-      return
-    }
-
-    response.json(playIntentDiscordSpaceRetryResponseSchema.parse({
-      status: 'retrying',
-      message: 'Retried the temporary Discord channel access grants.'
-    }))
-  } catch (error) {
-    next(error)
-  }
-})
-
-playIntentRouter.delete('/:playIntentId/discord-space', async (request, response, next) => {
-  const userId = requireSignedInUserId(request, response)
-
-  if (!userId) {
-    return
-  }
-
-  const paramsParse = playIntentParamSchema.safeParse(request.params)
-
-  if (!paramsParse.success) {
-    response.status(400).json({ error: 'Invalid play intent ID.' })
-    return
-  }
-
-  try {
-    const playIntent = await prisma.playIntent.findFirst({
-      where: {
-        id: paramsParse.data.playIntentId,
-        userId
-      },
-      select: {
-        id: true,
-        expiresAt: true,
-        discordSpace: {
-          select: {
-            status: true
-          }
-        }
+      if (!playIntent) {
+        response.status(404).json({ error: 'Call to play not found.' })
+        return
       }
-    })
 
-    if (!playIntent) {
-      response.status(404).json({ error: 'Call to play not found.' })
+      if (!playIntent.discordSpace) {
+        response.status(404).json({
+          error:
+            'No temporary Discord channel was found for this call to play.',
+        })
+        return
+      }
+
+      if (
+        playIntent.discordSpace.status === PlayIntentDiscordSpaceStatus.DELETED
+      ) {
+        response.status(409).json({
+          error: 'This temporary Discord channel has already been deleted.',
+        })
+        return
+      }
+
+      if (!playIntent.discordSpace.lastSyncError) {
+        response.status(409).json({
+          error: 'There is no Discord access error to retry right now.',
+        })
+        return
+      }
+
+      const result = await provisionPlayIntentDiscordSpaceByPlayIntentId(
+        playIntent.id,
+      )
+
+      if (result.status === 'missing') {
+        response.json(
+          playIntentDiscordSpaceRetryResponseSchema.parse({
+            status: 'missing',
+            message:
+              'No temporary Discord channel was found for this call to play.',
+          }),
+        )
+        return
+      }
+
+      if (result.status === 'failed') {
+        response.status(502).json({
+          error:
+            'Unable to retry the temporary Discord channel access right now.',
+        })
+        return
+      }
+
+      if (result.status === 'skipped') {
+        response.status(409).json({
+          error: 'This temporary Discord channel can no longer be retried.',
+        })
+        return
+      }
+
+      response.json(
+        playIntentDiscordSpaceRetryResponseSchema.parse({
+          status: 'retrying',
+          message: 'Retried the temporary Discord channel access grants.',
+        }),
+      )
+    } catch (error) {
+      next(error)
+    }
+  },
+)
+
+playIntentRouter.delete(
+  '/:playIntentId/discord-space',
+  async (request, response, next) => {
+    const userId = requireSignedInUserId(request, response)
+
+    if (!userId) {
       return
     }
 
-    if (playIntent.expiresAt > new Date()) {
-      response.status(409).json({ error: 'This call to play is still active.' })
+    const paramsParse = playIntentParamSchema.safeParse(request.params)
+
+    if (!paramsParse.success) {
+      response.status(400).json({ error: 'Invalid play intent ID.' })
       return
     }
 
-    if (
-      !playIntent.discordSpace
-      || playIntent.discordSpace.status === PlayIntentDiscordSpaceStatus.REQUESTED
-      || playIntent.discordSpace.status === PlayIntentDiscordSpaceStatus.PROVISIONING
-      || playIntent.discordSpace.status === PlayIntentDiscordSpaceStatus.DELETED
-    ) {
-      response.status(409).json({ error: 'No temporary Discord channel is available to delete.' })
-      return
+    try {
+      const playIntent = await prisma.playIntent.findFirst({
+        where: {
+          id: paramsParse.data.playIntentId,
+          userId,
+        },
+        select: {
+          id: true,
+          expiresAt: true,
+          discordSpace: {
+            select: {
+              status: true,
+            },
+          },
+        },
+      })
+
+      if (!playIntent) {
+        response.status(404).json({ error: 'Call to play not found.' })
+        return
+      }
+
+      if (playIntent.expiresAt > new Date()) {
+        response
+          .status(409)
+          .json({ error: 'This call to play is still active.' })
+        return
+      }
+
+      if (
+        !playIntent.discordSpace ||
+        playIntent.discordSpace.status ===
+          PlayIntentDiscordSpaceStatus.REQUESTED ||
+        playIntent.discordSpace.status ===
+          PlayIntentDiscordSpaceStatus.PROVISIONING ||
+        playIntent.discordSpace.status === PlayIntentDiscordSpaceStatus.DELETED
+      ) {
+        response.status(409).json({
+          error: 'No temporary Discord channel is available to delete.',
+        })
+        return
+      }
+
+      const result = await deletePlayIntentDiscordSpaceByPlayIntentId(
+        playIntent.id,
+      )
+
+      if (result.status === 'failed') {
+        response.status(502).json({
+          error: 'Unable to delete the temporary Discord channel right now.',
+        })
+        return
+      }
+
+      response.json(
+        playIntentDiscordSpaceDeleteResponseSchema.parse({
+          status: result.status === 'missing' ? 'missing' : 'deleted',
+          message:
+            result.status === 'missing'
+              ? 'No temporary Discord channel was found for this call to play.'
+              : 'The temporary Discord channel is being removed for this ended call to play.',
+        }),
+      )
+    } catch (error) {
+      next(error)
     }
-
-    const result = await deletePlayIntentDiscordSpaceByPlayIntentId(playIntent.id)
-
-    if (result.status === 'failed') {
-      response.status(502).json({ error: 'Unable to delete the temporary Discord channel right now.' })
-      return
-    }
-
-    response.json(playIntentDiscordSpaceDeleteResponseSchema.parse({
-      status: result.status === 'missing' ? 'missing' : 'deleted',
-      message: result.status === 'missing'
-        ? 'No temporary Discord channel was found for this call to play.'
-        : 'The temporary Discord channel is being removed for this ended call to play.'
-    }))
-  } catch (error) {
-    next(error)
-  }
-})
+  },
+)
 
 playIntentRouter.use(playIntentFriendInviteRouter)

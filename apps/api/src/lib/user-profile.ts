@@ -19,11 +19,11 @@ export async function ensureUniqueHandle(base: string): Promise<string> {
     const candidate = `${base}${suffix}`.slice(0, 32)
     const existing = await prisma.user.findUnique({
       where: {
-        handle: candidate
+        handle: candidate,
       },
       select: {
-        id: true
-      }
+        id: true,
+      },
     })
 
     if (!existing) {

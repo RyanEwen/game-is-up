@@ -1,29 +1,33 @@
 /** Loads recipient response summaries, including optional delays, from their latest prompts. */
 import { prioritizePlayIntentAudienceResponses } from './play-intent-audience-response.js'
-import { AuthProvider, NotificationResponseChoice, NotificationType } from '@prisma/client'
+import {
+  AuthProvider,
+  NotificationResponseChoice,
+  NotificationType,
+} from '@prisma/client'
 import { toClientAvatarUrl } from './game-media.js'
 import { prisma } from './prisma.js'
 
 export type PlayIntentResponseUser = {
-  id: string;
-  handle: string;
-  displayName: string;
-  avatarUrl: string | null;
+  id: string
+  handle: string
+  displayName: string
+  avatarUrl: string | null
   /** True when this interested user flagged that they will be late. */
-  runningLate: boolean;
-  runningLateMinutes?: number | null;
-  identities?: { providerUserId: string }[];
+  runningLate: boolean
+  runningLateMinutes?: number | null
+  identities?: { providerUserId: string }[]
 }
 
 type PlayIntentRecipientResponseUser = PlayIntentResponseUser & {
   /** Latest recipient-notification response; null when still unanswered. */
-  responseChoice: NotificationResponseChoice | null;
+  responseChoice: NotificationResponseChoice | null
 }
 
 const recipientResponseNotificationTypes = [
   NotificationType.FRIEND_PLAYING,
   NotificationType.SCHEDULED_PLAY_INTENT_REMINDER,
-  NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED
+  NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED,
 ] as NotificationType[]
 
 const autoPromptInterestLeadMinutes = 10
@@ -36,13 +40,19 @@ export function isInterestedPlayIntentWindowBlockingAutoPrompt(
   windowStartsAt: Date,
   windowEndsAt: Date,
   referenceTime: Date,
-  leadMinutes = autoPromptInterestLeadMinutes
+  leadMinutes = autoPromptInterestLeadMinutes,
 ) {
-  return windowEndsAt > referenceTime
-    && windowStartsAt <= new Date(referenceTime.getTime() + leadMinutes * 60 * 1000)
+  return (
+    windowEndsAt > referenceTime &&
+    windowStartsAt <=
+      new Date(referenceTime.getTime() + leadMinutes * 60 * 1000)
+  )
 }
 
-async function getResponseUsersByPlayIntentId(playIntentIds: string[], responseChoice?: NotificationResponseChoice) {
+async function getResponseUsersByPlayIntentId(
+  playIntentIds: string[],
+  responseChoice?: NotificationResponseChoice,
+) {
   const uniquePlayIntentIds = [...new Set(playIntentIds.filter(Boolean))]
 
   if (uniquePlayIntentIds.length === 0) {
@@ -52,11 +62,11 @@ async function getResponseUsersByPlayIntentId(playIntentIds: string[], responseC
   const notifications = await prisma.notification.findMany({
     where: {
       playIntentId: {
-        in: uniquePlayIntentIds
+        in: uniquePlayIntentIds,
       },
       type: {
-        in: recipientResponseNotificationTypes
-      }
+        in: recipientResponseNotificationTypes,
+      },
     },
     select: {
       playIntentId: true,
@@ -72,24 +82,28 @@ async function getResponseUsersByPlayIntentId(playIntentIds: string[], responseC
           avatarUrl: true,
           identities: {
             where: {
-              provider: AuthProvider.DISCORD
+              provider: AuthProvider.DISCORD,
             },
             select: {
-              providerUserId: true
-            }
-          }
-        }
-      }
+              providerUserId: true,
+            },
+          },
+        },
+      },
     },
     orderBy: {
-      createdAt: 'desc'
-    }
+      createdAt: 'desc',
+    },
   })
 
-  const responseUsersByPlayIntentId = new Map<string, PlayIntentRecipientResponseUser[]>()
+  const responseUsersByPlayIntentId = new Map<
+    string,
+    PlayIntentRecipientResponseUser[]
+  >()
   const seenKeys = new Set<string>()
 
-  const orderedNotifications = prioritizePlayIntentAudienceResponses(notifications)
+  const orderedNotifications =
+    prioritizePlayIntentAudienceResponses(notifications)
   for (const notification of orderedNotifications) {
     if (!notification.playIntentId) {
       continue
@@ -106,29 +120,39 @@ async function getResponseUsersByPlayIntentId(playIntentIds: string[], responseC
       continue
     }
 
-    const responseUsers = responseUsersByPlayIntentId.get(notification.playIntentId) ?? []
+    const responseUsers =
+      responseUsersByPlayIntentId.get(notification.playIntentId) ?? []
     responseUsers.push({
       id: notification.user.id,
       handle: notification.user.handle,
       displayName: notification.user.displayName,
       avatarUrl: toClientAvatarUrl(notification.user.avatarUrl),
       runningLate: notification.runningLateAt != null,
-      runningLateMinutes: notification.runningLateAt ? notification.runningLateMinutes : null,
+      runningLateMinutes: notification.runningLateAt
+        ? notification.runningLateMinutes
+        : null,
       responseChoice: notification.responseChoice,
-      identities: notification.user.identities
+      identities: notification.user.identities,
     })
     responseUsersByPlayIntentId.set(notification.playIntentId, responseUsers)
   }
 
   for (const responseUsers of responseUsersByPlayIntentId.values()) {
-    responseUsers.sort((left, right) => left.displayName.localeCompare(right.displayName))
+    responseUsers.sort((left, right) =>
+      left.displayName.localeCompare(right.displayName),
+    )
   }
 
   return responseUsersByPlayIntentId
 }
 
-export async function getInterestedUsersByPlayIntentId(playIntentIds: string[]) {
-  return getResponseUsersByPlayIntentId(playIntentIds, NotificationResponseChoice.JOIN)
+export async function getInterestedUsersByPlayIntentId(
+  playIntentIds: string[],
+) {
+  return getResponseUsersByPlayIntentId(
+    playIntentIds,
+    NotificationResponseChoice.JOIN,
+  )
 }
 
 /**
@@ -137,16 +161,24 @@ export async function getInterestedUsersByPlayIntentId(playIntentIds: string[]) 
  * response. Recipients whose latest response is a pass (or an expired prompt)
  * are excluded so passing stops the update pings.
  */
-export async function getUpdateEligibleRecipientsByPlayIntentId(playIntentIds: string[]) {
-  const recipientsByPlayIntentId = await getResponseUsersByPlayIntentId(playIntentIds)
-  const eligibleRecipientsByPlayIntentId = new Map<string, PlayIntentResponseUser[]>()
+export async function getUpdateEligibleRecipientsByPlayIntentId(
+  playIntentIds: string[],
+) {
+  const recipientsByPlayIntentId =
+    await getResponseUsersByPlayIntentId(playIntentIds)
+  const eligibleRecipientsByPlayIntentId = new Map<
+    string,
+    PlayIntentResponseUser[]
+  >()
 
   for (const [playIntentId, recipients] of recipientsByPlayIntentId) {
     eligibleRecipientsByPlayIntentId.set(
       playIntentId,
-      recipients.filter((recipient) => (
-        recipient.responseChoice === null || recipient.responseChoice === NotificationResponseChoice.JOIN
-      ))
+      recipients.filter(
+        (recipient) =>
+          recipient.responseChoice === null ||
+          recipient.responseChoice === NotificationResponseChoice.JOIN,
+      ),
     )
   }
 
@@ -160,34 +192,39 @@ export async function getUpdateEligibleRecipientsByPlayIntentId(playIntentIds: s
 export async function hasInterestedPlayIntentBlockingAutoPrompt(
   userId: string,
   referenceTime: Date,
-  leadMinutes = autoPromptInterestLeadMinutes
+  leadMinutes = autoPromptInterestLeadMinutes,
 ) {
-  const latestAllowedStartAt = new Date(referenceTime.getTime() + leadMinutes * 60 * 1000)
+  const latestAllowedStartAt = new Date(
+    referenceTime.getTime() + leadMinutes * 60 * 1000,
+  )
 
   const notification = await prisma.notification.findFirst({
     where: {
       userId,
       responseChoice: NotificationResponseChoice.JOIN,
       type: {
-        in: recipientResponseNotificationTypes
+        in: recipientResponseNotificationTypes,
       },
       playIntent: {
         windowEndsAt: {
-          gt: referenceTime
+          gt: referenceTime,
         },
         windowStartsAt: {
-          lte: latestAllowedStartAt
-        }
-      }
+          lte: latestAllowedStartAt,
+        },
+      },
     },
     select: {
-      id: true
-    }
+      id: true,
+    },
   })
 
   return notification != null
 }
 
 export async function getPassedUsersByPlayIntentId(playIntentIds: string[]) {
-  return getResponseUsersByPlayIntentId(playIntentIds, NotificationResponseChoice.DECLINE)
+  return getResponseUsersByPlayIntentId(
+    playIntentIds,
+    NotificationResponseChoice.DECLINE,
+  )
 }

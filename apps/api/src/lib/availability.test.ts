@@ -8,7 +8,7 @@ test('game-specific availability takes priority over the profile default', () =>
 
   assert.deepEqual(result, {
     availability: 'Tonight after 9pm',
-    availabilitySource: 'game-specific'
+    availabilitySource: 'game-specific',
   })
 })
 
@@ -17,7 +17,7 @@ test('falls back to the profile default when game availability is empty', () => 
 
   assert.deepEqual(result, {
     availability: 'Weekends',
-    availabilitySource: 'profile-default'
+    availabilitySource: 'profile-default',
   })
 })
 
@@ -26,7 +26,7 @@ test('whitespace-only inputs are treated as missing', () => {
 
   assert.deepEqual(result, {
     availability: null,
-    availabilitySource: null
+    availabilitySource: null,
   })
 })
 
@@ -35,7 +35,7 @@ test('trims surrounding whitespace from the resolved value', () => {
 
   assert.deepEqual(result, {
     availability: 'Tonight',
-    availabilitySource: 'game-specific'
+    availabilitySource: 'game-specific',
   })
 })
 
@@ -44,6 +44,6 @@ test('returns null source when both inputs are null', () => {
 
   assert.deepEqual(result, {
     availability: null,
-    availabilitySource: null
+    availabilitySource: null,
   })
 })

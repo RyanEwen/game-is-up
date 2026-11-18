@@ -1,11 +1,24 @@
-import { Suspense, lazy, useEffect, useRef, type ReactNode, type RefObject } from 'react'
+import {
+  Suspense,
+  lazy,
+  useEffect,
+  useRef,
+  type ReactNode,
+  type RefObject,
+} from 'react'
 import { Box, Typography } from '@mui/joy'
-import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
+import {
+  Navigate,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+} from 'react-router-dom'
 import { DashboardLayout } from './components/dashboard/DashboardLayout'
 import { GameDetailsDialog } from './components/dashboard/GameDetailsDialog'
 import {
   dashboardTabPaths,
-  getDashboardTabFromPathname
+  getDashboardTabFromPathname,
 } from './components/dashboard/dashboardUtils'
 import { DashboardProvider } from './contexts/DashboardContext'
 import { useDashboardContext } from './contexts/useDashboardContext'
@@ -57,14 +70,17 @@ const PlayIntentDetailView = lazy(async () => {
 
 const appTitle = "Game's Up"
 
-const dashboardTabTitles: Record<Exclude<ReturnType<typeof getDashboardTabFromPathname>, null>, string> = {
+const dashboardTabTitles: Record<
+  Exclude<ReturnType<typeof getDashboardTabFromPathname>, null>,
+  string
+> = {
   overview: `${appTitle} • Home`,
   network: `${appTitle} • Network`,
   friends: `${appTitle} • Friends`,
   library: `${appTitle} • Library`,
   play: `${appTitle} • Play`,
   discovery: `${appTitle} • Discovery`,
-  debug: `${appTitle} • Admin and Debug`
+  debug: `${appTitle} • Admin and Debug`,
 }
 
 export default function App() {
@@ -72,19 +88,19 @@ export default function App() {
     <Routes>
       <Route
         path="/invite"
-        element={(
+        element={
           <RouteSuspense>
             <InviteLandingView />
           </RouteSuspense>
-        )}
+        }
       />
       <Route
         path="/*"
-        element={(
+        element={
           <DashboardProvider>
             <DashboardAppShell />
           </DashboardProvider>
-        )}
+        }
       />
     </Routes>
   )
@@ -96,8 +112,11 @@ function DashboardAppShell() {
   const { layoutProps, gameDetailsViewProps } = useDashboardContext()
   const requestedTab = getDashboardTabFromPathname(location.pathname)
   const isDebugAccessKnown = layoutProps.isSignedIn || layoutProps.showDebugView
-  const shouldRedirectDebugRoute = requestedTab === 'debug' && isDebugAccessKnown && !layoutProps.showDebugView
-  const activeTab = shouldRedirectDebugRoute ? 'overview' : (requestedTab ?? 'overview')
+  const shouldRedirectDebugRoute =
+    requestedTab === 'debug' && isDebugAccessKnown && !layoutProps.showDebugView
+  const activeTab = shouldRedirectDebugRoute
+    ? 'overview'
+    : (requestedTab ?? 'overview')
   const tabsAnchorRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
@@ -120,27 +139,15 @@ function DashboardAppShell() {
       <ScrollReset tabsAnchorRef={tabsAnchorRef} />
       <RouteSuspense>
         <Routes>
+          <Route path={dashboardTabPaths.overview} element={<OverviewView />} />
           <Route
-            path={dashboardTabPaths.overview}
-            element={<OverviewView />}
+            path="/overview"
+            element={<Navigate to={dashboardTabPaths.overview} replace />}
           />
-          <Route path="/overview" element={<Navigate to={dashboardTabPaths.overview} replace />} />
-          <Route
-            path={dashboardTabPaths.network}
-            element={<NetworkView />}
-          />
-          <Route
-            path={dashboardTabPaths.library}
-            element={<LibraryView />}
-          />
-          <Route
-            path={dashboardTabPaths.friends}
-            element={<FriendsView />}
-          />
-          <Route
-            path={dashboardTabPaths.play}
-            element={<PlayView />}
-          />
+          <Route path={dashboardTabPaths.network} element={<NetworkView />} />
+          <Route path={dashboardTabPaths.library} element={<LibraryView />} />
+          <Route path={dashboardTabPaths.friends} element={<FriendsView />} />
+          <Route path={dashboardTabPaths.play} element={<PlayView />} />
           <Route
             path="/play/:playIntentId"
             element={<PlayIntentDetailView />}
@@ -151,9 +158,18 @@ function DashboardAppShell() {
           />
           <Route
             path={dashboardTabPaths.debug}
-            element={shouldRedirectDebugRoute ? <Navigate to={dashboardTabPaths.overview} replace /> : <DebugView />}
+            element={
+              shouldRedirectDebugRoute ? (
+                <Navigate to={dashboardTabPaths.overview} replace />
+              ) : (
+                <DebugView />
+              )
+            }
           />
-          <Route path="*" element={<Navigate to={dashboardTabPaths.overview} replace />} />
+          <Route
+            path="*"
+            element={<Navigate to={dashboardTabPaths.overview} replace />}
+          />
         </Routes>
       </RouteSuspense>
       <GameDetailsDialog
@@ -171,13 +187,13 @@ function DashboardAppShell() {
 function RouteSuspense({ children }: { children: ReactNode }) {
   return (
     <Suspense
-      fallback={(
+      fallback={
         <Box sx={{ py: 4 }}>
           <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
             Loading view...
           </Typography>
         </Box>
-      )}
+      }
     >
       {children}
     </Suspense>
@@ -185,9 +201,9 @@ function RouteSuspense({ children }: { children: ReactNode }) {
 }
 
 function ScrollReset({
-  tabsAnchorRef
+  tabsAnchorRef,
 }: {
-  tabsAnchorRef: RefObject<HTMLDivElement>;
+  tabsAnchorRef: RefObject<HTMLDivElement>
 }) {
   const { pathname } = useLocation()
   const previousPathnameRef = useRef(pathname)

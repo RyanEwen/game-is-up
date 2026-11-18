@@ -14,24 +14,37 @@ import { env } from './env.js'
 import { getDiscordBotPresentServerIds } from './discord-presence-bot.js'
 import { PlayIntentScope } from '@prisma/client'
 
-const sampleFriendHandles = ['raidandrelax', 'nightqueue', 'supportmain', 'weekendwizard'] as const
+const sampleFriendHandles = [
+  'raidandrelax',
+  'nightqueue',
+  'supportmain',
+  'weekendwizard',
+] as const
 const defaultSeedViewerHandle = 'technicallyreal'
 const seededHandles = new Set([defaultSeedViewerHandle, ...sampleFriendHandles])
 
-export async function ensureDevelopmentSampleFriends(user: { id: string; handle: string; isAdmin: boolean }) {
-  if (env.NODE_ENV === 'production' || !user.isAdmin || seededHandles.has(user.handle)) {
+export async function ensureDevelopmentSampleFriends(user: {
+  id: string
+  handle: string
+  isAdmin: boolean
+}) {
+  if (
+    env.NODE_ENV === 'production' ||
+    !user.isAdmin ||
+    seededHandles.has(user.handle)
+  ) {
     return
   }
 
   const sampleFriends = await prisma.user.findMany({
     where: {
       handle: {
-        in: [...sampleFriendHandles]
-      }
+        in: [...sampleFriendHandles],
+      },
     },
     select: {
-      id: true
-    }
+      id: true,
+    },
   })
 
   if (sampleFriends.length === 0) {
@@ -41,78 +54,95 @@ export async function ensureDevelopmentSampleFriends(user: { id: string; handle:
   await prisma.friend.createMany({
     data: sampleFriends.map((sampleFriend) => ({
       userId: user.id,
-      friendedUserId: sampleFriend.id
+      friendedUserId: sampleFriend.id,
     })),
-    skipDuplicates: true
+    skipDuplicates: true,
   })
 }
 
-export async function ensureDevelopmentSampleServerOverlap(user: { id: string; handle: string; isAdmin: boolean }) {
-  if (env.NODE_ENV === 'production' || !user.isAdmin || seededHandles.has(user.handle)) {
+export async function ensureDevelopmentSampleServerOverlap(user: {
+  id: string
+  handle: string
+  isAdmin: boolean
+}) {
+  if (
+    env.NODE_ENV === 'production' ||
+    !user.isAdmin ||
+    seededHandles.has(user.handle)
+  ) {
     return
   }
 
   const [memberships, preferences, sampleUsers] = await Promise.all([
     prisma.discordServerMembership.findMany({
       where: {
-        userId: user.id
+        userId: user.id,
       },
       select: {
         serverId: true,
         server: {
           select: {
-            name: true
-          }
-        }
+            name: true,
+          },
+        },
       },
       orderBy: {
         server: {
-          name: 'asc'
-        }
-      }
+          name: 'asc',
+        },
+      },
     }),
     prisma.discordServerPreference.findMany({
       where: {
         userId: user.id,
-        includeInDiscovery: true
+        includeInDiscovery: true,
       },
       select: {
-        serverId: true
-      }
+        serverId: true,
+      },
     }),
     prisma.user.findMany({
       where: {
         handle: {
-          in: [...sampleFriendHandles]
-        }
+          in: [...sampleFriendHandles],
+        },
       },
       select: {
-        id: true
-      }
-    })
+        id: true,
+      },
+    }),
   ])
 
   if (memberships.length === 0 || sampleUsers.length === 0) {
     return
   }
 
-  const membershipServerIds = memberships.map((membership) => membership.serverId)
-  const botPresentServerIds = await getDiscordBotPresentServerIds(membershipServerIds)
+  const membershipServerIds = memberships.map(
+    (membership) => membership.serverId,
+  )
+  const botPresentServerIds =
+    await getDiscordBotPresentServerIds(membershipServerIds)
 
   if (botPresentServerIds.size === 0) {
     return
   }
 
-  const selectedServerIdSet = new Set(preferences.map((preference) => preference.serverId))
+  const selectedServerIdSet = new Set(
+    preferences.map((preference) => preference.serverId),
+  )
   const selectedRealBotVisibleServerIds = memberships
     .map((membership) => membership.serverId)
-    .filter((serverId) => botPresentServerIds.has(serverId) && selectedServerIdSet.has(serverId))
-  const targetServerIds = selectedRealBotVisibleServerIds.length > 0
-    ? selectedRealBotVisibleServerIds.slice(0, 2)
-    : memberships
-        .map((membership) => membership.serverId)
-        .filter((serverId) => botPresentServerIds.has(serverId))
-        .slice(0, 1)
+    .filter(
+      (serverId) =>
+        botPresentServerIds.has(serverId) && selectedServerIdSet.has(serverId),
+    )
+  const targetServerIds =
+    selectedRealBotVisibleServerIds.length > 0
+      ? selectedRealBotVisibleServerIds.slice(0, 2)
+      : memberships
+          .map((membership) => membership.serverId)
+          .filter((serverId) => botPresentServerIds.has(serverId))
+          .slice(0, 1)
 
   if (targetServerIds.length === 0) {
     return
@@ -125,11 +155,13 @@ export async function ensureDevelopmentSampleServerOverlap(user: { id: string; h
   }
 
   await prisma.discordServerMembership.createMany({
-    data: sampleUsers.flatMap((sampleUser) => targetServerIds.map((serverId) => ({
-      userId: sampleUser.id,
-      serverId
-    }))),
-    skipDuplicates: true
+    data: sampleUsers.flatMap((sampleUser) =>
+      targetServerIds.map((serverId) => ({
+        userId: sampleUser.id,
+        serverId,
+      })),
+    ),
+    skipDuplicates: true,
   })
 
   for (const sampleUser of sampleUsers) {
@@ -138,17 +170,17 @@ export async function ensureDevelopmentSampleServerOverlap(user: { id: string; h
         where: {
           userId_serverId: {
             userId: sampleUser.id,
-            serverId
-          }
+            serverId,
+          },
         },
         update: {
-          includeInDiscovery: true
+          includeInDiscovery: true,
         },
         create: {
           userId: sampleUser.id,
           serverId,
-          includeInDiscovery: true
-        }
+          includeInDiscovery: true,
+        },
       })
     }
   }
@@ -158,63 +190,72 @@ export async function ensureDevelopmentSampleServerOverlap(user: { id: string; h
       where: {
         userId_serverId: {
           userId: user.id,
-          serverId: primaryTargetServerId
-        }
+          serverId: primaryTargetServerId,
+        },
       },
       update: {
-        includeInDiscovery: true
+        includeInDiscovery: true,
       },
       create: {
         userId: user.id,
         serverId: primaryTargetServerId,
-        includeInDiscovery: true
-      }
+        includeInDiscovery: true,
+      },
     })
   }
 }
 
-export async function ensureDevelopmentSamplePlayIntentTargets(user: { id: string; handle: string; isAdmin: boolean }) {
-  if (env.NODE_ENV === 'production' || !user.isAdmin || seededHandles.has(user.handle)) {
+export async function ensureDevelopmentSamplePlayIntentTargets(user: {
+  id: string
+  handle: string
+  isAdmin: boolean
+}) {
+  if (
+    env.NODE_ENV === 'production' ||
+    !user.isAdmin ||
+    seededHandles.has(user.handle)
+  ) {
     return
   }
 
-  const [memberships, preferences, sampleUsers, defaultSeedViewer] = await Promise.all([
-    prisma.discordServerMembership.findMany({
-      where: {
-        userId: user.id
-      },
-      select: {
-        serverId: true
-      }
-    }),
-    prisma.discordServerPreference.findMany({
-      where: {
-        userId: user.id,
-        includeInDiscovery: true
-      },
-      select: {
-        serverId: true
-      }
-    }),
-    prisma.user.findMany({
-      where: {
-        handle: {
-          in: [...sampleFriendHandles]
-        }
-      },
-      select: {
-        id: true
-      }
-    }),
-    prisma.user.findUnique({
-      where: {
-        handle: defaultSeedViewerHandle
-      },
-      select: {
-        id: true
-      }
-    })
-  ])
+  const [memberships, preferences, sampleUsers, defaultSeedViewer] =
+    await Promise.all([
+      prisma.discordServerMembership.findMany({
+        where: {
+          userId: user.id,
+        },
+        select: {
+          serverId: true,
+        },
+      }),
+      prisma.discordServerPreference.findMany({
+        where: {
+          userId: user.id,
+          includeInDiscovery: true,
+        },
+        select: {
+          serverId: true,
+        },
+      }),
+      prisma.user.findMany({
+        where: {
+          handle: {
+            in: [...sampleFriendHandles],
+          },
+        },
+        select: {
+          id: true,
+        },
+      }),
+      prisma.user.findUnique({
+        where: {
+          handle: defaultSeedViewerHandle,
+        },
+        select: {
+          id: true,
+        },
+      }),
+    ])
 
   const sampleUserIds = sampleUsers.map((sampleUser) => sampleUser.id)
 
@@ -222,78 +263,93 @@ export async function ensureDevelopmentSamplePlayIntentTargets(user: { id: strin
     return
   }
 
-  const membershipServerIds = memberships.map((membership) => membership.serverId)
-  const botPresentServerIds = await getDiscordBotPresentServerIds(membershipServerIds)
-  const selectedServerIdSet = new Set(preferences.map((preference) => preference.serverId))
-  const selectedRealBotVisibleServerIds = membershipServerIds.filter((serverId) => botPresentServerIds.has(serverId) && selectedServerIdSet.has(serverId))
-  const fallbackBotVisibleServerIds = membershipServerIds.filter((serverId) => botPresentServerIds.has(serverId))
-  const primaryTargetServerId = selectedRealBotVisibleServerIds[0] ?? fallbackBotVisibleServerIds[0] ?? null
+  const membershipServerIds = memberships.map(
+    (membership) => membership.serverId,
+  )
+  const botPresentServerIds =
+    await getDiscordBotPresentServerIds(membershipServerIds)
+  const selectedServerIdSet = new Set(
+    preferences.map((preference) => preference.serverId),
+  )
+  const selectedRealBotVisibleServerIds = membershipServerIds.filter(
+    (serverId) =>
+      botPresentServerIds.has(serverId) && selectedServerIdSet.has(serverId),
+  )
+  const fallbackBotVisibleServerIds = membershipServerIds.filter((serverId) =>
+    botPresentServerIds.has(serverId),
+  )
+  const primaryTargetServerId =
+    selectedRealBotVisibleServerIds[0] ?? fallbackBotVisibleServerIds[0] ?? null
   const specificDiscordServerIntents = await prisma.playIntent.findMany({
     where: {
       userId: {
-        in: sampleUserIds
+        in: sampleUserIds,
       },
-      scope: PlayIntentScope.SPECIFIC_DISCORD_SERVER
+      scope: PlayIntentScope.SPECIFIC_DISCORD_SERVER,
     },
     select: {
-      id: true
-    }
+      id: true,
+    },
   })
 
   if (primaryTargetServerId && specificDiscordServerIntents.length > 0) {
-    const specificDiscordServerIntentIds = specificDiscordServerIntents.map((intent) => intent.id)
+    const specificDiscordServerIntentIds = specificDiscordServerIntents.map(
+      (intent) => intent.id,
+    )
 
     await prisma.playIntentTargetDiscordServer.deleteMany({
       where: {
         playIntentId: {
-          in: specificDiscordServerIntentIds
-        }
-      }
+          in: specificDiscordServerIntentIds,
+        },
+      },
     })
 
     await prisma.playIntentTargetDiscordServer.createMany({
       data: specificDiscordServerIntentIds.map((playIntentId) => ({
         playIntentId,
-        serverId: primaryTargetServerId
+        serverId: primaryTargetServerId,
       })),
-      skipDuplicates: true
+      skipDuplicates: true,
     })
   }
 
   const specificFriendIntents = await prisma.playIntent.findMany({
     where: {
       userId: {
-        in: sampleUserIds
+        in: sampleUserIds,
       },
-      scope: PlayIntentScope.SPECIFIC_FRIENDS
+      scope: PlayIntentScope.SPECIFIC_FRIENDS,
     },
     select: {
-      id: true
-    }
+      id: true,
+    },
   })
 
   if (specificFriendIntents.length === 0) {
     return
   }
 
-  const specificFriendIntentIds = specificFriendIntents.map((intent) => intent.id)
+  const specificFriendIntentIds = specificFriendIntents.map(
+    (intent) => intent.id,
+  )
 
   if (defaultSeedViewer?.id) {
     await prisma.playIntentTargetFriend.deleteMany({
       where: {
         playIntentId: {
-          in: specificFriendIntentIds
+          in: specificFriendIntentIds,
         },
-        friendUserId: defaultSeedViewer.id
-      }
+        friendUserId: defaultSeedViewer.id,
+      },
     })
   }
 
   await prisma.playIntentTargetFriend.createMany({
     data: specificFriendIntentIds.map((playIntentId) => ({
       playIntentId,
-      friendUserId: user.id
+      friendUserId: user.id,
     })),
-    skipDuplicates: true
+    skipDuplicates: true,
   })
 }

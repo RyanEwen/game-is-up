@@ -11,9 +11,16 @@
 
 import type { CatalogGameMatch, GameSearchResult } from '@game-is-up/shared'
 import { prisma } from './prisma.js'
-import { resolveStoredGameCoverUrl, toClientGameCoverUrl } from './game-media.js'
+import {
+  resolveStoredGameCoverUrl,
+  toClientGameCoverUrl,
+} from './game-media.js'
 import { getGameDetails } from './game-details.js'
-import { isRawgCatalogConfigured, searchRawgGamesByTitle, type ProviderCatalogResult } from './rawg-game-catalog.js'
+import {
+  isRawgCatalogConfigured,
+  searchRawgGamesByTitle,
+  type ProviderCatalogResult,
+} from './rawg-game-catalog.js'
 
 function slugifyTitle(title: string): string {
   const slug = title
@@ -31,11 +38,11 @@ async function ensureUniqueGameSlug(base: string): Promise<string> {
     const candidate = `${base}${suffix}`.slice(0, 56)
     const existing = await prisma.game.findUnique({
       where: {
-        slug: candidate
+        slug: candidate,
       },
       select: {
-        id: true
-      }
+        id: true,
+      },
     })
 
     if (!existing) {
@@ -47,7 +54,13 @@ async function ensureUniqueGameSlug(base: string): Promise<string> {
 }
 
 function dedupePlatformLabels(platformLabels: string[]): string[] {
-  return [...new Set(platformLabels.map((platformLabel) => platformLabel.trim()).filter(Boolean))]
+  return [
+    ...new Set(
+      platformLabels
+        .map((platformLabel) => platformLabel.trim())
+        .filter(Boolean),
+    ),
+  ]
 }
 
 function normalizeTitle(title: string): string {
@@ -77,7 +90,9 @@ function titlesConfidentlyMatch(left: string, right: string): boolean {
 }
 
 function titlesDifferTextually(left: string, right: string): boolean {
-  return normalizeTitle(left).toLowerCase() !== normalizeTitle(right).toLowerCase()
+  return (
+    normalizeTitle(left).toLowerCase() !== normalizeTitle(right).toLowerCase()
+  )
 }
 
 function normalizeSearchResultId(source: string, sourceId: string): string {
@@ -93,21 +108,21 @@ async function findExistingGameByTitle(title: string) {
         {
           title: {
             equals: normalizedTitle,
-            mode: 'insensitive'
-          }
+            mode: 'insensitive',
+          },
         },
         {
           aliases: {
             some: {
               alias: {
                 equals: normalizedTitle,
-                mode: 'insensitive'
-              }
-            }
-          }
-        }
-      ]
-    }
+                mode: 'insensitive',
+              },
+            },
+          },
+        },
+      ],
+    },
   })
 
   if (exactMatch) {
@@ -122,8 +137,10 @@ function countCanonicalSources(sources: Array<{ canonical: boolean }>) {
 }
 
 function gameTitleDecorationPenalty(title: string) {
-  return (title.match(/[™®©]/g) ?? []).length * 10
-    + (title.match(/[^\w\s]/g) ?? []).length
+  return (
+    (title.match(/[™®©]/g) ?? []).length * 10 +
+    (title.match(/[^\w\s]/g) ?? []).length
+  )
 }
 
 async function findExistingGameByNormalizedTitle(title: string) {
@@ -147,49 +164,56 @@ async function findExistingGameByNormalizedTitle(title: string) {
         {
           title: {
             contains: searchToken,
-            mode: 'insensitive'
-          }
+            mode: 'insensitive',
+          },
         },
         {
           aliases: {
             some: {
               alias: {
                 contains: searchToken,
-                mode: 'insensitive'
-              }
-            }
-          }
-        }
-      ]
+                mode: 'insensitive',
+              },
+            },
+          },
+        },
+      ],
     },
     include: {
       aliases: {
         select: {
-          alias: true
-        }
+          alias: true,
+        },
       },
       sources: {
         select: {
-          canonical: true
-        }
-      }
-    }
+          canonical: true,
+        },
+      },
+    },
   })
 
-  const normalizedMatches = candidates.filter((candidate) => (
-    normalizeGameTitleForMatch(candidate.title) === normalizedMatchTitle
-    || candidate.aliases.some((aliasEntry) => normalizeGameTitleForMatch(aliasEntry.alias) === normalizedMatchTitle)
-  ))
+  const normalizedMatches = candidates.filter(
+    (candidate) =>
+      normalizeGameTitleForMatch(candidate.title) === normalizedMatchTitle ||
+      candidate.aliases.some(
+        (aliasEntry) =>
+          normalizeGameTitleForMatch(aliasEntry.alias) === normalizedMatchTitle,
+      ),
+  )
 
   normalizedMatches.sort((left, right) => {
-    const leftTitleMatch = normalizeGameTitleForMatch(left.title) === normalizedMatchTitle
-    const rightTitleMatch = normalizeGameTitleForMatch(right.title) === normalizedMatchTitle
+    const leftTitleMatch =
+      normalizeGameTitleForMatch(left.title) === normalizedMatchTitle
+    const rightTitleMatch =
+      normalizeGameTitleForMatch(right.title) === normalizedMatchTitle
 
     if (leftTitleMatch !== rightTitleMatch) {
       return leftTitleMatch ? -1 : 1
     }
 
-    const canonicalSourceDifference = countCanonicalSources(right.sources) - countCanonicalSources(left.sources)
+    const canonicalSourceDifference =
+      countCanonicalSources(right.sources) - countCanonicalSources(left.sources)
 
     if (canonicalSourceDifference !== 0) {
       return canonicalSourceDifference
@@ -201,7 +225,9 @@ async function findExistingGameByNormalizedTitle(title: string) {
       return sourceDifference
     }
 
-    const decorationDifference = gameTitleDecorationPenalty(left.title) - gameTitleDecorationPenalty(right.title)
+    const decorationDifference =
+      gameTitleDecorationPenalty(left.title) -
+      gameTitleDecorationPenalty(right.title)
 
     if (decorationDifference !== 0) {
       return decorationDifference
@@ -209,7 +235,7 @@ async function findExistingGameByNormalizedTitle(title: string) {
 
     return left.title.localeCompare(right.title, undefined, {
       sensitivity: 'base',
-      numeric: true
+      numeric: true,
     })
   })
 
@@ -227,29 +253,34 @@ async function ensureGameAlias(gameId: string, alias: string) {
     where: {
       gameId_alias: {
         gameId,
-        alias: normalizedAlias
-      }
+        alias: normalizedAlias,
+      },
     },
     update: {},
     create: {
       gameId,
-      alias: normalizedAlias
-    }
+      alias: normalizedAlias,
+    },
   })
 }
 
-async function ensureGameSource(gameId: string, source: string, externalId: string, canonical = false) {
+async function ensureGameSource(
+  gameId: string,
+  source: string,
+  externalId: string,
+  canonical = false,
+) {
   const existingSource = await prisma.gameSource.findUnique({
     where: {
       source_externalId: {
         source,
-        externalId
-      }
+        externalId,
+      },
     },
     select: {
       id: true,
-      gameId: true
-    }
+      gameId: true,
+    },
   })
 
   if (existingSource) {
@@ -261,16 +292,16 @@ async function ensureGameSource(gameId: string, source: string, externalId: stri
       gameId,
       source,
       externalId,
-      canonical
-    }
+      canonical,
+    },
   })
 }
 
 function normalizeLocalSearchResult(game: {
-  id: string;
-  title: string;
-  coverUrl: string | null;
-  platforms: { platformLabel: string }[];
+  id: string
+  title: string
+  coverUrl: string | null
+  platforms: { platformLabel: string }[]
 }): GameSearchResult {
   return {
     id: normalizeSearchResultId('local', game.id),
@@ -278,12 +309,17 @@ function normalizeLocalSearchResult(game: {
     sourceId: game.id,
     title: game.title,
     coverUrl: toClientGameCoverUrl(game.coverUrl),
-    platformLabels: dedupePlatformLabels(game.platforms.map((platform) => platform.platformLabel)),
-    gameplayClassification: 'unknown'
+    platformLabels: dedupePlatformLabels(
+      game.platforms.map((platform) => platform.platformLabel),
+    ),
+    gameplayClassification: 'unknown',
   }
 }
 
-function normalizeProviderSearchResult(result: ProviderCatalogResult, gameplayClassification: GameSearchResult['gameplayClassification'] = 'unknown'): GameSearchResult {
+function normalizeProviderSearchResult(
+  result: ProviderCatalogResult,
+  gameplayClassification: GameSearchResult['gameplayClassification'] = 'unknown',
+): GameSearchResult {
   return {
     id: normalizeSearchResultId(result.source, result.sourceId),
     source: result.source,
@@ -291,13 +327,18 @@ function normalizeProviderSearchResult(result: ProviderCatalogResult, gameplayCl
     title: result.title,
     coverUrl: toClientGameCoverUrl(result.coverUrl),
     platformLabels: dedupePlatformLabels(result.platformLabels),
-    gameplayClassification
+    gameplayClassification,
   }
 }
 
-function compareSearchResults(left: GameSearchResult, right: GameSearchResult): number {
-  const leftPenalty = left.gameplayClassification === 'singleplayer-only' ? 1 : 0
-  const rightPenalty = right.gameplayClassification === 'singleplayer-only' ? 1 : 0
+function compareSearchResults(
+  left: GameSearchResult,
+  right: GameSearchResult,
+): number {
+  const leftPenalty =
+    left.gameplayClassification === 'singleplayer-only' ? 1 : 0
+  const rightPenalty =
+    right.gameplayClassification === 'singleplayer-only' ? 1 : 0
 
   if (leftPenalty !== rightPenalty) {
     return leftPenalty - rightPenalty
@@ -305,7 +346,7 @@ function compareSearchResults(left: GameSearchResult, right: GameSearchResult): 
 
   return left.title.localeCompare(right.title, undefined, {
     sensitivity: 'base',
-    numeric: true
+    numeric: true,
   })
 }
 
@@ -319,9 +360,9 @@ async function syncGamePlatforms(gameId: string, platformLabels: string[]) {
   await prisma.gamePlatform.createMany({
     data: dedupedPlatformLabels.map((platformLabel) => ({
       gameId,
-      platformLabel
+      platformLabel,
     })),
-    skipDuplicates: true
+    skipDuplicates: true,
   })
 }
 
@@ -331,40 +372,60 @@ async function createBareGame(title: string) {
   return prisma.game.create({
     data: {
       slug,
-      title
-    }
+      title,
+    },
   })
 }
 
 async function findCatalogBackedMatchByTitle(
   title: string,
   options?: {
-    requireNormalizedTitleMatch?: boolean;
-  }
+    requireNormalizedTitleMatch?: boolean
+  },
 ): Promise<CatalogGameMatch | null> {
   if (!isRawgCatalogConfigured()) {
     return null
   }
 
-  const providerResults = [...new Map((await Promise.all(
-    [...new Set([normalizeTitle(title), normalizeGameTitleForCatalogLookup(title)].filter(Boolean))]
-      .map((searchTitle) => searchRawgGamesByTitle(searchTitle))
-  ))
-    .flat()
-    .map((result) => [`${result.source}:${result.sourceId}`, result])
-  ).values()]
+  const providerResults = [
+    ...new Map(
+      (
+        await Promise.all(
+          [
+            ...new Set(
+              [
+                normalizeTitle(title),
+                normalizeGameTitleForCatalogLookup(title),
+              ].filter(Boolean),
+            ),
+          ].map((searchTitle) => searchRawgGamesByTitle(searchTitle)),
+        )
+      )
+        .flat()
+        .map((result) => [`${result.source}:${result.sourceId}`, result]),
+    ).values(),
+  ]
   const normalizedMatchTitle = normalizeGameTitleForMatch(title)
-  const exactNormalizedResult = providerResults.find((result) => titlesConfidentlyMatch(result.title, title))
+  const exactNormalizedResult = providerResults.find((result) =>
+    titlesConfidentlyMatch(result.title, title),
+  )
 
-  const preferredResult = exactNormalizedResult
-    ?? providerResults.find((result) => normalizeTitle(result.title).toLowerCase() === title.toLowerCase())
-    ?? providerResults[0]
+  const preferredResult =
+    exactNormalizedResult ??
+    providerResults.find(
+      (result) =>
+        normalizeTitle(result.title).toLowerCase() === title.toLowerCase(),
+    ) ??
+    providerResults[0]
 
   if (!preferredResult) {
     return null
   }
 
-  if (options?.requireNormalizedTitleMatch && normalizeGameTitleForMatch(preferredResult.title) !== normalizedMatchTitle) {
+  if (
+    options?.requireNormalizedTitleMatch &&
+    normalizeGameTitleForMatch(preferredResult.title) !== normalizedMatchTitle
+  ) {
     return null
   }
 
@@ -374,11 +435,14 @@ async function findCatalogBackedMatchByTitle(
     title: preferredResult.title,
     coverUrl: preferredResult.coverUrl,
     description: preferredResult.description,
-    platformLabels: preferredResult.platformLabels
+    platformLabels: preferredResult.platformLabels,
   }
 }
 
-export async function findOrCreateGameByTitle(title: string, options?: { searchCatalog?: boolean }) {
+export async function findOrCreateGameByTitle(
+  title: string,
+  options?: { searchCatalog?: boolean },
+) {
   const normalizedTitle = normalizeTitle(title)
 
   const existing = await findExistingGameByTitle(normalizedTitle)
@@ -399,21 +463,21 @@ export async function findOrCreateGameByTitle(title: string, options?: { searchC
 }
 
 export async function findOrCreateGameFromSteamImport(options: {
-  sourceId: string;
-  title: string;
-  coverUrl: string | null;
-  platformLabels: string[];
+  sourceId: string
+  title: string
+  coverUrl: string | null
+  platformLabels: string[]
 }) {
   const existingSteamSource = await prisma.gameSource.findUnique({
     where: {
       source_externalId: {
         source: 'steam',
-        externalId: options.sourceId
-      }
+        externalId: options.sourceId,
+      },
     },
     include: {
-      game: true
-    }
+      game: true,
+    },
   })
 
   if (existingSteamSource) {
@@ -425,16 +489,22 @@ export async function findOrCreateGameFromSteamImport(options: {
   }
 
   const rawgCatalogMatch = await findCatalogBackedMatchByTitle(options.title, {
-    requireNormalizedTitleMatch: true
+    requireNormalizedTitleMatch: true,
   })
 
   if (rawgCatalogMatch) {
-    const resolvedGame = await findOrCreateGameFromCatalogMatch(rawgCatalogMatch)
+    const resolvedGame =
+      await findOrCreateGameFromCatalogMatch(rawgCatalogMatch)
 
     await Promise.all([
       ensureGameSource(resolvedGame.id, 'steam', options.sourceId, false),
-      syncGamePlatforms(resolvedGame.id, [...rawgCatalogMatch.platformLabels, ...options.platformLabels]),
-      titlesDifferTextually(resolvedGame.title, options.title) ? ensureGameAlias(resolvedGame.id, options.title) : Promise.resolve()
+      syncGamePlatforms(resolvedGame.id, [
+        ...rawgCatalogMatch.platformLabels,
+        ...options.platformLabels,
+      ]),
+      titlesDifferTextually(resolvedGame.title, options.title)
+        ? ensureGameAlias(resolvedGame.id, options.title)
+        : Promise.resolve(),
     ])
 
     return resolvedGame
@@ -445,18 +515,20 @@ export async function findOrCreateGameFromSteamImport(options: {
     sourceId: options.sourceId,
     title: options.title,
     coverUrl: options.coverUrl,
-    platformLabels: options.platformLabels
+    platformLabels: options.platformLabels,
   })
 }
 
-export async function findOrCreateGameFromCatalogMatch(catalogMatch: CatalogGameMatch) {
+export async function findOrCreateGameFromCatalogMatch(
+  catalogMatch: CatalogGameMatch,
+) {
   const normalizedCoverUrl = resolveStoredGameCoverUrl(catalogMatch.coverUrl)
 
   if (catalogMatch.source === 'local') {
     const localGame = await prisma.game.findUnique({
       where: {
-        id: catalogMatch.sourceId
-      }
+        id: catalogMatch.sourceId,
+      },
     })
 
     if (localGame) {
@@ -469,24 +541,25 @@ export async function findOrCreateGameFromCatalogMatch(catalogMatch: CatalogGame
     where: {
       source_externalId: {
         source: catalogMatch.source,
-        externalId: catalogMatch.sourceId
-      }
+        externalId: catalogMatch.sourceId,
+      },
     },
     include: {
-      game: true
-    }
+      game: true,
+    },
   })
 
   if (existingSource) {
     const updatedGame = await prisma.game.update({
       where: {
-        id: existingSource.gameId
+        id: existingSource.gameId,
       },
       data: {
         title: catalogMatch.title,
         coverUrl: normalizedCoverUrl ?? existingSource.game.coverUrl,
-        description: catalogMatch.description ?? existingSource.game.description
-      }
+        description:
+          catalogMatch.description ?? existingSource.game.description,
+      },
     })
 
     await syncGamePlatforms(updatedGame.id, catalogMatch.platformLabels)
@@ -498,7 +571,7 @@ export async function findOrCreateGameFromCatalogMatch(catalogMatch: CatalogGame
   if (existingGame) {
     const updatedGame = await prisma.game.update({
       where: {
-        id: existingGame.id
+        id: existingGame.id,
       },
       data: {
         coverUrl: normalizedCoverUrl ?? existingGame.coverUrl,
@@ -507,10 +580,10 @@ export async function findOrCreateGameFromCatalogMatch(catalogMatch: CatalogGame
           create: {
             source: catalogMatch.source,
             externalId: catalogMatch.sourceId,
-            canonical: false
-          }
-        }
-      }
+            canonical: false,
+          },
+        },
+      },
     })
 
     await syncGamePlatforms(updatedGame.id, catalogMatch.platformLabels)
@@ -528,10 +601,10 @@ export async function findOrCreateGameFromCatalogMatch(catalogMatch: CatalogGame
         create: {
           source: catalogMatch.source,
           externalId: catalogMatch.sourceId,
-          canonical: true
-        }
-      }
-    }
+          canonical: true,
+        },
+      },
+    },
   })
 
   await syncGamePlatforms(createdGame.id, catalogMatch.platformLabels)
@@ -551,23 +624,23 @@ export async function searchGamesByTitle(query: string) {
         {
           title: {
             contains: normalizedQuery,
-            mode: 'insensitive'
-          }
+            mode: 'insensitive',
+          },
         },
         {
           aliases: {
             some: {
               alias: {
                 contains: normalizedQuery,
-                mode: 'insensitive'
-              }
-            }
-          }
-        }
-      ]
+                mode: 'insensitive',
+              },
+            },
+          },
+        },
+      ],
     },
     orderBy: {
-      title: 'asc'
+      title: 'asc',
     },
     take: 8,
     select: {
@@ -576,23 +649,33 @@ export async function searchGamesByTitle(query: string) {
       coverUrl: true,
       platforms: {
         select: {
-          platformLabel: true
-        }
-      }
-    }
+          platformLabel: true,
+        },
+      },
+    },
   })
 
-  const providerResults = isRawgCatalogConfigured() ? await searchRawgGamesByTitle(normalizedQuery) : []
-  const providerSearchResults = await Promise.all(providerResults.map(async (result) => {
-    try {
-      const details = await getGameDetails(result.source, result.sourceId)
+  const providerResults = isRawgCatalogConfigured()
+    ? await searchRawgGamesByTitle(normalizedQuery)
+    : []
+  const providerSearchResults = await Promise.all(
+    providerResults.map(async (result) => {
+      try {
+        const details = await getGameDetails(result.source, result.sourceId)
 
-      return normalizeProviderSearchResult(result, details?.gameplay.classification ?? 'unknown')
-    } catch {
-      return normalizeProviderSearchResult(result)
-    }
-  }))
-  const mergedResults = [...providerSearchResults, ...localResults.map(normalizeLocalSearchResult)]
+        return normalizeProviderSearchResult(
+          result,
+          details?.gameplay.classification ?? 'unknown',
+        )
+      } catch {
+        return normalizeProviderSearchResult(result)
+      }
+    }),
+  )
+  const mergedResults = [
+    ...providerSearchResults,
+    ...localResults.map(normalizeLocalSearchResult),
+  ]
   const dedupedByTitle = new Map<string, GameSearchResult>()
 
   for (const result of mergedResults) {

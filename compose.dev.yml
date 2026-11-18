@@ -5,7 +5,7 @@ services:
       context: .
       dockerfile: docker/dev/Dockerfile
     working_dir: /workspace
-    user: "${HOST_UID:?host uid is required}:${HOST_GID:?host gid is required}"
+    user: '${HOST_UID:?host uid is required}:${HOST_GID:?host gid is required}'
     init: true
     env_file:
       - path: .env
@@ -22,8 +22,8 @@ services:
       VITE_DEV_HOST: 0.0.0.0
       VITE_DEV_PORT: ${VITE_DEV_PORT:?vite port is required}
     ports:
-      - "127.0.0.1:${DEVKIT_WEB_PORT:?web port is required}:${VITE_DEV_PORT:?vite port is required}"
-      - "[::1]:${DEVKIT_WEB_PORT:?web port is required}:${VITE_DEV_PORT:?vite port is required}"
+      - '127.0.0.1:${DEVKIT_WEB_PORT:?web port is required}:${VITE_DEV_PORT:?vite port is required}'
+      - '[::1]:${DEVKIT_WEB_PORT:?web port is required}:${VITE_DEV_PORT:?vite port is required}'
     volumes:
       - .:/workspace
     depends_on:

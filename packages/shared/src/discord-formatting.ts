@@ -9,25 +9,28 @@
  * duplicating switch statements in feature-specific formatters.
  */
 
-const fieldDecorations: Record<string, { emoji: string; displayLabel: string }> = {
-  'creator': { emoji: '👤', displayLabel: 'Creator' },
-  'title': { emoji: '📝', displayLabel: 'Title' },
-  'game': { emoji: '🎮', displayLabel: 'Game' },
-  'games': { emoji: '🎯', displayLabel: 'Games' },
-  'duration': { emoji: '⏰', displayLabel: 'Duration' },
-  'timing': { emoji: '⏰', displayLabel: 'Timing' },
-  'when': { emoji: '⏰', displayLabel: 'Timing' },
-  'audience': { emoji: '👥', displayLabel: 'Audience' },
-  'window': { emoji: '🗓', displayLabel: 'Window' },
+const fieldDecorations: Record<
+  string,
+  { emoji: string; displayLabel: string }
+> = {
+  creator: { emoji: '👤', displayLabel: 'Creator' },
+  title: { emoji: '📝', displayLabel: 'Title' },
+  game: { emoji: '🎮', displayLabel: 'Game' },
+  games: { emoji: '🎯', displayLabel: 'Games' },
+  duration: { emoji: '⏰', displayLabel: 'Duration' },
+  timing: { emoji: '⏰', displayLabel: 'Timing' },
+  when: { emoji: '⏰', displayLabel: 'Timing' },
+  audience: { emoji: '👥', displayLabel: 'Audience' },
+  window: { emoji: '🗓', displayLabel: 'Window' },
   'voice channel': { emoji: '🎙', displayLabel: 'Voice Channel' },
-  'interest': { emoji: '👥', displayLabel: 'Interest' },
-  'status': { emoji: '📡', displayLabel: 'Status' },
-  'note': { emoji: '🗒', displayLabel: 'Note' },
+  interest: { emoji: '👥', displayLabel: 'Interest' },
+  status: { emoji: '📡', displayLabel: 'Status' },
+  note: { emoji: '🗒', displayLabel: 'Note' },
   'interested players': { emoji: '🙋', displayLabel: 'Interested Players' },
   'confirmed interested': { emoji: '🙋', displayLabel: 'Interested Players' },
-  'responses': { emoji: '🧾', displayLabel: 'Responses' },
-  'reach': { emoji: '📬', displayLabel: 'Reach' },
-  'next step': { emoji: '🧭', displayLabel: 'Next Step' }
+  responses: { emoji: '🧾', displayLabel: 'Responses' },
+  reach: { emoji: '📬', displayLabel: 'Reach' },
+  'next step': { emoji: '🧭', displayLabel: 'Next Step' },
 }
 
 /**
@@ -54,7 +57,9 @@ export function buildDecoratedSectionHeading(label: string): string {
  * longer sees the recipient playing the observed game. Shared between live
  * cleanup and the debug simulator so the two never drift out of lock-step.
  */
-export function buildAutoPlayInactiveObservationClosedReason(gameTitle: string): string {
+export function buildAutoPlayInactiveObservationClosedReason(
+  gameTitle: string,
+): string {
   return `This prompt was closed because we are no longer seeing you in ${gameTitle}.`
 }
 
@@ -80,12 +85,12 @@ export function buildDiscordSubtext(text: string): string {
 export function buildDiscordNotice(
   title: string,
   sections: Array<string | null>,
-  subtext?: string | null
+  subtext?: string | null,
 ): string {
   return [
     title.trim(),
     ...sections,
-    subtext ? buildDiscordSubtext(subtext) : null
+    subtext ? buildDiscordSubtext(subtext) : null,
   ]
     .filter((part): part is string => Boolean(part))
     .join('\n\n')

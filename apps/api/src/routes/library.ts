@@ -16,40 +16,49 @@ import {
   libraryResponseSchema,
   steamLibraryImportPreviewResponseSchema,
   upsertLibraryEntryRequestSchema,
-  type ImportSteamLibrarySelectionRequest
+  type ImportSteamLibrarySelectionRequest,
 } from '@game-is-up/shared'
 import { z } from 'zod'
 import {
   findOrCreateGameFromSteamImport,
   normalizeGameTitleForMatch,
-  searchGamesByTitle
+  searchGamesByTitle,
 } from '../lib/game-catalog.js'
 import { getGameDetails } from '../lib/game-details.js'
 import { publishDashboardInvalidation } from '../lib/dashboard-events.js'
 import { backfillPlayIntentNotificationsForUserLibraryChange } from '../lib/play-intents.js'
 import { prisma } from '../lib/prisma.js'
-import { fetchSteamOwnedGames, fetchSteamProfileSummary, isSteamImportConfigured } from '../lib/steam-auth.js'
-import { buildLibraryResponse, writeLibraryGame, upsertLibraryEntry, removeLibraryEntry } from '../lib/library.js'
+import {
+  fetchSteamOwnedGames,
+  fetchSteamProfileSummary,
+  isSteamImportConfigured,
+} from '../lib/steam-auth.js'
+import {
+  buildLibraryResponse,
+  writeLibraryGame,
+  upsertLibraryEntry,
+  removeLibraryEntry,
+} from '../lib/library.js'
 import { requireSignedInUserId } from '../lib/route-auth.js'
 
 const libraryEntryParamsSchema = z.object({
-  entryId: z.string().uuid()
+  entryId: z.string().uuid(),
 })
 
 const libraryCatalogQuerySchema = z.object({
-  query: z.string().trim().max(80).default('')
+  query: z.string().trim().max(80).default(''),
 })
 
 const libraryCatalogDetailsParamsSchema = z.object({
   source: z.string().trim().min(1).max(32),
-  sourceId: z.string().trim().min(1).max(96)
+  sourceId: z.string().trim().min(1).max(96),
 })
 
 export const libraryRouter = Router()
 
 function compareSteamImportPreviewGames(
   left: { alreadyInLibrary: boolean; title: string; sourceId: string },
-  right: { alreadyInLibrary: boolean; title: string; sourceId: string }
+  right: { alreadyInLibrary: boolean; title: string; sourceId: string },
 ): number {
   if (left.alreadyInLibrary !== right.alreadyInLibrary) {
     return Number(left.alreadyInLibrary) - Number(right.alreadyInLibrary)
@@ -57,7 +66,7 @@ function compareSteamImportPreviewGames(
 
   const titleOrder = left.title.localeCompare(right.title, undefined, {
     numeric: true,
-    sensitivity: 'base'
+    sensitivity: 'base',
   })
 
   if (titleOrder !== 0) {
@@ -71,11 +80,11 @@ async function getSteamIdentityForUser(userId: string) {
   return prisma.userIdentity.findFirst({
     where: {
       userId,
-      provider: PrismaAuthProvider.STEAM
+      provider: PrismaAuthProvider.STEAM,
     },
     select: {
-      providerUserId: true
-    }
+      providerUserId: true,
+    },
   })
 }
 
@@ -87,7 +96,7 @@ async function loadSteamImportPreview(userId: string) {
       status: 'not-linked',
       note: 'Connect a Steam account first to preview your owned games.',
       account: null,
-      games: []
+      games: [],
     })
   }
 
@@ -96,7 +105,7 @@ async function loadSteamImportPreview(userId: string) {
     fetchSteamOwnedGames(steamIdentity.providerUserId),
     prisma.userGameInterest.findMany({
       where: {
-        userId
+        userId,
       },
       select: {
         game: {
@@ -105,32 +114,41 @@ async function loadSteamImportPreview(userId: string) {
             sources: {
               select: {
                 source: true,
-                externalId: true
-              }
-            }
-          }
-        }
-      }
-    })
+                externalId: true,
+              },
+            },
+          },
+        },
+      },
+    }),
   ])
 
   const existingSteamSourceIds = new Set(
-    existingEntries.flatMap((entry) => entry.game.sources)
+    existingEntries
+      .flatMap((entry) => entry.game.sources)
       .filter((source) => source.source === 'steam')
-      .map((source) => source.externalId)
+      .map((source) => source.externalId),
   )
-  const existingTitles = new Set(existingEntries.map((entry) => normalizeGameTitleForMatch(entry.game.title)))
-  const games = ownedGames.map((game) => ({
-    ...game,
-    alreadyInLibrary: existingSteamSourceIds.has(game.sourceId) || existingTitles.has(normalizeGameTitleForMatch(game.title))
-  })).sort(compareSteamImportPreviewGames)
+  const existingTitles = new Set(
+    existingEntries.map((entry) =>
+      normalizeGameTitleForMatch(entry.game.title),
+    ),
+  )
+  const games = ownedGames
+    .map((game) => ({
+      ...game,
+      alreadyInLibrary:
+        existingSteamSourceIds.has(game.sourceId) ||
+        existingTitles.has(normalizeGameTitleForMatch(game.title)),
+    }))
+    .sort(compareSteamImportPreviewGames)
 
   if (games.length === 0) {
     return steamLibraryImportPreviewResponseSchema.parse({
       status: 'unavailable',
       note: 'Steam did not return any importable games. The library may be private or empty.',
       account,
-      games: []
+      games: [],
     })
   }
 
@@ -138,11 +156,14 @@ async function loadSteamImportPreview(userId: string) {
     status: 'ready',
     note: null,
     account,
-    games
+    games,
   })
 }
 
-async function importSteamGamesForUser(userId: string, selections: ImportSteamLibrarySelectionRequest['games']) {
+async function importSteamGamesForUser(
+  userId: string,
+  selections: ImportSteamLibrarySelectionRequest['games'],
+) {
   const steamIdentity = await getSteamIdentityForUser(userId)
 
   if (!steamIdentity) {
@@ -150,11 +171,17 @@ async function importSteamGamesForUser(userId: string, selections: ImportSteamLi
   }
 
   const ownedGames = await fetchSteamOwnedGames(steamIdentity.providerUserId)
-  const selectionBySourceId = new Map(selections.map((selection) => [selection.sourceId, selection]))
-  const selectedGames = ownedGames.filter((game) => selectionBySourceId.has(game.sourceId))
+  const selectionBySourceId = new Map(
+    selections.map((selection) => [selection.sourceId, selection]),
+  )
+  const selectedGames = ownedGames.filter((game) =>
+    selectionBySourceId.has(game.sourceId),
+  )
 
   if (selectedGames.length === 0) {
-    throw new Error('Steam did not return any of the selected games. Refresh the import list and try again.')
+    throw new Error(
+      'Steam did not return any of the selected games. Refresh the import list and try again.',
+    )
   }
 
   for (const game of selectedGames) {
@@ -164,19 +191,25 @@ async function importSteamGamesForUser(userId: string, selections: ImportSteamLi
       continue
     }
 
-    const platformLabels = [...new Set(selection.platformLabels.map((platformLabel) => platformLabel.trim()).filter(Boolean))]
+    const platformLabels = [
+      ...new Set(
+        selection.platformLabels
+          .map((platformLabel) => platformLabel.trim())
+          .filter(Boolean),
+      ),
+    ]
     const resolvedGame = await findOrCreateGameFromSteamImport({
       sourceId: game.sourceId,
       title: game.title,
       coverUrl: game.coverUrl,
-      platformLabels
+      platformLabels,
     })
 
     await writeLibraryGame(userId, resolvedGame.id, {
       title: resolvedGame.title.slice(0, 80),
       platformLabels,
       intent: selection.intent,
-      availability: selection.availability
+      availability: selection.availability,
     })
   }
 }
@@ -187,24 +220,31 @@ libraryRouter.get('/catalog', async (request, response, next) => {
     const results = await searchGamesByTitle(query)
     response.json(
       gameSearchResponseSchema.parse({
-        results
-      })
+        results,
+      }),
     )
   } catch (error) {
     next(error)
   }
 })
 
-libraryRouter.get('/catalog/:source/:sourceId/details', async (request, response, next) => {
-  try {
-    const { source, sourceId } = libraryCatalogDetailsParamsSchema.parse(request.params)
-    response.json(gameDetailsResponseSchema.parse({
-      game: await getGameDetails(source, sourceId)
-    }))
-  } catch (error) {
-    next(error)
-  }
-})
+libraryRouter.get(
+  '/catalog/:source/:sourceId/details',
+  async (request, response, next) => {
+    try {
+      const { source, sourceId } = libraryCatalogDetailsParamsSchema.parse(
+        request.params,
+      )
+      response.json(
+        gameDetailsResponseSchema.parse({
+          game: await getGameDetails(source, sourceId),
+        }),
+      )
+    } catch (error) {
+      next(error)
+    }
+  },
+)
 
 libraryRouter.get('/me', async (request, response, next) => {
   const userId = requireSignedInUserId(request, response)
@@ -214,7 +254,9 @@ libraryRouter.get('/me', async (request, response, next) => {
   }
 
   try {
-    response.json(libraryResponseSchema.parse(await buildLibraryResponse(userId)))
+    response.json(
+      libraryResponseSchema.parse(await buildLibraryResponse(userId)),
+    )
   } catch (error) {
     next(error)
   }
@@ -229,7 +271,7 @@ libraryRouter.get('/imports/steam', async (request, response, next) => {
 
   if (!isSteamImportConfigured()) {
     response.status(503).json({
-      error: 'Steam import is not configured.'
+      error: 'Steam import is not configured.',
     })
     return
   }
@@ -252,7 +294,9 @@ libraryRouter.post('/me', async (request, response, next) => {
     const payload = upsertLibraryEntryRequestSchema.parse(request.body)
     await upsertLibraryEntry(userId, payload)
 
-    response.json(libraryResponseSchema.parse(await buildLibraryResponse(userId)))
+    response.json(
+      libraryResponseSchema.parse(await buildLibraryResponse(userId)),
+    )
   } catch (error) {
     next(error)
   }
@@ -267,7 +311,7 @@ libraryRouter.post('/imports/steam', async (request, response, next) => {
 
   if (!isSteamImportConfigured()) {
     response.status(503).json({
-      error: 'Steam import is not configured.'
+      error: 'Steam import is not configured.',
     })
     return
   }
@@ -279,10 +323,12 @@ libraryRouter.post('/imports/steam', async (request, response, next) => {
     await backfillPlayIntentNotificationsForUserLibraryChange(userId)
 
     publishDashboardInvalidation({
-      domains: ['library', 'discovery', 'play-intents']
+      domains: ['library', 'discovery', 'play-intents'],
     })
 
-    response.json(libraryResponseSchema.parse(await buildLibraryResponse(userId)))
+    response.json(
+      libraryResponseSchema.parse(await buildLibraryResponse(userId)),
+    )
   } catch (error) {
     next(error)
   }
@@ -297,7 +343,7 @@ libraryRouter.delete('/me/:entryId', async (request, response, next) => {
 
   try {
     const { entryId } = libraryEntryParamsSchema.parse(request.params)
-    if (!await removeLibraryEntry(userId, entryId)) {
+    if (!(await removeLibraryEntry(userId, entryId))) {
       response.status(404).json({ error: 'Library entry not found.' })
       return
     }

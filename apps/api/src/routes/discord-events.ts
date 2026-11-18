@@ -52,7 +52,11 @@ function getPublicKey(): KeyObject | null {
 }
 
 /** Verify the Ed25519 signature over `timestamp + rawBody`. */
-function isValidSignature(rawBody: Buffer, signatureHex: string, timestamp: string): boolean {
+function isValidSignature(
+  rawBody: Buffer,
+  signatureHex: string,
+  timestamp: string,
+): boolean {
   const publicKey = getPublicKey()
   if (!publicKey) {
     return false
@@ -82,7 +86,9 @@ export const discordEventsRouter = Router()
 
 discordEventsRouter.post('/', raw({ type: '*/*' }), (request, response) => {
   if (!env.DISCORD_PUBLIC_KEY) {
-    console.error('Discord event webhook received but DISCORD_PUBLIC_KEY is not configured.')
+    console.error(
+      'Discord event webhook received but DISCORD_PUBLIC_KEY is not configured.',
+    )
     response.status(401).send('invalid request signature')
     return
   }
@@ -91,7 +97,11 @@ discordEventsRouter.post('/', raw({ type: '*/*' }), (request, response) => {
   const timestamp = request.header('X-Signature-Timestamp')
   const rawBody = Buffer.isBuffer(request.body) ? request.body : Buffer.alloc(0)
 
-  if (!signature || !timestamp || !isValidSignature(rawBody, signature, timestamp)) {
+  if (
+    !signature ||
+    !timestamp ||
+    !isValidSignature(rawBody, signature, timestamp)
+  ) {
     response.status(401).send('invalid request signature')
     return
   }
@@ -113,7 +123,9 @@ discordEventsRouter.post('/', raw({ type: '*/*' }), (request, response) => {
   // Real webhook events. Acknowledge fast (within 3s) to avoid retries, then
   // handle out-of-band. There is nothing to dispatch yet, so just acknowledge.
   if (payload.type === WEBHOOK_TYPE_EVENT) {
-    console.log(`Discord webhook event received: ${payload.event?.type ?? 'unknown'}`)
+    console.log(
+      `Discord webhook event received: ${payload.event?.type ?? 'unknown'}`,
+    )
     response.status(204).end()
     return
   }

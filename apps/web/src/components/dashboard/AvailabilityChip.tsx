@@ -5,12 +5,12 @@ export function AvailabilityChip({
   availability,
   availabilitySource,
   showInherited = true,
-  compactGameSpecificLabel = false
+  compactGameSpecificLabel = false,
 }: {
-  availability: string | null;
-  availabilitySource: AvailabilitySource | null;
-  showInherited?: boolean;
-  compactGameSpecificLabel?: boolean;
+  availability: string | null
+  availabilitySource: AvailabilitySource | null
+  showInherited?: boolean
+  compactGameSpecificLabel?: boolean
 }) {
   if (!availability || !availabilitySource) {
     return null
@@ -21,11 +21,12 @@ export function AvailabilityChip({
   }
 
   const isGameSpecific = availabilitySource === 'game-specific'
-  const label = availabilitySource === 'game-specific'
-    ? compactGameSpecificLabel
-      ? availability
-      : `Plays: ${availability}`
-    : `Usually: ${availability}`
+  const label =
+    availabilitySource === 'game-specific'
+      ? compactGameSpecificLabel
+        ? availability
+        : `Plays: ${availability}`
+      : `Usually: ${availability}`
 
   return (
     <Chip

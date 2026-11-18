@@ -1,12 +1,14 @@
 type CookieOptions = {
-  httpOnly?: boolean;
-  secure?: boolean;
-  sameSite?: 'Lax' | 'Strict' | 'None';
-  path?: string;
-  maxAge?: number;
-};
+  httpOnly?: boolean
+  secure?: boolean
+  sameSite?: 'Lax' | 'Strict' | 'None'
+  path?: string
+  maxAge?: number
+}
 
-export function parseCookies(header: string | undefined): Record<string, string> {
+export function parseCookies(
+  header: string | undefined,
+): Record<string, string> {
   if (!header) {
     return {}
   }
@@ -29,14 +31,19 @@ export function parseCookies(header: string | undefined): Record<string, string>
     }, {})
 }
 
-export function serializeCookie(name: string, value: string, options: CookieOptions = {}): string {
+export function serializeCookie(
+  name: string,
+  value: string,
+  options: CookieOptions = {},
+): string {
   const parts = [`${name}=${encodeURIComponent(value)}`]
 
   parts.push(`Path=${options.path ?? '/'}`)
 
   if (typeof options.maxAge === 'number') {
     parts.push(`Max-Age=${Math.max(0, Math.floor(options.maxAge))}`)
-    const expiresAt = options.maxAge > 0 ? Date.now() + options.maxAge * 1000 : 0
+    const expiresAt =
+      options.maxAge > 0 ? Date.now() + options.maxAge * 1000 : 0
     parts.push(`Expires=${new Date(expiresAt).toUTCString()}`)
   }
 

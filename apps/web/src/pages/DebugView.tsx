@@ -11,7 +11,7 @@ import {
   Select,
   Stack,
   Table,
-  Typography
+  Typography,
 } from '@mui/joy'
 import { DashboardApiIssueCard } from '../components/dashboard/DashboardApiIssueCard'
 import type {
@@ -21,7 +21,7 @@ import type {
   DebugErrorLog,
   DebugNotificationDelivery,
   DebugPlayIntentLifecycleEvent,
-  DebugPlayIntentSummary
+  DebugPlayIntentSummary,
 } from '@game-is-up/shared'
 import { DashboardModal } from '../components/dashboard/DashboardModal'
 import { EmptyStateCard } from '../components/dashboard/EmptyStateCard'
@@ -32,11 +32,20 @@ import { formatMonthDayYearTimeZone } from '../lib/dateTime'
 import { DmLifecycleSimulatorDialog, DmPreviewDialog } from './DebugDmSurface'
 
 type SortDirection = 'asc' | 'desc'
-type CtpSortKey = 'createdAt' | 'windowStartsAt' | 'creator' | 'status' | 'notificationCount' | 'errorCount'
+type CtpSortKey =
+  | 'createdAt'
+  | 'windowStartsAt'
+  | 'creator'
+  | 'status'
+  | 'notificationCount'
+  | 'errorCount'
 type ErrorSortKey = 'occurredAt' | 'source' | 'message'
-type InviteAttributionSortKey = 'acceptedAt' | 'acceptedUser' | 'inviter' | 'server' | 'kind'
-type PromptSortKey = 'createdAt' | 'user' | 'game' | 'status' | 'deliveredAt' | 'respondedAt'
-type NotificationSortKey = 'createdAt' | 'recipient' | 'game' | 'triggeredBy' | 'deliveredAt'
+type InviteAttributionSortKey =
+  'acceptedAt' | 'acceptedUser' | 'inviter' | 'server' | 'kind'
+type PromptSortKey =
+  'createdAt' | 'user' | 'game' | 'status' | 'deliveredAt' | 'respondedAt'
+type NotificationSortKey =
+  'createdAt' | 'recipient' | 'game' | 'triggeredBy' | 'deliveredAt'
 
 const tablePageSize = 10
 
@@ -50,12 +59,12 @@ function useLocalDateFormatter() {
 
       return formatMonthDayYearTimeZone(value, timeZone)
     },
-    [timeZone]
+    [timeZone],
   )
 
   return {
     timeZone,
-    formatDateTime
+    formatDateTime,
   }
 }
 
@@ -64,7 +73,9 @@ function paginateRows<T>(rows: T[], page: number, pageSize: number) {
   return rows.slice(start, start + pageSize)
 }
 
-function formatAutoPlayPromptStatusLabel(status: DebugAutoPlayPrompt['status']) {
+function formatAutoPlayPromptStatusLabel(
+  status: DebugAutoPlayPrompt['status'],
+) {
   switch (status) {
     case 'accepted':
       return 'Created call'
@@ -86,15 +97,23 @@ function formatAutoPlayPromptStatusLabel(status: DebugAutoPlayPrompt['status']) 
 function CtpTableSection({
   debugAdmin,
   formatDateTime,
-  onOpenLifecycle
+  onOpenLifecycle,
 }: {
-  debugAdmin: DebugAdminResponse;
-  formatDateTime: (value: string | null) => string;
-  onOpenLifecycle: (playIntentId: string) => void;
+  debugAdmin: DebugAdminResponse
+  formatDateTime: (value: string | null) => string
+  onOpenLifecycle: (playIntentId: string) => void
 }) {
   const [query, setQuery] = useState('')
-  const [scopeFilter, setScopeFilter] = useState<'all' | 'network' | 'friends-only' | 'specific-friends' | 'specific-discord-server'>('all')
-  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'ended'>('all')
+  const [scopeFilter, setScopeFilter] = useState<
+    | 'all'
+    | 'network'
+    | 'friends-only'
+    | 'specific-friends'
+    | 'specific-discord-server'
+  >('all')
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'ended'>(
+    'all',
+  )
   const [sortKey, setSortKey] = useState<CtpSortKey>('createdAt')
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
   const [page, setPage] = useState(1)
@@ -121,8 +140,11 @@ function CtpTableSection({
         intent.creator.handle,
         ...intent.gameTitles,
         ...intent.platformLabels,
-        intent.id
-      ].join(' ').toLowerCase().includes(normalizedQuery)
+        intent.id,
+      ]
+        .join(' ')
+        .toLowerCase()
+        .includes(normalizedQuery)
     })
 
     rows.sort((left, right) => {
@@ -130,7 +152,9 @@ function CtpTableSection({
 
       switch (sortKey) {
         case 'creator':
-          result = left.creator.displayName.localeCompare(right.creator.displayName)
+          result = left.creator.displayName.localeCompare(
+            right.creator.displayName,
+          )
           break
         case 'status':
           result = left.status.localeCompare(right.status)
@@ -142,17 +166,28 @@ function CtpTableSection({
           result = left.errorCount - right.errorCount
           break
         case 'windowStartsAt':
-          result = new Date(left.windowStartsAt).getTime() - new Date(right.windowStartsAt).getTime()
+          result =
+            new Date(left.windowStartsAt).getTime() -
+            new Date(right.windowStartsAt).getTime()
           break
         default:
-          result = new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime()
+          result =
+            new Date(left.createdAt).getTime() -
+            new Date(right.createdAt).getTime()
       }
 
       return sortDirection === 'asc' ? result : -result
     })
 
     return rows
-  }, [debugAdmin.recentPlayIntents, query, scopeFilter, statusFilter, sortKey, sortDirection])
+  }, [
+    debugAdmin.recentPlayIntents,
+    query,
+    scopeFilter,
+    statusFilter,
+    sortKey,
+    sortDirection,
+  ])
 
   const pageCount = Math.max(1, Math.ceil(filteredRows.length / tablePageSize))
   const currentPage = Math.min(page, pageCount)
@@ -174,7 +209,8 @@ function CtpTableSection({
         <Stack spacing={0.5}>
           <Typography level="title-lg">Calls to play</Typography>
           <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
-            Sort, filter, and page through CTP rows. Click any row to inspect the full lifecycle timeline in chronological order.
+            Sort, filter, and page through CTP rows. Click any row to inspect
+            the full lifecycle timeline in chronological order.
           </Typography>
         </Stack>
 
@@ -220,7 +256,9 @@ function CtpTableSection({
             <Option value="network">Network</Option>
             <Option value="friends-only">Friends only</Option>
             <Option value="specific-friends">Specific friends</Option>
-            <Option value="specific-discord-server">Specific Discord servers</Option>
+            <Option value="specific-discord-server">
+              Specific Discord servers
+            </Option>
           </Select>
         </Stack>
 
@@ -230,13 +268,61 @@ function CtpTableSection({
               <Table hoverRow borderAxis="bothBetween" stickyHeader>
                 <thead>
                   <tr>
-                    <th><Button size="sm" variant="plain" onClick={() => setSort('createdAt')}>Created</Button></th>
-                    <th><Button size="sm" variant="plain" onClick={() => setSort('creator')}>Creator</Button></th>
+                    <th>
+                      <Button
+                        size="sm"
+                        variant="plain"
+                        onClick={() => setSort('createdAt')}
+                      >
+                        Created
+                      </Button>
+                    </th>
+                    <th>
+                      <Button
+                        size="sm"
+                        variant="plain"
+                        onClick={() => setSort('creator')}
+                      >
+                        Creator
+                      </Button>
+                    </th>
                     <th>Headline</th>
-                    <th><Button size="sm" variant="plain" onClick={() => setSort('status')}>Status</Button></th>
-                    <th><Button size="sm" variant="plain" onClick={() => setSort('windowStartsAt')}>Starts</Button></th>
-                    <th><Button size="sm" variant="plain" onClick={() => setSort('notificationCount')}>Notifications</Button></th>
-                    <th><Button size="sm" variant="plain" onClick={() => setSort('errorCount')}>Errors</Button></th>
+                    <th>
+                      <Button
+                        size="sm"
+                        variant="plain"
+                        onClick={() => setSort('status')}
+                      >
+                        Status
+                      </Button>
+                    </th>
+                    <th>
+                      <Button
+                        size="sm"
+                        variant="plain"
+                        onClick={() => setSort('windowStartsAt')}
+                      >
+                        Starts
+                      </Button>
+                    </th>
+                    <th>
+                      <Button
+                        size="sm"
+                        variant="plain"
+                        onClick={() => setSort('notificationCount')}
+                      >
+                        Notifications
+                      </Button>
+                    </th>
+                    <th>
+                      <Button
+                        size="sm"
+                        variant="plain"
+                        onClick={() => setSort('errorCount')}
+                      >
+                        Errors
+                      </Button>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -251,21 +337,38 @@ function CtpTableSection({
                       <td>{intent.creator.displayName}</td>
                       <td>
                         <Stack spacing={0.25}>
-                          <Typography level="body-sm">{intent.headline}</Typography>
-                          <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
+                          <Typography level="body-sm">
+                            {intent.headline}
+                          </Typography>
+                          <Typography
+                            level="body-xs"
+                            sx={{ color: 'neutral.400' }}
+                          >
                             Scope: {intent.notifyScope} · {intent.selectionMode}
                           </Typography>
                         </Stack>
                       </td>
                       <td>
-                        <Chip size="sm" color={intent.status === 'active' ? 'success' : 'neutral'} variant={intent.status === 'active' ? 'soft' : 'outlined'}>
+                        <Chip
+                          size="sm"
+                          color={
+                            intent.status === 'active' ? 'success' : 'neutral'
+                          }
+                          variant={
+                            intent.status === 'active' ? 'soft' : 'outlined'
+                          }
+                        >
                           {intent.status}
                         </Chip>
                       </td>
                       <td>{formatDateTime(intent.windowStartsAt)}</td>
                       <td>{intent.notificationCount}</td>
                       <td>
-                        <Chip size="sm" color={intent.errorCount > 0 ? 'danger' : 'neutral'} variant={intent.errorCount > 0 ? 'soft' : 'outlined'}>
+                        <Chip
+                          size="sm"
+                          color={intent.errorCount > 0 ? 'danger' : 'neutral'}
+                          variant={intent.errorCount > 0 ? 'soft' : 'outlined'}
+                        >
                           {intent.errorCount}
                         </Chip>
                       </td>
@@ -274,18 +377,37 @@ function CtpTableSection({
                 </tbody>
               </Table>
             </Box>
-            <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1}>
+            <Stack
+              direction={{ xs: 'column', sm: 'row' }}
+              justifyContent="space-between"
+              alignItems={{ xs: 'flex-start', sm: 'center' }}
+              spacing={1}
+            >
               <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
                 Showing {pagedRows.length} of {filteredRows.length} CTP rows
               </Typography>
               <Stack direction="row" spacing={1} alignItems="center">
-                <Button size="sm" variant="outlined" color="neutral" disabled={currentPage <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>
+                <Button
+                  size="sm"
+                  variant="outlined"
+                  color="neutral"
+                  disabled={currentPage <= 1}
+                  onClick={() => setPage((current) => Math.max(1, current - 1))}
+                >
                   Previous
                 </Button>
                 <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
                   Page {currentPage} of {pageCount}
                 </Typography>
-                <Button size="sm" variant="outlined" color="neutral" disabled={currentPage >= pageCount} onClick={() => setPage((current) => Math.min(pageCount, current + 1))}>
+                <Button
+                  size="sm"
+                  variant="outlined"
+                  color="neutral"
+                  disabled={currentPage >= pageCount}
+                  onClick={() =>
+                    setPage((current) => Math.min(pageCount, current + 1))
+                  }
+                >
                   Next
                 </Button>
               </Stack>
@@ -307,13 +429,13 @@ function CtpLifecycleDialog({
   onClose,
   ctp,
   events,
-  formatDateTime
+  formatDateTime,
 }: {
-  open: boolean;
-  onClose: () => void;
-  ctp: DebugPlayIntentSummary | null;
-  events: DebugPlayIntentLifecycleEvent[];
-  formatDateTime: (value: string | null) => string;
+  open: boolean
+  onClose: () => void
+  ctp: DebugPlayIntentSummary | null
+  events: DebugPlayIntentLifecycleEvent[]
+  formatDateTime: (value: string | null) => string
 }) {
   if (!ctp) {
     return null
@@ -322,8 +444,20 @@ function CtpLifecycleDialog({
   return (
     <DashboardModal open={open} onClose={onClose} width="min(96vw, 980px)">
       <DialogTitle sx={{ pr: 6 }}>CTP lifecycle: {ctp.headline}</DialogTitle>
-      <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, minHeight: 0, overflow: 'auto' }}>
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ flexWrap: 'wrap' }}>
+      <DialogContent
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 2,
+          minHeight: 0,
+          overflow: 'auto',
+        }}
+      >
+        <Stack
+          direction={{ xs: 'column', sm: 'row' }}
+          spacing={1}
+          sx={{ flexWrap: 'wrap' }}
+        >
           <Chip variant="outlined">Creator: {ctp.creator.displayName}</Chip>
           <Chip variant="outlined">Status: {ctp.status}</Chip>
           <Chip variant="outlined">Scope: {ctp.notifyScope}</Chip>
@@ -351,9 +485,19 @@ function CtpLifecycleDialog({
             {events.map((eventEntry) => (
               <Card key={eventEntry.id} variant="outlined" sx={{ p: 1.5 }}>
                 <Stack spacing={0.5}>
-                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} justifyContent="space-between">
-                    <Typography level="title-sm">{eventEntry.summary}</Typography>
-                    <Chip size="sm" color={eventEntry.isError ? 'danger' : 'neutral'} variant={eventEntry.isError ? 'soft' : 'outlined'}>
+                  <Stack
+                    direction={{ xs: 'column', sm: 'row' }}
+                    spacing={1}
+                    justifyContent="space-between"
+                  >
+                    <Typography level="title-sm">
+                      {eventEntry.summary}
+                    </Typography>
+                    <Chip
+                      size="sm"
+                      color={eventEntry.isError ? 'danger' : 'neutral'}
+                      variant={eventEntry.isError ? 'soft' : 'outlined'}
+                    >
                       {eventEntry.source}
                     </Chip>
                   </Stack>
@@ -361,10 +505,12 @@ function CtpLifecycleDialog({
                     {formatDateTime(eventEntry.occurredAt)}
                   </Typography>
                   <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
-                    {eventEntry.details ?? `Event type: ${eventEntry.eventType}`}
+                    {eventEntry.details ??
+                      `Event type: ${eventEntry.eventType}`}
                   </Typography>
                   <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
-                    Actor: {eventEntry.actorDisplayName ?? 'System'} · Recipient: {eventEntry.recipientDisplayName ?? 'N/A'}
+                    Actor: {eventEntry.actorDisplayName ?? 'System'} ·
+                    Recipient: {eventEntry.recipientDisplayName ?? 'N/A'}
                   </Typography>
                 </Stack>
               </Card>
@@ -381,23 +527,29 @@ function CtpLifecycleDialog({
   )
 }
 
-function DmLifecycleSimulatorSection({
-  onOpen
-}: {
-  onOpen: () => void;
-}) {
+function DmLifecycleSimulatorSection({ onOpen }: { onOpen: () => void }) {
   return (
     <Card variant="outlined" sx={{ p: 2 }}>
       <Stack spacing={1.5}>
         <Box>
           <Typography level="title-lg">DM lifecycle simulator</Typography>
           <Typography level="body-sm" sx={{ color: 'neutral.400', mt: 0.5 }}>
-            Spin up fresh in-memory call-to-play and auto-play prompt DM threads. The buttons inside the simulated messages drive each flow locally so you can rehearse anchor retention, prompt handoff, and follow-up behavior without touching live rows.
+            Spin up fresh in-memory call-to-play and auto-play prompt DM
+            threads. The buttons inside the simulated messages drive each flow
+            locally so you can rehearse anchor retention, prompt handoff, and
+            follow-up behavior without touching live rows.
           </Typography>
         </Box>
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }}>
+        <Stack
+          direction={{ xs: 'column', sm: 'row' }}
+          spacing={1}
+          justifyContent="space-between"
+          alignItems={{ xs: 'stretch', sm: 'center' }}
+        >
           <Typography level="body-xs" sx={{ color: 'neutral.500' }}>
-            Useful for checking invite-anchor retention, go-time follow-ups, audience response flips, auto-play prompt closeouts, and prompt-to-summary handoff.
+            Useful for checking invite-anchor retention, go-time follow-ups,
+            audience response flips, auto-play prompt closeouts, and
+            prompt-to-summary handoff.
           </Typography>
           <Button variant="soft" color="primary" onClick={onOpen}>
             Open simulator
@@ -410,10 +562,10 @@ function DmLifecycleSimulatorSection({
 
 function ErrorTableSection({
   rows,
-  formatDateTime
+  formatDateTime,
 }: {
-  rows: DebugErrorLog[];
-  formatDateTime: (value: string | null) => string;
+  rows: DebugErrorLog[]
+  formatDateTime: (value: string | null) => string
 }) {
   const [query, setQuery] = useState('')
   const [sortKey, setSortKey] = useState<ErrorSortKey>('occurredAt')
@@ -428,7 +580,13 @@ function ErrorTableSection({
         return true
       }
 
-      return [row.source, row.message, row.detail ?? '', row.playIntentId ?? '', row.notificationId ?? '']
+      return [
+        row.source,
+        row.message,
+        row.detail ?? '',
+        row.playIntentId ?? '',
+        row.notificationId ?? '',
+      ]
         .join(' ')
         .toLowerCase()
         .includes(normalizedQuery)
@@ -445,7 +603,9 @@ function ErrorTableSection({
           result = left.message.localeCompare(right.message)
           break
         default:
-          result = new Date(left.occurredAt).getTime() - new Date(right.occurredAt).getTime()
+          result =
+            new Date(left.occurredAt).getTime() -
+            new Date(right.occurredAt).getTime()
       }
 
       return sortDirection === 'asc' ? result : -result
@@ -493,9 +653,33 @@ function ErrorTableSection({
               <Table hoverRow borderAxis="bothBetween" stickyHeader>
                 <thead>
                   <tr>
-                    <th><Button size="sm" variant="plain" onClick={() => setSort('occurredAt')}>Occurred</Button></th>
-                    <th><Button size="sm" variant="plain" onClick={() => setSort('source')}>Source</Button></th>
-                    <th><Button size="sm" variant="plain" onClick={() => setSort('message')}>Message</Button></th>
+                    <th>
+                      <Button
+                        size="sm"
+                        variant="plain"
+                        onClick={() => setSort('occurredAt')}
+                      >
+                        Occurred
+                      </Button>
+                    </th>
+                    <th>
+                      <Button
+                        size="sm"
+                        variant="plain"
+                        onClick={() => setSort('source')}
+                      >
+                        Source
+                      </Button>
+                    </th>
+                    <th>
+                      <Button
+                        size="sm"
+                        variant="plain"
+                        onClick={() => setSort('message')}
+                      >
+                        Message
+                      </Button>
+                    </th>
                     <th>Reference</th>
                   </tr>
                 </thead>
@@ -504,16 +688,28 @@ function ErrorTableSection({
                     <tr key={row.id}>
                       <td>{formatDateTime(row.occurredAt)}</td>
                       <td>
-                        <Chip size="sm" color="danger" variant="soft">{row.source}</Chip>
+                        <Chip size="sm" color="danger" variant="soft">
+                          {row.source}
+                        </Chip>
                       </td>
                       <td>
                         <Stack spacing={0.25}>
                           <Typography level="body-sm">{row.message}</Typography>
-                          {row.detail ? <Typography level="body-xs" sx={{ color: 'neutral.400' }}>{row.detail}</Typography> : null}
+                          {row.detail ? (
+                            <Typography
+                              level="body-xs"
+                              sx={{ color: 'neutral.400' }}
+                            >
+                              {row.detail}
+                            </Typography>
+                          ) : null}
                         </Stack>
                       </td>
                       <td>
-                        <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
+                        <Typography
+                          level="body-xs"
+                          sx={{ color: 'neutral.400' }}
+                        >
                           CTP {row.playIntentId ?? 'N/A'}
                         </Typography>
                       </td>
@@ -522,18 +718,37 @@ function ErrorTableSection({
                 </tbody>
               </Table>
             </Box>
-            <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1}>
+            <Stack
+              direction={{ xs: 'column', sm: 'row' }}
+              justifyContent="space-between"
+              alignItems={{ xs: 'flex-start', sm: 'center' }}
+              spacing={1}
+            >
               <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
                 Showing {pagedRows.length} of {filteredRows.length} errors
               </Typography>
               <Stack direction="row" spacing={1} alignItems="center">
-                <Button size="sm" variant="outlined" color="neutral" disabled={currentPage <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>
+                <Button
+                  size="sm"
+                  variant="outlined"
+                  color="neutral"
+                  disabled={currentPage <= 1}
+                  onClick={() => setPage((current) => Math.max(1, current - 1))}
+                >
                   Previous
                 </Button>
                 <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
                   Page {currentPage} of {pageCount}
                 </Typography>
-                <Button size="sm" variant="outlined" color="neutral" disabled={currentPage >= pageCount} onClick={() => setPage((current) => Math.min(pageCount, current + 1))}>
+                <Button
+                  size="sm"
+                  variant="outlined"
+                  color="neutral"
+                  disabled={currentPage >= pageCount}
+                  onClick={() =>
+                    setPage((current) => Math.min(pageCount, current + 1))
+                  }
+                >
                   Next
                 </Button>
               </Stack>
@@ -550,23 +765,46 @@ function ErrorTableSection({
   )
 }
 
-function BotStateCard({ debugAdmin, formatDateTime }: { debugAdmin: DebugAdminResponse; formatDateTime: (value: string | null) => string }) {
+function BotStateCard({
+  debugAdmin,
+  formatDateTime,
+}: {
+  debugAdmin: DebugAdminResponse
+  formatDateTime: (value: string | null) => string
+}) {
   return (
     <Card variant="soft" sx={{ p: 3 }}>
       <Stack spacing={1.5}>
         <Box>
           <Typography level="title-lg">Bot status</Typography>
           <Typography level="body-sm" sx={{ color: 'neutral.400', mt: 0.5 }}>
-            Current connection state for the Discord bot process and the latest readiness/error timestamps.
+            Current connection state for the Discord bot process and the latest
+            readiness/error timestamps.
           </Typography>
         </Box>
         <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-          <Chip color={debugAdmin.bot.configured ? 'success' : 'neutral'} variant={debugAdmin.bot.configured ? 'soft' : 'outlined'}>
+          <Chip
+            color={debugAdmin.bot.configured ? 'success' : 'neutral'}
+            variant={debugAdmin.bot.configured ? 'soft' : 'outlined'}
+          >
             {debugAdmin.bot.configured ? 'Configured' : 'Missing bot token'}
           </Chip>
           <Chip variant="outlined">Mode: {debugAdmin.bot.mode}</Chip>
-          <Chip color={debugAdmin.bot.connected ? 'success' : debugAdmin.bot.mode === 'gateway' ? 'warning' : 'neutral'} variant={debugAdmin.bot.connected ? 'soft' : 'outlined'}>
-            {debugAdmin.bot.connected ? 'Gateway connected' : debugAdmin.bot.mode === 'gateway' ? 'Gateway disconnected' : 'Gateway disabled'}
+          <Chip
+            color={
+              debugAdmin.bot.connected
+                ? 'success'
+                : debugAdmin.bot.mode === 'gateway'
+                  ? 'warning'
+                  : 'neutral'
+            }
+            variant={debugAdmin.bot.connected ? 'soft' : 'outlined'}
+          >
+            {debugAdmin.bot.connected
+              ? 'Gateway connected'
+              : debugAdmin.bot.mode === 'gateway'
+                ? 'Gateway disconnected'
+                : 'Gateway disabled'}
           </Chip>
           <Chip variant="outlined">{debugAdmin.bot.guildCount} guilds</Chip>
         </Stack>
@@ -576,7 +814,12 @@ function BotStateCard({ debugAdmin, formatDateTime }: { debugAdmin: DebugAdminRe
         <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
           Last ready: {formatDateTime(debugAdmin.bot.lastReadyAt)}
         </Typography>
-        <Typography level="body-sm" sx={{ color: debugAdmin.bot.lastError ? 'warning.300' : 'neutral.300' }}>
+        <Typography
+          level="body-sm"
+          sx={{
+            color: debugAdmin.bot.lastError ? 'warning.300' : 'neutral.300',
+          }}
+        >
           Last error: {debugAdmin.bot.lastError ?? 'None'}
         </Typography>
       </Stack>
@@ -586,13 +829,15 @@ function BotStateCard({ debugAdmin, formatDateTime }: { debugAdmin: DebugAdminRe
 
 function InviteAttributionLogCard({
   debugAdmin,
-  formatDateTime
+  formatDateTime,
 }: {
-  debugAdmin: DebugAdminResponse;
-  formatDateTime: (value: string | null) => string;
+  debugAdmin: DebugAdminResponse
+  formatDateTime: (value: string | null) => string
 }) {
   const [query, setQuery] = useState('')
-  const [kindFilter, setKindFilter] = useState<'all' | 'direct' | 'server'>('all')
+  const [kindFilter, setKindFilter] = useState<'all' | 'direct' | 'server'>(
+    'all',
+  )
   const [sortKey, setSortKey] = useState<InviteAttributionSortKey>('acceptedAt')
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
   const [page, setPage] = useState(1)
@@ -619,8 +864,11 @@ function InviteAttributionLogCard({
         attribution.serverName ?? '',
         attribution.serverId ?? '',
         attribution.kind,
-        attribution.id
-      ].join(' ').toLowerCase().includes(normalizedQuery)
+        attribution.id,
+      ]
+        .join(' ')
+        .toLowerCase()
+        .includes(normalizedQuery)
     })
 
     rows.sort((left, right) => {
@@ -628,28 +876,48 @@ function InviteAttributionLogCard({
 
       switch (sortKey) {
         case 'acceptedUser':
-          result = left.acceptedUser.displayName.localeCompare(right.acceptedUser.displayName)
+          result = left.acceptedUser.displayName.localeCompare(
+            right.acceptedUser.displayName,
+          )
           break
         case 'inviter':
-          result = (left.inviterUser?.displayName ?? left.inviterLabel ?? left.inviterDiscordUserId ?? '').localeCompare(
-            right.inviterUser?.displayName ?? right.inviterLabel ?? right.inviterDiscordUserId ?? ''
+          result = (
+            left.inviterUser?.displayName ??
+            left.inviterLabel ??
+            left.inviterDiscordUserId ??
+            ''
+          ).localeCompare(
+            right.inviterUser?.displayName ??
+              right.inviterLabel ??
+              right.inviterDiscordUserId ??
+              '',
           )
           break
         case 'server':
-          result = (left.serverName ?? left.serverId ?? '').localeCompare(right.serverName ?? right.serverId ?? '')
+          result = (left.serverName ?? left.serverId ?? '').localeCompare(
+            right.serverName ?? right.serverId ?? '',
+          )
           break
         case 'kind':
           result = left.kind.localeCompare(right.kind)
           break
         default:
-          result = new Date(left.acceptedAt).getTime() - new Date(right.acceptedAt).getTime()
+          result =
+            new Date(left.acceptedAt).getTime() -
+            new Date(right.acceptedAt).getTime()
       }
 
       return sortDirection === 'asc' ? result : -result
     })
 
     return rows
-  }, [debugAdmin.recentInviteAttributions, kindFilter, query, sortDirection, sortKey])
+  }, [
+    debugAdmin.recentInviteAttributions,
+    kindFilter,
+    query,
+    sortDirection,
+    sortKey,
+  ])
 
   const pageCount = Math.max(1, Math.ceil(filteredRows.length / tablePageSize))
   const currentPage = Math.min(page, pageCount)
@@ -671,7 +939,9 @@ function InviteAttributionLogCard({
         <Stack spacing={0.5}>
           <Typography level="title-lg">Recent invite attributions</Typography>
           <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
-            Verify which accepted sign-ins were attributed to a Discord invite, including the accepted user, inviter identity, invite type, and originating server.
+            Verify which accepted sign-ins were attributed to a Discord invite,
+            including the accepted user, inviter identity, invite type, and
+            originating server.
           </Typography>
         </Stack>
 
@@ -709,11 +979,51 @@ function InviteAttributionLogCard({
               <Table hoverRow borderAxis="bothBetween" stickyHeader>
                 <thead>
                   <tr>
-                    <th><Button size="sm" variant="plain" onClick={() => setSort('acceptedAt')}>Accepted</Button></th>
-                    <th><Button size="sm" variant="plain" onClick={() => setSort('acceptedUser')}>Accepted user</Button></th>
-                    <th><Button size="sm" variant="plain" onClick={() => setSort('inviter')}>Inviter</Button></th>
-                    <th><Button size="sm" variant="plain" onClick={() => setSort('server')}>Server</Button></th>
-                    <th><Button size="sm" variant="plain" onClick={() => setSort('kind')}>Kind</Button></th>
+                    <th>
+                      <Button
+                        size="sm"
+                        variant="plain"
+                        onClick={() => setSort('acceptedAt')}
+                      >
+                        Accepted
+                      </Button>
+                    </th>
+                    <th>
+                      <Button
+                        size="sm"
+                        variant="plain"
+                        onClick={() => setSort('acceptedUser')}
+                      >
+                        Accepted user
+                      </Button>
+                    </th>
+                    <th>
+                      <Button
+                        size="sm"
+                        variant="plain"
+                        onClick={() => setSort('inviter')}
+                      >
+                        Inviter
+                      </Button>
+                    </th>
+                    <th>
+                      <Button
+                        size="sm"
+                        variant="plain"
+                        onClick={() => setSort('server')}
+                      >
+                        Server
+                      </Button>
+                    </th>
+                    <th>
+                      <Button
+                        size="sm"
+                        variant="plain"
+                        onClick={() => setSort('kind')}
+                      >
+                        Kind
+                      </Button>
+                    </th>
                     <th>Member hint</th>
                   </tr>
                 </thead>
@@ -723,16 +1033,28 @@ function InviteAttributionLogCard({
                       <td>{formatDateTime(attribution.acceptedAt)}</td>
                       <td>
                         <Stack spacing={0.25}>
-                          <Typography level="body-sm">{attribution.acceptedUser.displayName}</Typography>
-                          <Typography level="body-xs" sx={{ color: 'neutral.400' }}>@{attribution.acceptedUser.handle}</Typography>
+                          <Typography level="body-sm">
+                            {attribution.acceptedUser.displayName}
+                          </Typography>
+                          <Typography
+                            level="body-xs"
+                            sx={{ color: 'neutral.400' }}
+                          >
+                            @{attribution.acceptedUser.handle}
+                          </Typography>
                         </Stack>
                       </td>
                       <td>
                         <Stack spacing={0.25}>
                           <Typography level="body-sm">
-                            {attribution.inviterUser?.displayName ?? attribution.inviterLabel ?? 'Unknown inviter'}
+                            {attribution.inviterUser?.displayName ??
+                              attribution.inviterLabel ??
+                              'Unknown inviter'}
                           </Typography>
-                          <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
+                          <Typography
+                            level="body-xs"
+                            sx={{ color: 'neutral.400' }}
+                          >
                             {attribution.inviterUser
                               ? `@${attribution.inviterUser.handle}`
                               : attribution.inviterDiscordUserId
@@ -743,17 +1065,35 @@ function InviteAttributionLogCard({
                       </td>
                       <td>
                         <Stack spacing={0.25}>
-                          <Typography level="body-sm">{attribution.serverName ?? 'No server snapshot'}</Typography>
-                          <Typography level="body-xs" sx={{ color: 'neutral.400' }}>{attribution.serverId ?? 'No server ID stored'}</Typography>
+                          <Typography level="body-sm">
+                            {attribution.serverName ?? 'No server snapshot'}
+                          </Typography>
+                          <Typography
+                            level="body-xs"
+                            sx={{ color: 'neutral.400' }}
+                          >
+                            {attribution.serverId ?? 'No server ID stored'}
+                          </Typography>
                         </Stack>
                       </td>
                       <td>
-                        <Chip size="sm" color={attribution.kind === 'direct' ? 'warning' : 'primary'} variant="soft">
+                        <Chip
+                          size="sm"
+                          color={
+                            attribution.kind === 'direct'
+                              ? 'warning'
+                              : 'primary'
+                          }
+                          variant="soft"
+                        >
                           {attribution.kind === 'direct' ? 'Direct' : 'Server'}
                         </Chip>
                       </td>
                       <td>
-                        <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
+                        <Typography
+                          level="body-xs"
+                          sx={{ color: 'neutral.400' }}
+                        >
                           {attribution.memberCount == null
                             ? 'Not captured'
                             : `${attribution.memberCount} ${attribution.memberCount === 1 ? 'member' : 'members'}`}
@@ -764,18 +1104,38 @@ function InviteAttributionLogCard({
                 </tbody>
               </Table>
             </Box>
-            <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1}>
+            <Stack
+              direction={{ xs: 'column', sm: 'row' }}
+              justifyContent="space-between"
+              alignItems={{ xs: 'flex-start', sm: 'center' }}
+              spacing={1}
+            >
               <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
-                Showing {pagedRows.length} of {filteredRows.length} invite attribution rows
+                Showing {pagedRows.length} of {filteredRows.length} invite
+                attribution rows
               </Typography>
               <Stack direction="row" spacing={1} alignItems="center">
-                <Button size="sm" variant="outlined" color="neutral" disabled={currentPage <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>
+                <Button
+                  size="sm"
+                  variant="outlined"
+                  color="neutral"
+                  disabled={currentPage <= 1}
+                  onClick={() => setPage((current) => Math.max(1, current - 1))}
+                >
                   Previous
                 </Button>
                 <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
                   Page {currentPage} of {pageCount}
                 </Typography>
-                <Button size="sm" variant="outlined" color="neutral" disabled={currentPage >= pageCount} onClick={() => setPage((current) => Math.min(pageCount, current + 1))}>
+                <Button
+                  size="sm"
+                  variant="outlined"
+                  color="neutral"
+                  disabled={currentPage >= pageCount}
+                  onClick={() =>
+                    setPage((current) => Math.min(pageCount, current + 1))
+                  }
+                >
                   Next
                 </Button>
               </Stack>
@@ -795,15 +1155,24 @@ function InviteAttributionLogCard({
 function PromptLogCard({
   debugAdmin,
   formatDateTime,
-  onOpenPreview
+  onOpenPreview,
 }: {
-  debugAdmin: DebugAdminResponse;
-  formatDateTime: (value: string | null) => string;
-  onOpenPreview: (prompt: DebugAutoPlayPrompt) => void;
+  debugAdmin: DebugAdminResponse
+  formatDateTime: (value: string | null) => string
+  onOpenPreview: (prompt: DebugAutoPlayPrompt) => void
 }) {
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<
-    'all' | 'sent' | 'skipped' | 'failed' | 'accepted' | 'declined' | 'expired' | 'settle_sent' | 'settle_confirmed' | 'settle_declined'
+    | 'all'
+    | 'sent'
+    | 'skipped'
+    | 'failed'
+    | 'accepted'
+    | 'declined'
+    | 'expired'
+    | 'settle_sent'
+    | 'settle_confirmed'
+    | 'settle_declined'
   >('all')
   const [sortKey, setSortKey] = useState<PromptSortKey>('createdAt')
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
@@ -827,8 +1196,11 @@ function PromptLogCard({
         prompt.game.title,
         prompt.statusDetail ?? '',
         prompt.dmError ?? '',
-        prompt.id
-      ].join(' ').toLowerCase().includes(normalizedQuery)
+        prompt.id,
+      ]
+        .join(' ')
+        .toLowerCase()
+        .includes(normalizedQuery)
     })
 
     rows.sort((left, right) => {
@@ -845,20 +1217,32 @@ function PromptLogCard({
           result = left.status.localeCompare(right.status)
           break
         case 'deliveredAt':
-          result = (left.deliveredAt ?? '').localeCompare(right.deliveredAt ?? '')
+          result = (left.deliveredAt ?? '').localeCompare(
+            right.deliveredAt ?? '',
+          )
           break
         case 'respondedAt':
-          result = (left.respondedAt ?? '').localeCompare(right.respondedAt ?? '')
+          result = (left.respondedAt ?? '').localeCompare(
+            right.respondedAt ?? '',
+          )
           break
         default:
-          result = new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime()
+          result =
+            new Date(left.createdAt).getTime() -
+            new Date(right.createdAt).getTime()
       }
 
       return sortDirection === 'asc' ? result : -result
     })
 
     return rows
-  }, [debugAdmin.recentAutoPlayPrompts, query, statusFilter, sortKey, sortDirection])
+  }, [
+    debugAdmin.recentAutoPlayPrompts,
+    query,
+    statusFilter,
+    sortKey,
+    sortDirection,
+  ])
 
   const pageCount = Math.max(1, Math.ceil(filteredRows.length / tablePageSize))
   const currentPage = Math.min(page, pageCount)
@@ -880,7 +1264,9 @@ function PromptLogCard({
         <Stack spacing={0.5}>
           <Typography level="title-lg">Recent auto-play prompts</Typography>
           <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
-            Sort, filter, and page through prompt decisions from Discord activity starts, including skipped reasons, delivery failures, and Discord-created CTP attempts.
+            Sort, filter, and page through prompt decisions from Discord
+            activity starts, including skipped reasons, delivery failures, and
+            Discord-created CTP attempts.
           </Typography>
         </Stack>
 
@@ -925,13 +1311,61 @@ function PromptLogCard({
               <Table hoverRow borderAxis="bothBetween" stickyHeader>
                 <thead>
                   <tr>
-                    <th><Button size="sm" variant="plain" onClick={() => setSort('createdAt')}>Created</Button></th>
-                    <th><Button size="sm" variant="plain" onClick={() => setSort('user')}>User</Button></th>
-                    <th><Button size="sm" variant="plain" onClick={() => setSort('game')}>Game</Button></th>
-                    <th><Button size="sm" variant="plain" onClick={() => setSort('status')}>Status</Button></th>
+                    <th>
+                      <Button
+                        size="sm"
+                        variant="plain"
+                        onClick={() => setSort('createdAt')}
+                      >
+                        Created
+                      </Button>
+                    </th>
+                    <th>
+                      <Button
+                        size="sm"
+                        variant="plain"
+                        onClick={() => setSort('user')}
+                      >
+                        User
+                      </Button>
+                    </th>
+                    <th>
+                      <Button
+                        size="sm"
+                        variant="plain"
+                        onClick={() => setSort('game')}
+                      >
+                        Game
+                      </Button>
+                    </th>
+                    <th>
+                      <Button
+                        size="sm"
+                        variant="plain"
+                        onClick={() => setSort('status')}
+                      >
+                        Status
+                      </Button>
+                    </th>
                     <th>Detail</th>
-                    <th><Button size="sm" variant="plain" onClick={() => setSort('deliveredAt')}>Delivered</Button></th>
-                    <th><Button size="sm" variant="plain" onClick={() => setSort('respondedAt')}>Responded</Button></th>
+                    <th>
+                      <Button
+                        size="sm"
+                        variant="plain"
+                        onClick={() => setSort('deliveredAt')}
+                      >
+                        Delivered
+                      </Button>
+                    </th>
+                    <th>
+                      <Button
+                        size="sm"
+                        variant="plain"
+                        onClick={() => setSort('respondedAt')}
+                      >
+                        Responded
+                      </Button>
+                    </th>
                     <th>CTP</th>
                     <th>Preview</th>
                   </tr>
@@ -942,8 +1376,15 @@ function PromptLogCard({
                       <td>{formatDateTime(prompt.createdAt)}</td>
                       <td>
                         <Stack spacing={0.25}>
-                          <Typography level="body-sm">{prompt.user.displayName}</Typography>
-                          <Typography level="body-xs" sx={{ color: 'neutral.400' }}>@{prompt.user.handle}</Typography>
+                          <Typography level="body-sm">
+                            {prompt.user.displayName}
+                          </Typography>
+                          <Typography
+                            level="body-xs"
+                            sx={{ color: 'neutral.400' }}
+                          >
+                            @{prompt.user.handle}
+                          </Typography>
                         </Stack>
                       </td>
                       <td>{prompt.game.title}</td>
@@ -951,40 +1392,70 @@ function PromptLogCard({
                         <Chip
                           size="sm"
                           variant="soft"
-                          color={prompt.status === 'accepted' ? 'success' : prompt.status === 'declined' || prompt.status === 'failed' ? 'danger' : prompt.status === 'expired' ? 'warning' : 'neutral'}
+                          color={
+                            prompt.status === 'accepted'
+                              ? 'success'
+                              : prompt.status === 'declined' ||
+                                  prompt.status === 'failed'
+                                ? 'danger'
+                                : prompt.status === 'expired'
+                                  ? 'warning'
+                                  : 'neutral'
+                          }
                         >
                           {formatAutoPlayPromptStatusLabel(prompt.status)}
                         </Chip>
                       </td>
                       <td>
                         <Stack spacing={0.25}>
-                          <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
+                          <Typography
+                            level="body-sm"
+                            sx={{ color: 'neutral.300' }}
+                          >
                             {prompt.statusDetail ?? 'No detail recorded.'}
                           </Typography>
                           {prompt.dmError ? (
-                            <Typography level="body-xs" sx={{ color: 'warning.300' }}>
+                            <Typography
+                              level="body-xs"
+                              sx={{ color: 'warning.300' }}
+                            >
                               DM error: {prompt.dmError}
                             </Typography>
                           ) : null}
                         </Stack>
                       </td>
                       <td>
-                        <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
+                        <Typography
+                          level="body-xs"
+                          sx={{ color: 'neutral.400' }}
+                        >
                           {formatDateTime(prompt.deliveredAt)}
                         </Typography>
                       </td>
                       <td>
-                        <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
+                        <Typography
+                          level="body-xs"
+                          sx={{ color: 'neutral.400' }}
+                        >
                           {formatDateTime(prompt.respondedAt)}
                         </Typography>
                       </td>
                       <td>
-                        <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
+                        <Typography
+                          level="body-xs"
+                          sx={{ color: 'neutral.400' }}
+                        >
                           {prompt.createdPlayIntentId ?? 'Not created'}
                         </Typography>
                       </td>
                       <td>
-                        <Button size="sm" variant="outlined" color="neutral" disabled={!prompt.dmPreview} onClick={() => onOpenPreview(prompt)}>
+                        <Button
+                          size="sm"
+                          variant="outlined"
+                          color="neutral"
+                          disabled={!prompt.dmPreview}
+                          onClick={() => onOpenPreview(prompt)}
+                        >
                           Preview DM
                         </Button>
                       </td>
@@ -993,18 +1464,37 @@ function PromptLogCard({
                 </tbody>
               </Table>
             </Box>
-            <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1}>
+            <Stack
+              direction={{ xs: 'column', sm: 'row' }}
+              justifyContent="space-between"
+              alignItems={{ xs: 'flex-start', sm: 'center' }}
+              spacing={1}
+            >
               <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
                 Showing {pagedRows.length} of {filteredRows.length} prompt rows
               </Typography>
               <Stack direction="row" spacing={1} alignItems="center">
-                <Button size="sm" variant="outlined" color="neutral" disabled={currentPage <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>
+                <Button
+                  size="sm"
+                  variant="outlined"
+                  color="neutral"
+                  disabled={currentPage <= 1}
+                  onClick={() => setPage((current) => Math.max(1, current - 1))}
+                >
                   Previous
                 </Button>
                 <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
                   Page {currentPage} of {pageCount}
                 </Typography>
-                <Button size="sm" variant="outlined" color="neutral" disabled={currentPage >= pageCount} onClick={() => setPage((current) => Math.min(pageCount, current + 1))}>
+                <Button
+                  size="sm"
+                  variant="outlined"
+                  color="neutral"
+                  disabled={currentPage >= pageCount}
+                  onClick={() =>
+                    setPage((current) => Math.min(pageCount, current + 1))
+                  }
+                >
                   Next
                 </Button>
               </Stack>
@@ -1024,14 +1514,19 @@ function PromptLogCard({
 function NotificationLogCard({
   debugAdmin,
   formatDateTime,
-  onOpenPreview
+  onOpenPreview,
 }: {
-  debugAdmin: DebugAdminResponse;
-  formatDateTime: (value: string | null) => string;
-  onOpenPreview: (notification: DebugNotificationDelivery, friendPicker?: boolean) => void;
+  debugAdmin: DebugAdminResponse
+  formatDateTime: (value: string | null) => string
+  onOpenPreview: (
+    notification: DebugNotificationDelivery,
+    friendPicker?: boolean,
+  ) => void
 }) {
   const [query, setQuery] = useState('')
-  const [deliveryFilter, setDeliveryFilter] = useState<'all' | 'delivered' | 'stored'>('all')
+  const [deliveryFilter, setDeliveryFilter] = useState<
+    'all' | 'delivered' | 'stored'
+  >('all')
   const [sortKey, setSortKey] = useState<NotificationSortKey>('createdAt')
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
   const [page, setPage] = useState(1)
@@ -1060,8 +1555,11 @@ function NotificationLogCard({
         notification.gameTitle ?? '',
         notification.triggeredBy?.displayName ?? '',
         notification.triggeredBy?.handle ?? '',
-        notification.id
-      ].join(' ').toLowerCase().includes(normalizedQuery)
+        notification.id,
+      ]
+        .join(' ')
+        .toLowerCase()
+        .includes(normalizedQuery)
     })
 
     rows.sort((left, right) => {
@@ -1069,26 +1567,40 @@ function NotificationLogCard({
 
       switch (sortKey) {
         case 'recipient':
-          result = left.recipient.displayName.localeCompare(right.recipient.displayName)
+          result = left.recipient.displayName.localeCompare(
+            right.recipient.displayName,
+          )
           break
         case 'game':
           result = (left.gameTitle ?? '').localeCompare(right.gameTitle ?? '')
           break
         case 'triggeredBy':
-          result = (left.triggeredBy?.displayName ?? '').localeCompare(right.triggeredBy?.displayName ?? '')
+          result = (left.triggeredBy?.displayName ?? '').localeCompare(
+            right.triggeredBy?.displayName ?? '',
+          )
           break
         case 'deliveredAt':
-          result = (left.deliveredAt ?? '').localeCompare(right.deliveredAt ?? '')
+          result = (left.deliveredAt ?? '').localeCompare(
+            right.deliveredAt ?? '',
+          )
           break
         default:
-          result = new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime()
+          result =
+            new Date(left.createdAt).getTime() -
+            new Date(right.createdAt).getTime()
       }
 
       return sortDirection === 'asc' ? result : -result
     })
 
     return rows
-  }, [debugAdmin.recentNotifications, query, deliveryFilter, sortKey, sortDirection])
+  }, [
+    debugAdmin.recentNotifications,
+    query,
+    deliveryFilter,
+    sortKey,
+    sortDirection,
+  ])
 
   const pageCount = Math.max(1, Math.ceil(filteredRows.length / tablePageSize))
   const currentPage = Math.min(page, pageCount)
@@ -1108,9 +1620,12 @@ function NotificationLogCard({
     <Card variant="soft" sx={{ p: 3 }}>
       <Stack spacing={1.5}>
         <Stack spacing={0.5}>
-          <Typography level="title-lg">Recent notification deliveries</Typography>
+          <Typography level="title-lg">
+            Recent notification deliveries
+          </Typography>
           <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
-            Sort, filter, and page through call-to-play notification rows, with delivery timestamps for the Discord DM path.
+            Sort, filter, and page through call-to-play notification rows, with
+            delivery timestamps for the Discord DM path.
           </Typography>
         </Stack>
 
@@ -1148,12 +1663,52 @@ function NotificationLogCard({
               <Table hoverRow borderAxis="bothBetween" stickyHeader>
                 <thead>
                   <tr>
-                    <th><Button size="sm" variant="plain" onClick={() => setSort('createdAt')}>Created</Button></th>
-                    <th><Button size="sm" variant="plain" onClick={() => setSort('recipient')}>Recipient</Button></th>
+                    <th>
+                      <Button
+                        size="sm"
+                        variant="plain"
+                        onClick={() => setSort('createdAt')}
+                      >
+                        Created
+                      </Button>
+                    </th>
+                    <th>
+                      <Button
+                        size="sm"
+                        variant="plain"
+                        onClick={() => setSort('recipient')}
+                      >
+                        Recipient
+                      </Button>
+                    </th>
                     <th>Title</th>
-                    <th><Button size="sm" variant="plain" onClick={() => setSort('game')}>Game</Button></th>
-                    <th><Button size="sm" variant="plain" onClick={() => setSort('triggeredBy')}>Triggered by</Button></th>
-                    <th><Button size="sm" variant="plain" onClick={() => setSort('deliveredAt')}>Delivery</Button></th>
+                    <th>
+                      <Button
+                        size="sm"
+                        variant="plain"
+                        onClick={() => setSort('game')}
+                      >
+                        Game
+                      </Button>
+                    </th>
+                    <th>
+                      <Button
+                        size="sm"
+                        variant="plain"
+                        onClick={() => setSort('triggeredBy')}
+                      >
+                        Triggered by
+                      </Button>
+                    </th>
+                    <th>
+                      <Button
+                        size="sm"
+                        variant="plain"
+                        onClick={() => setSort('deliveredAt')}
+                      >
+                        Delivery
+                      </Button>
+                    </th>
                     <th>Preview</th>
                   </tr>
                 </thead>
@@ -1162,52 +1717,119 @@ function NotificationLogCard({
                     <tr key={notification.id}>
                       <td>{formatDateTime(notification.createdAt)}</td>
                       <td>
-                        <Typography level="body-sm">{notification.recipient.displayName}</Typography>
-                        <Typography level="body-xs" sx={{ color: 'neutral.400' }}>@{notification.recipient.handle}</Typography>
+                        <Typography level="body-sm">
+                          {notification.recipient.displayName}
+                        </Typography>
+                        <Typography
+                          level="body-xs"
+                          sx={{ color: 'neutral.400' }}
+                        >
+                          @{notification.recipient.handle}
+                        </Typography>
                       </td>
                       <td>
                         <Stack spacing={0.25}>
-                          <Typography level="body-sm">{notification.title}</Typography>
-                          <Typography level="body-xs" sx={{ color: 'neutral.400' }}>{notification.body}</Typography>
+                          <Typography level="body-sm">
+                            {notification.title}
+                          </Typography>
+                          <Typography
+                            level="body-xs"
+                            sx={{ color: 'neutral.400' }}
+                          >
+                            {notification.body}
+                          </Typography>
                         </Stack>
                       </td>
                       <td>{notification.gameTitle ?? 'None'}</td>
                       <td>
-                        <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
-                          {notification.triggeredBy ? `${notification.triggeredBy.displayName} @${notification.triggeredBy.handle}` : 'System'}
+                        <Typography
+                          level="body-xs"
+                          sx={{ color: 'neutral.400' }}
+                        >
+                          {notification.triggeredBy
+                            ? `${notification.triggeredBy.displayName} @${notification.triggeredBy.handle}`
+                            : 'System'}
                         </Typography>
                       </td>
                       <td>
-                        <Chip size="sm" color={notification.deliveredAt ? 'success' : 'neutral'} variant={notification.deliveredAt ? 'soft' : 'outlined'}>
-                          {notification.deliveredAt ? 'DM delivered' : 'Stored only'}
+                        <Chip
+                          size="sm"
+                          color={
+                            notification.deliveredAt ? 'success' : 'neutral'
+                          }
+                          variant={
+                            notification.deliveredAt ? 'soft' : 'outlined'
+                          }
+                        >
+                          {notification.deliveredAt
+                            ? 'DM delivered'
+                            : 'Stored only'}
                         </Chip>
-                        <Typography level="body-xs" sx={{ color: 'neutral.400', mt: 0.5 }}>
+                        <Typography
+                          level="body-xs"
+                          sx={{ color: 'neutral.400', mt: 0.5 }}
+                        >
                           {formatDateTime(notification.deliveredAt)}
                         </Typography>
                       </td>
                       <td>
-                        <Button size="sm" variant="outlined" color="neutral" disabled={!notification.dmPreview} onClick={() => onOpenPreview(notification)}>
+                        <Button
+                          size="sm"
+                          variant="outlined"
+                          color="neutral"
+                          disabled={!notification.dmPreview}
+                          onClick={() => onOpenPreview(notification)}
+                        >
                           Preview DM
                         </Button>
-                        {notification.friendInvitePreview ? <Button size="sm" variant="outlined" color="neutral" onClick={() => onOpenPreview(notification, true)}>Preview friend picker</Button> : null}
+                        {notification.friendInvitePreview ? (
+                          <Button
+                            size="sm"
+                            variant="outlined"
+                            color="neutral"
+                            onClick={() => onOpenPreview(notification, true)}
+                          >
+                            Preview friend picker
+                          </Button>
+                        ) : null}
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </Table>
             </Box>
-            <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1}>
+            <Stack
+              direction={{ xs: 'column', sm: 'row' }}
+              justifyContent="space-between"
+              alignItems={{ xs: 'flex-start', sm: 'center' }}
+              spacing={1}
+            >
               <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
-                Showing {pagedRows.length} of {filteredRows.length} notification rows
+                Showing {pagedRows.length} of {filteredRows.length} notification
+                rows
               </Typography>
               <Stack direction="row" spacing={1} alignItems="center">
-                <Button size="sm" variant="outlined" color="neutral" disabled={currentPage <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>
+                <Button
+                  size="sm"
+                  variant="outlined"
+                  color="neutral"
+                  disabled={currentPage <= 1}
+                  onClick={() => setPage((current) => Math.max(1, current - 1))}
+                >
                   Previous
                 </Button>
                 <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
                   Page {currentPage} of {pageCount}
                 </Typography>
-                <Button size="sm" variant="outlined" color="neutral" disabled={currentPage >= pageCount} onClick={() => setPage((current) => Math.min(pageCount, current + 1))}>
+                <Button
+                  size="sm"
+                  variant="outlined"
+                  color="neutral"
+                  disabled={currentPage >= pageCount}
+                  onClick={() =>
+                    setPage((current) => Math.min(pageCount, current + 1))
+                  }
+                >
                   Next
                 </Button>
               </Stack>
@@ -1229,21 +1851,23 @@ function DebugViewContent({
   isSignedIn,
   debugAdmin,
   debugLoading,
-  onRefreshDebug
+  onRefreshDebug,
 }: {
-  error: string | null;
-  isSignedIn: boolean;
-  debugAdmin: DebugAdminResponse | null;
-  debugLoading: boolean;
-  onRefreshDebug: () => Promise<void>;
+  error: string | null
+  isSignedIn: boolean
+  debugAdmin: DebugAdminResponse | null
+  debugLoading: boolean
+  onRefreshDebug: () => Promise<void>
 }) {
   const { timeZone, formatDateTime } = useLocalDateFormatter()
-  const [selectedPlayIntentId, setSelectedPlayIntentId] = useState<string | null>(null)
+  const [selectedPlayIntentId, setSelectedPlayIntentId] = useState<
+    string | null
+  >(null)
   const [isSimulatorOpen, setIsSimulatorOpen] = useState(false)
   const [selectedDmPreview, setSelectedDmPreview] = useState<{
-    title: string;
-    subtitle: string;
-    preview: DebugDmPreview | null;
+    title: string
+    subtitle: string
+    preview: DebugDmPreview | null
   } | null>(null)
 
   if (error) {
@@ -1260,25 +1884,43 @@ function DebugViewContent({
     )
   }
 
-  const selectedPlayIntent = debugAdmin?.recentPlayIntents.find((intent) => intent.id === selectedPlayIntentId) ?? null
-  const selectedLifecycleEvents = debugAdmin?.playIntentLifecycleEvents
-    .filter((eventEntry) => eventEntry.playIntentId === selectedPlayIntentId)
-    .sort((left, right) => new Date(left.occurredAt).getTime() - new Date(right.occurredAt).getTime()) ?? []
+  const selectedPlayIntent =
+    debugAdmin?.recentPlayIntents.find(
+      (intent) => intent.id === selectedPlayIntentId,
+    ) ?? null
+  const selectedLifecycleEvents =
+    debugAdmin?.playIntentLifecycleEvents
+      .filter((eventEntry) => eventEntry.playIntentId === selectedPlayIntentId)
+      .sort(
+        (left, right) =>
+          new Date(left.occurredAt).getTime() -
+          new Date(right.occurredAt).getTime(),
+      ) ?? []
 
   return (
     <>
       <Stack spacing={2}>
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }}>
+        <Stack
+          direction={{ xs: 'column', sm: 'row' }}
+          spacing={1.5}
+          justifyContent="space-between"
+          alignItems={{ xs: 'stretch', sm: 'center' }}
+        >
           <Box>
             <Typography level="h2">Admin and debug</Typography>
             <Typography level="body-md" sx={{ color: 'neutral.300', mt: 0.5 }}>
-              Inspect bot state, CTP lifecycle timelines, prompt decisions, and delivery/error logs.
+              Inspect bot state, CTP lifecycle timelines, prompt decisions, and
+              delivery/error logs.
             </Typography>
             <Typography level="body-xs" sx={{ color: 'neutral.500', mt: 0.5 }}>
               Times shown in your local timezone: {timeZone}
             </Typography>
           </Box>
-          <Button variant="outlined" color="neutral" onClick={() => void onRefreshDebug()}>
+          <Button
+            variant="outlined"
+            color="neutral"
+            onClick={() => void onRefreshDebug()}
+          >
             {debugLoading ? 'Refreshing...' : 'Refresh'}
           </Button>
         </Stack>
@@ -1290,73 +1932,131 @@ function DebugViewContent({
               mb={0}
               sections={[
                 { id: 'bot-status', label: 'Bot', desktopLabel: 'Bot Status' },
-                { id: 'simulator', label: 'Simulator', desktopLabel: 'DM Simulator' },
-                { id: 'ctps', label: 'CTPs', desktopLabel: 'Calls to Play', count: debugAdmin.recentPlayIntents.length },
-                { id: 'prompts', label: 'Prompts', desktopLabel: 'Auto Prompts', count: debugAdmin.recentAutoPlayPrompts.length },
+                {
+                  id: 'simulator',
+                  label: 'Simulator',
+                  desktopLabel: 'DM Simulator',
+                },
+                {
+                  id: 'ctps',
+                  label: 'CTPs',
+                  desktopLabel: 'Calls to Play',
+                  count: debugAdmin.recentPlayIntents.length,
+                },
+                {
+                  id: 'prompts',
+                  label: 'Prompts',
+                  desktopLabel: 'Auto Prompts',
+                  count: debugAdmin.recentAutoPlayPrompts.length,
+                },
                 {
                   id: 'invite-attributions',
                   label: 'Invites',
                   desktopLabel: 'Invite Attributions',
-                  count: debugAdmin.recentInviteAttributions.length
+                  count: debugAdmin.recentInviteAttributions.length,
                 },
                 {
                   id: 'notifications',
                   label: 'Notifications',
                   desktopLabel: 'Notification Log',
-                  count: debugAdmin.recentNotifications.length
+                  count: debugAdmin.recentNotifications.length,
                 },
-                { id: 'errors', label: 'Errors', desktopLabel: 'Error Log', count: debugAdmin.recentErrors.length }
+                {
+                  id: 'errors',
+                  label: 'Errors',
+                  desktopLabel: 'Error Log',
+                  count: debugAdmin.recentErrors.length,
+                },
               ]}
             />
 
-            <Box id="bot-status" sx={{ scrollMarginTop: sectionScrollMarginTop }}>
-              <BotStateCard debugAdmin={debugAdmin} formatDateTime={formatDateTime} />
+            <Box
+              id="bot-status"
+              sx={{ scrollMarginTop: sectionScrollMarginTop }}
+            >
+              <BotStateCard
+                debugAdmin={debugAdmin}
+                formatDateTime={formatDateTime}
+              />
             </Box>
 
-            <Box id="simulator" sx={{ scrollMarginTop: sectionScrollMarginTop }}>
-              <DmLifecycleSimulatorSection onOpen={() => setIsSimulatorOpen(true)} />
+            <Box
+              id="simulator"
+              sx={{ scrollMarginTop: sectionScrollMarginTop }}
+            >
+              <DmLifecycleSimulatorSection
+                onOpen={() => setIsSimulatorOpen(true)}
+              />
             </Box>
 
             <Box id="ctps" sx={{ scrollMarginTop: sectionScrollMarginTop }}>
-              <CtpTableSection debugAdmin={debugAdmin} formatDateTime={formatDateTime} onOpenLifecycle={setSelectedPlayIntentId} />
+              <CtpTableSection
+                debugAdmin={debugAdmin}
+                formatDateTime={formatDateTime}
+                onOpenLifecycle={setSelectedPlayIntentId}
+              />
             </Box>
 
             <Box id="prompts" sx={{ scrollMarginTop: sectionScrollMarginTop }}>
               <PromptLogCard
                 debugAdmin={debugAdmin}
                 formatDateTime={formatDateTime}
-                onOpenPreview={(prompt) => setSelectedDmPreview({
-                  title: `Auto-play DM: ${prompt.game.title}`,
-                  subtitle: `${prompt.user.displayName} @${prompt.user.handle} · status ${prompt.status}`,
-                  preview: prompt.dmPreview
-                })}
+                onOpenPreview={(prompt) =>
+                  setSelectedDmPreview({
+                    title: `Auto-play DM: ${prompt.game.title}`,
+                    subtitle: `${prompt.user.displayName} @${prompt.user.handle} · status ${prompt.status}`,
+                    preview: prompt.dmPreview,
+                  })
+                }
               />
             </Box>
 
-            <Box id="invite-attributions" sx={{ scrollMarginTop: sectionScrollMarginTop }}>
-              <InviteAttributionLogCard debugAdmin={debugAdmin} formatDateTime={formatDateTime} />
+            <Box
+              id="invite-attributions"
+              sx={{ scrollMarginTop: sectionScrollMarginTop }}
+            >
+              <InviteAttributionLogCard
+                debugAdmin={debugAdmin}
+                formatDateTime={formatDateTime}
+              />
             </Box>
 
-            <Box id="notifications" sx={{ scrollMarginTop: sectionScrollMarginTop }}>
+            <Box
+              id="notifications"
+              sx={{ scrollMarginTop: sectionScrollMarginTop }}
+            >
               <NotificationLogCard
                 debugAdmin={debugAdmin}
                 formatDateTime={formatDateTime}
-                onOpenPreview={(notification, friendPicker) => setSelectedDmPreview({
-                  title: `Notification DM: ${notification.title}`,
-                  subtitle: `${notification.recipient.displayName} @${notification.recipient.handle}`,
-                  preview: friendPicker ? notification.friendInvitePreview : notification.dmPreview
-                })}
+                onOpenPreview={(notification, friendPicker) =>
+                  setSelectedDmPreview({
+                    title: `Notification DM: ${notification.title}`,
+                    subtitle: `${notification.recipient.displayName} @${notification.recipient.handle}`,
+                    preview: friendPicker
+                      ? notification.friendInvitePreview
+                      : notification.dmPreview,
+                  })
+                }
               />
             </Box>
 
             <Box id="errors" sx={{ scrollMarginTop: sectionScrollMarginTop }}>
-              <ErrorTableSection rows={debugAdmin.recentErrors} formatDateTime={formatDateTime} />
+              <ErrorTableSection
+                rows={debugAdmin.recentErrors}
+                formatDateTime={formatDateTime}
+              />
             </Box>
           </>
         ) : (
           <EmptyStateCard
-            title={debugLoading ? 'Loading debug data' : 'Debug data unavailable'}
-            body={debugLoading ? 'Fetching the latest bot, prompt, notification, and lifecycle state from the API.' : 'No debug snapshot has been loaded yet.'}
+            title={
+              debugLoading ? 'Loading debug data' : 'Debug data unavailable'
+            }
+            body={
+              debugLoading
+                ? 'Fetching the latest bot, prompt, notification, and lifecycle state from the API.'
+                : 'No debug snapshot has been loaded yet.'
+            }
           />
         )}
       </Stack>

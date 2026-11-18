@@ -8,7 +8,10 @@
  * state so the web view can describe what they are or are not invited to.
  */
 import { resolvePlayIntentAudienceResponse } from './play-intent-audience-response.js'
-import type { PlayIntentDetail, PlayIntentExpandedGame } from '@game-is-up/shared'
+import type {
+  PlayIntentDetail,
+  PlayIntentExpandedGame,
+} from '@game-is-up/shared'
 import {
   GameIntentType,
   NotificationResponseChoice,
@@ -16,19 +19,19 @@ import {
   PlayIntentDiscordSpaceAccessSource,
   PlayIntentDiscordSpaceStatus,
   PlayIntentScope,
-  PlayIntentSelectionMode
+  PlayIntentSelectionMode,
 } from '@prisma/client'
 import { getViewer } from './demo-viewer.js'
 import {
   getDiscordMembershipServerIds,
-  getMutualDiscoveryAudienceUserIds
+  getMutualDiscoveryAudienceUserIds,
 } from './discord-servers.js'
 import { buildDiscordChannelUrl } from './discord-channel-urls.js'
 import { toClientAvatarUrl, toClientGameCoverUrl } from './game-media.js'
 import {
   getInterestedUsersByPlayIntentId,
   getPassedUsersByPlayIntentId,
-  type PlayIntentResponseUser
+  type PlayIntentResponseUser,
 } from './play-intent-interested-users.js'
 import {
   formatAvailabilityLabel,
@@ -37,82 +40,106 @@ import {
   serializeTargetDiscordServers,
   toDiscordSpaceStatus,
   toNotifyScope,
-  toSelectionMode
+  toSelectionMode,
 } from './play-intent-serializers.js'
 import { prisma } from './prisma.js'
 
-const discordSpaceGrantFailureMessage = 'Some Discord channel access grants could not be applied. Check that the Game\'s Up bot can manage roles in the Discord server.'
+const discordSpaceGrantFailureMessage =
+  "Some Discord channel access grants could not be applied. Check that the Game's Up bot can manage roles in the Discord server."
 
-function serializeDiscordSpace(space: {
-  serverId: string;
-  status: PlayIntentDiscordSpaceStatus;
-  categoryChannelName: string | null;
-  textChannelId: string | null;
-  textChannelName: string | null;
-  voiceChannelId: string | null;
-  voiceChannelName: string | null;
-  inviteUrl: string | null;
-  deleteAfter: Date | null;
-  lastSyncError: string | null;
-  accessGrants: Array<{
-    userId: string;
-    source: PlayIntentDiscordSpaceAccessSource;
-    inServer: boolean;
-    roleGrantedAt: Date | null;
-  }>;
-} | null, viewerId: string): PlayIntentDetail['discordSpace'] {
+function serializeDiscordSpace(
+  space: {
+    serverId: string
+    status: PlayIntentDiscordSpaceStatus
+    categoryChannelName: string | null
+    textChannelId: string | null
+    textChannelName: string | null
+    voiceChannelId: string | null
+    voiceChannelName: string | null
+    inviteUrl: string | null
+    deleteAfter: Date | null
+    lastSyncError: string | null
+    accessGrants: Array<{
+      userId: string
+      source: PlayIntentDiscordSpaceAccessSource
+      inServer: boolean
+      roleGrantedAt: Date | null
+    }>
+  } | null,
+  viewerId: string,
+): PlayIntentDetail['discordSpace'] {
   if (!space) {
     return null
   }
 
-  const viewerHasChannelAccess = space.accessGrants.some((grant) => grant.userId === viewerId && grant.roleGrantedAt != null)
-  const creatorGrantMissingRole = space.accessGrants.some((grant) => grant.source === PlayIntentDiscordSpaceAccessSource.CREATOR && grant.roleGrantedAt == null)
+  const viewerHasChannelAccess = space.accessGrants.some(
+    (grant) => grant.userId === viewerId && grant.roleGrantedAt != null,
+  )
+  const creatorGrantMissingRole = space.accessGrants.some(
+    (grant) =>
+      grant.source === PlayIntentDiscordSpaceAccessSource.CREATOR &&
+      grant.roleGrantedAt == null,
+  )
   const audienceGrantWaitingToJoin = space.accessGrants.some((grant) => {
-    return grant.source !== PlayIntentDiscordSpaceAccessSource.CREATOR
-      && !grant.inServer
-      && grant.roleGrantedAt == null
+    return (
+      grant.source !== PlayIntentDiscordSpaceAccessSource.CREATOR &&
+      !grant.inServer &&
+      grant.roleGrantedAt == null
+    )
   })
   const audienceGrantMissingRoleAfterJoin = space.accessGrants.some((grant) => {
-    return grant.source !== PlayIntentDiscordSpaceAccessSource.CREATOR
-      && grant.inServer
-      && grant.roleGrantedAt == null
+    return (
+      grant.source !== PlayIntentDiscordSpaceAccessSource.CREATOR &&
+      grant.inServer &&
+      grant.roleGrantedAt == null
+    )
   })
-  const visibleLastSyncError = space.lastSyncError === discordSpaceGrantFailureMessage
-    && !creatorGrantMissingRole
-    && !audienceGrantMissingRoleAfterJoin
-    && audienceGrantWaitingToJoin
-    ? null
-    : space.lastSyncError
+  const visibleLastSyncError =
+    space.lastSyncError === discordSpaceGrantFailureMessage &&
+    !creatorGrantMissingRole &&
+    !audienceGrantMissingRoleAfterJoin &&
+    audienceGrantWaitingToJoin
+      ? null
+      : space.lastSyncError
 
   return {
     status: toDiscordSpaceStatus(space.status),
     serverId: space.serverId,
     categoryChannelName: space.categoryChannelName,
     textChannelName: space.textChannelName,
-    textChannelUrl: viewerHasChannelAccess ? buildDiscordChannelUrl(space.serverId, space.textChannelId) : null,
+    textChannelUrl: viewerHasChannelAccess
+      ? buildDiscordChannelUrl(space.serverId, space.textChannelId)
+      : null,
     voiceChannelName: space.voiceChannelName,
-    voiceChannelUrl: viewerHasChannelAccess ? buildDiscordChannelUrl(space.serverId, space.voiceChannelId) : null,
+    voiceChannelUrl: viewerHasChannelAccess
+      ? buildDiscordChannelUrl(space.serverId, space.voiceChannelId)
+      : null,
     inviteUrl: space.inviteUrl,
     deleteAfter: space.deleteAfter?.toISOString() ?? null,
-    lastSyncError: visibleLastSyncError
+    lastSyncError: visibleLastSyncError,
   }
 }
 
 function dedupePlatformLabels(platformLabels: string[]) {
-  return [...new Set(platformLabels.map((platformLabel) => platformLabel.trim()).filter(Boolean))]
-    .sort((left, right) => left.localeCompare(right))
+  return [
+    ...new Set(
+      platformLabels
+        .map((platformLabel) => platformLabel.trim())
+        .filter(Boolean),
+    ),
+  ].sort((left, right) => left.localeCompare(right))
 }
 
 function serializeExpandedGames(
   interests: Array<{
-    gameId: string;
+    gameId: string
     game: {
-      title: string;
-      coverUrl: string | null;
-      platforms: Array<{ platformLabel: string }>;
-    };
-    platforms: Array<{ platformLabel: string }>;
-  }>
+      title: string
+      coverUrl: string | null
+      platforms: Array<{ platformLabel: string }>
+    }
+    platforms: Array<{ platformLabel: string }>
+  }>,
 ): PlayIntentExpandedGame[] {
   const byGameId = new Map<string, PlayIntentExpandedGame>()
 
@@ -120,7 +147,7 @@ function serializeExpandedGames(
     const existing = byGameId.get(interest.gameId)
     const platformLabels = dedupePlatformLabels([
       ...interest.platforms.map((platform) => platform.platformLabel),
-      ...interest.game.platforms.map((platform) => platform.platformLabel)
+      ...interest.game.platforms.map((platform) => platform.platformLabel),
     ])
 
     if (!existing) {
@@ -128,23 +155,30 @@ function serializeExpandedGames(
         id: interest.gameId,
         title: interest.game.title,
         coverUrl: toClientGameCoverUrl(interest.game.coverUrl),
-        platformLabels: platformLabels.length > 0 ? platformLabels : ['Unknown']
+        platformLabels:
+          platformLabels.length > 0 ? platformLabels : ['Unknown'],
       })
       continue
     }
 
-    existing.platformLabels = dedupePlatformLabels([...existing.platformLabels, ...platformLabels])
-    existing.coverUrl = existing.coverUrl ?? toClientGameCoverUrl(interest.game.coverUrl)
+    existing.platformLabels = dedupePlatformLabels([
+      ...existing.platformLabels,
+      ...platformLabels,
+    ])
+    existing.coverUrl =
+      existing.coverUrl ?? toClientGameCoverUrl(interest.game.coverUrl)
   }
 
-  return [...byGameId.values()].sort((left, right) => left.title.localeCompare(right.title))
+  return [...byGameId.values()].sort((left, right) =>
+    left.title.localeCompare(right.title),
+  )
 }
 
 function buildAudienceSummary(options: {
-  isOwnIntent: boolean;
-  scope: PlayIntentScope;
-  targetDiscordServers: Array<{ server: { name: string } }>;
-  targetFriends: Array<{ friendUser: { displayName: string } }>;
+  isOwnIntent: boolean
+  scope: PlayIntentScope
+  targetDiscordServers: Array<{ server: { name: string } }>
+  targetFriends: Array<{ friendUser: { displayName: string } }>
 }) {
   if (options.scope === PlayIntentScope.SPECIFIC_DISCORD_SERVER) {
     return options.targetDiscordServers.length > 0
@@ -152,7 +186,10 @@ function buildAudienceSummary(options: {
       : 'Only matching people from the selected Discord servers can receive this call.'
   }
 
-  if (options.scope === PlayIntentScope.SPECIFIC_FRIENDS || options.scope === PlayIntentScope.SPECIFIC_FRIENDS_LIST) {
+  if (
+    options.scope === PlayIntentScope.SPECIFIC_FRIENDS ||
+    options.scope === PlayIntentScope.SPECIFIC_FRIENDS_LIST
+  ) {
     if (options.isOwnIntent && options.targetFriends.length > 0) {
       return 'Only these specific friends can receive this call when their libraries match.'
     }
@@ -161,13 +198,16 @@ function buildAudienceSummary(options: {
   }
 
   if (options.scope === PlayIntentScope.MUTUAL_FRIENDS) {
-    return 'Matching people in the creator\'s selected Discord network, plus direct friends, can receive this call.'
+    return "Matching people in the creator's selected Discord network, plus direct friends, can receive this call."
   }
 
   return 'Only direct friends who have matching games can receive this call.'
 }
 
-export async function buildPlayIntentDetail(viewerId: string, playIntentId: string): Promise<PlayIntentDetail | null> {
+export async function buildPlayIntentDetail(
+  viewerId: string,
+  playIntentId: string,
+): Promise<PlayIntentDetail | null> {
   const viewer = await getViewer(viewerId)
 
   if (!viewer) {
@@ -175,30 +215,37 @@ export async function buildPlayIntentDetail(viewerId: string, playIntentId: stri
   }
 
   const now = new Date()
-  const [viewerFriends, viewerInterests, discoveryAudienceUserIds, viewerServerIds, mutedUserIds, intent] = await Promise.all([
+  const [
+    viewerFriends,
+    viewerInterests,
+    discoveryAudienceUserIds,
+    viewerServerIds,
+    mutedUserIds,
+    intent,
+  ] = await Promise.all([
     prisma.friend.findMany({
       where: {
-        userId: viewer.id
+        userId: viewer.id,
       },
       select: {
-        friendedUserId: true
-      }
+        friendedUserId: true,
+      },
     }),
     prisma.userGameInterest.findMany({
       where: {
         userId: viewer.id,
         intentType: {
-          not: GameIntentType.COMPLETED
-        }
+          not: GameIntentType.COMPLETED,
+        },
       },
       include: {
         platforms: {
           select: {
-            platformLabel: true
+            platformLabel: true,
           },
           orderBy: {
-            platformLabel: 'asc'
-          }
+            platformLabel: 'asc',
+          },
         },
         game: {
           select: {
@@ -207,25 +254,27 @@ export async function buildPlayIntentDetail(viewerId: string, playIntentId: stri
             coverUrl: true,
             platforms: {
               select: {
-                platformLabel: true
+                platformLabel: true,
               },
               orderBy: {
-                platformLabel: 'asc'
-              }
-            }
-          }
-        }
-      }
+                platformLabel: 'asc',
+              },
+            },
+          },
+        },
+      },
     }),
     getMutualDiscoveryAudienceUserIds(viewer.id),
     getDiscordMembershipServerIds(viewer.id),
-    prisma.playIntentMute.findMany({
-      where: { userId: viewer.id },
-      select: { mutedUserId: true }
-    }).then((rows) => rows.map((row) => row.mutedUserId)),
+    prisma.playIntentMute
+      .findMany({
+        where: { userId: viewer.id },
+        select: { mutedUserId: true },
+      })
+      .then((rows) => rows.map((row) => row.mutedUserId)),
     prisma.playIntent.findUnique({
       where: {
-        id: playIntentId
+        id: playIntentId,
       },
       include: {
         user: {
@@ -237,17 +286,17 @@ export async function buildPlayIntentDetail(viewerId: string, playIntentId: stri
             gameInterests: {
               where: {
                 intentType: {
-                  not: GameIntentType.COMPLETED
-                }
+                  not: GameIntentType.COMPLETED,
+                },
               },
               include: {
                 platforms: {
                   select: {
-                    platformLabel: true
+                    platformLabel: true,
                   },
                   orderBy: {
-                    platformLabel: 'asc'
-                  }
+                    platformLabel: 'asc',
+                  },
                 },
                 game: {
                   select: {
@@ -256,17 +305,17 @@ export async function buildPlayIntentDetail(viewerId: string, playIntentId: stri
                     coverUrl: true,
                     platforms: {
                       select: {
-                        platformLabel: true
+                        platformLabel: true,
                       },
                       orderBy: {
-                        platformLabel: 'asc'
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
+                        platformLabel: 'asc',
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
         },
         targetFriends: {
           select: {
@@ -276,13 +325,13 @@ export async function buildPlayIntentDetail(viewerId: string, playIntentId: stri
                 id: true,
                 handle: true,
                 displayName: true,
-                avatarUrl: true
-              }
-            }
+                avatarUrl: true,
+              },
+            },
           },
           orderBy: {
-            createdAt: 'asc'
-          }
+            createdAt: 'asc',
+          },
         },
         targetDiscordServers: {
           include: {
@@ -290,13 +339,13 @@ export async function buildPlayIntentDetail(viewerId: string, playIntentId: stri
               select: {
                 id: true,
                 name: true,
-                iconHash: true
-              }
-            }
+                iconHash: true,
+              },
+            },
           },
           orderBy: {
-            createdAt: 'asc'
-          }
+            createdAt: 'asc',
+          },
         },
         games: {
           include: {
@@ -304,13 +353,13 @@ export async function buildPlayIntentDetail(viewerId: string, playIntentId: stri
               select: {
                 id: true,
                 title: true,
-                coverUrl: true
-              }
-            }
+                coverUrl: true,
+              },
+            },
           },
           orderBy: {
-            createdAt: 'asc'
-          }
+            createdAt: 'asc',
+          },
         },
         discordSpace: {
           select: {
@@ -326,27 +375,27 @@ export async function buildPlayIntentDetail(viewerId: string, playIntentId: stri
             lastSyncError: true,
             accessGrants: {
               where: {
-                revokedAt: null
+                revokedAt: null,
               },
               select: {
                 userId: true,
                 source: true,
                 inServer: true,
-                roleGrantedAt: true
+                roleGrantedAt: true,
               },
               orderBy: {
-                createdAt: 'asc'
-              }
-            }
-          }
+                createdAt: 'asc',
+              },
+            },
+          },
         },
         platforms: {
           select: {
-            platformLabel: true
+            platformLabel: true,
           },
           orderBy: {
-            platformLabel: 'asc'
-          }
+            platformLabel: 'asc',
+          },
         },
         notifications: {
           where: {
@@ -356,23 +405,23 @@ export async function buildPlayIntentDetail(viewerId: string, playIntentId: stri
                 NotificationType.FRIEND_PLAYING,
                 NotificationType.SCHEDULED_PLAY_INTENT_REMINDER,
                 NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED,
-                NotificationType.SCHEDULED_PLAY_INTENT_CHECK_IN
-              ]
-            }
+                NotificationType.SCHEDULED_PLAY_INTENT_CHECK_IN,
+              ],
+            },
           },
           select: {
             type: true,
             responseChoice: true,
             runningLateAt: true,
             runningLateMinutes: true,
-            createdAt: true
+            createdAt: true,
           },
           orderBy: {
-            createdAt: 'desc'
-          }
-        }
-      }
-    })
+            createdAt: 'desc',
+          },
+        },
+      },
+    }),
   ])
 
   if (!intent || intent.deletedAt) {
@@ -380,97 +429,129 @@ export async function buildPlayIntentDetail(viewerId: string, playIntentId: stri
   }
 
   const friendUserIds = viewerFriends.map((friend) => friend.friendedUserId)
-  const viewerGameIdSet = new Set(viewerInterests.map((interest) => interest.gameId))
+  const viewerGameIdSet = new Set(
+    viewerInterests.map((interest) => interest.gameId),
+  )
   const mutedUserIdSet = new Set(mutedUserIds)
   const isOwnIntent = intent.userId === viewer.id
   const isExplicitFriend = friendUserIds.includes(intent.userId)
   const isInDiscoveryAudience = discoveryAudienceUserIds.includes(intent.userId)
-  const targetServerIds = intent.targetDiscordServers.map((entry) => entry.serverId)
-  const isTargetedServer = targetServerIds.some((serverId) => viewerServerIds.includes(serverId))
-  const isTargetedFriend = intent.targetFriends.some((entry) => entry.friendUserId === viewer.id)
+  const targetServerIds = intent.targetDiscordServers.map(
+    (entry) => entry.serverId,
+  )
+  const isTargetedServer = targetServerIds.some((serverId) =>
+    viewerServerIds.includes(serverId),
+  )
+  const isTargetedFriend = intent.targetFriends.some(
+    (entry) => entry.friendUserId === viewer.id,
+  )
   const hasDirectNotification = intent.notifications.length > 0
 
-  if (!isOwnIntent && !hasDirectNotification && mutedUserIdSet.has(intent.userId)) {
+  if (
+    !isOwnIntent &&
+    !hasDirectNotification &&
+    mutedUserIdSet.has(intent.userId)
+  ) {
     return null
   }
 
-  if (!isPlayIntentVisibleToViewer({
-    isOwnIntent,
-    hasDirectNotification,
-    scope: intent.scope,
-    isExplicitFriend,
-    isInDiscoveryAudience,
-    isTargetedFriend,
-    isTargetedServer
-  })) {
+  if (
+    !isPlayIntentVisibleToViewer({
+      isOwnIntent,
+      hasDirectNotification,
+      scope: intent.scope,
+      isExplicitFriend,
+      isInDiscoveryAudience,
+      isTargetedFriend,
+      isTargetedServer,
+    })
+  ) {
     return null
   }
 
-  const overlappingLibraryInterests = intent.user.gameInterests.filter((interest) => viewerGameIdSet.has(interest.gameId))
-  const matchingSelectedGames = intent.games.filter((entry) => viewerGameIdSet.has(entry.gameId))
-  const matchesViewerLibrary = intent.selectionMode === PlayIntentSelectionMode.ENTIRE_LIBRARY
-    ? overlappingLibraryInterests.length > 0
-    : matchingSelectedGames.length > 0
-  const appliesToViewer = isViewerIncludedByPlayIntentAudience({
-    isOwnIntent,
-    hasDirectNotification,
-    scope: intent.scope,
-    isExplicitFriend,
-    isInDiscoveryAudience,
-    isTargetedFriend,
-    isTargetedServer
-  }) && matchesViewerLibrary
-  const recipientNotificationState = resolvePlayIntentAudienceResponse(intent.notifications)
-  const interestedUsersByPlayIntentId = await getInterestedUsersByPlayIntentId([intent.id])
+  const overlappingLibraryInterests = intent.user.gameInterests.filter(
+    (interest) => viewerGameIdSet.has(interest.gameId),
+  )
+  const matchingSelectedGames = intent.games.filter((entry) =>
+    viewerGameIdSet.has(entry.gameId),
+  )
+  const matchesViewerLibrary =
+    intent.selectionMode === PlayIntentSelectionMode.ENTIRE_LIBRARY
+      ? overlappingLibraryInterests.length > 0
+      : matchingSelectedGames.length > 0
+  const appliesToViewer =
+    isViewerIncludedByPlayIntentAudience({
+      isOwnIntent,
+      hasDirectNotification,
+      scope: intent.scope,
+      isExplicitFriend,
+      isInDiscoveryAudience,
+      isTargetedFriend,
+      isTargetedServer,
+    }) && matchesViewerLibrary
+  const recipientNotificationState = resolvePlayIntentAudienceResponse(
+    intent.notifications,
+  )
+  const interestedUsersByPlayIntentId = await getInterestedUsersByPlayIntentId([
+    intent.id,
+  ])
   const interestedUsers = interestedUsersByPlayIntentId.get(intent.id) ?? []
   // The creator always sees who passed on their own call. Other viewers only
   // see passes on the small, explicitly targeted scopes, where the whole
   // audience is already told about them.
-  const showsPassedUsers = isOwnIntent
-    || intent.scope === PlayIntentScope.SPECIFIC_FRIENDS
-    || intent.scope === PlayIntentScope.SPECIFIC_FRIENDS_LIST
+  const showsPassedUsers =
+    isOwnIntent ||
+    intent.scope === PlayIntentScope.SPECIFIC_FRIENDS ||
+    intent.scope === PlayIntentScope.SPECIFIC_FRIENDS_LIST
   const passedUsersByPlayIntentId = showsPassedUsers
     ? await getPassedUsersByPlayIntentId([intent.id])
     : new Map<string, PlayIntentResponseUser[]>()
   const passedUsers = showsPassedUsers
-    ? passedUsersByPlayIntentId.get(intent.id) ?? []
+    ? (passedUsersByPlayIntentId.get(intent.id) ?? [])
     : []
-  const targetServers = serializeTargetDiscordServers(intent.targetDiscordServers)
+  const targetServers = serializeTargetDiscordServers(
+    intent.targetDiscordServers,
+  )
   const primaryPlatform = intent.platforms[0]?.platformLabel ?? 'Unknown'
-  const expandedGameScope = intent.selectionMode === PlayIntentSelectionMode.ENTIRE_LIBRARY
-    ? (() => {
-        if (isOwnIntent) {
-          const games = serializeExpandedGames(intent.user.gameInterests)
+  const expandedGameScope =
+    intent.selectionMode === PlayIntentSelectionMode.ENTIRE_LIBRARY
+      ? (() => {
+          if (isOwnIntent) {
+            const games = serializeExpandedGames(intent.user.gameInterests)
+
+            return {
+              kind: 'creator-library' as const,
+              title: 'Games currently covered by this call',
+              description:
+                games.length > 0
+                  ? 'This call is library-wide, so every active title in your library is currently included.'
+                  : 'This call is library-wide, but your library does not currently expose any active titles.',
+              totalCount: games.length,
+              games,
+              nonOverlappingGames: [],
+            }
+          }
+
+          const games = serializeExpandedGames(overlappingLibraryInterests)
+          const nonOverlappingGames = serializeExpandedGames(
+            intent.user.gameInterests.filter(
+              (interest) => !viewerGameIdSet.has(interest.gameId),
+            ),
+          )
 
           return {
-            kind: 'creator-library' as const,
-            title: 'Games currently covered by this call',
-            description: games.length > 0
-              ? 'This call is library-wide, so every active title in your library is currently included.'
-              : 'This call is library-wide, but your library does not currently expose any active titles.',
+            kind: 'shared-library' as const,
+            title: 'Games you can use for this call',
+            description:
+              games.length > 0
+                ? `This call is library-wide, so these are the current overlaps between your library and ${intent.user.displayName}'s library.`
+                : `This call is library-wide, but none of your current games overlap with ${intent.user.displayName}'s library right now.`,
             totalCount: games.length,
             games,
-            nonOverlappingGames: []
+            nonOverlappingGames,
           }
-        }
-
-        const games = serializeExpandedGames(overlappingLibraryInterests)
-        const nonOverlappingGames = serializeExpandedGames(
-          intent.user.gameInterests.filter((interest) => !viewerGameIdSet.has(interest.gameId))
-        )
-
-        return {
-          kind: 'shared-library' as const,
-          title: 'Games you can use for this call',
-          description: games.length > 0
-            ? `This call is library-wide, so these are the current overlaps between your library and ${intent.user.displayName}'s library.`
-            : `This call is library-wide, but none of your current games overlap with ${intent.user.displayName}'s library right now.`,
-          totalCount: games.length,
-          games,
-          nonOverlappingGames
-        }
-      })()
-    : null
+        })()
+      : null
 
   return {
     id: intent.id,
@@ -482,61 +563,79 @@ export async function buildPlayIntentDetail(viewerId: string, playIntentId: stri
       id: intent.user.id,
       handle: intent.user.handle,
       displayName: intent.user.displayName,
-      avatarUrl: toClientAvatarUrl(intent.user.avatarUrl)
+      avatarUrl: toClientAvatarUrl(intent.user.avatarUrl),
     },
     selectionMode: toSelectionMode(intent.selectionMode),
     notifyScope: toNotifyScope(intent.scope),
     targetServers,
     platforms: intent.platforms.map((platform) => platform.platformLabel),
-    games: intent.selectionMode === PlayIntentSelectionMode.ENTIRE_LIBRARY
-      ? []
-      : intent.games
-        .map((entry) => ({
-          id: entry.game.id,
-          title: entry.game.title,
-          platform: primaryPlatform,
-          coverUrl: toClientGameCoverUrl(entry.game.coverUrl)
-        }))
-        .sort((left, right) => left.title.localeCompare(right.title)),
+    games:
+      intent.selectionMode === PlayIntentSelectionMode.ENTIRE_LIBRARY
+        ? []
+        : intent.games
+            .map((entry) => ({
+              id: entry.game.id,
+              title: entry.game.title,
+              platform: primaryPlatform,
+              coverUrl: toClientGameCoverUrl(entry.game.coverUrl),
+            }))
+            .sort((left, right) => left.title.localeCompare(right.title)),
     note: intent.note,
     voiceChannelId: intent.voiceChannelId,
     voiceChannelName: intent.voiceChannelName,
     discordSpace: serializeDiscordSpace(intent.discordSpace, viewer.id),
-    viewerResponseChoice: recipientNotificationState?.responseChoice === NotificationResponseChoice.JOIN
-      ? 'interested'
-      : recipientNotificationState?.responseChoice === NotificationResponseChoice.DECLINE
-        ? 'pass'
+    viewerResponseChoice:
+      recipientNotificationState?.responseChoice ===
+      NotificationResponseChoice.JOIN
+        ? 'interested'
+        : recipientNotificationState?.responseChoice ===
+            NotificationResponseChoice.DECLINE
+          ? 'pass'
+          : null,
+    viewerRunningLate:
+      recipientNotificationState?.responseChoice ===
+        NotificationResponseChoice.JOIN &&
+      recipientNotificationState?.runningLateAt != null,
+    viewerRunningLateMinutes:
+      recipientNotificationState?.responseChoice ===
+        NotificationResponseChoice.JOIN &&
+      recipientNotificationState.runningLateAt
+        ? recipientNotificationState.runningLateMinutes
         : null,
-    viewerRunningLate: recipientNotificationState?.responseChoice === NotificationResponseChoice.JOIN
-      && recipientNotificationState?.runningLateAt != null,
-    viewerRunningLateMinutes: recipientNotificationState?.responseChoice === NotificationResponseChoice.JOIN
-      && recipientNotificationState.runningLateAt ? recipientNotificationState.runningLateMinutes : null,
     interestedUsers,
     interestedCount: interestedUsers.length,
     availabilityWindow: {
-      label: formatAvailabilityLabel(intent.user.displayName, intent.windowStartsAt, now),
+      label: formatAvailabilityLabel(
+        intent.user.displayName,
+        intent.windowStartsAt,
+        now,
+      ),
       startsAt: intent.windowStartsAt.toISOString(),
-      endsAt: intent.windowEndsAt.toISOString()
+      endsAt: intent.windowEndsAt.toISOString(),
     },
     createdAt: intent.createdAt.toISOString(),
     audienceSummary: buildAudienceSummary({
       isOwnIntent,
       scope: intent.scope,
       targetDiscordServers: intent.targetDiscordServers,
-      targetFriends: intent.targetFriends
+      targetFriends: intent.targetFriends,
     }),
     passedUsers,
     targetedFriends: isOwnIntent
       ? intent.targetFriends
-        .map((entry) => ({
-          id: entry.friendUser.id,
-          handle: entry.friendUser.handle,
-          displayName: entry.friendUser.displayName,
-          avatarUrl: toClientAvatarUrl(entry.friendUser.avatarUrl)
-        }))
-        .sort((left, right) => left.displayName.localeCompare(right.displayName))
+          .map((entry) => ({
+            id: entry.friendUser.id,
+            handle: entry.friendUser.handle,
+            displayName: entry.friendUser.displayName,
+            avatarUrl: toClientAvatarUrl(entry.friendUser.avatarUrl),
+          }))
+          .sort((left, right) =>
+            left.displayName.localeCompare(right.displayName),
+          )
       : [],
-    targetFriendsListId: isOwnIntent ? (intent.targetFriendsListId ?? null) : null,
-    expandedGameScope
+    targetFriendsListId: isOwnIntent
+      ? (intent.targetFriendsListId ?? null)
+      : null,
+    expandedGameScope,
   }
 }

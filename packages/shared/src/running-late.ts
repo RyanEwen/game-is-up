@@ -1,11 +1,18 @@
 /** Shared validation and wording for optional call-to-play delay estimates, in minutes. */
 import { z } from 'zod'
 
-export const runningLateMinutesSchema = z.number().int().min(1).max(1440).nullable()
+export const runningLateMinutesSchema = z
+  .number()
+  .int()
+  .min(1)
+  .max(1440)
+  .nullable()
 
 /** Validates a form value; a blank estimate means the player is not sure yet. */
 export function parseRunningLateMinutes(value: string) {
-  return runningLateMinutesSchema.safeParse(value.trim() === '' ? null : Number(value))
+  return runningLateMinutesSchema.safeParse(
+    value.trim() === '' ? null : Number(value),
+  )
 }
 
 /** Describes an approximate delay without turning an unknown estimate into a promise. */

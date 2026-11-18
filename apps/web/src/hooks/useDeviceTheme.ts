@@ -5,7 +5,11 @@
  * guarded so non-browser contexts (tests, SSR experiments) stay safe.
  */
 import { useCallback, useState } from 'react'
-import { type AppThemeId, DEFAULT_APP_THEME, isAppThemeId } from '../theme/themes'
+import {
+  type AppThemeId,
+  DEFAULT_APP_THEME,
+  isAppThemeId,
+} from '../theme/themes'
 
 const STORAGE_KEY = 'gameisup:appTheme'
 

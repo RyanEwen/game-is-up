@@ -1,4 +1,5 @@
-const apiIssueRecoveryMessage = 'Retrying in the background every 5 seconds. The dashboard will refresh automatically when the API responds again.'
+const apiIssueRecoveryMessage =
+  'Retrying in the background every 5 seconds. The dashboard will refresh automatically when the API responds again.'
 
 function ensureSentence(message: string) {
   return /[.!?]$/.test(message) ? message : `${message}.`

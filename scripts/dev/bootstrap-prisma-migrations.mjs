@@ -15,7 +15,7 @@ function runPrisma(args, stdio = 'pipe') {
     cwd: apiCwd,
     env: process.env,
     encoding: 'utf8',
-    stdio
+    stdio,
   })
 }
 
@@ -27,22 +27,34 @@ async function main() {
       SELECT 1
       FROM information_schema.tables
       WHERE table_schema = 'public' AND table_name = '_prisma_migrations'
-    ) AS exists`
+    ) AS exists`,
   )
   const appTableCountResult = await prisma.$queryRawUnsafe(
     `SELECT COUNT(*)::int AS count
       FROM information_schema.tables
       WHERE table_schema = 'public'
         AND table_type = 'BASE TABLE'
-        AND table_name <> '_prisma_migrations'`
+        AND table_name <> '_prisma_migrations'`,
   )
 
   const migrationTableExists = Boolean(migrationTableResult[0]?.exists)
   const appTableCount = Number(appTableCountResult[0]?.count ?? 0)
 
   if (!migrationTableExists && appTableCount > 0) {
-    process.stdout.write(`Existing database detected. Marking ${baselineMigrationName} as applied before deploy.\n`)
-    runPrisma(['migrate', 'resolve', '--applied', baselineMigrationName, '--schema', schemaPath], 'inherit')
+    process.stdout.write(
+      `Existing database detected. Marking ${baselineMigrationName} as applied before deploy.\n`,
+    )
+    runPrisma(
+      [
+        'migrate',
+        'resolve',
+        '--applied',
+        baselineMigrationName,
+        '--schema',
+        schemaPath,
+      ],
+      'inherit',
+    )
   }
 
   process.stdout.write('Applying pending Prisma migrations.\n')
@@ -51,7 +63,9 @@ async function main() {
 
 main()
   .catch((error) => {
-    process.stderr.write(`${error instanceof Error ? error.stack ?? error.message : String(error)}\n`)
+    process.stderr.write(
+      `${error instanceof Error ? (error.stack ?? error.message) : String(error)}\n`,
+    )
     process.exitCode = 1
   })
   .finally(async () => {

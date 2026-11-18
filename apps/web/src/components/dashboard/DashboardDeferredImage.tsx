@@ -7,14 +7,14 @@ export function DashboardDeferredImage({
   rootMargin = '400px 0px',
   eager = false,
   objectFit = 'cover',
-  objectPosition = 'center'
+  objectPosition = 'center',
 }: {
-  src: string;
-  alt: string;
-  rootMargin?: string;
-  eager?: boolean;
-  objectFit?: 'cover' | 'contain';
-  objectPosition?: string;
+  src: string
+  alt: string
+  rootMargin?: string
+  eager?: boolean
+  objectFit?: 'cover' | 'contain'
+  objectPosition?: string
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const [shouldLoad, setShouldLoad] = useState(eager)
@@ -44,12 +44,16 @@ export function DashboardDeferredImage({
 
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries.some((entry) => entry.isIntersecting || entry.intersectionRatio > 0)) {
+        if (
+          entries.some(
+            (entry) => entry.isIntersecting || entry.intersectionRatio > 0,
+          )
+        ) {
           setShouldLoad(true)
           observer.disconnect()
         }
       },
-      { rootMargin }
+      { rootMargin },
     )
 
     observer.observe(node)
@@ -58,7 +62,17 @@ export function DashboardDeferredImage({
   }, [rootMargin, shouldLoad, src])
 
   return (
-    <Box ref={containerRef} sx={{ width: '100%', height: '100%', minHeight: 0, position: 'relative', display: 'block', overflow: 'hidden' }}>
+    <Box
+      ref={containerRef}
+      sx={{
+        width: '100%',
+        height: '100%',
+        minHeight: 0,
+        position: 'relative',
+        display: 'block',
+        overflow: 'hidden',
+      }}
+    >
       {!loaded ? (
         <Skeleton
           variant="overlay"
@@ -82,7 +96,7 @@ export function DashboardDeferredImage({
             objectFit,
             objectPosition,
             opacity: loaded ? 1 : 0,
-            transition: 'opacity 180ms ease-out'
+            transition: 'opacity 180ms ease-out',
           }}
         />
       ) : null}

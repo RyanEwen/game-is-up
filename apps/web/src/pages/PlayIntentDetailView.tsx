@@ -5,14 +5,34 @@ import HeadsetMicRoundedIcon from '@mui/icons-material/HeadsetMicRounded'
 import OpenInNewRoundedIcon from '@mui/icons-material/OpenInNewRounded'
 import ScheduleRoundedIcon from '@mui/icons-material/ScheduleRounded'
 import WestRoundedIcon from '@mui/icons-material/WestRounded'
-import { Avatar, Box, Button, ButtonGroup, Card, Chip, Stack, Typography } from '@mui/joy'
-import { extractErrorMessage, playIntentDetailResponseSchema, type PlayIntentDetail } from '@game-is-up/shared'
+import {
+  Avatar,
+  Box,
+  Button,
+  ButtonGroup,
+  Card,
+  Chip,
+  Stack,
+  Typography,
+} from '@mui/joy'
+import {
+  extractErrorMessage,
+  playIntentDetailResponseSchema,
+  type PlayIntentDetail,
+} from '@game-is-up/shared'
 import { useNavigate, useParams } from 'react-router-dom'
-import { DiscordSignInCard, EmptyStateCard } from '../components/dashboard/EmptyStateCard'
+import {
+  DiscordSignInCard,
+  EmptyStateCard,
+} from '../components/dashboard/EmptyStateCard'
 import { PlayIntentResponseUserList } from '../components/dashboard/InterestedPlayerList'
 import { CompactPersonGameCard } from '../components/dashboard/PersonCard'
 import { PlayIntentGameList } from '../components/dashboard/PlayIntentCard'
-import { formatNotifyScopeLabel, formatPlayIntentTimingSummary, memberGameGridSx } from '../components/dashboard/dashboardUtils'
+import {
+  formatNotifyScopeLabel,
+  formatPlayIntentTimingSummary,
+  memberGameGridSx,
+} from '../components/dashboard/dashboardUtils'
 import { useDashboardContext } from '../contexts/useDashboardContext'
 import { buildApiUrl } from '../lib/apiUrl'
 import { useDashboardSseInvalidation } from '../hooks/useDashboardSseInvalidation'
@@ -26,10 +46,15 @@ function formatDateTimeLabel(value: string) {
 }
 
 function formatCallDetailTimingLabel(startsAt: string, endsAt: string) {
-  return formatPlayIntentTimingSummary(startsAt, endsAt).replace(/^Scheduled for /, '')
+  return formatPlayIntentTimingSummary(startsAt, endsAt).replace(
+    /^Scheduled for /,
+    '',
+  )
 }
 
-function formatDiscordSpaceStatusLabel(status: NonNullable<PlayIntentDetail['discordSpace']>['status']) {
+function formatDiscordSpaceStatusLabel(
+  status: NonNullable<PlayIntentDetail['discordSpace']>['status'],
+) {
   switch (status) {
     case 'delete-requested':
       return 'Delete requested'
@@ -45,7 +70,7 @@ function buildGameBadges(platformLabels: string[]) {
     return platformLabels.map((platformLabel) => ({
       label: platformLabel,
       color: 'neutral' as const,
-      variant: 'outlined' as const
+      variant: 'outlined' as const,
     }))
   }
 
@@ -53,13 +78,13 @@ function buildGameBadges(platformLabels: string[]) {
     ...platformLabels.slice(0, 2).map((platformLabel) => ({
       label: platformLabel,
       color: 'neutral' as const,
-      variant: 'outlined' as const
+      variant: 'outlined' as const,
     })),
     {
       label: `+${platformLabels.length - 2} more`,
       color: 'neutral' as const,
-      variant: 'soft' as const
-    }
+      variant: 'soft' as const,
+    },
   ]
 }
 
@@ -81,13 +106,13 @@ function DiscordChannelButton({
   label,
   icon,
   color = 'primary',
-  disabled = false
+  disabled = false,
 }: {
-  href: string;
-  label: string;
-  icon: ReactNode;
-  color?: 'primary' | 'neutral';
-  disabled?: boolean;
+  href: string
+  label: string
+  icon: ReactNode
+  color?: 'primary' | 'neutral'
+  disabled?: boolean
 }) {
   return (
     <Button
@@ -99,16 +124,24 @@ function DiscordChannelButton({
       color={color}
       size="sm"
       disabled={disabled}
-      startDecorator={(
-        <Box component="span" aria-hidden sx={{ display: 'inline-flex', lineHeight: 1, '& svg': { fontSize: '1rem' } }}>
+      startDecorator={
+        <Box
+          component="span"
+          aria-hidden
+          sx={{
+            display: 'inline-flex',
+            lineHeight: 1,
+            '& svg': { fontSize: '1rem' },
+          }}
+        >
           {icon}
         </Box>
-      )}
+      }
       sx={{
         justifyContent: 'flex-start',
         minWidth: 0,
         width: '100%',
-        flex: 1
+        flex: 1,
       }}
     >
       <Box
@@ -117,7 +150,7 @@ function DiscordChannelButton({
           minWidth: 0,
           overflow: 'hidden',
           textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap'
+          whiteSpace: 'nowrap',
         }}
       >
         {label}
@@ -128,14 +161,22 @@ function DiscordChannelButton({
 
 function DiscordDetailTextRow({
   icon,
-  children
+  children,
 }: {
-  icon: ReactNode;
-  children: ReactNode;
+  icon: ReactNode
+  children: ReactNode
 }) {
   return (
     <Stack direction="row" spacing={1} alignItems="center">
-      <Box component="span" aria-hidden sx={{ display: 'inline-flex', color: 'primary.300', '& svg': { fontSize: '1rem' } }}>
+      <Box
+        component="span"
+        aria-hidden
+        sx={{
+          display: 'inline-flex',
+          color: 'primary.300',
+          '& svg': { fontSize: '1rem' },
+        }}
+      >
         {icon}
       </Box>
       <Typography level="body-sm" sx={{ color: 'neutral.200' }}>
@@ -145,13 +186,7 @@ function DiscordDetailTextRow({
   )
 }
 
-function CallDetailRow({
-  label,
-  value
-}: {
-  label: string;
-  value: string;
-}) {
+function CallDetailRow({ label, value }: { label: string; value: string }) {
   return (
     <Stack
       direction={{ xs: 'column', sm: 'row' }}
@@ -165,12 +200,15 @@ function CallDetailRow({
           color: 'neutral.500',
           fontWeight: 700,
           letterSpacing: '0.08em',
-          textTransform: 'uppercase'
+          textTransform: 'uppercase',
         }}
       >
         {label}
       </Typography>
-      <Typography level="body-sm" sx={{ color: 'neutral.100', fontWeight: 500 }}>
+      <Typography
+        level="body-sm"
+        sx={{ color: 'neutral.100', fontWeight: 500 }}
+      >
         {value}
       </Typography>
     </Stack>
@@ -191,8 +229,13 @@ export function PlayIntentDetailView() {
   const [runningLateDialogOpen, setRunningLateDialogOpen] = useState(false)
 
   const discoveryPeopleById = useMemo(
-    () => new Map(playViewProps.discoveryPeople.map((person) => [person.id, person] as const)),
-    [playViewProps.discoveryPeople]
+    () =>
+      new Map(
+        playViewProps.discoveryPeople.map(
+          (person) => [person.id, person] as const,
+        ),
+      ),
+    [playViewProps.discoveryPeople],
   )
 
   const refreshToken = useMemo(() => {
@@ -200,8 +243,14 @@ export function PlayIntentDetailView() {
       return 'missing'
     }
 
-    const preview = playViewProps.playIntentPreviews.find((candidate) => candidate.id === playIntentId) ?? null
-    const activeIntent = playViewProps.activePlayIntent?.id === playIntentId ? playViewProps.activePlayIntent : null
+    const preview =
+      playViewProps.playIntentPreviews.find(
+        (candidate) => candidate.id === playIntentId,
+      ) ?? null
+    const activeIntent =
+      playViewProps.activePlayIntent?.id === playIntentId
+        ? playViewProps.activePlayIntent
+        : null
 
     return [
       preview?.status ?? '',
@@ -212,9 +261,13 @@ export function PlayIntentDetailView() {
       activeIntent?.id ?? '',
       activeIntent?.discordSpace?.status ?? '',
       String(activeIntent?.allowParticipantInvites ?? ''),
-      String(activeIntent?.interestedCount ?? '')
+      String(activeIntent?.interestedCount ?? ''),
     ].join(':')
-  }, [playIntentId, playViewProps.activePlayIntent, playViewProps.playIntentPreviews])
+  }, [
+    playIntentId,
+    playViewProps.activePlayIntent,
+    playViewProps.playIntentPreviews,
+  ])
 
   useDashboardSseInvalidation({
     enabled: playViewProps.isSignedIn,
@@ -223,7 +276,7 @@ export function PlayIntentDetailView() {
       if (domains.includes('play-intents')) {
         setInvalidationVersion((current) => current + 1)
       }
-    }
+    },
   })
 
   useEffect(() => {
@@ -243,9 +296,12 @@ export function PlayIntentDetailView() {
       setErrorMessage(null)
 
       try {
-        const response = await fetch(buildApiUrl(`/api/play-intents/${playIntentId}`), {
-          credentials: 'include'
-        })
+        const response = await fetch(
+          buildApiUrl(`/api/play-intents/${playIntentId}`),
+          {
+            credentials: 'include',
+          },
+        )
 
         if (response.status === 401) {
           if (!cancelled) {
@@ -266,7 +322,10 @@ export function PlayIntentDetailView() {
         const responseJson = await response.json()
 
         if (!response.ok) {
-          const responseBody = extractErrorMessage(responseJson, 'Unable to load this call to play right now.')
+          const responseBody = extractErrorMessage(
+            responseJson,
+            'Unable to load this call to play right now.',
+          )
 
           if (!cancelled) {
             setIntent(null)
@@ -275,7 +334,8 @@ export function PlayIntentDetailView() {
           return
         }
 
-        const parsedIntent = playIntentDetailResponseSchema.parse(responseJson).intent
+        const parsedIntent =
+          playIntentDetailResponseSchema.parse(responseJson).intent
 
         if (!cancelled) {
           setIntent(parsedIntent)
@@ -283,7 +343,11 @@ export function PlayIntentDetailView() {
       } catch (error) {
         if (!cancelled) {
           setIntent(null)
-          setErrorMessage(error instanceof Error ? error.message : 'Unable to load this call to play right now.')
+          setErrorMessage(
+            error instanceof Error
+              ? error.message
+              : 'Unable to load this call to play right now.',
+          )
         }
       } finally {
         if (!cancelled) {
@@ -298,9 +362,7 @@ export function PlayIntentDetailView() {
   }, [invalidationVersion, playIntentId, refreshToken])
 
   useEffect(() => {
-    document.title = intent
-      ? `${intent.title} • Game's Up`
-      : "Game's Up • Play"
+    document.title = intent ? `${intent.title} • Game's Up` : "Game's Up • Play"
   }, [intent])
 
   useEffect(() => {
@@ -321,7 +383,8 @@ export function PlayIntentDetailView() {
       <Card variant="soft" sx={{ p: 3 }}>
         <Typography level="title-md">Loading call to play...</Typography>
         <Typography level="body-sm" sx={{ mt: 0.75, color: 'neutral.400' }}>
-          Pulling the latest details from the app so the link from Discord opens with the full context.
+          Pulling the latest details from the app so the link from Discord opens
+          with the full context.
         </Typography>
       </Card>
     )
@@ -332,16 +395,27 @@ export function PlayIntentDetailView() {
       <Stack spacing={1.5}>
         <Card variant="soft" sx={{ p: 3 }}>
           <Stack spacing={1.5}>
-            <Typography level="title-lg">Sign in to open this call to play</Typography>
-            <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
-              This dedicated view uses your Game&apos;s Up account to confirm which people in your network the call reaches and which games actually overlap.
+            <Typography level="title-lg">
+              Sign in to open this call to play
             </Typography>
-            <Button variant="outlined" color="neutral" onClick={() => navigate('/play')} startDecorator={<WestRoundedIcon fontSize="small" />}>
+            <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
+              This dedicated view uses your Game&apos;s Up account to confirm
+              which people in your network the call reaches and which games
+              actually overlap.
+            </Typography>
+            <Button
+              variant="outlined"
+              color="neutral"
+              onClick={() => navigate('/play')}
+              startDecorator={<WestRoundedIcon fontSize="small" />}
+            >
               Back to play feed
             </Button>
           </Stack>
         </Card>
-        <DiscordSignInCard onClick={() => void overviewViewProps.onDiscordLogin()} />
+        <DiscordSignInCard
+          onClick={() => void overviewViewProps.onDiscordLogin()}
+        />
       </Stack>
     )
   }
@@ -351,7 +425,9 @@ export function PlayIntentDetailView() {
       <Card variant="soft" color="danger" sx={{ p: 3 }}>
         <Stack spacing={1.5}>
           <Typography level="title-lg">Call to play unavailable</Typography>
-          <Typography level="body-sm">{errorMessage ?? 'This call to play could not be loaded.'}</Typography>
+          <Typography level="body-sm">
+            {errorMessage ?? 'This call to play could not be loaded.'}
+          </Typography>
           <Button
             variant="outlined"
             color="neutral"
@@ -367,41 +443,55 @@ export function PlayIntentDetailView() {
   }
 
   const isOwnIntent = overviewViewProps.session?.user?.id === intent.user.id
-  const canRespond = playViewProps.isSignedIn && !isOwnIntent && intent.status === 'active' && intent.appliesToViewer
-  const responsePending = playViewProps.playIntentResponsePendingIntentId === intent.id
+  const canRespond =
+    playViewProps.isSignedIn &&
+    !isOwnIntent &&
+    intent.status === 'active' &&
+    intent.appliesToViewer
+  const responsePending =
+    playViewProps.playIntentResponsePendingIntentId === intent.id
   const isMuted = playViewProps.mutedPlayIntentUserIds.has(intent.user.id)
   const isEditingCurrentIntent = isOwnIntent && intent.status === 'active'
-  const isScheduledIntent = intent.status === 'active' && new Date(intent.availabilityWindow.startsAt).getTime() > Date.now() + 60 * 1000
-  const libraryWideScope = intent.selectionMode === 'library' ? intent.expandedGameScope : null
-  const libraryWideScopeHeading = libraryWideScope?.kind === 'creator-library'
+  const isScheduledIntent =
+    intent.status === 'active' &&
+    new Date(intent.availabilityWindow.startsAt).getTime() >
+      Date.now() + 60 * 1000
+  const libraryWideScope =
+    intent.selectionMode === 'library' ? intent.expandedGameScope : null
+  const libraryWideScopeHeading =
+    libraryWideScope?.kind === 'creator-library'
       ? 'Games covered by this call'
       : libraryWideScope?.kind === 'shared-library'
         ? 'Games that match this call'
         : ''
-  const libraryWideScopeDescription = libraryWideScope?.kind === 'creator-library'
-      ? 'This call covers the creator\'s full active library, so these are the games currently included in it.'
+  const libraryWideScopeDescription =
+    libraryWideScope?.kind === 'creator-library'
+      ? "This call covers the creator's full active library, so these are the games currently included in it."
       : libraryWideScope?.kind === 'shared-library'
-        ? 'This call is library-wide, so these are the games that currently match between your library and the creator\'s library.'
+        ? "This call is library-wide, so these are the games that currently match between your library and the creator's library."
         : ''
   const matchingGameCount = libraryWideScope?.games.length ?? 0
-  const creatorOnlyGameCount = libraryWideScope?.kind === 'shared-library'
-    ? libraryWideScope.nonOverlappingGames.length
-    : 0
-  const canRevealNonOverlappingGames = libraryWideScope?.kind === 'shared-library' && libraryWideScope.nonOverlappingGames.length > 0
+  const creatorOnlyGameCount =
+    libraryWideScope?.kind === 'shared-library'
+      ? libraryWideScope.nonOverlappingGames.length
+      : 0
+  const canRevealNonOverlappingGames =
+    libraryWideScope?.kind === 'shared-library' &&
+    libraryWideScope.nonOverlappingGames.length > 0
   const canDeleteDiscordSpace = Boolean(
-    isOwnIntent
-    && intent.status === 'ended'
-    && intent.discordSpace
-    && intent.discordSpace.status !== 'requested'
-    && intent.discordSpace.status !== 'provisioning'
-    && intent.discordSpace.status !== 'deleted'
+    isOwnIntent &&
+    intent.status === 'ended' &&
+    intent.discordSpace &&
+    intent.discordSpace.status !== 'requested' &&
+    intent.discordSpace.status !== 'provisioning' &&
+    intent.discordSpace.status !== 'deleted',
   )
   const canAdminDeleteIntent = playViewProps.isSignedIn && playViewProps.isAdmin
   const canRetryDiscordSpace = Boolean(
-    isOwnIntent
-    && intent.discordSpace?.lastSyncError
-    && intent.discordSpace.status !== 'deleted'
-    && intent.discordSpace.status !== 'provisioning'
+    isOwnIntent &&
+    intent.discordSpace?.lastSyncError &&
+    intent.discordSpace.status !== 'deleted' &&
+    intent.discordSpace.status !== 'provisioning',
   )
   const hasAdminActionRow = canAdminDeleteIntent
 
@@ -421,30 +511,67 @@ export function PlayIntentDetailView() {
         variant="soft"
         sx={{
           p: 3,
-            border: '1px solid var(--joy-palette-primary-600)',
-            background: 'linear-gradient(180deg, var(--gu-soft-primary-card-gradient-start), var(--gu-soft-primary-card-gradient-end))',
-            boxShadow: 'none'
+          border: '1px solid var(--joy-palette-primary-600)',
+          background:
+            'linear-gradient(180deg, var(--gu-soft-primary-card-gradient-start), var(--gu-soft-primary-card-gradient-end))',
+          boxShadow: 'none',
         }}
       >
         <Stack spacing={2}>
-          <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} justifyContent="space-between">
-            <Stack direction="row" spacing={1.5} alignItems="center" sx={{ minWidth: 0 }}>
-              <Avatar src={intent.user.avatarUrl ?? undefined} alt={intent.user.displayName} size="lg" variant="soft" />
+          <Stack
+            direction={{ xs: 'column', md: 'row' }}
+            spacing={2}
+            justifyContent="space-between"
+          >
+            <Stack
+              direction="row"
+              spacing={1.5}
+              alignItems="center"
+              sx={{ minWidth: 0 }}
+            >
+              <Avatar
+                src={intent.user.avatarUrl ?? undefined}
+                alt={intent.user.displayName}
+                size="lg"
+                variant="soft"
+              />
               <Box sx={{ minWidth: 0 }}>
-                <Typography level="h2" sx={{ fontSize: { xs: '1.6rem', md: '2rem' } }}>
+                <Typography
+                  level="h2"
+                  sx={{ fontSize: { xs: '1.6rem', md: '2rem' } }}
+                >
                   {intent.title}
                 </Typography>
-                <Typography level="title-md" sx={{ color: 'neutral.100', mt: 0.5 }}>
+                <Typography
+                  level="title-md"
+                  sx={{ color: 'neutral.100', mt: 0.5 }}
+                >
                   by {intent.user.displayName}
                 </Typography>
-                <Typography level="body-sm" sx={{ color: 'neutral.200', mt: 0.5 }}>
-                  {formatPlayIntentTimingSummary(intent.availabilityWindow.startsAt, intent.availabilityWindow.endsAt)}
+                <Typography
+                  level="body-sm"
+                  sx={{ color: 'neutral.200', mt: 0.5 }}
+                >
+                  {formatPlayIntentTimingSummary(
+                    intent.availabilityWindow.startsAt,
+                    intent.availabilityWindow.endsAt,
+                  )}
                 </Typography>
               </Box>
             </Stack>
 
-            <Stack spacing={1} sx={{ alignItems: { xs: 'stretch', sm: 'flex-start' } }}>
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ flexWrap: 'wrap', alignItems: { xs: 'stretch', sm: 'flex-start' } }}>
+            <Stack
+              spacing={1}
+              sx={{ alignItems: { xs: 'stretch', sm: 'flex-start' } }}
+            >
+              <Stack
+                direction={{ xs: 'column', sm: 'row' }}
+                spacing={1}
+                sx={{
+                  flexWrap: 'wrap',
+                  alignItems: { xs: 'stretch', sm: 'flex-start' },
+                }}
+              >
                 {isEditingCurrentIntent ? (
                   <Button
                     color="primary"
@@ -463,8 +590,8 @@ export function PlayIntentDetailView() {
                       width: { xs: '100%', sm: 'auto' },
                       '& > *': {
                         flex: { xs: 1, sm: 'initial' },
-                        minWidth: 0
-                      }
+                        minWidth: 0,
+                      },
                     }}
                   >
                     {intent.viewerResponseChoice !== 'interested' ? (
@@ -472,7 +599,12 @@ export function PlayIntentDetailView() {
                         variant="solid"
                         color="primary"
                         disabled={responsePending}
-                        onClick={() => void playViewProps.onRespondToPlayIntent(intent.id, 'interested')}
+                        onClick={() =>
+                          void playViewProps.onRespondToPlayIntent(
+                            intent.id,
+                            'interested',
+                          )
+                        }
                       >
                         I&apos;m interested
                       </Button>
@@ -484,7 +616,9 @@ export function PlayIntentDetailView() {
                         disabled={responsePending}
                         onClick={() => setRunningLateDialogOpen(true)}
                       >
-                        {intent.viewerRunningLate ? 'Update delay' : "I'll be late"}
+                        {intent.viewerRunningLate
+                          ? 'Update delay'
+                          : "I'll be late"}
                       </Button>
                     ) : null}
                     {intent.viewerResponseChoice !== 'pass' ? (
@@ -492,7 +626,12 @@ export function PlayIntentDetailView() {
                         variant="outlined"
                         color="neutral"
                         disabled={responsePending}
-                        onClick={() => void playViewProps.onRespondToPlayIntent(intent.id, 'pass')}
+                        onClick={() =>
+                          void playViewProps.onRespondToPlayIntent(
+                            intent.id,
+                            'pass',
+                          )
+                        }
                       >
                         Can&apos;t make it
                       </Button>
@@ -504,7 +643,11 @@ export function PlayIntentDetailView() {
                     variant={isMuted ? 'soft' : 'outlined'}
                     color="neutral"
                     sx={{ width: { xs: '100%', sm: 'auto' } }}
-                    onClick={() => void (isMuted ? playViewProps.onUnmutePlayIntentUser(intent.user.id) : playViewProps.onMutePlayIntentUser(intent.user.id))}
+                    onClick={() =>
+                      void (isMuted
+                        ? playViewProps.onUnmutePlayIntentUser(intent.user.id)
+                        : playViewProps.onMutePlayIntentUser(intent.user.id))
+                    }
                   >
                     {isMuted ? 'Unmute creator' : 'Mute creator'}
                   </Button>
@@ -514,10 +657,18 @@ export function PlayIntentDetailView() {
                     variant="outlined"
                     color="danger"
                     sx={{ width: { xs: '100%', sm: 'auto' } }}
-                    disabled={playViewProps.playIntentDiscordSpaceDeletePendingIntentId === intent.id}
-                    onClick={() => void playViewProps.onDeletePlayIntentDiscordSpace(intent.id)}
+                    disabled={
+                      playViewProps.playIntentDiscordSpaceDeletePendingIntentId ===
+                      intent.id
+                    }
+                    onClick={() =>
+                      void playViewProps.onDeletePlayIntentDiscordSpace(
+                        intent.id,
+                      )
+                    }
                   >
-                    {playViewProps.playIntentDiscordSpaceDeletePendingIntentId === intent.id
+                    {playViewProps.playIntentDiscordSpaceDeletePendingIntentId ===
+                    intent.id
                       ? 'Removing Discord channel...'
                       : 'Remove Discord channel'}
                   </Button>
@@ -525,22 +676,38 @@ export function PlayIntentDetailView() {
               </Stack>
 
               {hasAdminActionRow ? (
-                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ flexWrap: 'wrap', alignItems: { xs: 'stretch', sm: 'flex-start' } }}>
+                <Stack
+                  direction={{ xs: 'column', sm: 'row' }}
+                  spacing={1}
+                  sx={{
+                    flexWrap: 'wrap',
+                    alignItems: { xs: 'stretch', sm: 'flex-start' },
+                  }}
+                >
                   {canAdminDeleteIntent ? (
                     <Button
                       variant="soft"
                       color="danger"
                       sx={{ width: { xs: '100%', sm: 'auto' } }}
-                      disabled={playViewProps.playIntentDeletePendingIntentId === intent.id}
+                      disabled={
+                        playViewProps.playIntentDeletePendingIntentId ===
+                        intent.id
+                      }
                       onClick={() => {
                         // The last native confirm; it is replaced with a confirm dialog on DashboardModal.
                         // eslint-disable-next-line no-alert
-                        if (typeof window !== 'undefined' && !window.confirm('Delete this call to play and remove its tracked Discord DMs?')) {
+                        if (
+                          typeof window !== 'undefined' &&
+                          !window.confirm(
+                            'Delete this call to play and remove its tracked Discord DMs?',
+                          )
+                        ) {
                           return
                         }
 
                         void (async () => {
-                          const deleted = await playViewProps.onDeletePlayIntent(intent.id)
+                          const deleted =
+                            await playViewProps.onDeletePlayIntent(intent.id)
 
                           if (deleted) {
                             navigate('/play')
@@ -548,7 +715,8 @@ export function PlayIntentDetailView() {
                         })()
                       }}
                     >
-                      {playViewProps.playIntentDeletePendingIntentId === intent.id
+                      {playViewProps.playIntentDeletePendingIntentId ===
+                      intent.id
                         ? 'Deleting call to play...'
                         : 'Delete call to play'}
                     </Button>
@@ -559,16 +727,27 @@ export function PlayIntentDetailView() {
           </Stack>
 
           <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-            <Chip size="sm" color={intent.status === 'active' ? 'success' : 'warning'} variant="soft">
+            <Chip
+              size="sm"
+              color={intent.status === 'active' ? 'success' : 'warning'}
+              variant="soft"
+            >
               {intent.status === 'active' ? 'Active' : 'Ended'}
             </Chip>
             {isScheduledIntent ? (
-              <Chip size="sm" color="warning" variant="soft" startDecorator={<ScheduleRoundedIcon fontSize="small" />}>
+              <Chip
+                size="sm"
+                color="warning"
+                variant="soft"
+                startDecorator={<ScheduleRoundedIcon fontSize="small" />}
+              >
                 Scheduled
               </Chip>
             ) : null}
             <Chip size="sm" color="primary" variant="soft">
-              {intent.selectionMode === 'library' ? 'Any game in library' : 'Selected games'}
+              {intent.selectionMode === 'library'
+                ? 'Any game in library'
+                : 'Selected games'}
             </Chip>
             <Chip size="sm" color="neutral" variant="outlined">
               {formatNotifyScopeLabel(intent.notifyScope)}
@@ -594,23 +773,36 @@ export function PlayIntentDetailView() {
           {intent.viewerResponseChoice ? (
             <Card
               variant="soft"
-              color={intent.viewerResponseChoice === 'interested'
-                ? (intent.viewerRunningLate ? 'warning' : 'success')
-                : 'neutral'}
+              color={
+                intent.viewerResponseChoice === 'interested'
+                  ? intent.viewerRunningLate
+                    ? 'warning'
+                    : 'success'
+                  : 'neutral'
+              }
               sx={{ p: 1.5 }}
             >
               <Typography level="body-sm">
                 {intent.viewerResponseChoice === 'interested'
-                  ? (intent.viewerRunningLate
+                  ? intent.viewerRunningLate
                     ? `You are marked as interested but ${formatRunningLateLabel(intent.viewerRunningLateMinutes).toLowerCase()} for this call to play.`
-                    : 'You are marked as interested in this call to play.')
+                    : 'You are marked as interested in this call to play.'
                   : 'You are marked as unable to make it.'}
               </Typography>
             </Card>
           ) : null}
 
-          {intent.status === 'active' && !isOwnIntent && intent.viewerResponseChoice === 'interested' && intent.allowParticipantInvites ? (
-            <Button variant="soft" onClick={() => setInviteFriendDialogOpen(true)} sx={{ alignSelf: 'flex-start' }}>Invite a friend</Button>
+          {intent.status === 'active' &&
+          !isOwnIntent &&
+          intent.viewerResponseChoice === 'interested' &&
+          intent.allowParticipantInvites ? (
+            <Button
+              variant="soft"
+              onClick={() => setInviteFriendDialogOpen(true)}
+              sx={{ alignSelf: 'flex-start' }}
+            >
+              Invite a friend
+            </Button>
           ) : null}
           {responsePending ? (
             <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
@@ -622,10 +814,15 @@ export function PlayIntentDetailView() {
             <Card
               variant="outlined"
               color="warning"
-              sx={{ p: 1.5, borderColor: 'warning.700', backgroundColor: 'warning.900' }}
+              sx={{
+                p: 1.5,
+                borderColor: 'warning.700',
+                backgroundColor: 'warning.900',
+              }}
             >
               <Typography level="body-sm" sx={{ color: 'warning.200' }}>
-                This call is visible in your network, but it does not currently include you.
+                This call is visible in your network, but it does not currently
+                include you.
               </Typography>
             </Card>
           ) : null}
@@ -635,8 +832,11 @@ export function PlayIntentDetailView() {
       <Box
         sx={{
           display: 'grid',
-          gridTemplateColumns: { xs: '1fr', xl: 'minmax(0, 1.75fr) minmax(300px, 1fr)' },
-          gap: 2
+          gridTemplateColumns: {
+            xs: '1fr',
+            xl: 'minmax(0, 1.75fr) minmax(300px, 1fr)',
+          },
+          gap: 2,
         }}
       >
         <Stack spacing={2}>
@@ -646,7 +846,8 @@ export function PlayIntentDetailView() {
               <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
                 {intent.audienceSummary}
               </Typography>
-              {intent.notifyScope === 'specific-discord-server' && intent.targetServers.length > 0 ? (
+              {intent.notifyScope === 'specific-discord-server' &&
+              intent.targetServers.length > 0 ? (
                 <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
                   {intent.targetServers.map((server) => (
                     <Chip
@@ -654,7 +855,14 @@ export function PlayIntentDetailView() {
                       size="sm"
                       color="neutral"
                       variant="outlined"
-                      startDecorator={<Avatar src={server.iconUrl ?? undefined} alt={server.name} size="sm" variant="soft" />}
+                      startDecorator={
+                        <Avatar
+                          src={server.iconUrl ?? undefined}
+                          alt={server.name}
+                          size="sm"
+                          variant="soft"
+                        />
+                      }
                     >
                       {server.name}
                     </Chip>
@@ -669,7 +877,14 @@ export function PlayIntentDetailView() {
                       size="sm"
                       color="neutral"
                       variant="soft"
-                      startDecorator={<Avatar src={friend.avatarUrl ?? undefined} alt={friend.displayName} size="sm" variant="soft" />}
+                      startDecorator={
+                        <Avatar
+                          src={friend.avatarUrl ?? undefined}
+                          alt={friend.displayName}
+                          size="sm"
+                          variant="soft"
+                        />
+                      }
                     >
                       {friend.displayName}
                     </Chip>
@@ -682,15 +897,26 @@ export function PlayIntentDetailView() {
           {libraryWideScope ? (
             <Card variant="outlined" sx={{ p: 3 }}>
               <Stack spacing={1.5}>
-                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }}>
+                <Stack
+                  direction={{ xs: 'column', sm: 'row' }}
+                  spacing={1}
+                  justifyContent="space-between"
+                  alignItems={{ xs: 'flex-start', sm: 'center' }}
+                >
                   <Box>
-                    <Typography level="title-md">{libraryWideScopeHeading}</Typography>
-                    <Typography level="body-sm" sx={{ color: 'neutral.300', mt: 0.5 }}>
+                    <Typography level="title-md">
+                      {libraryWideScopeHeading}
+                    </Typography>
+                    <Typography
+                      level="body-sm"
+                      sx={{ color: 'neutral.300', mt: 0.5 }}
+                    >
                       {libraryWideScopeDescription}
                     </Typography>
                   </Box>
                   <Chip size="sm" color="primary" variant="soft">
-                    {matchingGameCount} {matchingGameCount === 1 ? 'match' : 'matches'}
+                    {matchingGameCount}{' '}
+                    {matchingGameCount === 1 ? 'match' : 'matches'}
                   </Chip>
                 </Stack>
 
@@ -698,9 +924,15 @@ export function PlayIntentDetailView() {
                   <Stack spacing={1.5}>
                     {libraryWideScope.kind === 'shared-library' ? (
                       <Box>
-                        <Typography level="title-sm">Matches with your library</Typography>
-                        <Typography level="body-sm" sx={{ color: 'neutral.400', mt: 0.5 }}>
-                          These are the games you can use right now because they appear in both libraries.
+                        <Typography level="title-sm">
+                          Matches with your library
+                        </Typography>
+                        <Typography
+                          level="body-sm"
+                          sx={{ color: 'neutral.400', mt: 0.5 }}
+                        >
+                          These are the games you can use right now because they
+                          appear in both libraries.
                         </Typography>
                       </Box>
                     ) : null}
@@ -712,17 +944,25 @@ export function PlayIntentDetailView() {
                             gameId: game.id,
                             title: game.title,
                             coverUrl: game.coverUrl,
-                            platformLabels: game.platformLabels
+                            platformLabels: game.platformLabels,
                           }}
                           canAddToLibrary={playViewProps.isSignedIn}
-                          isInLibrary={playViewProps.libraryGameIds.has(game.id)}
-                          isAddingToLibrary={playViewProps.addingLibraryGameId === game.id}
-                          supportingText={libraryWideScope.kind === 'creator-library' ? 'Covered by this call' : 'Current overlap'}
+                          isInLibrary={playViewProps.libraryGameIds.has(
+                            game.id,
+                          )}
+                          isAddingToLibrary={
+                            playViewProps.addingLibraryGameId === game.id
+                          }
+                          supportingText={
+                            libraryWideScope.kind === 'creator-library'
+                              ? 'Covered by this call'
+                              : 'Current overlap'
+                          }
                           detailLines={[
                             libraryWideScope.kind === 'creator-library'
-                              ? 'This title is included because the call covers the creator\'s full active library.'
-                              : 'This title is part of the current overlap between your library and the creator\'s library.',
-                            `Platforms: ${game.platformLabels.join(', ')}`
+                              ? "This title is included because the call covers the creator's full active library."
+                              : "This title is part of the current overlap between your library and the creator's library.",
+                            `Platforms: ${game.platformLabels.join(', ')}`,
                           ]}
                           badges={buildGameBadges(game.platformLabels)}
                           footerBadge={null}
@@ -735,27 +975,38 @@ export function PlayIntentDetailView() {
                         size="sm"
                         variant="plain"
                         color={showNonOverlappingGames ? 'warning' : 'neutral'}
-                        onClick={() => setShowNonOverlappingGames((currentValue) => !currentValue)}
+                        onClick={() =>
+                          setShowNonOverlappingGames(
+                            (currentValue) => !currentValue,
+                          )
+                        }
                         sx={{ alignSelf: 'flex-start' }}
                       >
                         {showNonOverlappingGames
-                          ? 'Hide games that don\'t match'
+                          ? "Hide games that don't match"
                           : `Show games that don't match (${creatorOnlyGameCount})`}
                       </Button>
                     ) : null}
                   </Stack>
                 ) : (
                   <EmptyStateCard
-                    title={libraryWideScope.kind === 'creator-library' ? 'No active library titles yet' : 'No shared games yet'}
+                    title={
+                      libraryWideScope.kind === 'creator-library'
+                        ? 'No active library titles yet'
+                        : 'No shared games yet'
+                    }
                     body={libraryWideScopeDescription}
                   />
                 )}
 
                 {canRevealNonOverlappingGames && showNonOverlappingGames ? (
                   <Stack spacing={1.5}>
-                    <Typography level="title-sm">Only in {intent.user.displayName}&apos;s library</Typography>
+                    <Typography level="title-sm">
+                      Only in {intent.user.displayName}&apos;s library
+                    </Typography>
                     <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
-                      These titles are part of the creator&apos;s active library, but they do not currently overlap with yours.
+                      These titles are part of the creator&apos;s active
+                      library, but they do not currently overlap with yours.
                     </Typography>
                     <Box sx={memberGameGridSx}>
                       {libraryWideScope.nonOverlappingGames.map((game) => (
@@ -765,15 +1016,19 @@ export function PlayIntentDetailView() {
                             gameId: game.id,
                             title: game.title,
                             coverUrl: game.coverUrl,
-                            platformLabels: game.platformLabels
+                            platformLabels: game.platformLabels,
                           }}
                           canAddToLibrary={playViewProps.isSignedIn}
-                          isInLibrary={playViewProps.libraryGameIds.has(game.id)}
-                          isAddingToLibrary={playViewProps.addingLibraryGameId === game.id}
+                          isInLibrary={playViewProps.libraryGameIds.has(
+                            game.id,
+                          )}
+                          isAddingToLibrary={
+                            playViewProps.addingLibraryGameId === game.id
+                          }
                           supportingText="Not in your current overlap"
                           detailLines={[
                             `This title is in ${intent.user.displayName}'s library, but it does not currently overlap with yours.`,
-                            `Platforms: ${game.platformLabels.join(', ')}`
+                            `Platforms: ${game.platformLabels.join(', ')}`,
                           ]}
                           badges={buildGameBadges(game.platformLabels)}
                           footerBadge={null}
@@ -809,7 +1064,10 @@ export function PlayIntentDetailView() {
               <Stack spacing={0.75}>
                 <CallDetailRow
                   label="Timing"
-                  value={formatCallDetailTimingLabel(intent.availabilityWindow.startsAt, intent.availabilityWindow.endsAt)}
+                  value={formatCallDetailTimingLabel(
+                    intent.availabilityWindow.startsAt,
+                    intent.availabilityWindow.endsAt,
+                  )}
                 />
                 <CallDetailRow
                   label="Ends"
@@ -819,53 +1077,71 @@ export function PlayIntentDetailView() {
                   label="Created"
                   value={formatDateTimeLabel(intent.createdAt)}
                 />
-                {(intent.discordSpace || intent.voiceChannelName) ? (
-                  <Card
-                    variant="soft"
-                    color="primary"
-                    sx={{ p: 1.5, mt: 0.5 }}
-                  >
+                {intent.discordSpace || intent.voiceChannelName ? (
+                  <Card variant="soft" color="primary" sx={{ p: 1.5, mt: 0.5 }}>
                     <Stack spacing={1.25}>
                       {intent.discordSpace?.status === 'deleted' ? (
-                        <Typography level="body-xs" sx={{ color: 'neutral.300' }}>
+                        <Typography
+                          level="body-xs"
+                          sx={{ color: 'neutral.300' }}
+                        >
                           This temporary Discord channel has been deleted.
                         </Typography>
                       ) : null}
 
-                      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }}>
+                      <Stack
+                        direction={{ xs: 'column', sm: 'row' }}
+                        spacing={1}
+                        justifyContent="space-between"
+                        alignItems={{ xs: 'flex-start', sm: 'center' }}
+                      >
                         <Typography level="title-sm">Discord access</Typography>
                         {intent.discordSpace ? (
                           <Chip size="sm" color="primary" variant="soft">
-                            {formatDiscordSpaceStatusLabel(intent.discordSpace.status)}
+                            {formatDiscordSpaceStatusLabel(
+                              intent.discordSpace.status,
+                            )}
                           </Chip>
                         ) : null}
                       </Stack>
 
-                      {intent.discordSpace?.textChannelUrl || intent.discordSpace?.voiceChannelUrl || intent.discordSpace?.inviteUrl ? (
+                      {intent.discordSpace?.textChannelUrl ||
+                      intent.discordSpace?.voiceChannelUrl ||
+                      intent.discordSpace?.inviteUrl ? (
                         <Box
                           sx={{
                             display: 'grid',
                             gap: 1,
                             gridTemplateColumns: {
                               xs: '1fr',
-                              sm: 'repeat(2, minmax(0, 1fr))'
-                            }
+                              sm: 'repeat(2, minmax(0, 1fr))',
+                            },
                           }}
                         >
                           {intent.discordSpace?.textChannelUrl ? (
                             <DiscordChannelButton
                               href={intent.discordSpace.textChannelUrl}
-                              label={intent.discordSpace.textChannelName ?? 'Open text channel'}
+                              label={
+                                intent.discordSpace.textChannelName ??
+                                'Open text channel'
+                              }
                               icon={<ChatBubbleRoundedIcon />}
-                              disabled={intent.discordSpace.status === 'deleted'}
+                              disabled={
+                                intent.discordSpace.status === 'deleted'
+                              }
                             />
                           ) : null}
                           {intent.discordSpace?.voiceChannelUrl ? (
                             <DiscordChannelButton
                               href={intent.discordSpace.voiceChannelUrl}
-                              label={intent.discordSpace.voiceChannelName ?? 'Open voice channel'}
+                              label={
+                                intent.discordSpace.voiceChannelName ??
+                                'Open voice channel'
+                              }
                               icon={<HeadsetMicRoundedIcon />}
-                              disabled={intent.discordSpace.status === 'deleted'}
+                              disabled={
+                                intent.discordSpace.status === 'deleted'
+                              }
                             />
                           ) : null}
                           {intent.discordSpace?.inviteUrl ? (
@@ -874,25 +1150,32 @@ export function PlayIntentDetailView() {
                               label="Open or share Discord invite"
                               icon={<OpenInNewRoundedIcon />}
                               color="neutral"
-                              disabled={intent.discordSpace.status === 'deleted'}
+                              disabled={
+                                intent.discordSpace.status === 'deleted'
+                              }
                             />
                           ) : null}
                         </Box>
                       ) : null}
 
-                      {intent.discordSpace?.inviteUrl && intent.discordSpace.status !== 'deleted' ? (
+                      {intent.discordSpace?.inviteUrl &&
+                      intent.discordSpace.status !== 'deleted' ? (
                         <Typography level="body-xs">
-                          Share the Discord invite to give someone access to these temporary channels,
-                          even if they already belong to the server. Direct channel links require access first.
+                          Share the Discord invite to give someone access to
+                          these temporary channels, even if they already belong
+                          to the server. Direct channel links require access
+                          first.
                         </Typography>
                       ) : null}
 
-                      {intent.discordSpace?.textChannelUrl == null && intent.discordSpace?.textChannelName ? (
+                      {intent.discordSpace?.textChannelUrl == null &&
+                      intent.discordSpace?.textChannelName ? (
                         <DiscordDetailTextRow icon={<ChatBubbleRoundedIcon />}>
                           Text channel: {intent.discordSpace.textChannelName}
                         </DiscordDetailTextRow>
                       ) : null}
-                      {intent.discordSpace?.voiceChannelUrl == null && intent.discordSpace?.voiceChannelName ? (
+                      {intent.discordSpace?.voiceChannelUrl == null &&
+                      intent.discordSpace?.voiceChannelName ? (
                         <DiscordDetailTextRow icon={<HeadsetMicRoundedIcon />}>
                           Voice channel: {intent.discordSpace.voiceChannelName}
                         </DiscordDetailTextRow>
@@ -904,8 +1187,15 @@ export function PlayIntentDetailView() {
                       ) : null}
 
                       {intent.discordSpace?.lastSyncError ? (
-                        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'flex-start', sm: 'center' }}>
-                          <Typography level="body-xs" sx={{ color: 'warning.200', flex: 1 }}>
+                        <Stack
+                          direction={{ xs: 'column', sm: 'row' }}
+                          spacing={1}
+                          alignItems={{ xs: 'flex-start', sm: 'center' }}
+                        >
+                          <Typography
+                            level="body-xs"
+                            sx={{ color: 'warning.200', flex: 1 }}
+                          >
                             {intent.discordSpace.lastSyncError}
                           </Typography>
                           {canRetryDiscordSpace ? (
@@ -913,11 +1203,19 @@ export function PlayIntentDetailView() {
                               size="sm"
                               variant="soft"
                               color="warning"
-                              disabled={playViewProps.playIntentDiscordSpaceRetryPendingIntentId === intent.id}
-                              onClick={() => void playViewProps.onRetryPlayIntentDiscordSpace(intent.id)}
+                              disabled={
+                                playViewProps.playIntentDiscordSpaceRetryPendingIntentId ===
+                                intent.id
+                              }
+                              onClick={() =>
+                                void playViewProps.onRetryPlayIntentDiscordSpace(
+                                  intent.id,
+                                )
+                              }
                               sx={{ flexShrink: 0 }}
                             >
-                              {playViewProps.playIntentDiscordSpaceRetryPendingIntentId === intent.id
+                              {playViewProps.playIntentDiscordSpaceRetryPendingIntentId ===
+                              intent.id
                                 ? 'Retrying...'
                                 : 'Retry access'}
                             </Button>
@@ -936,7 +1234,9 @@ export function PlayIntentDetailView() {
               <Typography level="title-md">Responses</Typography>
               <Box>
                 <PlayIntentResponseUserList
-                  users={intent.interestedUsers.filter((user) => !user.runningLate)}
+                  users={intent.interestedUsers.filter(
+                    (user) => !user.runningLate,
+                  )}
                   label="Interested players"
                   tone="interested"
                   discoveryPeopleById={discoveryPeopleById}
@@ -952,9 +1252,17 @@ export function PlayIntentDetailView() {
               </Box>
 
               {intent.interestedUsers.some((user) => user.runningLate) ? (
-                <Box sx={{ pt: 2, borderTop: '1px solid', borderColor: 'neutral.700' }}>
+                <Box
+                  sx={{
+                    pt: 2,
+                    borderTop: '1px solid',
+                    borderColor: 'neutral.700',
+                  }}
+                >
                   <PlayIntentResponseUserList
-                    users={intent.interestedUsers.filter((user) => user.runningLate)}
+                    users={intent.interestedUsers.filter(
+                      (user) => user.runningLate,
+                    )}
                     label="Running late"
                     tone="late"
                     discoveryPeopleById={discoveryPeopleById}
@@ -965,8 +1273,16 @@ export function PlayIntentDetailView() {
                 </Box>
               ) : null}
 
-              {isOwnIntent || intent.notifyScope === 'specific-friends' || intent.notifyScope === 'friends-list' ? (
-                <Box sx={{ pt: 2, borderTop: '1px solid', borderColor: 'neutral.700' }}>
+              {isOwnIntent ||
+              intent.notifyScope === 'specific-friends' ||
+              intent.notifyScope === 'friends-list' ? (
+                <Box
+                  sx={{
+                    pt: 2,
+                    borderTop: '1px solid',
+                    borderColor: 'neutral.700',
+                  }}
+                >
                   <PlayIntentResponseUserList
                     users={intent.passedUsers}
                     label="Can't make it"
@@ -993,13 +1309,20 @@ export function PlayIntentDetailView() {
           <Typography level="body-sm">{errorMessage}</Typography>
         </Card>
       ) : null}
-      <InvitePlayIntentFriendDialog key={intent.id} playIntentId={intent.id} open={inviteFriendDialogOpen} onClose={() => setInviteFriendDialogOpen(false)} />
+      <InvitePlayIntentFriendDialog
+        key={intent.id}
+        playIntentId={intent.id}
+        open={inviteFriendDialogOpen}
+        onClose={() => setInviteFriendDialogOpen(false)}
+      />
       <RunningLateDialog
         open={runningLateDialogOpen}
         minutes={intent.viewerRunningLateMinutes}
         pending={responsePending}
         onClose={() => setRunningLateDialogOpen(false)}
-        onSave={(minutes) => playViewProps.onRespondToPlayIntent(intent.id, 'late', minutes)}
+        onSave={(minutes) =>
+          playViewProps.onRespondToPlayIntent(intent.id, 'late', minutes)
+        }
       />
     </Stack>
   )

@@ -14,7 +14,11 @@
  * distinguishable from the gold primary. Nav chrome stays neutral: gold is
  * reserved for controls and accents, not borders or active-tab fills.
  */
-import { buildChromeCssVars, createAppTheme, type GameThemePalette } from './buildTheme'
+import {
+  buildChromeCssVars,
+  createAppTheme,
+  type GameThemePalette,
+} from './buildTheme'
 import { classicChrome, classicTheme } from './theme'
 
 export type AppThemeId = 'gold-bubble' | 'classic'
@@ -61,7 +65,7 @@ const GOLD_BUBBLE_CHROME: GameThemePalette['chrome'] = {
   modalDialogBackground: '#171821',
   modalDialogBorder: '#3a3d4a',
   primarySoftCardGradientStart: '#241d0e',
-  primarySoftCardGradientEnd: '#241d0e'
+  primarySoftCardGradientEnd: '#241d0e',
 }
 
 const goldBubbleTheme = createAppTheme({
@@ -86,7 +90,7 @@ const goldBubbleTheme = createAppTheme({
     solidBg: '#f7b733',
     solidColor: '#6b4a08',
     solidHoverBg: '#e9a51d',
-    solidActiveBg: '#d29113'
+    solidActiveBg: '#d29113',
   },
   warning: {
     50: '#fff4e3',
@@ -98,7 +102,7 @@ const goldBubbleTheme = createAppTheme({
     600: '#b96c06',
     700: '#8c5205',
     800: '#653b03',
-    900: '#472a02'
+    900: '#472a02',
   },
   neutral: {
     50: '#f7f7f8',
@@ -110,7 +114,7 @@ const goldBubbleTheme = createAppTheme({
     600: '#4d505e',
     700: '#353742',
     800: '#232430',
-    900: '#16171f'
+    900: '#16171f',
   },
   chrome: GOLD_BUBBLE_CHROME,
   background: {
@@ -119,14 +123,14 @@ const goldBubbleTheme = createAppTheme({
     popup: '#1e1f28',
     level1: '#1d1e27',
     level2: '#242531',
-    level3: '#2d2e3c'
+    level3: '#2d2e3c',
   },
   text: {
     primary: '#ffffff',
     secondary: '#e2e3e9',
     tertiary: '#c0c2cc',
-    icon: '#c0c2cc'
-  }
+    icon: '#c0c2cc',
+  },
 })
 
 export interface AppThemeVariant {
@@ -144,20 +148,22 @@ export const appThemeVariants: Record<AppThemeId, AppThemeVariant> = {
   'gold-bubble': {
     label: 'Gold Bubble',
     theme: goldBubbleTheme,
-    chromeCssVars: buildChromeCssVars(GOLD_BUBBLE_CHROME)
+    chromeCssVars: buildChromeCssVars(GOLD_BUBBLE_CHROME),
   },
   classic: {
     label: 'Classic',
     theme: classicTheme,
-    chromeCssVars: buildChromeCssVars(classicChrome)
-  }
+    chromeCssVars: buildChromeCssVars(classicChrome),
+  },
 }
 
 /** Ordered options for theme pickers. */
-export const appThemeOptions: ReadonlyArray<{ value: AppThemeId; label: string }> =
-  (Object.entries(appThemeVariants) as Array<[AppThemeId, AppThemeVariant]>).map(
-    ([value, variant]) => ({ value, label: variant.label })
-  )
+export const appThemeOptions: ReadonlyArray<{
+  value: AppThemeId
+  label: string
+}> = (
+  Object.entries(appThemeVariants) as Array<[AppThemeId, AppThemeVariant]>
+).map(([value, variant]) => ({ value, label: variant.label }))
 
 export function isAppThemeId(value: unknown): value is AppThemeId {
   return typeof value === 'string' && value in appThemeVariants

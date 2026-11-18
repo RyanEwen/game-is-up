@@ -4,37 +4,67 @@ import {
   createDiscordSpaceInvite,
   ensurePlayIntentDiscordSpaceInvite,
   inviteGrantsDiscordSpaceRole,
-  sweepUpgradePlayIntentDiscordSpaceInvites
+  sweepUpgradePlayIntentDiscordSpaceInvites,
 } from './discord-space-invites.js'
 
 test('shareable space invites grant the channel role without restricting recipients', async () => {
-  const invite = await createDiscordSpaceInvite('public-channel', 'space-role', {
-    post: async (route, options) => {
-      assert.equal(route, '/channels/public-channel/invites')
-      assert.deepEqual(options?.body, {
-        max_age: 0,
-        max_uses: 0,
-        temporary: false,
-        unique: true,
-        role_ids: ['space-role']
-      })
-      return { code: 'role-invite', uses: 0 }
-    }
-  })
+  const invite = await createDiscordSpaceInvite(
+    'public-channel',
+    'space-role',
+    {
+      post: async (route, options) => {
+        assert.equal(route, '/channels/public-channel/invites')
+        assert.deepEqual(options?.body, {
+          max_age: 0,
+          max_uses: 0,
+          temporary: false,
+          unique: true,
+          role_ids: ['space-role'],
+        })
+        return { code: 'role-invite', uses: 0 }
+      },
+    },
+  )
 
   assert.equal(invite.url, 'https://discord.gg/role-invite')
 })
 
 test('legacy invites and invites granting additional roles cannot be reused', () => {
-  assert.equal(inviteGrantsDiscordSpaceRole({ code: 'legacy' }, 'space-role'), false)
-  assert.equal(inviteGrantsDiscordSpaceRole({ code: 'empty', roles: [] }, 'space-role'), false)
-  assert.equal(inviteGrantsDiscordSpaceRole({ code: 'other', roles: [{ id: 'other-role' }] }, 'space-role'), false)
-  assert.equal(inviteGrantsDiscordSpaceRole({
-    code: 'extra', roles: [{ id: 'space-role' }, { id: 'other-role' }]
-  }, 'space-role'), false)
-  assert.equal(inviteGrantsDiscordSpaceRole({
-    code: 'correct', roles: [{ id: 'space-role' }]
-  }, 'space-role'), true)
+  assert.equal(
+    inviteGrantsDiscordSpaceRole({ code: 'legacy' }, 'space-role'),
+    false,
+  )
+  assert.equal(
+    inviteGrantsDiscordSpaceRole({ code: 'empty', roles: [] }, 'space-role'),
+    false,
+  )
+  assert.equal(
+    inviteGrantsDiscordSpaceRole(
+      { code: 'other', roles: [{ id: 'other-role' }] },
+      'space-role',
+    ),
+    false,
+  )
+  assert.equal(
+    inviteGrantsDiscordSpaceRole(
+      {
+        code: 'extra',
+        roles: [{ id: 'space-role' }, { id: 'other-role' }],
+      },
+      'space-role',
+    ),
+    false,
+  )
+  assert.equal(
+    inviteGrantsDiscordSpaceRole(
+      {
+        code: 'correct',
+        roles: [{ id: 'space-role' }],
+      },
+      'space-role',
+    ),
+    true,
+  )
 })
 
 test('upgrade sweep refreshes existing Discord messages only when an invite changes', async () => {
@@ -44,21 +74,27 @@ test('upgrade sweep refreshes existing Discord messages only when an invite chan
     roleId: 'space-role',
     textChannelId: 'text-channel',
     inviteCode,
-    inviteUseCount: 0
+    inviteUseCount: 0,
   }))
   let refreshes = 0
 
   await sweepUpgradePlayIntentDiscordSpaceInvites({
     findSpaces: async () => spaces,
-    ensureInvite: async (space) => ({ code: space.inviteCode === 'legacy' ? 'replacement' : 'current' }),
-    refreshMessages: async () => { refreshes += 1 }
+    ensureInvite: async (space) => ({
+      code: space.inviteCode === 'legacy' ? 'replacement' : 'current',
+    }),
+    refreshMessages: async () => {
+      refreshes += 1
+    },
   })
   assert.equal(refreshes, 1)
 
   await sweepUpgradePlayIntentDiscordSpaceInvites({
     findSpaces: async () => spaces,
     ensureInvite: async (space) => ({ code: space.inviteCode! }),
-    refreshMessages: async () => { refreshes += 1 }
+    refreshMessages: async () => {
+      refreshes += 1
+    },
   })
   assert.equal(refreshes, 1)
 })
@@ -69,7 +105,7 @@ const legacySpace = {
   roleId: 'space-role',
   textChannelId: 'private-text',
   inviteCode: 'old-invite',
-  inviteUseCount: 3
+  inviteUseCount: 3,
 }
 
 test('legacy invite replacement is persisted before the old invite is retired', async () => {
@@ -81,7 +117,7 @@ test('legacy invite replacement is persisted before the old invite is retired', 
         assert.equal(route, '/channels/public-text/invites')
         phases.push('create')
         return { code: 'new-invite' }
-      }
+      },
     },
     resolvePublicChannelId: async () => 'public-text',
     saveInvite: async (id, replacement) => {
@@ -93,7 +129,7 @@ test('legacy invite replacement is persisted before the old invite is retired', 
     retireInvite: async (code) => {
       assert.equal(code, 'old-invite')
       phases.push('retire')
-    }
+    },
   })
 
   assert.equal(invite.code, 'new-invite')
@@ -101,15 +137,17 @@ test('legacy invite replacement is persisted before the old invite is retired', 
 })
 
 test('a working role invite keeps its shared URL and is not rewritten', async () => {
-  const unexpectedMutation = async () => { assert.fail('working invite must remain unchanged') }
+  const unexpectedMutation = async () => {
+    assert.fail('working invite must remain unchanged')
+  }
   const invite = await ensurePlayIntentDiscordSpaceInvite(legacySpace, {
     rest: {
       get: async () => ({ code: 'old-invite', roles: [{ id: 'space-role' }] }),
-      post: unexpectedMutation
+      post: unexpectedMutation,
     },
     resolvePublicChannelId: unexpectedMutation,
     saveInvite: unexpectedMutation,
-    retireInvite: unexpectedMutation
+    retireInvite: unexpectedMutation,
   })
 
   assert.equal(invite.url, 'https://discord.gg/old-invite')
@@ -118,27 +156,39 @@ test('a working role invite keeps its shared URL and is not rewritten', async ()
 
 test('failed replacement persistence leaves the old invite intact', async () => {
   const retiredCodes: Array<string | null | undefined> = []
-  await assert.rejects(ensurePlayIntentDiscordSpaceInvite(legacySpace, {
-    rest: {
-      get: async () => ({ code: 'old-invite' }),
-      post: async () => ({ code: 'replacement' })
-    },
-    resolvePublicChannelId: async () => 'public-text',
-    saveInvite: async () => { throw new Error('Database unavailable') },
-    retireInvite: async (code) => { retiredCodes.push(code) }
-  }), /Database unavailable/)
+  await assert.rejects(
+    ensurePlayIntentDiscordSpaceInvite(legacySpace, {
+      rest: {
+        get: async () => ({ code: 'old-invite' }),
+        post: async () => ({ code: 'replacement' }),
+      },
+      resolvePublicChannelId: async () => 'public-text',
+      saveInvite: async () => {
+        throw new Error('Database unavailable')
+      },
+      retireInvite: async (code) => {
+        retiredCodes.push(code)
+      },
+    }),
+    /Database unavailable/,
+  )
 
   assert.deepEqual(retiredCodes, ['replacement'])
 })
 
-
 test('invite inspection failures do not prevent the rest of the cleanup sweep', async (context) => {
   const errors: unknown[][] = []
-  context.mock.method(console, 'error', (...args: unknown[]) => { errors.push(args) })
+  context.mock.method(console, 'error', (...args: unknown[]) => {
+    errors.push(args)
+  })
 
   await sweepUpgradePlayIntentDiscordSpaceInvites({
-    findSpaces: async () => { throw new Error('Discord unavailable') },
-    ensureInvite: async () => { assert.fail('lookup failure must not mutate invites') }
+    findSpaces: async () => {
+      throw new Error('Discord unavailable')
+    },
+    ensureInvite: async () => {
+      assert.fail('lookup failure must not mutate invites')
+    },
   })
 
   assert.equal(errors.length, 1)
@@ -150,7 +200,10 @@ test('one failed upgrade does not prevent other spaces from receiving working in
   let refreshes = 0
 
   await sweepUpgradePlayIntentDiscordSpaceInvites({
-    findSpaces: async () => [legacySpace, { ...legacySpace, id: 'second-space' }],
+    findSpaces: async () => [
+      legacySpace,
+      { ...legacySpace, id: 'second-space' },
+    ],
     ensureInvite: async (space) => {
       if (space.id === 'space') {
         throw new Error('Missing permissions')
@@ -159,7 +212,9 @@ test('one failed upgrade does not prevent other spaces from receiving working in
       upgraded.push(space.id)
       return { code: 'replacement' }
     },
-    refreshMessages: async () => { refreshes += 1 }
+    refreshMessages: async () => {
+      refreshes += 1
+    },
   })
 
   assert.deepEqual(upgraded, ['second-space'])

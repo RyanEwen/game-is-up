@@ -1,4 +1,10 @@
-import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from 'react'
+import {
+  useEffect,
+  useRef,
+  useState,
+  type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent,
+} from 'react'
 import { Box, Button, Card, Stack, Typography } from '@mui/joy'
 import type { LibrarySuggestedGame } from '@game-is-up/shared'
 import { formatWeekdayMonthDay } from '../../lib/dateTime'
@@ -10,7 +16,10 @@ function formatObservedLabel(lastObservedAt: string): string {
   return `Seen on Discord ${formatWeekdayMonthDay(lastObservedAt)}`
 }
 
-function buildSuggestionMaskImage(hasOverflowLeft: boolean, hasOverflowRight: boolean) {
+function buildSuggestionMaskImage(
+  hasOverflowLeft: boolean,
+  hasOverflowRight: boolean,
+) {
   if (hasOverflowLeft && hasOverflowRight) {
     return 'linear-gradient(90deg, transparent 0, rgba(0, 0, 0, 1) 2.5rem, rgba(0, 0, 0, 1) calc(100% - 2.5rem), transparent 100%)'
   }
@@ -30,26 +39,28 @@ export function LibrarySuggestionsRow({
   suggestedGames,
   libraryGameIds,
   addingLibraryGameId,
-  onAddToLibrary
+  onAddToLibrary,
 }: {
-  suggestedGames: LibrarySuggestedGame[];
-  libraryGameIds: ReadonlySet<string>;
-  addingLibraryGameId: string | null;
-  onAddToLibrary: (game: DashboardLibraryQuickAddGame) => Promise<void>;
+  suggestedGames: LibrarySuggestedGame[]
+  libraryGameIds: ReadonlySet<string>
+  addingLibraryGameId: string | null
+  onAddToLibrary: (game: DashboardLibraryQuickAddGame) => Promise<void>
 }) {
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const suppressClickRef = useRef(false)
   const dragStateRef = useRef<{
-    pointerId: number;
-    startX: number;
-    startScrollLeft: number;
-    moved: boolean;
+    pointerId: number
+    startX: number
+    startScrollLeft: number
+    moved: boolean
   } | null>(null)
   const [canScroll, setCanScroll] = useState(false)
   const [hasOverflowLeft, setHasOverflowLeft] = useState(false)
   const [hasOverflowRight, setHasOverflowRight] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
-  const maskImage = canScroll ? buildSuggestionMaskImage(hasOverflowLeft, hasOverflowRight) : 'none'
+  const maskImage = canScroll
+    ? buildSuggestionMaskImage(hasOverflowLeft, hasOverflowRight)
+    : 'none'
 
   useEffect(() => {
     const scrollElement = scrollRef.current
@@ -62,17 +73,24 @@ export function LibrarySuggestionsRow({
     }
 
     const updateOverflowState = () => {
-      const maxScrollLeft = Math.max(0, scrollElement.scrollWidth - scrollElement.clientWidth)
+      const maxScrollLeft = Math.max(
+        0,
+        scrollElement.scrollWidth - scrollElement.clientWidth,
+      )
       const nextCanScroll = maxScrollLeft > 1
 
       setCanScroll(nextCanScroll)
       setHasOverflowLeft(nextCanScroll && scrollElement.scrollLeft > 1)
-      setHasOverflowRight(nextCanScroll && scrollElement.scrollLeft < maxScrollLeft - 1)
+      setHasOverflowRight(
+        nextCanScroll && scrollElement.scrollLeft < maxScrollLeft - 1,
+      )
     }
 
     updateOverflowState()
 
-    scrollElement.addEventListener('scroll', updateOverflowState, { passive: true })
+    scrollElement.addEventListener('scroll', updateOverflowState, {
+      passive: true,
+    })
 
     if (typeof ResizeObserver === 'undefined') {
       return () => {
@@ -99,7 +117,10 @@ export function LibrarySuggestionsRow({
   const stopDragging = (pointerId?: number) => {
     const scrollElement = scrollRef.current
 
-    if (pointerId !== undefined && scrollElement?.hasPointerCapture(pointerId)) {
+    if (
+      pointerId !== undefined &&
+      scrollElement?.hasPointerCapture(pointerId)
+    ) {
       scrollElement.releasePointerCapture(pointerId)
     }
 
@@ -127,7 +148,7 @@ export function LibrarySuggestionsRow({
       pointerId: event.pointerId,
       startX: event.clientX,
       startScrollLeft: scrollElement.scrollLeft,
-      moved: false
+      moved: false,
     }
     setIsDragging(true)
   }
@@ -136,7 +157,11 @@ export function LibrarySuggestionsRow({
     const scrollElement = scrollRef.current
     const dragState = dragStateRef.current
 
-    if (!scrollElement || !dragState || dragState.pointerId !== event.pointerId) {
+    if (
+      !scrollElement ||
+      !dragState ||
+      dragState.pointerId !== event.pointerId
+    ) {
       return
     }
 
@@ -170,7 +195,9 @@ export function LibrarySuggestionsRow({
     stopDragging(event.pointerId)
   }
 
-  const handleLostPointerCapture = (event: ReactPointerEvent<HTMLDivElement>) => {
+  const handleLostPointerCapture = (
+    event: ReactPointerEvent<HTMLDivElement>,
+  ) => {
     if (dragStateRef.current?.pointerId !== event.pointerId) {
       return
     }
@@ -196,7 +223,9 @@ export function LibrarySuggestionsRow({
     <Card variant="soft" sx={{ p: 2.25, overflow: 'hidden' }}>
       <Stack spacing={1.25}>
         <Box>
-          <Typography level="title-md">Suggestions based on your activity</Typography>
+          <Typography level="title-md">
+            Suggestions based on your activity
+          </Typography>
         </Box>
         <Box>
           <Stack
@@ -215,15 +244,19 @@ export function LibrarySuggestionsRow({
               overflowY: 'hidden',
               pb: 0.5,
               scrollbarWidth: 'none',
-              cursor: canScroll ? (isDragging ? 'grabbing' : 'grab') : 'default',
+              cursor: canScroll
+                ? isDragging
+                  ? 'grabbing'
+                  : 'grab'
+                : 'default',
               userSelect: isDragging ? 'none' : 'auto',
               touchAction: 'auto',
               WebkitOverflowScrolling: 'touch',
               maskImage,
               WebkitMaskImage: maskImage,
               '&::-webkit-scrollbar': {
-                display: 'none'
-              }
+                display: 'none',
+              },
             }}
           >
             {suggestedGames.map((game) => (
@@ -232,13 +265,18 @@ export function LibrarySuggestionsRow({
                 variant={libraryGameIds.has(game.gameId) ? 'soft' : 'solid'}
                 color={libraryGameIds.has(game.gameId) ? 'neutral' : 'primary'}
                 size="sm"
-                disabled={libraryGameIds.has(game.gameId) || addingLibraryGameId === game.gameId}
-                onClick={() => void onAddToLibrary({
-                  gameId: game.gameId,
-                  title: game.title,
-                  coverUrl: game.coverUrl,
-                  platformLabels: game.platformLabels
-                })}
+                disabled={
+                  libraryGameIds.has(game.gameId) ||
+                  addingLibraryGameId === game.gameId
+                }
+                onClick={() =>
+                  void onAddToLibrary({
+                    gameId: game.gameId,
+                    title: game.title,
+                    coverUrl: game.coverUrl,
+                    platformLabels: game.platformLabels,
+                  })
+                }
                 sx={{
                   flexShrink: 0,
                   minWidth: 'max-content',
@@ -247,24 +285,35 @@ export function LibrarySuggestionsRow({
                   alignSelf: 'flex-start',
                   cursor: 'pointer',
                   boxShadow: 'none',
-                  transition: 'background-color 180ms ease, color 180ms ease, transform 180ms ease, box-shadow 180ms ease',
+                  transition:
+                    'background-color 180ms ease, color 180ms ease, transform 180ms ease, box-shadow 180ms ease',
                   '&:hover': {
-                    backgroundColor: libraryGameIds.has(game.gameId) ? undefined : 'primary.400',
-                    color: libraryGameIds.has(game.gameId) ? undefined : 'common.white',
-                    transform: libraryGameIds.has(game.gameId) ? undefined : 'translateY(-1px)',
-                    boxShadow: libraryGameIds.has(game.gameId) ? undefined : '0 0 0 1px rgba(var(--joy-palette-primary-lightChannel) / 0.22)'
+                    backgroundColor: libraryGameIds.has(game.gameId)
+                      ? undefined
+                      : 'primary.400',
+                    color: libraryGameIds.has(game.gameId)
+                      ? undefined
+                      : 'common.white',
+                    transform: libraryGameIds.has(game.gameId)
+                      ? undefined
+                      : 'translateY(-1px)',
+                    boxShadow: libraryGameIds.has(game.gameId)
+                      ? undefined
+                      : '0 0 0 1px rgba(var(--joy-palette-primary-lightChannel) / 0.22)',
                   },
                   '&:focus-visible': {
                     outline: '2px solid',
                     outlineColor: 'primary.400',
-                    outlineOffset: '3px'
-                  }
+                    outlineOffset: '3px',
+                  },
                 }}
-                title={libraryGameIds.has(game.gameId)
-                  ? `${game.title} is already in your library.`
-                  : game.sourceServerName
-                    ? `${formatObservedLabel(game.lastObservedAt)}. Last noticed in ${game.sourceServerName}.`
-                    : formatObservedLabel(game.lastObservedAt)}
+                title={
+                  libraryGameIds.has(game.gameId)
+                    ? `${game.title} is already in your library.`
+                    : game.sourceServerName
+                      ? `${formatObservedLabel(game.lastObservedAt)}. Last noticed in ${game.sourceServerName}.`
+                      : formatObservedLabel(game.lastObservedAt)
+                }
               >
                 {game.title}
               </Button>

@@ -16,18 +16,34 @@ import {
   upsertUserGameAliasRequestSchema,
   upsertUserPlatformAliasRequestSchema,
   userGameAliasesResponseSchema,
-  userPlatformAliasesResponseSchema
+  userPlatformAliasesResponseSchema,
 } from '@game-is-up/shared'
 import { prisma } from '../lib/prisma.js'
 import { requireSignedInUserId } from '../lib/route-auth.js'
 
 export const aliasesRouter = Router()
 
-const knownPlatforms = ['xbox', 'psn', 'steam', 'epic', 'nintendo', 'battlenet', 'ubisoft', 'ea', 'gog', 'itch'] as const
-const platformParamSchema = z.string().trim().min(1).max(32).refine(
-  (value) => /^[a-z0-9_-]+$/.test(value),
-  'Platform identifier must be lowercase alphanumeric with hyphens or underscores.'
-)
+const knownPlatforms = [
+  'xbox',
+  'psn',
+  'steam',
+  'epic',
+  'nintendo',
+  'battlenet',
+  'ubisoft',
+  'ea',
+  'gog',
+  'itch',
+] as const
+const platformParamSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(32)
+  .refine(
+    (value) => /^[a-z0-9_-]+$/.test(value),
+    'Platform identifier must be lowercase alphanumeric with hyphens or underscores.',
+  )
 
 const gameIdParamSchema = z.object({ gameId: z.string().uuid() })
 
@@ -43,7 +59,7 @@ aliasesRouter.get('/platforms', async (request, response, next) => {
     const aliases = await prisma.userPlatformAlias.findMany({
       where: { userId },
       orderBy: { platform: 'asc' },
-      select: { id: true, platform: true, aliasValue: true }
+      select: { id: true, platform: true, aliasValue: true },
     })
 
     response.json(userPlatformAliasesResponseSchema.parse({ aliases }))
@@ -63,7 +79,9 @@ aliasesRouter.put('/platforms/:platform', async (request, response, next) => {
   const platformParse = platformParamSchema.safeParse(request.params.platform)
 
   if (!platformParse.success) {
-    response.status(400).json({ error: platformParse.error.errors[0]?.message ?? 'Invalid platform.' })
+    response.status(400).json({
+      error: platformParse.error.errors[0]?.message ?? 'Invalid platform.',
+    })
     return
   }
 
@@ -76,7 +94,7 @@ aliasesRouter.put('/platforms/:platform', async (request, response, next) => {
       where: { userId_platform: { userId, platform } },
       create: { userId, platform, aliasValue: payload.aliasValue },
       update: { aliasValue: payload.aliasValue },
-      select: { id: true, platform: true, aliasValue: true }
+      select: { id: true, platform: true, aliasValue: true },
     })
 
     response.json(userPlatformAliasesResponseSchema.parse({ aliases: [alias] }))
@@ -86,32 +104,37 @@ aliasesRouter.put('/platforms/:platform', async (request, response, next) => {
 })
 
 // DELETE /api/aliases/platforms/:platform
-aliasesRouter.delete('/platforms/:platform', async (request, response, next) => {
-  const userId = requireSignedInUserId(request, response)
+aliasesRouter.delete(
+  '/platforms/:platform',
+  async (request, response, next) => {
+    const userId = requireSignedInUserId(request, response)
 
-  if (!userId) {
-    return
-  }
+    if (!userId) {
+      return
+    }
 
-  const platformParse = platformParamSchema.safeParse(request.params.platform)
+    const platformParse = platformParamSchema.safeParse(request.params.platform)
 
-  if (!platformParse.success) {
-    response.status(400).json({ error: platformParse.error.errors[0]?.message ?? 'Invalid platform.' })
-    return
-  }
+    if (!platformParse.success) {
+      response.status(400).json({
+        error: platformParse.error.errors[0]?.message ?? 'Invalid platform.',
+      })
+      return
+    }
 
-  const platform = platformParse.data
+    const platform = platformParse.data
 
-  try {
-    await prisma.userPlatformAlias.deleteMany({
-      where: { userId, platform }
-    })
+    try {
+      await prisma.userPlatformAlias.deleteMany({
+        where: { userId, platform },
+      })
 
-    response.json({ deleted: true })
-  } catch (error) {
-    next(error)
-  }
-})
+      response.json({ deleted: true })
+    } catch (error) {
+      next(error)
+    }
+  },
+)
 
 // GET /api/aliases/games
 aliasesRouter.get('/games', async (request, response, next) => {
@@ -129,18 +152,20 @@ aliasesRouter.get('/games', async (request, response, next) => {
         id: true,
         gameId: true,
         aliasValue: true,
-        game: { select: { title: true } }
-      }
+        game: { select: { title: true } },
+      },
     })
 
-    response.json(userGameAliasesResponseSchema.parse({
-      aliases: aliases.map((alias) => ({
-        id: alias.id,
-        gameId: alias.gameId,
-        gameTitle: alias.game.title,
-        aliasValue: alias.aliasValue
-      }))
-    }))
+    response.json(
+      userGameAliasesResponseSchema.parse({
+        aliases: aliases.map((alias) => ({
+          id: alias.id,
+          gameId: alias.gameId,
+          gameTitle: alias.game.title,
+          aliasValue: alias.aliasValue,
+        })),
+      }),
+    )
   } catch (error) {
     next(error)
   }
@@ -166,7 +191,7 @@ aliasesRouter.put('/games/:gameId', async (request, response, next) => {
   try {
     const game = await prisma.game.findUnique({
       where: { id: gameId },
-      select: { id: true, title: true }
+      select: { id: true, title: true },
     })
 
     if (!game) {
@@ -180,17 +205,21 @@ aliasesRouter.put('/games/:gameId', async (request, response, next) => {
       where: { userId_gameId: { userId, gameId } },
       create: { userId, gameId, aliasValue: payload.aliasValue },
       update: { aliasValue: payload.aliasValue },
-      select: { id: true, gameId: true, aliasValue: true }
+      select: { id: true, gameId: true, aliasValue: true },
     })
 
-    response.json(userGameAliasesResponseSchema.parse({
-      aliases: [{
-        id: alias.id,
-        gameId: alias.gameId,
-        gameTitle: game.title,
-        aliasValue: alias.aliasValue
-      }]
-    }))
+    response.json(
+      userGameAliasesResponseSchema.parse({
+        aliases: [
+          {
+            id: alias.id,
+            gameId: alias.gameId,
+            gameTitle: game.title,
+            aliasValue: alias.aliasValue,
+          },
+        ],
+      }),
+    )
   } catch (error) {
     next(error)
   }
@@ -215,7 +244,7 @@ aliasesRouter.delete('/games/:gameId', async (request, response, next) => {
 
   try {
     await prisma.userGameAlias.deleteMany({
-      where: { userId, gameId }
+      where: { userId, gameId },
     })
 
     response.json({ deleted: true })

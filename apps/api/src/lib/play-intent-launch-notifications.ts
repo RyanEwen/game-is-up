@@ -16,45 +16,53 @@ import {
   AuthProvider,
   NotificationType,
   PlayIntentSelectionMode,
-  Prisma
+  Prisma,
 } from '@prisma/client'
 import { prisma } from './prisma.js'
 import { getPassedUsersByPlayIntentId } from './play-intent-interested-users.js'
 import {
   formatGroupLaunchedGameSystemNotification,
   formatVoiceChannelJoinedSystemNotification,
-  type SystemNotificationCopy
+  type SystemNotificationCopy,
 } from './play-intent-system-notifications.js'
 import { syncPlayIntentUpdatesLogDirectMessage } from './play-intent-updates-log.js'
 
 const replyAnchorNotificationTypes = [
   NotificationType.FRIEND_PLAYING,
   NotificationType.SCHEDULED_PLAY_INTENT_REMINDER,
-  NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED
+  NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED,
 ] as NotificationType[]
 
 type CreatedSystemNotification = {
-  id: string;
-  userId: string;
-  playIntentId: string;
-  title: string;
-  body: string;
+  id: string
+  userId: string
+  playIntentId: string
+  title: string
+  body: string
 }
 
 export function resolvePlayIntentActivityRecipientUserIds(options: {
-  creatorUserId: string;
-  triggeredByUserId: string;
-  declinedUserIds: string[];
-  audienceRecipientUserIds: string[];
+  creatorUserId: string
+  triggeredByUserId: string
+  declinedUserIds: string[]
+  audienceRecipientUserIds: string[]
 }) {
-  const audienceRecipientUserIds = [...new Set(options.audienceRecipientUserIds.filter(Boolean))]
+  const audienceRecipientUserIds = [
+    ...new Set(options.audienceRecipientUserIds.filter(Boolean)),
+  ]
   const declinedUserIds = new Set(options.declinedUserIds.filter(Boolean))
-  const eligibleAudienceRecipientUserIds = audienceRecipientUserIds.filter((userId) => !declinedUserIds.has(userId))
+  const eligibleAudienceRecipientUserIds = audienceRecipientUserIds.filter(
+    (userId) => !declinedUserIds.has(userId),
+  )
   const actorIsCreator = options.creatorUserId === options.triggeredByUserId
-  const actorIsAudienceRecipient = audienceRecipientUserIds.includes(options.triggeredByUserId)
+  const actorIsAudienceRecipient = audienceRecipientUserIds.includes(
+    options.triggeredByUserId,
+  )
 
   if (actorIsCreator) {
-    return eligibleAudienceRecipientUserIds.filter((userId) => userId !== options.triggeredByUserId)
+    return eligibleAudienceRecipientUserIds.filter(
+      (userId) => userId !== options.triggeredByUserId,
+    )
   }
 
   if (!actorIsAudienceRecipient) {
@@ -63,34 +71,38 @@ export function resolvePlayIntentActivityRecipientUserIds(options: {
 
   return [
     options.creatorUserId,
-    ...eligibleAudienceRecipientUserIds.filter((userId) => userId !== options.triggeredByUserId)
+    ...eligibleAudienceRecipientUserIds.filter(
+      (userId) => userId !== options.triggeredByUserId,
+    ),
   ]
 }
 
 export function buildPlayIntentActivityDeduplicationKey(options: {
-  playIntentId: string;
-  title: string;
-  gameId?: string | null;
+  playIntentId: string
+  title: string
+  gameId?: string | null
 }) {
   return `play-intent-activity:${options.playIntentId}:${options.title}:${options.gameId ?? 'no-game'}`
 }
 
 async function lockLaunchNotification(
   transaction: Prisma.TransactionClient,
-  key: string
+  key: string,
 ) {
   await transaction.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${key}))`
 }
 
 async function createSystemNotificationsIfMissing(options: {
-  recipientUserIds: string[];
-  triggeredByUserId: string;
-  playIntentId: string;
-  gameId?: string | null;
-  title: string;
-  body: string;
+  recipientUserIds: string[]
+  triggeredByUserId: string
+  playIntentId: string
+  gameId?: string | null
+  title: string
+  body: string
 }) {
-  const recipientUserIds = [...new Set(options.recipientUserIds.filter(Boolean))]
+  const recipientUserIds = [
+    ...new Set(options.recipientUserIds.filter(Boolean)),
+  ]
 
   if (recipientUserIds.length === 0) {
     return [] as CreatedSystemNotification[]
@@ -102,8 +114,8 @@ async function createSystemNotificationsIfMissing(options: {
       buildPlayIntentActivityDeduplicationKey({
         playIntentId: options.playIntentId,
         title: options.title,
-        gameId: options.gameId
-      })
+        gameId: options.gameId,
+      }),
     )
 
     const existingNotification = await transaction.notification.findFirst({
@@ -111,39 +123,45 @@ async function createSystemNotificationsIfMissing(options: {
         playIntentId: options.playIntentId,
         gameId: options.gameId ?? null,
         type: NotificationType.SYSTEM,
-        title: options.title
+        title: options.title,
       },
       select: {
-        id: true
-      }
+        id: true,
+      },
     })
 
     if (existingNotification) {
       return [] as CreatedSystemNotification[]
     }
 
-    return Promise.all(recipientUserIds.map((recipientUserId) => transaction.notification.create({
-      data: {
-        userId: recipientUserId,
-        triggeredByUserId: options.triggeredByUserId,
-        playIntentId: options.playIntentId,
-        gameId: options.gameId,
-        type: NotificationType.SYSTEM,
-        title: options.title,
-        body: options.body
-      },
-      select: {
-        id: true,
-        userId: true,
-        playIntentId: true,
-        title: true,
-        body: true
-      }
-    })))
+    return Promise.all(
+      recipientUserIds.map((recipientUserId) =>
+        transaction.notification.create({
+          data: {
+            userId: recipientUserId,
+            triggeredByUserId: options.triggeredByUserId,
+            playIntentId: options.playIntentId,
+            gameId: options.gameId,
+            type: NotificationType.SYSTEM,
+            title: options.title,
+            body: options.body,
+          },
+          select: {
+            id: true,
+            userId: true,
+            playIntentId: true,
+            title: true,
+            body: true,
+          },
+        }),
+      ),
+    )
   })
 }
 
-async function getAudienceRecipientUserIdsByPlayIntentId(playIntentIds: string[]) {
+async function getAudienceRecipientUserIdsByPlayIntentId(
+  playIntentIds: string[],
+) {
   const uniquePlayIntentIds = [...new Set(playIntentIds.filter(Boolean))]
 
   if (uniquePlayIntentIds.length === 0) {
@@ -153,19 +171,19 @@ async function getAudienceRecipientUserIdsByPlayIntentId(playIntentIds: string[]
   const notifications = await prisma.notification.findMany({
     where: {
       playIntentId: {
-        in: uniquePlayIntentIds
+        in: uniquePlayIntentIds,
       },
       type: {
-        in: replyAnchorNotificationTypes
-      }
+        in: replyAnchorNotificationTypes,
+      },
     },
     select: {
       playIntentId: true,
-      userId: true
+      userId: true,
     },
     orderBy: {
-      createdAt: 'desc'
-    }
+      createdAt: 'desc',
+    },
   })
 
   const recipientUserIdsByPlayIntentId = new Map<string, string[]>()
@@ -175,11 +193,15 @@ async function getAudienceRecipientUserIdsByPlayIntentId(playIntentIds: string[]
       continue
     }
 
-    const recipientUserIds = recipientUserIdsByPlayIntentId.get(notification.playIntentId) ?? []
+    const recipientUserIds =
+      recipientUserIdsByPlayIntentId.get(notification.playIntentId) ?? []
 
     if (!recipientUserIds.includes(notification.userId)) {
       recipientUserIds.push(notification.userId)
-      recipientUserIdsByPlayIntentId.set(notification.playIntentId, recipientUserIds)
+      recipientUserIdsByPlayIntentId.set(
+        notification.playIntentId,
+        recipientUserIds,
+      )
     }
   }
 
@@ -187,80 +209,106 @@ async function getAudienceRecipientUserIdsByPlayIntentId(playIntentIds: string[]
 }
 
 async function deliverSystemNotifications(options: {
-  notifications: CreatedSystemNotification[];
-  recipientDiscordUserIdByUserId: Map<string, string>;
+  notifications: CreatedSystemNotification[]
+  recipientDiscordUserIdByUserId: Map<string, string>
 }) {
   // Each activity event lands as a new entry in the recipient's per-intent
   // updates-log DM, which is deleted and re-sent so Discord raises a fresh
   // push notification. Delivery timestamps are recorded by the log sync.
-  await Promise.all(options.notifications.flatMap((notification) => {
-    const discordUserId = options.recipientDiscordUserIdByUserId.get(notification.userId)
+  await Promise.all(
+    options.notifications.flatMap((notification) => {
+      const discordUserId = options.recipientDiscordUserIdByUserId.get(
+        notification.userId,
+      )
 
-    if (!discordUserId) {
-      return []
-    }
+      if (!discordUserId) {
+        return []
+      }
 
-    return [syncPlayIntentUpdatesLogDirectMessage({
-      playIntentId: notification.playIntentId,
-      recipientUserId: notification.userId,
-      discordUserId
-    })]
-  }))
+      return [
+        syncPlayIntentUpdatesLogDirectMessage({
+          playIntentId: notification.playIntentId,
+          recipientUserId: notification.userId,
+          discordUserId,
+        }),
+      ]
+    }),
+  )
 }
-async function notifyRestOfGroupAboutActivity<Intent extends {
-  id: string;
-  userId: string;
-  user: {
-    id: string;
-    displayName: string;
-    identities: Array<{
-      providerUserId: string;
-    }>;
-  };
-}>(options: {
-  playIntents: Intent[];
-  triggeredByUserId: string;
-  gameId?: string | null;
-  buildNotificationCopy: (playIntent: Intent) => SystemNotificationCopy;
+async function notifyRestOfGroupAboutActivity<
+  Intent extends {
+    id: string
+    userId: string
+    user: {
+      id: string
+      displayName: string
+      identities: Array<{
+        providerUserId: string
+      }>
+    }
+  },
+>(options: {
+  playIntents: Intent[]
+  triggeredByUserId: string
+  gameId?: string | null
+  buildNotificationCopy: (playIntent: Intent) => SystemNotificationCopy
 }) {
   if (options.playIntents.length === 0) {
     return
   }
 
-  const [passedUsersByPlayIntentId, audienceRecipientUserIdsByPlayIntentId] = await Promise.all([
-    getPassedUsersByPlayIntentId(options.playIntents.map((playIntent) => playIntent.id)),
-    getAudienceRecipientUserIdsByPlayIntentId(options.playIntents.map((playIntent) => playIntent.id))
-  ])
+  const [passedUsersByPlayIntentId, audienceRecipientUserIdsByPlayIntentId] =
+    await Promise.all([
+      getPassedUsersByPlayIntentId(
+        options.playIntents.map((playIntent) => playIntent.id),
+      ),
+      getAudienceRecipientUserIdsByPlayIntentId(
+        options.playIntents.map((playIntent) => playIntent.id),
+      ),
+    ])
   const recipientUserIds = new Set<string>()
-  const createdNotifications = (await Promise.all(options.playIntents.flatMap((playIntent) => {
-    const declinedUserIds = (passedUsersByPlayIntentId.get(playIntent.id) ?? []).map((user) => user.id)
-    const audienceRecipientUserIds = audienceRecipientUserIdsByPlayIntentId.get(playIntent.id) ?? []
+  const createdNotifications = (
+    await Promise.all(
+      options.playIntents.flatMap((playIntent) => {
+        const declinedUserIds = (
+          passedUsersByPlayIntentId.get(playIntent.id) ?? []
+        ).map((user) => user.id)
+        const audienceRecipientUserIds =
+          audienceRecipientUserIdsByPlayIntentId.get(playIntent.id) ?? []
 
-    const notificationCopy = options.buildNotificationCopy(playIntent)
-    const playIntentRecipientUserIds = resolvePlayIntentActivityRecipientUserIds({
-      creatorUserId: playIntent.userId,
-      triggeredByUserId: options.triggeredByUserId,
-      declinedUserIds,
-      audienceRecipientUserIds
-    })
+        const notificationCopy = options.buildNotificationCopy(playIntent)
+        const playIntentRecipientUserIds =
+          resolvePlayIntentActivityRecipientUserIds({
+            creatorUserId: playIntent.userId,
+            triggeredByUserId: options.triggeredByUserId,
+            declinedUserIds,
+            audienceRecipientUserIds,
+          })
 
-    if (playIntentRecipientUserIds.length === 0) {
-      return []
-    }
+        if (playIntentRecipientUserIds.length === 0) {
+          return []
+        }
 
-    for (const recipientUserId of playIntentRecipientUserIds) {
-      recipientUserIds.add(recipientUserId)
-    }
+        for (const recipientUserId of playIntentRecipientUserIds) {
+          recipientUserIds.add(recipientUserId)
+        }
 
-    return createSystemNotificationsIfMissing({
-      recipientUserIds: playIntentRecipientUserIds,
-      triggeredByUserId: options.triggeredByUserId,
-      playIntentId: playIntent.id,
-      gameId: options.gameId,
-      title: notificationCopy.title,
-      body: notificationCopy.body
-    })
-  }))).flat().filter((notification): notification is CreatedSystemNotification => notification != null)
+        return createSystemNotificationsIfMissing({
+          recipientUserIds: playIntentRecipientUserIds,
+          triggeredByUserId: options.triggeredByUserId,
+          playIntentId: playIntent.id,
+          gameId: options.gameId,
+          title: notificationCopy.title,
+          body: notificationCopy.body,
+        })
+      }),
+    )
+  )
+    .flat()
+    .filter(
+      (notification): notification is CreatedSystemNotification =>
+        notification != null,
+    )
 
   if (createdNotifications.length === 0 || recipientUserIds.size === 0) {
     return
@@ -270,33 +318,38 @@ async function notifyRestOfGroupAboutActivity<Intent extends {
     where: {
       provider: AuthProvider.DISCORD,
       userId: {
-        in: [...recipientUserIds]
-      }
+        in: [...recipientUserIds],
+      },
     },
     select: {
       userId: true,
-      providerUserId: true
-    }
+      providerUserId: true,
+    },
   })
 
   await deliverSystemNotifications({
     notifications: createdNotifications,
-    recipientDiscordUserIdByUserId: new Map(recipientIdentities.map((identity) => [identity.userId, identity.providerUserId]))
+    recipientDiscordUserIdByUserId: new Map(
+      recipientIdentities.map((identity) => [
+        identity.userId,
+        identity.providerUserId,
+      ]),
+    ),
   })
 }
 
 export async function maybeSendPlayIntentVoiceChannelJoinNotifications(options: {
-  discordUserId: string;
-  channelId: string;
-  channelName?: string | null;
+  discordUserId: string
+  channelId: string
+  channelName?: string | null
 }) {
   const now = new Date()
   const actorIdentity = await prisma.userIdentity.findUnique({
     where: {
       provider_providerUserId: {
         provider: AuthProvider.DISCORD,
-        providerUserId: options.discordUserId
-      }
+        providerUserId: options.discordUserId,
+      },
     },
     select: {
       userId: true,
@@ -305,15 +358,15 @@ export async function maybeSendPlayIntentVoiceChannelJoinNotifications(options: 
           displayName: true,
           identities: {
             where: {
-              provider: AuthProvider.DISCORD
+              provider: AuthProvider.DISCORD,
             },
             select: {
-              providerUserId: true
-            }
-          }
-        }
-      }
-    }
+              providerUserId: true,
+            },
+          },
+        },
+      },
+    },
   })
 
   if (!actorIdentity) {
@@ -323,23 +376,23 @@ export async function maybeSendPlayIntentVoiceChannelJoinNotifications(options: 
   const activePlayIntents = await prisma.playIntent.findMany({
     where: {
       expiresAt: {
-        gt: now
+        gt: now,
       },
       windowStartsAt: {
-        lte: now
+        lte: now,
       },
       OR: [
         {
-          voiceChannelId: options.channelId
+          voiceChannelId: options.channelId,
         },
         {
           discordSpace: {
             is: {
-              voiceChannelId: options.channelId
-            }
-          }
-        }
-      ]
+              voiceChannelId: options.channelId,
+            },
+          },
+        },
+      ],
     },
     select: {
       id: true,
@@ -349,8 +402,8 @@ export async function maybeSendPlayIntentVoiceChannelJoinNotifications(options: 
       discordSpace: {
         select: {
           voiceChannelId: true,
-          voiceChannelName: true
-        }
+          voiceChannelName: true,
+        },
       },
       user: {
         select: {
@@ -358,15 +411,15 @@ export async function maybeSendPlayIntentVoiceChannelJoinNotifications(options: 
           displayName: true,
           identities: {
             where: {
-              provider: AuthProvider.DISCORD
+              provider: AuthProvider.DISCORD,
             },
             select: {
-              providerUserId: true
-            }
-          }
-        }
-      }
-    }
+              providerUserId: true,
+            },
+          },
+        },
+      },
+    },
   })
 
   if (activePlayIntents.length === 0) {
@@ -376,42 +429,47 @@ export async function maybeSendPlayIntentVoiceChannelJoinNotifications(options: 
   await notifyRestOfGroupAboutActivity({
     playIntents: activePlayIntents,
     triggeredByUserId: actorIdentity.userId,
-    buildNotificationCopy: (playIntent) => formatVoiceChannelJoinedSystemNotification({
-      actorDisplayName: actorIdentity.user.displayName,
-      voiceChannelName: playIntent.voiceChannelId === options.channelId
-        ? (playIntent.voiceChannelName ?? options.channelName)
-        : (playIntent.discordSpace?.voiceChannelName ?? options.channelName)
-    })
+    buildNotificationCopy: (playIntent) =>
+      formatVoiceChannelJoinedSystemNotification({
+        actorDisplayName: actorIdentity.user.displayName,
+        voiceChannelName:
+          playIntent.voiceChannelId === options.channelId
+            ? (playIntent.voiceChannelName ?? options.channelName)
+            : (playIntent.discordSpace?.voiceChannelName ??
+              options.channelName),
+      }),
   })
 }
 
-export async function maybeSendPlayIntentLaunchNotificationsForObservation(observationId: string) {
+export async function maybeSendPlayIntentLaunchNotificationsForObservation(
+  observationId: string,
+) {
   const observation = await prisma.discordActivityObservation.findUnique({
     where: {
-      id: observationId
+      id: observationId,
     },
     select: {
       userId: true,
       gameId: true,
       game: {
         select: {
-          title: true
-        }
+          title: true,
+        },
       },
       user: {
         select: {
           displayName: true,
           identities: {
             where: {
-              provider: AuthProvider.DISCORD
+              provider: AuthProvider.DISCORD,
             },
             select: {
-              providerUserId: true
-            }
-          }
-        }
-      }
-    }
+              providerUserId: true,
+            },
+          },
+        },
+      },
+    },
   })
 
   if (!observation?.gameId || !observation.game) {
@@ -424,17 +482,17 @@ export async function maybeSendPlayIntentLaunchNotificationsForObservation(obser
   const activePlayIntents = await prisma.playIntent.findMany({
     where: {
       expiresAt: {
-        gt: now
+        gt: now,
       },
       windowStartsAt: {
-        lte: now
+        lte: now,
       },
       selectionMode: PlayIntentSelectionMode.SELECTED_GAMES,
       games: {
         some: {
-          gameId: observation.gameId
-        }
-      }
+          gameId: observation.gameId,
+        },
+      },
     },
     select: {
       id: true,
@@ -445,15 +503,15 @@ export async function maybeSendPlayIntentLaunchNotificationsForObservation(obser
           displayName: true,
           identities: {
             where: {
-              provider: AuthProvider.DISCORD
+              provider: AuthProvider.DISCORD,
             },
             select: {
-              providerUserId: true
-            }
-          }
-        }
-      }
-    }
+              providerUserId: true,
+            },
+          },
+        },
+      },
+    },
   })
 
   if (activePlayIntents.length === 0) {
@@ -464,9 +522,10 @@ export async function maybeSendPlayIntentLaunchNotificationsForObservation(obser
     playIntents: activePlayIntents,
     triggeredByUserId: observation.userId,
     gameId: observation.gameId,
-    buildNotificationCopy: () => formatGroupLaunchedGameSystemNotification({
-      actorDisplayName: observation.user.displayName,
-      gameTitle: observedGame.title
-    })
+    buildNotificationCopy: () =>
+      formatGroupLaunchedGameSystemNotification({
+        actorDisplayName: observation.user.displayName,
+        gameTitle: observedGame.title,
+      }),
   })
 }

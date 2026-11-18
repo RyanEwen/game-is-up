@@ -5,13 +5,13 @@ import {
   expirePendingPlayIntentNotifications,
   refreshTrackedCreatorPlayIntentSummaryMessages,
   refreshTrackedPlayIntentNotificationDirectMessages,
-  sweepScheduledPlayIntentCreatorCheckIns
+  sweepScheduledPlayIntentCreatorCheckIns,
 } from './play-intent-notification-responses.js'
 import {
   sweepBackfillLegacyPlayIntentDiscordSpaces,
   sweepBackfillMissingPlayIntentDiscordSpaceDeleteAfter,
   sweepDeleteDuePlayIntentDiscordSpaces,
-  sweepProvisionPendingPlayIntentDiscordSpaces
+  sweepProvisionPendingPlayIntentDiscordSpaces,
 } from './play-intent-discord-spaces.js'
 import { sweepUpgradePlayIntentDiscordSpaceInvites } from './discord-space-invites.js'
 import { prisma } from './prisma.js'
@@ -36,17 +36,17 @@ async function publishElapsedPlayIntentTimeBoundaryInvalidation() {
         {
           windowStartsAt: {
             gt: new Date(priorSweepCompletedAt),
-            lte: new Date(sweepStartedAt)
-          }
+            lte: new Date(sweepStartedAt),
+          },
         },
         {
           expiresAt: {
             gt: new Date(priorSweepCompletedAt),
-            lte: new Date(sweepStartedAt)
-          }
-        }
-      ]
-    }
+            lte: new Date(sweepStartedAt),
+          },
+        },
+      ],
+    },
   })
 
   lastPlayIntentTimeBoundarySweepCompletedAt = sweepStartedAt
@@ -65,21 +65,23 @@ async function publishElapsedPlayIntentTimeBoundaryInvalidation() {
  * across successive sweeps (capped per pass) without regrowing.
  */
 export async function sweepExpiredPlayIntentNotifications() {
-  const expiredIntentIds = (await prisma.playIntent.findMany({
-    where: {
-      expiresAt: {
-        lte: new Date()
+  const expiredIntentIds = (
+    await prisma.playIntent.findMany({
+      where: {
+        expiresAt: {
+          lte: new Date(),
+        },
+        dmChainEndedAt: null,
       },
-      dmChainEndedAt: null
-    },
-    orderBy: {
-      expiresAt: 'asc'
-    },
-    take: playIntentArchiveSweepIntentCap,
-    select: {
-      id: true
-    }
-  })).map((intent) => intent.id)
+      orderBy: {
+        expiresAt: 'asc',
+      },
+      take: playIntentArchiveSweepIntentCap,
+      select: {
+        id: true,
+      },
+    })
+  ).map((intent) => intent.id)
 
   await expirePendingPlayIntentNotifications(expiredIntentIds)
 }
@@ -109,7 +111,10 @@ async function runCleanupSweep() {
     await sweepExpiredPlayIntentNotifications()
     await publishElapsedPlayIntentTimeBoundaryInvalidation()
 
-    if (Date.now() - lastStaleDiscordDmSweepStartedAt >= staleDiscordDmSweepIntervalMs) {
+    if (
+      Date.now() - lastStaleDiscordDmSweepStartedAt >=
+      staleDiscordDmSweepIntervalMs
+    ) {
       lastStaleDiscordDmSweepStartedAt = Date.now()
       await sweepOldDiscordDirectMessages()
     }

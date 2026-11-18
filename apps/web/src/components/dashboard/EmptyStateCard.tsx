@@ -5,16 +5,17 @@ export function EmptyStateCard({
   title,
   body,
   chips,
-  showSignInCard = false
+  showSignInCard = false,
 }: {
-  title: string;
-  body: string;
-  chips?: string[];
-  showSignInCard?: boolean;
+  title: string
+  body: string
+  chips?: string[]
+  showSignInCard?: boolean
 }) {
-  const signInHref = typeof window === 'undefined'
-    ? '/api/auth/discord/login'
-    : `/api/auth/discord/login?returnTo=${encodeURIComponent(window.location.href)}`
+  const signInHref =
+    typeof window === 'undefined'
+      ? '/api/auth/discord/login'
+      : `/api/auth/discord/login?returnTo=${encodeURIComponent(window.location.href)}`
 
   return (
     <Stack spacing={1.5}>
@@ -22,7 +23,7 @@ export function EmptyStateCard({
         variant="soft"
         sx={{
           p: 3,
-          ...dashedTopLevelCardSx
+          ...dashedTopLevelCardSx,
         }}
       >
         <Stack spacing={1.5}>
@@ -49,11 +50,11 @@ export function EmptyStateCard({
 export function DiscordSignInCard({
   href,
   disabled = false,
-  onClick
+  onClick,
 }: {
-  href?: string;
-  disabled?: boolean;
-  onClick?: () => void;
+  href?: string
+  disabled?: boolean
+  onClick?: () => void
 }) {
   return (
     <Card variant="soft" sx={{ p: 3 }}>

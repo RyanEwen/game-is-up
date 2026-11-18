@@ -3,30 +3,32 @@ import type { MessageCreateOptions } from 'discord.js'
 import {
   editDiscordDirectMessage,
   sendDiscordDirectMessages,
-  type DiscordDirectMessagePayload
+  type DiscordDirectMessagePayload,
 } from './discord-bot-runtime.js'
 
 export type TrackedDiscordDirectMessage = {
-  channelId?: string | null;
-  messageId?: string | null;
+  channelId?: string | null
+  messageId?: string | null
 }
 
 export type SyncTrackedDiscordDirectMessageOptions = {
-  tracked?: TrackedDiscordDirectMessage;
-  discordUserId: string;
-  content: string;
-  embeds?: MessageCreateOptions['embeds'];
-  components?: MessageCreateOptions['components'];
-  replyTo?: DiscordDirectMessagePayload['replyTo'];
-  onMissingTrackedMessage?: () => Promise<void>;
-  onSent?: (result: { channelId: string; messageId: string }) => Promise<void>;
+  tracked?: TrackedDiscordDirectMessage
+  discordUserId: string
+  content: string
+  embeds?: MessageCreateOptions['embeds']
+  components?: MessageCreateOptions['components']
+  replyTo?: DiscordDirectMessagePayload['replyTo']
+  onMissingTrackedMessage?: () => Promise<void>
+  onSent?: (result: { channelId: string; messageId: string }) => Promise<void>
 }
 
 export function isMissingDiscordMessageError(error: string | null | undefined) {
   return /Unknown Message/i.test(error ?? '')
 }
 
-export async function syncTrackedDiscordDirectMessage(options: SyncTrackedDiscordDirectMessageOptions) {
+export async function syncTrackedDiscordDirectMessage(
+  options: SyncTrackedDiscordDirectMessageOptions,
+) {
   const trackedChannelId = options.tracked?.channelId ?? null
   const trackedMessageId = options.tracked?.messageId ?? null
 
@@ -36,7 +38,7 @@ export async function syncTrackedDiscordDirectMessage(options: SyncTrackedDiscor
       messageId: trackedMessageId,
       content: options.content,
       embeds: options.embeds,
-      components: options.components
+      components: options.components,
     })
 
     if (editResult.status === 'edited') {
@@ -44,7 +46,7 @@ export async function syncTrackedDiscordDirectMessage(options: SyncTrackedDiscor
         status: 'edited' as const,
         channelId: trackedChannelId,
         messageId: trackedMessageId,
-        error: null
+        error: null,
       }
     }
 
@@ -53,29 +55,31 @@ export async function syncTrackedDiscordDirectMessage(options: SyncTrackedDiscor
         status: 'failed' as const,
         channelId: trackedChannelId,
         messageId: trackedMessageId,
-        error: editResult.error
+        error: editResult.error,
       }
     }
 
     await options.onMissingTrackedMessage?.()
   }
 
-  const dmResult = (await sendDiscordDirectMessages([
-    {
-      discordUserId: options.discordUserId,
-      content: options.content,
-      embeds: options.embeds,
-      components: options.components,
-      replyTo: options.replyTo
-    }
-  ]))[0]
+  const dmResult = (
+    await sendDiscordDirectMessages([
+      {
+        discordUserId: options.discordUserId,
+        content: options.content,
+        embeds: options.embeds,
+        components: options.components,
+        replyTo: options.replyTo,
+      },
+    ])
+  )[0]
 
   if (!dmResult || dmResult.status !== 'sent') {
     return {
       status: 'failed' as const,
       channelId: dmResult?.channelId ?? null,
       messageId: dmResult?.messageId ?? null,
-      error: dmResult?.error ?? 'Discord did not return a DM send result.'
+      error: dmResult?.error ?? 'Discord did not return a DM send result.',
     }
   }
 
@@ -84,19 +88,19 @@ export async function syncTrackedDiscordDirectMessage(options: SyncTrackedDiscor
       status: 'emulated' as const,
       channelId: dmResult.channelId,
       messageId: dmResult.messageId,
-      error: null
+      error: null,
     }
   }
 
   await options.onSent?.({
     channelId: dmResult.channelId,
-    messageId: dmResult.messageId
+    messageId: dmResult.messageId,
   })
 
   return {
     status: 'sent' as const,
     channelId: dmResult.channelId,
     messageId: dmResult.messageId,
-    error: null
+    error: null,
   }
 }

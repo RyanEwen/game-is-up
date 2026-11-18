@@ -17,7 +17,7 @@ import {
   libraryRouter,
   mediaRouter,
   playIntentRouter,
-  profileRouter
+  profileRouter,
 } from './routes/index.js'
 import { getAllowedClientOrigins, getApiOrigin } from './lib/origin.js'
 import { HttpError } from './lib/http-error.js'
@@ -36,8 +36,8 @@ app.use(
 
       callback(null, allowedClientOrigins.has(origin))
     },
-    credentials: true
-  })
+    credentials: true,
+  }),
 )
 app.use(helmet())
 
@@ -54,9 +54,9 @@ app.get('/api/bootstrap', (_request, response) => {
       apiBaseUrl: getApiOrigin(),
       features: {
         pushNotifications: true,
-        multiGamePlayIntent: true
-      }
-    })
+        multiGamePlayIntent: true,
+      },
+    }),
   )
 })
 
@@ -74,18 +74,25 @@ app.use('/api/media', mediaRouter)
 app.use('/api/play-intents', playIntentRouter)
 app.use('/api/profile', profileRouter)
 
-app.use((error: unknown, _request: Request, response: Response, _next: NextFunction) => {
-  void _next
-  console.error(error)
+app.use(
+  (
+    error: unknown,
+    _request: Request,
+    response: Response,
+    _next: NextFunction,
+  ) => {
+    void _next
+    console.error(error)
 
-  if (error instanceof HttpError) {
-    response.status(error.statusCode).json({
-      error: error.message
+    if (error instanceof HttpError) {
+      response.status(error.statusCode).json({
+        error: error.message,
+      })
+      return
+    }
+
+    response.status(500).json({
+      error: 'Internal server error',
     })
-    return
-  }
-
-  response.status(500).json({
-    error: 'Internal server error'
-  })
-})
+  },
+)

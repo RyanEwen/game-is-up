@@ -6,29 +6,35 @@ import { buildPlayIntentDiscordSpaceInviteContent } from './play-intent-discord-
 const baseOptions = {
   creatorDisplayName: 'Ryan',
   serverLabel: "Game's Up",
-  inviteUrl: 'https://discord.gg/test-invite'
+  inviteUrl: 'https://discord.gg/test-invite',
 }
 
 test('the server invite DM explains the ask and carries the invite URL', () => {
   const content = buildPlayIntentDiscordSpaceInviteContent({
     ...baseOptions,
     textChannelName: 'chat-friday-night-helldivers',
-    voiceChannelName: 'voice-friday-night-helldivers'
+    voiceChannelName: 'voice-friday-night-helldivers',
   })
 
   assert.match(content, /^🎟 One Step Left/m)
   assert.match(content, /Ryan's call to play/)
   assert.match(content, /Game's Up/)
   assert.match(content, /https:\/\/discord\.gg\/test-invite/)
-  assert.match(content, /chat-friday-night-helldivers and voice-friday-night-helldivers/)
-  assert.match(content, /unlock the call's private text and voice channels for you automatically/)
+  assert.match(
+    content,
+    /chat-friday-night-helldivers and voice-friday-night-helldivers/,
+  )
+  assert.match(
+    content,
+    /unlock the call's private text and voice channels for you automatically/,
+  )
 })
 
 test('the server invite DM stays push-safe plain text', () => {
   const content = buildPlayIntentDiscordSpaceInviteContent({
     ...baseOptions,
     textChannelName: 'chat-friday-night-helldivers',
-    voiceChannelName: null
+    voiceChannelName: null,
   })
 
   assert.doesNotMatch(content, /-# /)
@@ -40,7 +46,7 @@ test('the server invite DM omits the channel line when no channel names are know
   const content = buildPlayIntentDiscordSpaceInviteContent({
     ...baseOptions,
     textChannelName: null,
-    voiceChannelName: null
+    voiceChannelName: null,
   })
 
   assert.doesNotMatch(content, /The channels for this call are/)

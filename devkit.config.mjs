@@ -7,7 +7,7 @@
 /** Fixed listeners inside every checkout container; Compose receives these through `env()`. */
 export const DEV_PORTS = Object.freeze({
   api: '4000',
-  web: '5173'
+  web: '5173',
 })
 
 export default {
@@ -30,7 +30,7 @@ export default {
   install: {
     command: ['npm', 'ci'],
     inputs: ['package.json', 'package-lock.json', '.nvmrc'],
-    output: 'node_modules'
+    output: 'node_modules',
   },
 
   /** Open the proxied UI only after its API is ready to serve the application. */
@@ -45,6 +45,6 @@ export default {
     VITE_API_BASE_URL: '',
     VITE_API_PORT: DEV_PORTS.api,
     VITE_DEV_PORT: DEV_PORTS.web,
-    VITE_PUBLIC_APP_URL: url
-  })
+    VITE_PUBLIC_APP_URL: url,
+  }),
 }

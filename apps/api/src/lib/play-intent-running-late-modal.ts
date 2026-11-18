@@ -1,11 +1,19 @@
 /** Builds the Discord form for an optional delay estimate without owning response persistence. */
-import { ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } from 'discord.js'
+import {
+  ActionRowBuilder,
+  ModalBuilder,
+  TextInputBuilder,
+  TextInputStyle,
+} from 'discord.js'
 
 export const runningLateModalPrefix = 'play-intent-late'
 export const runningLateMinutesFieldId = 'minutes'
 
 /** Opens an estimate form for the recipient's own notification; blank means unknown. */
-export function buildRunningLateModal(notificationId: string, minutes?: number | null) {
+export function buildRunningLateModal(
+  notificationId: string,
+  minutes?: number | null,
+) {
   const input = new TextInputBuilder()
     .setCustomId(runningLateMinutesFieldId)
     .setLabel('How many minutes late?')
@@ -21,5 +29,7 @@ export function buildRunningLateModal(notificationId: string, minutes?: number |
   return new ModalBuilder()
     .setCustomId(`${runningLateModalPrefix}:${notificationId}`)
     .setTitle("I'll be late")
-    .addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(input))
+    .addComponents(
+      new ActionRowBuilder<TextInputBuilder>().addComponents(input),
+    )
 }

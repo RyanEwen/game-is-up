@@ -86,7 +86,9 @@ export interface GameThemePalette {
   }
 }
 
-export function buildChromeCssVars(chrome: GameThemePalette['chrome']): Record<string, string> {
+export function buildChromeCssVars(
+  chrome: GameThemePalette['chrome'],
+): Record<string, string> {
   return {
     '--gu-body-background': chrome.bodyBackground,
     '--gu-body-background-color': chrome.bodyBackgroundColor,
@@ -120,8 +122,9 @@ export function buildChromeCssVars(chrome: GameThemePalette['chrome']): Record<s
     '--gu-toast-border': chrome.toastBorder,
     '--gu-modal-dialog-background': chrome.modalDialogBackground,
     '--gu-modal-dialog-border': chrome.modalDialogBorder,
-    '--gu-soft-primary-card-gradient-start': chrome.primarySoftCardGradientStart,
-    '--gu-soft-primary-card-gradient-end': chrome.primarySoftCardGradientEnd
+    '--gu-soft-primary-card-gradient-start':
+      chrome.primarySoftCardGradientStart,
+    '--gu-soft-primary-card-gradient-end': chrome.primarySoftCardGradientEnd,
   }
 }
 
@@ -132,17 +135,17 @@ function buildSoftControlStyles(color: string) {
     border: `1px solid var(--joy-palette-${color}-600, var(--joy-palette-neutral-600))`,
     boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.04)',
     '&:hover': {
-      backgroundColor: `var(--joy-palette-${color}-600, var(--joy-palette-neutral-600))`
+      backgroundColor: `var(--joy-palette-${color}-600, var(--joy-palette-neutral-600))`,
     },
     '&:active': {
-      backgroundColor: `var(--joy-palette-${color}-500, var(--joy-palette-neutral-500))`
+      backgroundColor: `var(--joy-palette-${color}-500, var(--joy-palette-neutral-500))`,
     },
     '&.Mui-disabled': {
       backgroundColor: 'var(--joy-palette-neutral-800)',
       color: 'var(--joy-palette-neutral-500)',
       borderColor: 'var(--joy-palette-neutral-700)',
-      boxShadow: 'none'
-    }
+      boxShadow: 'none',
+    },
   }
 }
 
@@ -150,7 +153,7 @@ function buildInsetSurfaceStyles() {
   return {
     backgroundColor: 'var(--joy-palette-background-surface)',
     borderColor: 'var(--joy-palette-neutral-700)',
-    boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.03)'
+    boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.03)',
   }
 }
 
@@ -158,7 +161,7 @@ export function createAppTheme(palette: GameThemePalette) {
   return extendTheme({
     fontFamily: {
       body: 'IBM Plex Sans, sans-serif',
-      display: 'Space Grotesk, sans-serif'
+      display: 'Space Grotesk, sans-serif',
     },
     components: {
       JoyButton: {
@@ -179,18 +182,18 @@ export function createAppTheme(palette: GameThemePalette) {
               borderColor: `var(--joy-palette-${color}-600, var(--joy-palette-neutral-600))`,
               boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.04)',
               '&:hover': {
-                backgroundColor: `var(--joy-palette-${color}-700, var(--joy-palette-neutral-700))`
+                backgroundColor: `var(--joy-palette-${color}-700, var(--joy-palette-neutral-700))`,
               },
               '&:active': {
-                backgroundColor: `var(--joy-palette-${color}-600, var(--joy-palette-neutral-600))`
+                backgroundColor: `var(--joy-palette-${color}-600, var(--joy-palette-neutral-600))`,
               },
               '&.Mui-disabled': {
                 backgroundColor: 'var(--joy-palette-neutral-800)',
-                borderColor: 'var(--joy-palette-neutral-700)'
-              }
+                borderColor: 'var(--joy-palette-neutral-700)',
+              },
             }
-          }
-        }
+          },
+        },
       },
       JoyIconButton: {
         styleOverrides: {
@@ -200,8 +203,8 @@ export function createAppTheme(palette: GameThemePalette) {
             }
 
             return buildSoftControlStyles(ownerState.color ?? 'neutral')
-          }
-        }
+          },
+        },
       },
       JoyChip: {
         styleOverrides: {
@@ -211,8 +214,8 @@ export function createAppTheme(palette: GameThemePalette) {
             }
 
             return buildSoftControlStyles(ownerState.color ?? 'neutral')
-          }
-        }
+          },
+        },
       },
       JoyCard: {
         styleOverrides: {
@@ -224,22 +227,23 @@ export function createAppTheme(palette: GameThemePalette) {
             if (ownerState.variant === 'soft') {
               if (ownerState.color === 'primary') {
                 return {
-                  background: 'linear-gradient(180deg, var(--gu-soft-primary-card-gradient-start), var(--gu-soft-primary-card-gradient-end))',
+                  background:
+                    'linear-gradient(180deg, var(--gu-soft-primary-card-gradient-start), var(--gu-soft-primary-card-gradient-end))',
                   border: '1px solid var(--joy-palette-primary-600)',
-                  boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.03)'
+                  boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.03)',
                 }
               }
 
               return {
                 backgroundColor: 'var(--joy-palette-background-level1)',
                 border: '1px solid var(--joy-palette-neutral-700)',
-                boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.03)'
+                boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.03)',
               }
             }
 
             return {}
-          }
-        }
+          },
+        },
       },
       JoyAvatar: {
         styleOverrides: {
@@ -254,10 +258,10 @@ export function createAppTheme(palette: GameThemePalette) {
               backgroundColor: `var(--joy-palette-${color}-700, var(--joy-palette-neutral-700))`,
               color: `var(--joy-palette-${color}-100, var(--joy-palette-neutral-100))`,
               border: `1px solid var(--joy-palette-${color}-600, var(--joy-palette-neutral-600))`,
-              boxShadow: '0 0 0 1px rgba(7, 11, 20, 0.24)'
+              boxShadow: '0 0 0 1px rgba(7, 11, 20, 0.24)',
             }
-          }
-        }
+          },
+        },
       },
       JoySheet: {
         styleOverrides: {
@@ -266,7 +270,7 @@ export function createAppTheme(palette: GameThemePalette) {
               return {
                 backgroundColor: 'var(--joy-palette-background-level2)',
                 borderColor: 'var(--joy-palette-neutral-700)',
-                boxShadow: 'none'
+                boxShadow: 'none',
               }
             }
 
@@ -274,28 +278,28 @@ export function createAppTheme(palette: GameThemePalette) {
               return {
                 backgroundColor: 'var(--joy-palette-background-level2)',
                 border: '1px solid var(--joy-palette-neutral-700)',
-                boxShadow: 'none'
+                boxShadow: 'none',
               }
             }
 
             return {}
-          }
-        }
+          },
+        },
       },
       JoyStack: {
         defaultProps: {
-          useFlexGap: true
-        }
+          useFlexGap: true,
+        },
       },
       JoyModalDialog: {
         styleOverrides: {
           root: {
             backgroundColor: 'var(--gu-modal-dialog-background)',
             borderColor: 'var(--gu-modal-dialog-border)',
-            boxShadow: 'none'
-          }
-        }
-      }
+            boxShadow: 'none',
+          },
+        },
+      },
     },
     colorSchemes: {
       dark: {
@@ -304,9 +308,9 @@ export function createAppTheme(palette: GameThemePalette) {
           warning: palette.warning,
           neutral: palette.neutral,
           background: palette.background,
-          text: palette.text
-        }
-      }
-    }
+          text: palette.text,
+        },
+      },
+    },
   })
 }

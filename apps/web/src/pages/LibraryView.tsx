@@ -1,7 +1,36 @@
 import { useEffect, useRef, useState } from 'react'
-import { Box, Button, Card, Checkbox, Chip, DialogContent, DialogTitle, Input, Option, Select, Sheet, Stack, Typography } from '@mui/joy'
-import type { GameDetails, GameSearchResponse, GameSearchResult, ImportSteamLibrarySelectionRequest, LibraryEntry, LibraryEntryIntent, LibrarySuggestedGame, SteamLibraryImportGame, SteamLibraryImportPreviewResponse, UserGameAlias, UserPlatformAlias } from '@game-is-up/shared'
-import { extractErrorMessage, gameDetailsResponseSchema } from '@game-is-up/shared'
+import {
+  Box,
+  Button,
+  Card,
+  Checkbox,
+  Chip,
+  DialogContent,
+  DialogTitle,
+  Input,
+  Option,
+  Select,
+  Sheet,
+  Stack,
+  Typography,
+} from '@mui/joy'
+import type {
+  GameDetails,
+  GameSearchResponse,
+  GameSearchResult,
+  ImportSteamLibrarySelectionRequest,
+  LibraryEntry,
+  LibraryEntryIntent,
+  LibrarySuggestedGame,
+  SteamLibraryImportGame,
+  SteamLibraryImportPreviewResponse,
+  UserGameAlias,
+  UserPlatformAlias,
+} from '@game-is-up/shared'
+import {
+  extractErrorMessage,
+  gameDetailsResponseSchema,
+} from '@game-is-up/shared'
 import { DashboardModal } from '../components/dashboard/DashboardModal'
 import { AliasManagementCard } from '../components/dashboard/AliasManagementCard'
 import { DashboardApiIssueCard } from '../components/dashboard/DashboardApiIssueCard'
@@ -13,20 +42,33 @@ import { LibraryEntryCard } from '../components/dashboard/LibraryEntryCard'
 import { LibrarySuggestionsRow } from '../components/dashboard/LibrarySuggestionsRow'
 import { SectionNav } from '../components/dashboard/SectionNav'
 import { sectionScrollMarginTop } from '../components/dashboard/SectionNav.constants'
-import { formatLibraryIntentLabel, libraryEntryGridSx } from '../components/dashboard/dashboardUtils'
+import {
+  formatLibraryIntentLabel,
+  libraryEntryGridSx,
+} from '../components/dashboard/dashboardUtils'
 import type { DashboardLibraryQuickAddGame } from '../components/dashboard/types'
 import { useDashboardContext } from '../contexts/useDashboardContext'
 import { buildApiUrl } from '../lib/apiUrl'
 
-const steamImportPlatformOptions = ['PC', 'Xbox', 'PlayStation', 'Switch', 'Mobile', 'macOS', 'Linux'] as const
+const steamImportPlatformOptions = [
+  'PC',
+  'Xbox',
+  'PlayStation',
+  'Switch',
+  'Mobile',
+  'macOS',
+  'Linux',
+] as const
 const steamImportListMinHeight = 280
 const steamImportListMaxHeight = 'min(58vh, 640px)'
 const steamImportPageSize = 50
 
 type SteamImportSelection = ImportSteamLibrarySelectionRequest['games'][number]
 type SteamImportLibraryFilter = 'importable' | 'already-in-library' | 'all'
-type SteamImportPlaytimeFilter = 'all' | 'recently-played' | 'played' | 'unplayed'
-type SteamImportSortOption = 'recommended' | 'most-played' | 'least-played' | 'recently-played'
+type SteamImportPlaytimeFilter =
+  'all' | 'recently-played' | 'played' | 'unplayed'
+type SteamImportSortOption =
+  'recommended' | 'most-played' | 'least-played' | 'recently-played'
 
 function UsualAvailabilityCard({
   usualAvailability,
@@ -35,15 +77,15 @@ function UsualAvailabilityCard({
   usualAvailabilityButtonLabel,
   usualAvailabilityHelperText,
   onUsualAvailabilityChange,
-  onSaveUsualAvailability
+  onSaveUsualAvailability,
 }: {
-  usualAvailability: string;
-  profileSaving: boolean;
-  usualAvailabilityChanged: boolean;
-  usualAvailabilityButtonLabel: string;
-  usualAvailabilityHelperText: string;
-  onUsualAvailabilityChange: (value: string) => void;
-  onSaveUsualAvailability: () => Promise<void>;
+  usualAvailability: string
+  profileSaving: boolean
+  usualAvailabilityChanged: boolean
+  usualAvailabilityButtonLabel: string
+  usualAvailabilityHelperText: string
+  onUsualAvailabilityChange: (value: string) => void
+  onSaveUsualAvailability: () => Promise<void>
 }) {
   return (
     <Card variant="soft" sx={{ p: 3 }}>
@@ -53,8 +95,16 @@ function UsualAvailabilityCard({
           value={usualAvailability}
           onChange={(event) => onUsualAvailabilityChange(event.target.value)}
         />
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'center' }}>
-          <Button color="primary" disabled={profileSaving || !usualAvailabilityChanged} onClick={() => void onSaveUsualAvailability()}>
+        <Stack
+          direction={{ xs: 'column', sm: 'row' }}
+          spacing={1}
+          alignItems={{ xs: 'stretch', sm: 'center' }}
+        >
+          <Button
+            color="primary"
+            disabled={profileSaving || !usualAvailabilityChanged}
+            onClick={() => void onSaveUsualAvailability()}
+          >
             {usualAvailabilityButtonLabel}
           </Button>
           <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
@@ -76,10 +126,13 @@ function formatSteamPlaytime(minutes: number): string {
   return `${hours}h played`
 }
 
-function compareSteamImportTitles(left: SteamLibraryImportGame, right: SteamLibraryImportGame): number {
+function compareSteamImportTitles(
+  left: SteamLibraryImportGame,
+  right: SteamLibraryImportGame,
+): number {
   return left.title.localeCompare(right.title, undefined, {
     sensitivity: 'base',
-    numeric: true
+    numeric: true,
   })
 }
 
@@ -94,14 +147,17 @@ function compareSteamImportTitles(left: SteamLibraryImportGame, right: SteamLibr
  */
 function sortSteamImportGames(
   games: SteamLibraryImportGame[],
-  sortOption: SteamImportSortOption
+  sortOption: SteamImportSortOption,
 ): SteamLibraryImportGame[] {
   if (sortOption === 'recommended') {
     return games
   }
 
   return [...games].sort((left, right) => {
-    if (sortOption === 'recently-played' && left.minutesPlayedRecent !== right.minutesPlayedRecent) {
+    if (
+      sortOption === 'recently-played' &&
+      left.minutesPlayedRecent !== right.minutesPlayedRecent
+    ) {
       return right.minutesPlayedRecent - left.minutesPlayedRecent
     }
 
@@ -115,12 +171,17 @@ function sortSteamImportGames(
   })
 }
 
-function buildDefaultSteamImportSelection(game: SteamLibraryImportGame): ImportSteamLibrarySelectionRequest['games'][number] {
+function buildDefaultSteamImportSelection(
+  game: SteamLibraryImportGame,
+): ImportSteamLibrarySelectionRequest['games'][number] {
   return {
     sourceId: game.sourceId,
-    platformLabels: game.platformLabels.length > 0 ? [...new Set(game.platformLabels)] : ['PC'],
+    platformLabels:
+      game.platformLabels.length > 0
+        ? [...new Set(game.platformLabels)]
+        : ['PC'],
     intent: 'interested',
-    availability: ''
+    availability: '',
   }
 }
 
@@ -130,10 +191,10 @@ function SteamImportConnectContent({
   onClose,
   onStartSteamLink,
 }: {
-  steamImportEnabled: boolean;
-  steamLinkPending: boolean;
-  onClose: () => void;
-  onStartSteamLink: () => Promise<void>;
+  steamImportEnabled: boolean
+  steamLinkPending: boolean
+  onClose: () => void
+  onStartSteamLink: () => Promise<void>
 }) {
   return (
     <>
@@ -145,15 +206,18 @@ function SteamImportConnectContent({
           gap: 2,
           pr: 0.5,
           overscrollBehavior: 'contain',
-          WebkitOverflowScrolling: 'touch'
+          WebkitOverflowScrolling: 'touch',
         }}
       >
         <Stack spacing={1.5}>
           <Typography level="body-md" sx={{ color: 'neutral.300' }}>
-            Link Steam, load the games it exposes, then choose only the titles you want to add here.
+            Link Steam, load the games it exposes, then choose only the titles
+            you want to add here.
           </Typography>
           <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
-            Steam is only used for library import. It does not replace Discord sign-in, and private or empty Steam libraries may return no importable games.
+            Steam is only used for library import. It does not replace Discord
+            sign-in, and private or empty Steam libraries may return no
+            importable games.
           </Typography>
           {!steamImportEnabled ? (
             <Sheet variant="soft" sx={{ p: 1.5, borderRadius: 'md' }}>
@@ -165,12 +229,19 @@ function SteamImportConnectContent({
         </Stack>
       </DialogContent>
       <DashboardModalActionBar
-        cancelAction={(
-          <Button size="lg" variant="outlined" color="neutral" disabled={steamLinkPending} onClick={onClose} sx={{ minHeight: 52 }}>
+        cancelAction={
+          <Button
+            size="lg"
+            variant="outlined"
+            color="neutral"
+            disabled={steamLinkPending}
+            onClick={onClose}
+            sx={{ minHeight: 52 }}
+          >
             Cancel
           </Button>
-        )}
-        primaryAction={(
+        }
+        primaryAction={
           <Button
             size="lg"
             color="primary"
@@ -180,7 +251,7 @@ function SteamImportConnectContent({
           >
             {steamLinkPending ? 'Opening Steam...' : 'Connect Steam'}
           </Button>
-        )}
+        }
       />
     </>
   )
@@ -192,14 +263,14 @@ function SteamImportUnavailableContent({
   disconnectPending,
   onClose,
   onReload,
-  onDisconnect
+  onDisconnect,
 }: {
-  preview: SteamLibraryImportPreviewResponse;
-  refreshing: boolean;
-  disconnectPending: boolean;
-  onClose: () => void;
-  onReload: () => Promise<void>;
-  onDisconnect: () => Promise<void>;
+  preview: SteamLibraryImportPreviewResponse
+  refreshing: boolean
+  disconnectPending: boolean
+  onClose: () => void
+  onReload: () => Promise<void>
+  onDisconnect: () => Promise<void>
 }) {
   return (
     <>
@@ -211,49 +282,68 @@ function SteamImportUnavailableContent({
           gap: 2,
           pr: 0.5,
           overscrollBehavior: 'contain',
-          WebkitOverflowScrolling: 'touch'
+          WebkitOverflowScrolling: 'touch',
         }}
       >
         <Stack spacing={1.5}>
           {preview.account ? (
             <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-              <Chip variant="outlined" color="neutral">Connected as {preview.account.displayName}</Chip>
+              <Chip variant="outlined" color="neutral">
+                Connected as {preview.account.displayName}
+              </Chip>
             </Stack>
           ) : null}
           <Typography level="body-md" sx={{ color: 'neutral.300' }}>
-            {preview.note ?? 'Steam did not return any importable games right now.'}
+            {preview.note ??
+              'Steam did not return any importable games right now.'}
           </Typography>
           <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
-            Reload from Steam if the library visibility or contents changed, or disconnect this Steam account and try another one.
+            Reload from Steam if the library visibility or contents changed, or
+            disconnect this Steam account and try another one.
           </Typography>
         </Stack>
       </DialogContent>
       <DashboardModalActionBar
-        secondaryAction={(
-          <Button variant="outlined" color="danger" disabled={disconnectPending} onClick={() => void onDisconnect()} sx={{ minHeight: 46 }}>
+        secondaryAction={
+          <Button
+            variant="outlined"
+            color="danger"
+            disabled={disconnectPending}
+            onClick={() => void onDisconnect()}
+            sx={{ minHeight: 46 }}
+          >
             {disconnectPending ? 'Disconnecting...' : 'Disconnect'}
           </Button>
-        )}
-        cancelAction={(
-          <Button size="lg" variant="outlined" color="neutral" disabled={refreshing || disconnectPending} onClick={onClose} sx={{ minHeight: 52 }}>
+        }
+        cancelAction={
+          <Button
+            size="lg"
+            variant="outlined"
+            color="neutral"
+            disabled={refreshing || disconnectPending}
+            onClick={onClose}
+            sx={{ minHeight: 52 }}
+          >
             Cancel
           </Button>
-        )}
-        primaryAction={(
-          <Button size="lg" color="primary" disabled={refreshing} onClick={() => void onReload()} sx={{ flex: 1, minHeight: 52, fontWeight: 700 }}>
+        }
+        primaryAction={
+          <Button
+            size="lg"
+            color="primary"
+            disabled={refreshing}
+            onClick={() => void onReload()}
+            sx={{ flex: 1, minHeight: 52, fontWeight: 700 }}
+          >
             {refreshing ? 'Reloading from Steam...' : 'Reload from Steam'}
           </Button>
-        )}
+        }
       />
     </>
   )
 }
 
-function SteamImportLoadingContent({
-  onClose
-}: {
-  onClose: () => void;
-}) {
+function SteamImportLoadingContent({ onClose }: { onClose: () => void }) {
   return (
     <>
       <DialogTitle sx={{ pr: 6 }}>Add games from Steam</DialogTitle>
@@ -264,22 +354,29 @@ function SteamImportLoadingContent({
           gap: 2,
           pr: 0.5,
           overscrollBehavior: 'contain',
-          WebkitOverflowScrolling: 'touch'
+          WebkitOverflowScrolling: 'touch',
         }}
       >
         <Typography level="body-md" sx={{ color: 'neutral.300' }}>
           Loading your Steam library...
         </Typography>
         <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
-          This reloads the current game list available from the linked Steam account.
+          This reloads the current game list available from the linked Steam
+          account.
         </Typography>
       </DialogContent>
       <DashboardModalActionBar
-        cancelAction={(
-          <Button size="lg" variant="outlined" color="neutral" onClick={onClose} sx={{ minHeight: 52 }}>
+        cancelAction={
+          <Button
+            size="lg"
+            variant="outlined"
+            color="neutral"
+            onClick={onClose}
+            sx={{ minHeight: 52 }}
+          >
             Cancel
           </Button>
-        )}
+        }
       />
     </>
   )
@@ -294,21 +391,27 @@ function SteamImportReadyContent({
   onClose,
   onReload,
   onDisconnect,
-  onImport
+  onImport,
 }: {
-  preview: SteamLibraryImportPreviewResponse;
-  currentUsualAvailability: string | null;
-  importing: boolean;
-  refreshing: boolean;
-  disconnectPending: boolean;
-  onClose: () => void;
-  onReload: () => Promise<void>;
-  onDisconnect: () => Promise<void>;
-  onImport: (games: ImportSteamLibrarySelectionRequest['games']) => Promise<void>;
+  preview: SteamLibraryImportPreviewResponse
+  currentUsualAvailability: string | null
+  importing: boolean
+  refreshing: boolean
+  disconnectPending: boolean
+  onClose: () => void
+  onReload: () => Promise<void>
+  onDisconnect: () => Promise<void>
+  onImport: (
+    games: ImportSteamLibrarySelectionRequest['games'],
+  ) => Promise<void>
 }) {
   const readyGameCount = preview.games.length
-  const alreadyInLibraryCount = preview.games.filter((game) => game.alreadyInLibrary).length
-  const [selectedGames, setSelectedGames] = useState<ImportSteamLibrarySelectionRequest['games']>([])
+  const alreadyInLibraryCount = preview.games.filter(
+    (game) => game.alreadyInLibrary,
+  ).length
+  const [selectedGames, setSelectedGames] = useState<
+    ImportSteamLibrarySelectionRequest['games']
+  >([])
 
   return (
     <>
@@ -320,27 +423,60 @@ function SteamImportReadyContent({
           gap: 2,
           pr: 0.5,
           overscrollBehavior: 'contain',
-          WebkitOverflowScrolling: 'touch'
+          WebkitOverflowScrolling: 'touch',
         }}
       >
         <Stack spacing={1.5}>
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }}>
+          <Stack
+            direction={{ xs: 'column', sm: 'row' }}
+            spacing={1}
+            justifyContent="space-between"
+            alignItems={{ xs: 'stretch', sm: 'center' }}
+          >
             <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-              <Chip color="success" variant="soft">{readyGameCount} Steam games found</Chip>
-              <Chip variant="outlined" color="neutral">{alreadyInLibraryCount} already in library</Chip>
-              {preview.account ? <Chip variant="outlined" color="neutral">Connected as {preview.account.displayName}</Chip> : null}
+              <Chip color="success" variant="soft">
+                {readyGameCount} Steam games found
+              </Chip>
+              <Chip variant="outlined" color="neutral">
+                {alreadyInLibraryCount} already in library
+              </Chip>
+              {preview.account ? (
+                <Chip variant="outlined" color="neutral">
+                  Connected as {preview.account.displayName}
+                </Chip>
+              ) : null}
             </Stack>
-            <Stack direction="row" spacing={1} sx={{ width: { xs: '100%', sm: 'auto' } }}>
-              <Button size="sm" variant="outlined" color="neutral" disabled={refreshing || importing} onClick={() => void onReload()} sx={{ flex: 1 }}>
+            <Stack
+              direction="row"
+              spacing={1}
+              sx={{ width: { xs: '100%', sm: 'auto' } }}
+            >
+              <Button
+                size="sm"
+                variant="outlined"
+                color="neutral"
+                disabled={refreshing || importing}
+                onClick={() => void onReload()}
+                sx={{ flex: 1 }}
+              >
                 {refreshing ? 'Reloading from Steam...' : 'Reload from Steam'}
               </Button>
-              <Button size="sm" variant="outlined" color="danger" disabled={disconnectPending || importing} onClick={() => void onDisconnect()} sx={{ flex: 1 }}>
+              <Button
+                size="sm"
+                variant="outlined"
+                color="danger"
+                disabled={disconnectPending || importing}
+                onClick={() => void onDisconnect()}
+                sx={{ flex: 1 }}
+              >
                 {disconnectPending ? 'Disconnecting...' : 'Disconnect'}
               </Button>
             </Stack>
           </Stack>
           <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
-            Reload from Steam when the linked account changes. Expand any selected game to edit the same platform, interest, and schedule fields available in manual add.
+            Reload from Steam when the linked account changes. Expand any
+            selected game to edit the same platform, interest, and schedule
+            fields available in manual add.
           </Typography>
         </Stack>
 
@@ -352,12 +488,19 @@ function SteamImportReadyContent({
         />
       </DialogContent>
       <DashboardModalActionBar
-        cancelAction={(
-          <Button size="lg" variant="outlined" color="neutral" disabled={importing} onClick={onClose} sx={{ minHeight: 52 }}>
+        cancelAction={
+          <Button
+            size="lg"
+            variant="outlined"
+            color="neutral"
+            disabled={importing}
+            onClick={onClose}
+            sx={{ minHeight: 52 }}
+          >
             Cancel
           </Button>
-        )}
-        primaryAction={(
+        }
+        primaryAction={
           <Button
             size="lg"
             color="success"
@@ -367,7 +510,7 @@ function SteamImportReadyContent({
               flex: 1,
               minHeight: 52,
               fontWeight: 700,
-              boxShadow: 'none'
+              boxShadow: 'none',
             }}
           >
             {importing
@@ -376,7 +519,7 @@ function SteamImportReadyContent({
                 ? 'Import 1 Steam game'
                 : `Import ${selectedGames.length} Steam games`}
           </Button>
-        )}
+        }
       />
     </>
   )
@@ -395,24 +538,33 @@ function SteamImportModalContent({
   onStartSteamLink,
   onReload,
   onImport,
-  onDisconnect
+  onDisconnect,
 }: {
-  preview: SteamLibraryImportPreviewResponse | null;
-  currentUsualAvailability: string | null;
-  importing: boolean;
-  refreshing: boolean;
-  disconnectPending: boolean;
-  steamImportEnabled: boolean;
-  steamConnected: boolean;
-  steamLinkPending: boolean;
-  onClose: () => void;
-  onStartSteamLink: () => Promise<void>;
-  onReload: () => Promise<void>;
-  onImport: (games: ImportSteamLibrarySelectionRequest['games']) => Promise<void>;
-  onDisconnect: () => Promise<void>;
+  preview: SteamLibraryImportPreviewResponse | null
+  currentUsualAvailability: string | null
+  importing: boolean
+  refreshing: boolean
+  disconnectPending: boolean
+  steamImportEnabled: boolean
+  steamConnected: boolean
+  steamLinkPending: boolean
+  onClose: () => void
+  onStartSteamLink: () => Promise<void>
+  onReload: () => Promise<void>
+  onImport: (
+    games: ImportSteamLibrarySelectionRequest['games'],
+  ) => Promise<void>
+  onDisconnect: () => Promise<void>
 }) {
   if (!steamConnected) {
-    return <SteamImportConnectContent steamImportEnabled={steamImportEnabled} steamLinkPending={steamLinkPending} onClose={onClose} onStartSteamLink={onStartSteamLink} />
+    return (
+      <SteamImportConnectContent
+        steamImportEnabled={steamImportEnabled}
+        steamLinkPending={steamLinkPending}
+        onClose={onClose}
+        onStartSteamLink={onStartSteamLink}
+      />
+    )
   }
 
   if (refreshing && preview == null) {
@@ -422,7 +574,14 @@ function SteamImportModalContent({
   if (!preview || preview.status === 'unavailable') {
     return (
       <SteamImportUnavailableContent
-        preview={preview ?? { status: 'unavailable', note: 'Steam did not return any importable games right now.', account: null, games: [] }}
+        preview={
+          preview ?? {
+            status: 'unavailable',
+            note: 'Steam did not return any importable games right now.',
+            account: null,
+            games: [],
+          }
+        }
         refreshing={refreshing}
         disconnectPending={disconnectPending}
         onClose={onClose}
@@ -451,27 +610,40 @@ function SteamImportModalPicker({
   preview,
   currentUsualAvailability,
   importing,
-  onSelectionChange
+  onSelectionChange,
 }: {
-  preview: SteamLibraryImportPreviewResponse;
-  currentUsualAvailability: string | null;
-  importing: boolean;
-  onSelectionChange: (games: ImportSteamLibrarySelectionRequest['games']) => void;
+  preview: SteamLibraryImportPreviewResponse
+  currentUsualAvailability: string | null
+  importing: boolean
+  onSelectionChange: (
+    games: ImportSteamLibrarySelectionRequest['games'],
+  ) => void
 }) {
   const [query, setQuery] = useState('')
-  const [libraryFilter, setLibraryFilter] = useState<SteamImportLibraryFilter>('importable')
-  const [playtimeFilter, setPlaytimeFilter] = useState<SteamImportPlaytimeFilter>('all')
-  const [sortOption, setSortOption] = useState<SteamImportSortOption>('recommended')
+  const [libraryFilter, setLibraryFilter] =
+    useState<SteamImportLibraryFilter>('importable')
+  const [playtimeFilter, setPlaytimeFilter] =
+    useState<SteamImportPlaytimeFilter>('all')
+  const [sortOption, setSortOption] =
+    useState<SteamImportSortOption>('recommended')
   const [page, setPage] = useState(1)
   const [selectedSourceIds, setSelectedSourceIds] = useState<string[]>([])
-  const [selectionOptions, setSelectionOptions] = useState<Record<string, SteamImportSelection>>({})
+  const [selectionOptions, setSelectionOptions] = useState<
+    Record<string, SteamImportSelection>
+  >({})
   const [expandedSourceIds, setExpandedSourceIds] = useState<string[]>([])
-  const [steamDetailsBySourceId, setSteamDetailsBySourceId] = useState<Record<string, GameDetails | null>>({})
-  const [steamDetailsLoadingIds, setSteamDetailsLoadingIds] = useState<string[]>([])
+  const [steamDetailsBySourceId, setSteamDetailsBySourceId] = useState<
+    Record<string, GameDetails | null>
+  >({})
+  const [steamDetailsLoadingIds, setSteamDetailsLoadingIds] = useState<
+    string[]
+  >([])
   const listScrollRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
-    const importableGames = preview.games.filter((game) => !game.alreadyInLibrary)
+    const importableGames = preview.games.filter(
+      (game) => !game.alreadyInLibrary,
+    )
 
     setQuery('')
     setLibraryFilter('importable')
@@ -480,7 +652,12 @@ function SteamImportModalPicker({
     setPage(1)
     setSelectedSourceIds([])
     setSelectionOptions(
-      Object.fromEntries(importableGames.map((game) => [game.sourceId, buildDefaultSteamImportSelection(game)]))
+      Object.fromEntries(
+        importableGames.map((game) => [
+          game.sourceId,
+          buildDefaultSteamImportSelection(game),
+        ]),
+      ),
     )
     setExpandedSourceIds([])
     setSteamDetailsBySourceId({})
@@ -489,42 +666,59 @@ function SteamImportModalPicker({
 
   const normalizedQuery = query.trim().toLowerCase()
   const filteredGames = preview.games.filter((game) => {
-    const matchesQuery = !normalizedQuery || game.title.toLowerCase().includes(normalizedQuery)
-    const matchesLibraryFilter = libraryFilter === 'all'
-      ? true
-      : libraryFilter === 'importable'
-        ? !game.alreadyInLibrary
-        : game.alreadyInLibrary
-    const matchesPlaytimeFilter = playtimeFilter === 'all'
-      ? true
-      : playtimeFilter === 'recently-played'
-        ? game.minutesPlayedRecent > 0
-        : playtimeFilter === 'played'
-          ? game.minutesPlayedTotal > 0
-          : game.minutesPlayedTotal === 0
+    const matchesQuery =
+      !normalizedQuery || game.title.toLowerCase().includes(normalizedQuery)
+    const matchesLibraryFilter =
+      libraryFilter === 'all'
+        ? true
+        : libraryFilter === 'importable'
+          ? !game.alreadyInLibrary
+          : game.alreadyInLibrary
+    const matchesPlaytimeFilter =
+      playtimeFilter === 'all'
+        ? true
+        : playtimeFilter === 'recently-played'
+          ? game.minutesPlayedRecent > 0
+          : playtimeFilter === 'played'
+            ? game.minutesPlayedTotal > 0
+            : game.minutesPlayedTotal === 0
 
     return matchesQuery && matchesLibraryFilter && matchesPlaytimeFilter
   })
   const sortedGames = sortSteamImportGames(filteredGames, sortOption)
-  const totalPages = Math.max(1, Math.ceil(sortedGames.length / steamImportPageSize))
+  const totalPages = Math.max(
+    1,
+    Math.ceil(sortedGames.length / steamImportPageSize),
+  )
   const currentPage = Math.min(page, totalPages)
   const pageStartIndex = (currentPage - 1) * steamImportPageSize
-  const pageCandidateGames = sortedGames.slice(pageStartIndex, pageStartIndex + steamImportPageSize)
-  const pageGames = sortOption === 'recommended'
-    ? [...pageCandidateGames].sort((left, right) => {
-        const leftClassification = steamDetailsBySourceId[left.sourceId]?.gameplay.classification ?? left.gameplayClassification
-        const rightClassification = steamDetailsBySourceId[right.sourceId]?.gameplay.classification ?? right.gameplayClassification
-        const leftPenalty = leftClassification === 'singleplayer-only' ? 1 : 0
-        const rightPenalty = rightClassification === 'singleplayer-only' ? 1 : 0
+  const pageCandidateGames = sortedGames.slice(
+    pageStartIndex,
+    pageStartIndex + steamImportPageSize,
+  )
+  const pageGames =
+    sortOption === 'recommended'
+      ? [...pageCandidateGames].sort((left, right) => {
+          const leftClassification =
+            steamDetailsBySourceId[left.sourceId]?.gameplay.classification ??
+            left.gameplayClassification
+          const rightClassification =
+            steamDetailsBySourceId[right.sourceId]?.gameplay.classification ??
+            right.gameplayClassification
+          const leftPenalty = leftClassification === 'singleplayer-only' ? 1 : 0
+          const rightPenalty =
+            rightClassification === 'singleplayer-only' ? 1 : 0
 
-        if (leftPenalty !== rightPenalty) {
-          return leftPenalty - rightPenalty
-        }
+          if (leftPenalty !== rightPenalty) {
+            return leftPenalty - rightPenalty
+          }
 
-        return compareSteamImportTitles(left, right)
-      })
-    : pageCandidateGames
-  const steamPageMetadataLoading = pageCandidateGames.some((game) => steamDetailsLoadingIds.includes(game.sourceId))
+          return compareSteamImportTitles(left, right)
+        })
+      : pageCandidateGames
+  const steamPageMetadataLoading = pageCandidateGames.some((game) =>
+    steamDetailsLoadingIds.includes(game.sourceId),
+  )
   const selectedSourceIdSet = new Set(selectedSourceIds)
   const expandedSourceIdSet = new Set(expandedSourceIds)
 
@@ -537,63 +731,92 @@ function SteamImportModalPicker({
   useEffect(() => {
     const selectedGames = selectedSourceIds
       .map((sourceId) => selectionOptions[sourceId])
-      .filter((selection): selection is SteamImportSelection => selection != null)
+      .filter(
+        (selection): selection is SteamImportSelection => selection != null,
+      )
 
     onSelectionChange(selectedGames)
   }, [onSelectionChange, selectedSourceIds, selectionOptions])
 
   useEffect(() => {
     listScrollRef.current?.scrollTo({ top: 0 })
-  }, [currentPage, libraryFilter, normalizedQuery, playtimeFilter, preview, sortOption])
+  }, [
+    currentPage,
+    libraryFilter,
+    normalizedQuery,
+    playtimeFilter,
+    preview,
+    sortOption,
+  ])
 
   useEffect(() => {
     const sourceIdsToLoad = pageCandidateGames
       .map((game) => game.sourceId)
-      .filter((sourceId) => !(sourceId in steamDetailsBySourceId) && !steamDetailsLoadingIds.includes(sourceId))
+      .filter(
+        (sourceId) =>
+          !(sourceId in steamDetailsBySourceId) &&
+          !steamDetailsLoadingIds.includes(sourceId),
+      )
 
     if (sourceIdsToLoad.length === 0) {
       return
     }
 
     let cancelled = false
-    setSteamDetailsLoadingIds((current) => [...new Set([...current, ...sourceIdsToLoad])])
+    setSteamDetailsLoadingIds((current) => [
+      ...new Set([...current, ...sourceIdsToLoad]),
+    ])
 
-    void Promise.all(sourceIdsToLoad.map(async (sourceId) => {
-      try {
-        const response = await fetch(buildApiUrl(`/api/library/catalog/steam/${encodeURIComponent(sourceId)}/details`), {
-          credentials: 'include'
-        })
-        const responseBody = await response.json()
+    void Promise.all(
+      sourceIdsToLoad.map(async (sourceId) => {
+        try {
+          const response = await fetch(
+            buildApiUrl(
+              `/api/library/catalog/steam/${encodeURIComponent(sourceId)}/details`,
+            ),
+            {
+              credentials: 'include',
+            },
+          )
+          const responseBody = await response.json()
 
-        if (!response.ok) {
-          throw new Error(extractErrorMessage(responseBody, 'Unable to load Steam metadata right now.'))
+          if (!response.ok) {
+            throw new Error(
+              extractErrorMessage(
+                responseBody,
+                'Unable to load Steam metadata right now.',
+              ),
+            )
+          }
+
+          const parsed = gameDetailsResponseSchema.parse(responseBody)
+
+          if (cancelled) {
+            return
+          }
+
+          setSteamDetailsBySourceId((current) => ({
+            ...current,
+            [sourceId]: parsed.game,
+          }))
+        } catch {
+          if (cancelled) {
+            return
+          }
+
+          setSteamDetailsBySourceId((current) => ({
+            ...current,
+            [sourceId]: null,
+          }))
+        } finally {
+          if (!cancelled) {
+            setSteamDetailsLoadingIds((current) =>
+              current.filter((entry) => entry !== sourceId),
+            )
+          }
         }
-
-        const parsed = gameDetailsResponseSchema.parse(responseBody)
-
-        if (cancelled) {
-          return
-        }
-
-        setSteamDetailsBySourceId((current) => ({
-          ...current,
-          [sourceId]: parsed.game
-        }))
-      } catch {
-        if (cancelled) {
-          return
-        }
-
-        setSteamDetailsBySourceId((current) => ({
-          ...current,
-          [sourceId]: null
-        }))
-      } finally {
-        if (!cancelled) {
-          setSteamDetailsLoadingIds((current) => current.filter((entry) => entry !== sourceId))
-        }
-      }
-    }))
+      }),
+    )
 
     return () => {
       cancelled = true
@@ -602,7 +825,7 @@ function SteamImportModalPicker({
 
   const updateSelectionOptions = (
     sourceId: string,
-    updater: (current: SteamImportSelection) => SteamImportSelection
+    updater: (current: SteamImportSelection) => SteamImportSelection,
   ) => {
     setSelectionOptions((current) => {
       const existing = current[sourceId]
@@ -613,7 +836,7 @@ function SteamImportModalPicker({
 
       return {
         ...current,
-        [sourceId]: updater(existing)
+        [sourceId]: updater(existing),
       }
     })
   }
@@ -625,165 +848,214 @@ function SteamImportModalPicker({
 
     const isSelected = selectedSourceIdSet.has(game.sourceId)
 
-    setSelectedSourceIds((current) => isSelected
-      ? current.filter((sourceId) => sourceId !== game.sourceId)
-      : [...current, game.sourceId])
-    setSelectionOptions((current) => current[game.sourceId]
-      ? current
-      : {
-          ...current,
-          [game.sourceId]: buildDefaultSteamImportSelection(game)
-        })
-    setExpandedSourceIds((current) => isSelected
-      ? current.filter((sourceId) => sourceId !== game.sourceId)
-      : current.includes(game.sourceId)
+    setSelectedSourceIds((current) =>
+      isSelected
+        ? current.filter((sourceId) => sourceId !== game.sourceId)
+        : [...current, game.sourceId],
+    )
+    setSelectionOptions((current) =>
+      current[game.sourceId]
         ? current
-        : [...current, game.sourceId])
+        : {
+            ...current,
+            [game.sourceId]: buildDefaultSteamImportSelection(game),
+          },
+    )
+    setExpandedSourceIds((current) =>
+      isSelected
+        ? current.filter((sourceId) => sourceId !== game.sourceId)
+        : current.includes(game.sourceId)
+          ? current
+          : [...current, game.sourceId],
+    )
   }
 
   const toggleExpanded = (sourceId: string) => {
-    setExpandedSourceIds((current) => current.includes(sourceId)
-      ? current.filter((entry) => entry !== sourceId)
-      : [...current, sourceId])
+    setExpandedSourceIds((current) =>
+      current.includes(sourceId)
+        ? current.filter((entry) => entry !== sourceId)
+        : [...current, sourceId],
+    )
   }
 
   return (
     <>
-        <Stack spacing={1.5}>
-          <Stack spacing={1}>
-            <Input
-              placeholder="Filter Steam games"
-              value={query}
-              onChange={(event) => {
-                setQuery(event.target.value)
-                setPage(1)
+      <Stack spacing={1.5}>
+        <Stack spacing={1}>
+          <Input
+            placeholder="Filter Steam games"
+            value={query}
+            onChange={(event) => {
+              setQuery(event.target.value)
+              setPage(1)
+            }}
+            sx={{ width: '100%' }}
+          />
+          <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+            <Select
+              size="sm"
+              value={libraryFilter}
+              onChange={(_event, nextValue) => {
+                if (nextValue) {
+                  setLibraryFilter(nextValue)
+                  setPage(1)
+                }
               }}
-              sx={{ width: '100%' }}
-            />
-            <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
-              <Select
-                size="sm"
-                value={libraryFilter}
-                onChange={(_event, nextValue) => {
-                  if (nextValue) {
-                    setLibraryFilter(nextValue)
-                    setPage(1)
-                  }
-                }}
-                sx={{ flex: '1 1 150px', minWidth: 0 }}
-              >
-                <Option value="importable">Importable only</Option>
-                <Option value="already-in-library">Already in library</Option>
-                <Option value="all">All Steam titles</Option>
-              </Select>
-              <Select
-                size="sm"
-                value={playtimeFilter}
-                onChange={(_event, nextValue) => {
-                  if (nextValue) {
-                    setPlaytimeFilter(nextValue)
-                    setPage(1)
-                  }
-                }}
-                sx={{ flex: '1 1 150px', minWidth: 0 }}
-              >
-                <Option value="all">Any playtime</Option>
-                <Option value="recently-played">Recently played</Option>
-                <Option value="played">Played before</Option>
-                <Option value="unplayed">Never played</Option>
-              </Select>
-              <Select
-                size="sm"
-                value={sortOption}
-                onChange={(_event, nextValue) => {
-                  if (nextValue) {
-                    setSortOption(nextValue)
-                    setPage(1)
-                  }
-                }}
-                sx={{ flex: '1 1 150px', minWidth: 0 }}
-              >
-                <Option value="recommended">Recommended order</Option>
-                <Option value="most-played">Most played</Option>
-                <Option value="least-played">Least played</Option>
-                <Option value="recently-played">Recently played</Option>
-              </Select>
-            </Stack>
-          </Stack>
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} justifyContent="flex-end" alignItems={{ xs: 'stretch', sm: 'center' }}>
-            <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
-              {filteredGames.length === 0
-                ? '0 results'
-                : `Showing ${pageStartIndex + 1}-${Math.min(pageStartIndex + pageGames.length, filteredGames.length)} of ${filteredGames.length}`}
-            </Typography>
-            {sortOption === 'recommended' && steamPageMetadataLoading ? (
-              <Chip size="sm" color="neutral" variant="soft">Sorting single-player titles last...</Chip>
-            ) : null}
-          </Stack>
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }}>
-            <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
-              {selectedSourceIds.length} selected
-            </Typography>
-            <Stack direction="row" spacing={1} alignItems="center" justifyContent={{ xs: 'space-between', sm: 'flex-end' }}>
-              <Button size="sm" variant="outlined" color="neutral" disabled={currentPage <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>
-                Previous
-              </Button>
-              <Typography level="body-sm" sx={{ color: 'neutral.400', minWidth: 72, textAlign: 'center' }}>
-                Page {currentPage} of {totalPages}
-              </Typography>
-              <Button size="sm" variant="outlined" color="neutral" disabled={currentPage >= totalPages} onClick={() => setPage((current) => Math.min(totalPages, current + 1))}>
-                Next
-              </Button>
-            </Stack>
+              sx={{ flex: '1 1 150px', minWidth: 0 }}
+            >
+              <Option value="importable">Importable only</Option>
+              <Option value="already-in-library">Already in library</Option>
+              <Option value="all">All Steam titles</Option>
+            </Select>
+            <Select
+              size="sm"
+              value={playtimeFilter}
+              onChange={(_event, nextValue) => {
+                if (nextValue) {
+                  setPlaytimeFilter(nextValue)
+                  setPage(1)
+                }
+              }}
+              sx={{ flex: '1 1 150px', minWidth: 0 }}
+            >
+              <Option value="all">Any playtime</Option>
+              <Option value="recently-played">Recently played</Option>
+              <Option value="played">Played before</Option>
+              <Option value="unplayed">Never played</Option>
+            </Select>
+            <Select
+              size="sm"
+              value={sortOption}
+              onChange={(_event, nextValue) => {
+                if (nextValue) {
+                  setSortOption(nextValue)
+                  setPage(1)
+                }
+              }}
+              sx={{ flex: '1 1 150px', minWidth: 0 }}
+            >
+              <Option value="recommended">Recommended order</Option>
+              <Option value="most-played">Most played</Option>
+              <Option value="least-played">Least played</Option>
+              <Option value="recently-played">Recently played</Option>
+            </Select>
           </Stack>
         </Stack>
-
-        {pageGames.length > 0 ? (
-          <Box
-            ref={listScrollRef}
-            sx={{
-              position: 'relative',
-              overflowY: 'auto',
-              minHeight: steamImportListMinHeight,
-              maxHeight: steamImportListMaxHeight,
-              pr: 0.5,
-              mr: -0.5,
-              overscrollBehavior: 'contain',
-              WebkitOverflowScrolling: 'touch'
-            }}
+        <Stack
+          direction={{ xs: 'column', sm: 'row' }}
+          spacing={1}
+          justifyContent="flex-end"
+          alignItems={{ xs: 'stretch', sm: 'center' }}
+        >
+          <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
+            {filteredGames.length === 0
+              ? '0 results'
+              : `Showing ${pageStartIndex + 1}-${Math.min(pageStartIndex + pageGames.length, filteredGames.length)} of ${filteredGames.length}`}
+          </Typography>
+          {sortOption === 'recommended' && steamPageMetadataLoading ? (
+            <Chip size="sm" color="neutral" variant="soft">
+              Sorting single-player titles last...
+            </Chip>
+          ) : null}
+        </Stack>
+        <Stack
+          direction={{ xs: 'column', sm: 'row' }}
+          spacing={1}
+          justifyContent="space-between"
+          alignItems={{ xs: 'stretch', sm: 'center' }}
+        >
+          <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
+            {selectedSourceIds.length} selected
+          </Typography>
+          <Stack
+            direction="row"
+            spacing={1}
+            alignItems="center"
+            justifyContent={{ xs: 'space-between', sm: 'flex-end' }}
           >
-            <Stack spacing={0.75}>
-              {pageGames.map((game) => {
-                const selected = selectedSourceIdSet.has(game.sourceId)
-                const options = selectionOptions[game.sourceId] ?? buildDefaultSteamImportSelection(game)
-                const showOptions = selected && !game.alreadyInLibrary && expandedSourceIdSet.has(game.sourceId)
-                const gameplayClassification = steamDetailsBySourceId[game.sourceId]?.gameplay.classification ?? game.gameplayClassification
-
-                return (
-                  <SteamImportRow
-                    key={game.sourceId}
-                    game={game}
-                    gameplayClassification={gameplayClassification}
-                    selected={selected}
-                    options={options}
-                    showOptions={showOptions}
-                    currentUsualAvailability={currentUsualAvailability}
-                    importing={importing}
-                    onToggleSelection={toggleSelection}
-                    onToggleExpanded={toggleExpanded}
-                    onUpdateSelectionOptions={updateSelectionOptions}
-                  />
-                )
-              })}
-            </Stack>
-          </Box>
-        ) : (
-          <Stack spacing={1.25}>
-            <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
-              No Steam games match that filter.
+            <Button
+              size="sm"
+              variant="outlined"
+              color="neutral"
+              disabled={currentPage <= 1}
+              onClick={() => setPage((current) => Math.max(1, current - 1))}
+            >
+              Previous
+            </Button>
+            <Typography
+              level="body-sm"
+              sx={{ color: 'neutral.400', minWidth: 72, textAlign: 'center' }}
+            >
+              Page {currentPage} of {totalPages}
             </Typography>
+            <Button
+              size="sm"
+              variant="outlined"
+              color="neutral"
+              disabled={currentPage >= totalPages}
+              onClick={() =>
+                setPage((current) => Math.min(totalPages, current + 1))
+              }
+            >
+              Next
+            </Button>
           </Stack>
-        )}
+        </Stack>
+      </Stack>
+
+      {pageGames.length > 0 ? (
+        <Box
+          ref={listScrollRef}
+          sx={{
+            position: 'relative',
+            overflowY: 'auto',
+            minHeight: steamImportListMinHeight,
+            maxHeight: steamImportListMaxHeight,
+            pr: 0.5,
+            mr: -0.5,
+            overscrollBehavior: 'contain',
+            WebkitOverflowScrolling: 'touch',
+          }}
+        >
+          <Stack spacing={0.75}>
+            {pageGames.map((game) => {
+              const selected = selectedSourceIdSet.has(game.sourceId)
+              const options =
+                selectionOptions[game.sourceId] ??
+                buildDefaultSteamImportSelection(game)
+              const showOptions =
+                selected &&
+                !game.alreadyInLibrary &&
+                expandedSourceIdSet.has(game.sourceId)
+              const gameplayClassification =
+                steamDetailsBySourceId[game.sourceId]?.gameplay
+                  .classification ?? game.gameplayClassification
+
+              return (
+                <SteamImportRow
+                  key={game.sourceId}
+                  game={game}
+                  gameplayClassification={gameplayClassification}
+                  selected={selected}
+                  options={options}
+                  showOptions={showOptions}
+                  currentUsualAvailability={currentUsualAvailability}
+                  importing={importing}
+                  onToggleSelection={toggleSelection}
+                  onToggleExpanded={toggleExpanded}
+                  onUpdateSelectionOptions={updateSelectionOptions}
+                />
+              )
+            })}
+          </Stack>
+        </Box>
+      ) : (
+        <Stack spacing={1.25}>
+          <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
+            No Steam games match that filter.
+          </Typography>
+        </Stack>
+      )}
     </>
   )
 }
@@ -798,21 +1070,30 @@ function SteamImportRow({
   importing,
   onToggleSelection,
   onToggleExpanded,
-  onUpdateSelectionOptions
+  onUpdateSelectionOptions,
 }: {
-  game: SteamLibraryImportGame;
-  gameplayClassification: SteamLibraryImportGame['gameplayClassification'];
-  selected: boolean;
-  options: SteamImportSelection;
-  showOptions: boolean;
-  currentUsualAvailability: string | null;
-  importing: boolean;
-  onToggleSelection: (game: SteamLibraryImportGame) => void;
-  onToggleExpanded: (sourceId: string) => void;
-  onUpdateSelectionOptions: (sourceId: string, updater: (current: SteamImportSelection) => SteamImportSelection) => void;
+  game: SteamLibraryImportGame
+  gameplayClassification: SteamLibraryImportGame['gameplayClassification']
+  selected: boolean
+  options: SteamImportSelection
+  showOptions: boolean
+  currentUsualAvailability: string | null
+  importing: boolean
+  onToggleSelection: (game: SteamLibraryImportGame) => void
+  onToggleExpanded: (sourceId: string) => void
+  onUpdateSelectionOptions: (
+    sourceId: string,
+    updater: (current: SteamImportSelection) => SteamImportSelection,
+  ) => void
 }) {
   const { gameDetailsViewProps } = useDashboardContext()
-  const platformOptions = [...new Set([...steamImportPlatformOptions, ...game.platformLabels, ...options.platformLabels])]
+  const platformOptions = [
+    ...new Set([
+      ...steamImportPlatformOptions,
+      ...game.platformLabels,
+      ...options.platformLabels,
+    ]),
+  ]
 
   return (
     <Sheet
@@ -821,7 +1102,7 @@ function SteamImportRow({
         p: 0.75,
         borderRadius: 'md',
         border: '1px solid #272f3c',
-        cursor: game.alreadyInLibrary ? 'default' : 'pointer'
+        cursor: game.alreadyInLibrary ? 'default' : 'pointer',
       }}
       onClick={() => onToggleSelection(game)}
     >
@@ -843,7 +1124,7 @@ function SteamImportRow({
               sourceId: game.sourceId,
               title: game.title,
               coverUrl: game.coverUrl,
-              platformLabels: game.platformLabels
+              platformLabels: game.platformLabels,
             })
           }}
           sx={{
@@ -855,46 +1136,91 @@ function SteamImportRow({
             flexShrink: 0,
             border: 'none',
             padding: 0,
-            cursor: 'pointer'
+            cursor: 'pointer',
           }}
         >
           {game.coverUrl ? (
-            <DashboardDeferredImage src={game.coverUrl} alt={game.title} rootMargin="240px 0px" />
+            <DashboardDeferredImage
+              src={game.coverUrl}
+              alt={game.title}
+              rootMargin="240px 0px"
+            />
           ) : null}
         </Box>
         <Stack spacing={0.25} sx={{ minWidth: 0, flex: 1 }}>
-          <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }} alignItems="center">
-              <Button
-                size="sm"
-                variant="plain"
-                color="neutral"
-                onClick={(event) => {
-                  event.stopPropagation()
-                  gameDetailsViewProps.openGameDetails({
-                    source: 'steam',
-                    sourceId: game.sourceId,
-                    title: game.title,
-                    coverUrl: game.coverUrl,
-                    platformLabels: game.platformLabels
-                  })
-                }}
-                sx={{ px: 0, py: 0, minHeight: 0, justifyContent: 'flex-start', color: 'neutral.100', fontSize: 'sm', fontWeight: 'lg' }}
-              >
-                {game.title}
-              </Button>
-              {gameplayClassification === 'singleplayer-only' ? <Chip size="sm" color="warning" variant="soft">Single-player</Chip> : null}
-              {game.alreadyInLibrary ? <Chip size="sm" color="success" variant="soft">Already in library</Chip> : null}
-              {selected && !game.alreadyInLibrary ? <Chip size="sm" variant="soft" color="primary">{formatLibraryIntentLabel(options.intent)}</Chip> : null}
-            </Stack>
-          <Stack direction="row" spacing={0.75} sx={{ flexWrap: 'wrap' }} alignItems="center" useFlexGap>
+          <Stack
+            direction="row"
+            spacing={1}
+            sx={{ flexWrap: 'wrap' }}
+            alignItems="center"
+          >
+            <Button
+              size="sm"
+              variant="plain"
+              color="neutral"
+              onClick={(event) => {
+                event.stopPropagation()
+                gameDetailsViewProps.openGameDetails({
+                  source: 'steam',
+                  sourceId: game.sourceId,
+                  title: game.title,
+                  coverUrl: game.coverUrl,
+                  platformLabels: game.platformLabels,
+                })
+              }}
+              sx={{
+                px: 0,
+                py: 0,
+                minHeight: 0,
+                justifyContent: 'flex-start',
+                color: 'neutral.100',
+                fontSize: 'sm',
+                fontWeight: 'lg',
+              }}
+            >
+              {game.title}
+            </Button>
+            {gameplayClassification === 'singleplayer-only' ? (
+              <Chip size="sm" color="warning" variant="soft">
+                Single-player
+              </Chip>
+            ) : null}
+            {game.alreadyInLibrary ? (
+              <Chip size="sm" color="success" variant="soft">
+                Already in library
+              </Chip>
+            ) : null}
+            {selected && !game.alreadyInLibrary ? (
+              <Chip size="sm" variant="soft" color="primary">
+                {formatLibraryIntentLabel(options.intent)}
+              </Chip>
+            ) : null}
+          </Stack>
+          <Stack
+            direction="row"
+            spacing={0.75}
+            sx={{ flexWrap: 'wrap' }}
+            alignItems="center"
+            useFlexGap
+          >
             <Typography level="body-xs" sx={{ color: 'neutral.400' }}>
               {options.platformLabels.join(', ')}
             </Typography>
-            <Chip size="sm" variant="outlined" color="neutral">{formatSteamPlaytime(game.minutesPlayedTotal)}</Chip>
-            {game.minutesPlayedRecent > 0 ? <Chip size="sm" variant="outlined" color="neutral">{formatSteamPlaytime(game.minutesPlayedRecent)} last 2 weeks</Chip> : null}
-            {selected && !game.alreadyInLibrary && options.availability?.trim()
-              ? <Chip size="sm" variant="outlined" color="neutral">{options.availability.trim()}</Chip>
-              : null}
+            <Chip size="sm" variant="outlined" color="neutral">
+              {formatSteamPlaytime(game.minutesPlayedTotal)}
+            </Chip>
+            {game.minutesPlayedRecent > 0 ? (
+              <Chip size="sm" variant="outlined" color="neutral">
+                {formatSteamPlaytime(game.minutesPlayedRecent)} last 2 weeks
+              </Chip>
+            ) : null}
+            {selected &&
+            !game.alreadyInLibrary &&
+            options.availability?.trim() ? (
+              <Chip size="sm" variant="outlined" color="neutral">
+                {options.availability.trim()}
+              </Chip>
+            ) : null}
           </Stack>
         </Stack>
         {selected && !game.alreadyInLibrary ? (
@@ -912,7 +1238,11 @@ function SteamImportRow({
         ) : null}
       </Stack>
       {showOptions ? (
-        <Stack spacing={1.25} sx={{ mt: 1, pl: { xs: 0, sm: 5 } }} onClick={(event) => event.stopPropagation()}>
+        <Stack
+          spacing={1.25}
+          sx={{ mt: 1, pl: { xs: 0, sm: 5 } }}
+          onClick={(event) => event.stopPropagation()}
+        >
           <Stack spacing={1}>
             <Typography level="title-sm">Platform</Typography>
             <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
@@ -920,7 +1250,8 @@ function SteamImportRow({
             </Typography>
             <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
               {platformOptions.map((platform) => {
-                const platformSelected = options.platformLabels.includes(platform)
+                const platformSelected =
+                  options.platformLabels.includes(platform)
 
                 return (
                   <Button
@@ -938,13 +1269,15 @@ function SteamImportRow({
 
                           return {
                             ...current,
-                            platformLabels: current.platformLabels.filter((entry) => entry !== platform)
+                            platformLabels: current.platformLabels.filter(
+                              (entry) => entry !== platform,
+                            ),
                           }
                         }
 
                         return {
                           ...current,
-                          platformLabels: [...current.platformLabels, platform]
+                          platformLabels: [...current.platformLabels, platform],
                         }
                       })
                     }}
@@ -958,38 +1291,47 @@ function SteamImportRow({
           <Stack spacing={1}>
             <Typography level="title-sm">Interest level</Typography>
             <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-              {(['interested', 'wishlist', 'playing-now'] as const).map((intent) => (
-                <Button
-                  key={intent}
-                  size="sm"
-                  variant={options.intent === intent ? 'solid' : 'outlined'}
-                  color={options.intent === intent ? 'primary' : 'neutral'}
-                  onClick={(event) => {
-                    event.stopPropagation()
-                    onUpdateSelectionOptions(game.sourceId, (current) => ({
-                      ...current,
-                      intent
-                    }))
-                  }}
-                >
-                  {formatLibraryIntentLabel(intent)}
-                </Button>
-              ))}
+              {(['interested', 'wishlist', 'playing-now'] as const).map(
+                (intent) => (
+                  <Button
+                    key={intent}
+                    size="sm"
+                    variant={options.intent === intent ? 'solid' : 'outlined'}
+                    color={options.intent === intent ? 'primary' : 'neutral'}
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      onUpdateSelectionOptions(game.sourceId, (current) => ({
+                        ...current,
+                        intent,
+                      }))
+                    }}
+                  >
+                    {formatLibraryIntentLabel(intent)}
+                  </Button>
+                ),
+              )}
             </Stack>
           </Stack>
           <Stack spacing={1}>
-            <Typography level="title-sm">Game-specific schedule override</Typography>
+            <Typography level="title-sm">
+              Game-specific schedule override
+            </Typography>
             <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
-              Leave this blank to use your profile schedule. Only fill it in when this game usually happens at a different time.
+              Leave this blank to use your profile schedule. Only fill it in
+              when this game usually happens at a different time.
             </Typography>
             <Input
-              placeholder={currentUsualAvailability ? `Usually ${currentUsualAvailability}` : 'Example: Friday nights'}
+              placeholder={
+                currentUsualAvailability
+                  ? `Usually ${currentUsualAvailability}`
+                  : 'Example: Friday nights'
+              }
               value={options.availability ?? ''}
               onClick={(event) => event.stopPropagation()}
               onChange={(event) => {
                 onUpdateSelectionOptions(game.sourceId, (current) => ({
                   ...current,
-                  availability: event.target.value
+                  availability: event.target.value,
                 }))
               }}
             />
@@ -1060,75 +1402,81 @@ function LibraryViewContent({
   removingLibraryEntryId,
   onEditLibraryEntry,
   onRemoveLibraryEntry,
-  onAddGameToLibrary
+  onAddGameToLibrary,
 }: {
-  error: string | null;
-  isSignedIn: boolean;
-  steamImportEnabled: boolean;
-  steamConnected: boolean;
-  steamLinkPending: boolean;
-  steamPreviewLoading: boolean;
-  steamImporting: boolean;
-  steamDisconnectPending: boolean;
-  isSteamImportModalOpen: boolean;
-  steamImportPreview: SteamLibraryImportPreviewResponse | null;
-  onStartSteamLink: () => Promise<void>;
-  onOpenSteamImport: () => Promise<void>;
-  onCloseSteamImport: () => void;
-  onRefreshSteamImport: () => Promise<void>;
-  onImportSteamGames: (games: ImportSteamLibrarySelectionRequest['games']) => Promise<void>;
-  onDisconnectSteam: () => Promise<void>;
-  usualAvailability: string;
-  profileSaving: boolean;
-  usualAvailabilityChanged: boolean;
-  usualAvailabilityButtonLabel: string;
-  usualAvailabilityHelperText: string;
-  onUsualAvailabilityChange: (value: string) => void;
-  onSaveUsualAvailability: () => Promise<void>;
-  isLibraryEditorOpen: boolean;
-  openLibraryEditor: () => void;
-  closeLibraryEditor: () => void;
-  editingLibraryEntry: LibraryEntry | null;
-  libraryTitle: string;
-  onLibraryTitleChange: (value: string) => void;
-  selectedCatalogResult: GameSearchResult | null;
-  gameSuggestions: GameSearchResponse['results'];
-  gameSuggestionsLoading: boolean;
-  onSelectSuggestion: (result: GameSearchResult) => void;
-  platformOptions: string[];
-  selectedPlatformLabels: string[];
-  onTogglePlatformLabel: (platform: string) => void;
-  libraryIntent: LibraryEntryIntent;
-  onLibraryIntentChange: (intent: LibraryEntryIntent) => void;
-  currentUsualAvailability: string | null;
-  libraryAvailability: string;
-  onLibraryAvailabilityChange: (value: string) => void;
-  librarySaving: boolean;
-  onAddLibraryEntry: () => Promise<void>;
-  onCancelLibraryEdit: () => void;
-  libraryEntries: LibraryEntry[];
-  suggestedGames: LibrarySuggestedGame[];
-  platformAliases: UserPlatformAlias[];
-  gameAliases: UserGameAlias[];
-  aliasSavingKey: string | null;
-  onSavePlatformAlias: (platform: string, aliasValue: string) => Promise<void>;
-  onDeletePlatformAlias: (platform: string) => Promise<void>;
-  onSaveGameAlias: (gameId: string, aliasValue: string) => Promise<void>;
-  onDeleteGameAlias: (gameId: string) => Promise<void>;
-  libraryGameIds: ReadonlySet<string>;
-  addingLibraryGameId: string | null;
-  editingLibraryEntryId: string | null;
-  removingLibraryEntryId: string | null;
-  onEditLibraryEntry: (entry: LibraryEntry) => void;
-  onRemoveLibraryEntry: (entryId: string) => Promise<void>;
-  onAddGameToLibrary: (game: DashboardLibraryQuickAddGame) => Promise<void>;
+  error: string | null
+  isSignedIn: boolean
+  steamImportEnabled: boolean
+  steamConnected: boolean
+  steamLinkPending: boolean
+  steamPreviewLoading: boolean
+  steamImporting: boolean
+  steamDisconnectPending: boolean
+  isSteamImportModalOpen: boolean
+  steamImportPreview: SteamLibraryImportPreviewResponse | null
+  onStartSteamLink: () => Promise<void>
+  onOpenSteamImport: () => Promise<void>
+  onCloseSteamImport: () => void
+  onRefreshSteamImport: () => Promise<void>
+  onImportSteamGames: (
+    games: ImportSteamLibrarySelectionRequest['games'],
+  ) => Promise<void>
+  onDisconnectSteam: () => Promise<void>
+  usualAvailability: string
+  profileSaving: boolean
+  usualAvailabilityChanged: boolean
+  usualAvailabilityButtonLabel: string
+  usualAvailabilityHelperText: string
+  onUsualAvailabilityChange: (value: string) => void
+  onSaveUsualAvailability: () => Promise<void>
+  isLibraryEditorOpen: boolean
+  openLibraryEditor: () => void
+  closeLibraryEditor: () => void
+  editingLibraryEntry: LibraryEntry | null
+  libraryTitle: string
+  onLibraryTitleChange: (value: string) => void
+  selectedCatalogResult: GameSearchResult | null
+  gameSuggestions: GameSearchResponse['results']
+  gameSuggestionsLoading: boolean
+  onSelectSuggestion: (result: GameSearchResult) => void
+  platformOptions: string[]
+  selectedPlatformLabels: string[]
+  onTogglePlatformLabel: (platform: string) => void
+  libraryIntent: LibraryEntryIntent
+  onLibraryIntentChange: (intent: LibraryEntryIntent) => void
+  currentUsualAvailability: string | null
+  libraryAvailability: string
+  onLibraryAvailabilityChange: (value: string) => void
+  librarySaving: boolean
+  onAddLibraryEntry: () => Promise<void>
+  onCancelLibraryEdit: () => void
+  libraryEntries: LibraryEntry[]
+  suggestedGames: LibrarySuggestedGame[]
+  platformAliases: UserPlatformAlias[]
+  gameAliases: UserGameAlias[]
+  aliasSavingKey: string | null
+  onSavePlatformAlias: (platform: string, aliasValue: string) => Promise<void>
+  onDeletePlatformAlias: (platform: string) => Promise<void>
+  onSaveGameAlias: (gameId: string, aliasValue: string) => Promise<void>
+  onDeleteGameAlias: (gameId: string) => Promise<void>
+  libraryGameIds: ReadonlySet<string>
+  addingLibraryGameId: string | null
+  editingLibraryEntryId: string | null
+  removingLibraryEntryId: string | null
+  onEditLibraryEntry: (entry: LibraryEntry) => void
+  onRemoveLibraryEntry: (entryId: string) => Promise<void>
+  onAddGameToLibrary: (game: DashboardLibraryQuickAddGame) => Promise<void>
 }) {
   if (error) {
     return <DashboardApiIssueCard error={error} />
   }
 
-  const gameAliasByGameId = new Map(gameAliases.map((alias) => [alias.gameId, alias.aliasValue]))
-  const editorGameAlias = editingLibraryEntry ? (gameAliasByGameId.get(editingLibraryEntry.gameId) ?? null) : null
+  const gameAliasByGameId = new Map(
+    gameAliases.map((alias) => [alias.gameId, alias.aliasValue]),
+  )
+  const editorGameAlias = editingLibraryEntry
+    ? (gameAliasByGameId.get(editingLibraryEntry.gameId) ?? null)
+    : null
 
   if (!isSignedIn) {
     return (
@@ -1144,26 +1492,34 @@ function LibraryViewContent({
     {
       id: 'library-section',
       label: 'Library',
-      ariaLabel: 'Library section'
+      ariaLabel: 'Library section',
     },
     {
       id: 'usual-availability',
       label: 'When You Play',
       mobileLabel: 'Schedule',
-      ariaLabel: 'When do you usually play section'
+      ariaLabel: 'When do you usually play section',
     },
     {
       id: 'aliases',
       label: 'Aliases',
-      ariaLabel: 'Aliases section'
-    }
+      ariaLabel: 'Aliases section',
+    },
   ]
 
   return (
     <Stack spacing={3}>
-      <SectionNav aria-label="Library sections" mb={0} sections={librarySections} />
+      <SectionNav
+        aria-label="Library sections"
+        mb={0}
+        sections={librarySections}
+      />
 
-      <DashboardModal open={isLibraryEditorOpen} onClose={closeLibraryEditor} width="min(96vw, 760px)">
+      <DashboardModal
+        open={isLibraryEditorOpen}
+        onClose={closeLibraryEditor}
+        width="min(96vw, 760px)"
+      >
         <LibraryEditorCard
           editingLibraryEntry={editingLibraryEntry}
           libraryTitle={libraryTitle}
@@ -1183,7 +1539,7 @@ function LibraryViewContent({
           gameAlias={editorGameAlias}
           aliasSaving={Boolean(
             editingLibraryEntry &&
-            aliasSavingKey === `game:${editingLibraryEntry.gameId}`
+            aliasSavingKey === `game:${editingLibraryEntry.gameId}`,
           )}
           onSaveGameAlias={onSaveGameAlias}
           onDeleteGameAlias={onDeleteGameAlias}
@@ -1193,7 +1549,11 @@ function LibraryViewContent({
         />
       </DashboardModal>
 
-      <DashboardModal open={isSteamImportModalOpen} onClose={onCloseSteamImport} width="min(96vw, 860px)">
+      <DashboardModal
+        open={isSteamImportModalOpen}
+        onClose={onCloseSteamImport}
+        width="min(96vw, 860px)"
+      >
         <SteamImportModalContent
           preview={steamImportPreview}
           currentUsualAvailability={currentUsualAvailability}
@@ -1211,16 +1571,32 @@ function LibraryViewContent({
         />
       </DashboardModal>
 
-      <Box id="library-section" sx={{ scrollMarginTop: sectionScrollMarginTop }}>
+      <Box
+        id="library-section"
+        sx={{ scrollMarginTop: sectionScrollMarginTop }}
+      >
         <Stack spacing={2}>
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }}>
+          <Stack
+            direction={{ xs: 'column', sm: 'row' }}
+            spacing={1.5}
+            justifyContent="space-between"
+            alignItems={{ xs: 'stretch', sm: 'center' }}
+          >
             <Box>
               <Typography level="h2">Your Library</Typography>
-              <Typography level="body-md" sx={{ color: 'neutral.300', mt: 0.5 }}>
-                Add games to your library to be able to discover others who share your interests.
+              <Typography
+                level="body-md"
+                sx={{ color: 'neutral.300', mt: 0.5 }}
+              >
+                Add games to your library to be able to discover others who
+                share your interests.
               </Typography>
             </Box>
-            <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} sx={{ width: { xs: '100%', md: 'auto' } }}>
+            <Stack
+              direction={{ xs: 'column', md: 'row' }}
+              spacing={1}
+              sx={{ width: { xs: '100%', md: 'auto' } }}
+            >
               <Button
                 color="primary"
                 variant="outlined"
@@ -1229,7 +1605,7 @@ function LibraryViewContent({
                   flex: { xs: 1, md: '0 0 auto' },
                   minWidth: { xs: 0, md: 170 },
                   textAlign: 'center',
-                  whiteSpace: 'nowrap'
+                  whiteSpace: 'nowrap',
                 }}
               >
                 Import from Steam
@@ -1241,7 +1617,7 @@ function LibraryViewContent({
                   flex: { xs: 1, md: '0 0 auto' },
                   minWidth: { xs: 0, md: 188 },
                   textAlign: 'center',
-                  whiteSpace: 'nowrap'
+                  whiteSpace: 'nowrap',
                 }}
               >
                 Add game to library
@@ -1279,12 +1655,16 @@ function LibraryViewContent({
         </Stack>
       </Box>
 
-      <Box id="usual-availability" sx={{ scrollMarginTop: sectionScrollMarginTop }}>
+      <Box
+        id="usual-availability"
+        sx={{ scrollMarginTop: sectionScrollMarginTop }}
+      >
         <Stack spacing={2}>
           <Box>
             <Typography level="h3">When do you usually play?</Typography>
             <Typography level="body-sm" sx={{ color: 'neutral.400', mt: 0.5 }}>
-              Set one default schedule at the user level. Individual games can still carry their own override when they differ.
+              Set one default schedule at the user level. Individual games can
+              still carry their own override when they differ.
             </Typography>
           </Box>
 
@@ -1305,7 +1685,8 @@ function LibraryViewContent({
           <Box>
             <Typography level="h3">Aliases</Typography>
             <Typography level="body-sm" sx={{ color: 'neutral.400', mt: 0.5 }}>
-              Save your platform-specific handles. Game-specific aliases are edited directly in each game card below.
+              Save your platform-specific handles. Game-specific aliases are
+              edited directly in each game card below.
             </Typography>
           </Box>
 

@@ -1,30 +1,44 @@
-import { Box, Button, Card, Chip, Sheet, Skeleton, Stack, Typography } from '@mui/joy'
+import {
+  Box,
+  Button,
+  Card,
+  Chip,
+  Sheet,
+  Skeleton,
+  Stack,
+  Typography,
+} from '@mui/joy'
 import type { DiscoveryGame, DiscoveryGamePlayer } from '@game-is-up/shared'
 import { DashboardDeferredImage } from './DashboardDeferredImage'
 import { FriendActionPopover } from './FriendActionPopover'
 import { GameActionPopover } from './GameActionPopover'
-import { commonWideGameCoverAspectRatio, formatLibraryIntentLabel, nestedInsetSurfaceSx, topLevelGridCardSx } from './dashboardUtils'
+import {
+  commonWideGameCoverAspectRatio,
+  formatLibraryIntentLabel,
+  nestedInsetSurfaceSx,
+  topLevelGridCardSx,
+} from './dashboardUtils'
 import type { DashboardLibraryQuickAddGame, FriendTarget } from './types'
 import { useDashboardContext } from '../../contexts/useDashboardContext'
 
 type CompactCardBadge = {
-  label: string;
-  color?: 'neutral' | 'primary' | 'success' | 'warning' | 'danger';
-  variant?: 'soft' | 'outlined' | 'solid' | 'plain';
+  label: string
+  color?: 'neutral' | 'primary' | 'success' | 'warning' | 'danger'
+  variant?: 'soft' | 'outlined' | 'solid' | 'plain'
 }
 
 const compactActionLabelSx = {
   display: 'inline',
   '@container (max-width: 280px)': {
-    display: 'none'
-  }
+    display: 'none',
+  },
 } as const
 
 const compactActionSymbolSx = {
   display: 'none',
   '@container (max-width: 280px)': {
-    display: 'inline'
-  }
+    display: 'inline',
+  },
 } as const
 
 export function CompactDiscoveryPlayerCard({
@@ -36,17 +50,17 @@ export function CompactDiscoveryPlayerCard({
   detailLines = [],
   badges,
   footerBadge,
-  onToggleFriend
+  onToggleFriend,
 }: {
-  target: FriendTarget;
-  handle: string;
-  canManage: boolean;
-  isPending: boolean;
-  supportingText?: string;
-  detailLines?: string[];
-  badges: CompactCardBadge[];
-  footerBadge?: CompactCardBadge | null;
-  onToggleFriend: (target: FriendTarget) => Promise<void>;
+  target: FriendTarget
+  handle: string
+  canManage: boolean
+  isPending: boolean
+  supportingText?: string
+  detailLines?: string[]
+  badges: CompactCardBadge[]
+  footerBadge?: CompactCardBadge | null
+  onToggleFriend: (target: FriendTarget) => Promise<void>
 }) {
   return (
     <Sheet
@@ -55,12 +69,22 @@ export function CompactDiscoveryPlayerCard({
         p: 1.25,
         borderRadius: 'md',
         height: '100%',
-        ...nestedInsetSurfaceSx
+        ...nestedInsetSurfaceSx,
       }}
     >
-      <Stack direction="column" spacing={1.25} justifyContent="space-between" alignItems="stretch">
+      <Stack
+        direction="column"
+        spacing={1.25}
+        justifyContent="space-between"
+        alignItems="stretch"
+      >
         <Stack spacing={0.75} sx={{ minWidth: 0 }}>
-          <Stack direction="row" spacing={1} sx={{ minWidth: 0, containerType: 'inline-size' }} alignItems="center">
+          <Stack
+            direction="row"
+            spacing={1}
+            sx={{ minWidth: 0, containerType: 'inline-size' }}
+            alignItems="center"
+          >
             <Box sx={{ minWidth: 0, flex: 1 }}>
               <FriendActionPopover
                 target={target}
@@ -72,7 +96,7 @@ export function CompactDiscoveryPlayerCard({
                 onToggleFriend={onToggleFriend}
               />
             </Box>
-            {(!canManage || isPending || target.friendEligible) ? (
+            {!canManage || isPending || target.friendEligible ? (
               <Button
                 size="sm"
                 variant="soft"
@@ -87,29 +111,46 @@ export function CompactDiscoveryPlayerCard({
                   minWidth: { xs: '1.5rem', sm: 'auto' },
                   px: { xs: 0.625, sm: 1 },
                   fontSize: 'xs',
-                  lineHeight: 1
+                  lineHeight: 1,
                 }}
               >
                 {!canManage ? (
                   <>
-                    <Box component="span" sx={compactActionLabelSx}>Sign in</Box>
-                    <Box component="span" sx={compactActionSymbolSx}>?</Box>
+                    <Box component="span" sx={compactActionLabelSx}>
+                      Sign in
+                    </Box>
+                    <Box component="span" sx={compactActionSymbolSx}>
+                      ?
+                    </Box>
                   </>
                 ) : isPending ? (
                   <>
-                    <Box component="span" sx={compactActionLabelSx}>Saving...</Box>
-                    <Box component="span" sx={compactActionSymbolSx}>...</Box>
+                    <Box component="span" sx={compactActionLabelSx}>
+                      Saving...
+                    </Box>
+                    <Box component="span" sx={compactActionSymbolSx}>
+                      ...
+                    </Box>
                   </>
                 ) : (
                   <>
-                    <Box component="span" sx={compactActionLabelSx}>Add friend</Box>
-                    <Box component="span" sx={compactActionSymbolSx}>Add</Box>
+                    <Box component="span" sx={compactActionLabelSx}>
+                      Add friend
+                    </Box>
+                    <Box component="span" sx={compactActionSymbolSx}>
+                      Add
+                    </Box>
                   </>
                 )}
               </Button>
             ) : null}
           </Stack>
-          <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', width: '100%' }} alignItems="center">
+          <Stack
+            direction="row"
+            spacing={1}
+            sx={{ flexWrap: 'wrap', width: '100%' }}
+            alignItems="center"
+          >
             {badges.map((badge) => (
               <Chip
                 key={`${badge.label}-${badge.color ?? 'neutral'}-${badge.variant ?? 'soft'}`}
@@ -122,7 +163,12 @@ export function CompactDiscoveryPlayerCard({
             ))}
           </Stack>
           {footerBadge ? (
-            <Chip size="sm" variant={footerBadge.variant ?? 'soft'} color={footerBadge.color ?? 'neutral'} sx={{ alignSelf: 'flex-start' }}>
+            <Chip
+              size="sm"
+              variant={footerBadge.variant ?? 'soft'}
+              color={footerBadge.color ?? 'neutral'}
+              sx={{ alignSelf: 'flex-start' }}
+            >
               {footerBadge.label}
             </Chip>
           ) : null}
@@ -144,30 +190,33 @@ export function GameCard({
   onToggleFriend,
   onAddToLibrary,
   onRemoveFromLibrary,
-  compact = false
+  compact = false,
 }: {
-  game: DiscoveryGame;
-  canManage: boolean;
-  canAddToLibrary: boolean;
-  isInLibrary: boolean;
-  libraryEntryId: string | null;
-  isAddingToLibrary: boolean;
-  isRemovingFromLibrary: boolean;
-  pendingFriendId: string | null;
-  onToggleFriend: (target: FriendTarget) => Promise<void>;
-  onAddToLibrary: (game: DashboardLibraryQuickAddGame) => Promise<void>;
-  onRemoveFromLibrary: (entryId: string) => Promise<void>;
-  compact?: boolean;
+  game: DiscoveryGame
+  canManage: boolean
+  canAddToLibrary: boolean
+  isInLibrary: boolean
+  libraryEntryId: string | null
+  isAddingToLibrary: boolean
+  isRemovingFromLibrary: boolean
+  pendingFriendId: string | null
+  onToggleFriend: (target: FriendTarget) => Promise<void>
+  onAddToLibrary: (game: DashboardLibraryQuickAddGame) => Promise<void>
+  onRemoveFromLibrary: (entryId: string) => Promise<void>
+  compact?: boolean
 }) {
   const libraryQuickAddGame = {
     gameId: game.id,
     title: game.title,
     coverUrl: game.coverUrl,
-    platformLabels: game.platformLabels
+    platformLabels: game.platformLabels,
   }
   const { gameDetailsViewProps } = useDashboardContext()
-  const visiblePlatformLabels = compact ? game.platformLabels.slice(0, 3) : game.platformLabels
-  const hiddenPlatformCount = game.platformLabels.length - visiblePlatformLabels.length
+  const visiblePlatformLabels = compact
+    ? game.platformLabels.slice(0, 3)
+    : game.platformLabels
+  const hiddenPlatformCount =
+    game.platformLabels.length - visiblePlatformLabels.length
   const showCompactSignInHint = compact && !canManage && game.players.length > 0
   const compactPlayerListMaxHeight = '21rem'
 
@@ -176,20 +225,22 @@ export function GameCard({
       variant="soft"
       sx={{
         p: compact ? 2 : 3,
-        ...topLevelGridCardSx
+        ...topLevelGridCardSx,
       }}
     >
       <Stack spacing={compact ? 1.5 : 2} sx={{ height: '100%' }}>
         <Box
           component="button"
           type="button"
-          onClick={() => gameDetailsViewProps.openGameDetails({
-            source: 'local',
-            sourceId: game.id,
-            title: game.title,
-            coverUrl: game.coverUrl,
-            platformLabels: game.platformLabels
-          })}
+          onClick={() =>
+            gameDetailsViewProps.openGameDetails({
+              source: 'local',
+              sourceId: game.id,
+              title: game.title,
+              coverUrl: game.coverUrl,
+              platformLabels: game.platformLabels,
+            })
+          }
           sx={{
             width: '100%',
             aspectRatio: commonWideGameCoverAspectRatio,
@@ -200,21 +251,33 @@ export function GameCard({
             border: 'none',
             padding: 0,
             textAlign: 'inherit',
-            cursor: 'pointer'
+            cursor: 'pointer',
           }}
         >
           {game.coverUrl ? (
             <DashboardDeferredImage src={game.coverUrl} alt={game.title} />
           ) : (
-            <Stack sx={{ width: '100%', height: '100%', p: 2 }} justifyContent="center" alignItems="center">
-              <Typography level="title-sm" sx={{ textAlign: 'center', color: 'neutral.300' }}>
+            <Stack
+              sx={{ width: '100%', height: '100%', p: 2 }}
+              justifyContent="center"
+              alignItems="center"
+            >
+              <Typography
+                level="title-sm"
+                sx={{ textAlign: 'center', color: 'neutral.300' }}
+              >
                 {game.title}
               </Typography>
             </Stack>
           )}
         </Box>
         <Stack spacing={1.25}>
-          <Stack direction="row" spacing={1} sx={{ minWidth: 0, width: '100%', containerType: 'inline-size' }} alignItems="flex-start">
+          <Stack
+            direction="row"
+            spacing={1}
+            sx={{ minWidth: 0, width: '100%', containerType: 'inline-size' }}
+            alignItems="flex-start"
+          >
             <Box sx={{ minWidth: 0, flex: 1 }}>
               <GameActionPopover
                 game={libraryQuickAddGame}
@@ -223,7 +286,9 @@ export function GameCard({
                 isAddingToLibrary={isAddingToLibrary}
                 supportingText={`${game.playerCount} player${game.playerCount === 1 ? '' : 's'}`}
                 detailLines={[
-                  game.sharedWithViewer ? 'This game is already in your library.' : 'This game is not in your library yet.'
+                  game.sharedWithViewer
+                    ? 'This game is already in your library.'
+                    : 'This game is not in your library yet.',
                 ]}
                 large={!compact}
                 onAddToLibrary={onAddToLibrary}
@@ -250,18 +315,26 @@ export function GameCard({
                   whiteSpace: 'nowrap',
                   fontSize: 'xs',
                   fontWeight: 'md',
-                  lineHeight: 1
+                  lineHeight: 1,
                 }}
               >
                 {isRemovingFromLibrary ? (
                   <>
-                    <Box component="span" sx={compactActionLabelSx}>Removing...</Box>
-                    <Box component="span" sx={compactActionSymbolSx}>...</Box>
+                    <Box component="span" sx={compactActionLabelSx}>
+                      Removing...
+                    </Box>
+                    <Box component="span" sx={compactActionSymbolSx}>
+                      ...
+                    </Box>
                   </>
                 ) : (
                   <>
-                    <Box component="span" sx={compactActionLabelSx}>Remove from library</Box>
-                    <Box component="span" sx={compactActionSymbolSx}>Remove</Box>
+                    <Box component="span" sx={compactActionLabelSx}>
+                      Remove from library
+                    </Box>
+                    <Box component="span" sx={compactActionSymbolSx}>
+                      Remove
+                    </Box>
                   </>
                 )}
               </Button>
@@ -282,30 +355,51 @@ export function GameCard({
                   whiteSpace: 'nowrap',
                   fontSize: 'xs',
                   fontWeight: 'md',
-                  lineHeight: 1
+                  lineHeight: 1,
                 }}
               >
                 {!canAddToLibrary ? (
                   <>
-                    <Box component="span" sx={compactActionLabelSx}>Sign in to add</Box>
-                    <Box component="span" sx={compactActionSymbolSx}>?</Box>
+                    <Box component="span" sx={compactActionLabelSx}>
+                      Sign in to add
+                    </Box>
+                    <Box component="span" sx={compactActionSymbolSx}>
+                      ?
+                    </Box>
                   </>
                 ) : isAddingToLibrary ? (
                   <>
-                    <Box component="span" sx={compactActionLabelSx}>Adding...</Box>
-                    <Box component="span" sx={compactActionSymbolSx}>...</Box>
+                    <Box component="span" sx={compactActionLabelSx}>
+                      Adding...
+                    </Box>
+                    <Box component="span" sx={compactActionSymbolSx}>
+                      ...
+                    </Box>
                   </>
                 ) : (
                   <>
-                    <Box component="span" sx={compactActionLabelSx}>Add to library</Box>
-                    <Box component="span" sx={compactActionSymbolSx}>Add</Box>
+                    <Box component="span" sx={compactActionLabelSx}>
+                      Add to library
+                    </Box>
+                    <Box component="span" sx={compactActionSymbolSx}>
+                      Add
+                    </Box>
                   </>
                 )}
               </Button>
             )}
           </Stack>
-          <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', width: '100%' }} alignItems="center">
-            <Chip color="primary" variant="outlined" size={compact ? 'sm' : 'md'}>
+          <Stack
+            direction="row"
+            spacing={1}
+            sx={{ flexWrap: 'wrap', width: '100%' }}
+            alignItems="center"
+          >
+            <Chip
+              color="primary"
+              variant="outlined"
+              size={compact ? 'sm' : 'md'}
+            >
               {game.playerCount} player{game.playerCount === 1 ? '' : 's'}
             </Chip>
             {visiblePlatformLabels.map((platform: string) => (
@@ -331,14 +425,18 @@ export function GameCard({
               mr: compact ? -0.5 : 0,
               scrollbarWidth: compact ? 'thin' : 'auto',
               '&::-webkit-scrollbar': compact ? { width: 8 } : undefined,
-              '&::-webkit-scrollbar-thumb': compact ? {
-                backgroundColor: 'rgba(193, 204, 218, 0.28)',
-                borderRadius: 999
-              } : undefined,
-              '&::-webkit-scrollbar-track': compact ? {
-                backgroundColor: 'rgba(7, 11, 20, 0.24)',
-                borderRadius: 999
-              } : undefined
+              '&::-webkit-scrollbar-thumb': compact
+                ? {
+                    backgroundColor: 'rgba(193, 204, 218, 0.28)',
+                    borderRadius: 999,
+                  }
+                : undefined,
+              '&::-webkit-scrollbar-track': compact
+                ? {
+                    backgroundColor: 'rgba(7, 11, 20, 0.24)',
+                    borderRadius: 999,
+                  }
+                : undefined,
             }}
           >
             <Box
@@ -347,7 +445,7 @@ export function GameCard({
                 gridTemplateColumns: compact
                   ? 'repeat(auto-fill, minmax(min(100%, 220px), 1fr))'
                   : 'repeat(auto-fill, minmax(min(100%, 260px), 1fr))',
-                gap: 1.25
+                gap: 1.25,
               }}
             >
               {game.players.map((player: DiscoveryGamePlayer) => (
@@ -359,17 +457,32 @@ export function GameCard({
                   isPending={pendingFriendId === player.id}
                   detailLines={[
                     player.contactHint,
-                    player.mutualServers.length > 0 ? `Mutual servers: ${player.mutualServers.join(', ')}` : 'Visible to you through your friends list or network.',
+                    player.mutualServers.length > 0
+                      ? `Mutual servers: ${player.mutualServers.join(', ')}`
+                      : 'Visible to you through your friends list or network.',
                     `Matching game: ${game.title}`,
-                    player.availability && player.availabilitySource === 'game-specific' ? `Availability: ${player.availability}` : ''
+                    player.availability &&
+                    player.availabilitySource === 'game-specific'
+                      ? `Availability: ${player.availability}`
+                      : '',
                   ]}
                   badges={[
-                    { label: formatLibraryIntentLabel(player.intent), color: player.intent === 'playing-now' ? 'success' : 'primary' },
-                    ...player.platformLabels.map((platform: string) => ({ label: platform, variant: 'outlined' as const }))
+                    {
+                      label: formatLibraryIntentLabel(player.intent),
+                      color:
+                        player.intent === 'playing-now' ? 'success' : 'primary',
+                    },
+                    ...player.platformLabels.map((platform: string) => ({
+                      label: platform,
+                      variant: 'outlined' as const,
+                    })),
                   ]}
-                  footerBadge={player.availability && player.availabilitySource === 'game-specific'
-                    ? { label: `Plays: ${player.availability}` }
-                    : null}
+                  footerBadge={
+                    player.availability &&
+                    player.availabilitySource === 'game-specific'
+                      ? { label: `Plays: ${player.availability}` }
+                      : null
+                  }
                   onToggleFriend={onToggleFriend}
                 />
               ))}
@@ -392,13 +505,18 @@ export function GameCardSkeleton({ compact = false }: { compact?: boolean }) {
       variant="soft"
       sx={{
         p: compact ? 2 : 3,
-        ...topLevelGridCardSx
+        ...topLevelGridCardSx,
       }}
     >
       <Stack spacing={compact ? 1.5 : 2} sx={{ height: '100%' }}>
         <Skeleton
           variant="rectangular"
-          sx={{ width: '100%', aspectRatio: commonWideGameCoverAspectRatio, borderRadius: 'md', flexShrink: 0 }}
+          sx={{
+            width: '100%',
+            aspectRatio: commonWideGameCoverAspectRatio,
+            borderRadius: 'md',
+            flexShrink: 0,
+          }}
         />
         <Skeleton variant="text" level="title-md" width="70%" />
         <Skeleton variant="text" level="body-sm" width="45%" />

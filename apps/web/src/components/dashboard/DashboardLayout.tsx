@@ -1,4 +1,10 @@
-import { type ReactNode, type RefObject, useEffect, useRef, useState } from 'react'
+import {
+  type ReactNode,
+  type RefObject,
+  useEffect,
+  useRef,
+  useState,
+} from 'react'
 import CheckRoundedIcon from '@mui/icons-material/CheckRounded'
 import HomeRoundedIcon from '@mui/icons-material/HomeRounded'
 import PaletteRoundedIcon from '@mui/icons-material/PaletteRounded'
@@ -18,7 +24,7 @@ import {
   Tab,
   TabList,
   Tabs,
-  Typography
+  Typography,
 } from '@mui/joy'
 import { CssVarsProvider } from '@mui/joy/styles'
 import { useChromeCssVars } from '../../hooks/useChromeCssVars'
@@ -27,15 +33,26 @@ import { appThemeOptions, appThemeVariants } from '../../theme/themes'
 import { dashboardTabPaths, dashboardTabSx } from './dashboardUtils'
 import type { DashboardTab, DashboardToast } from './types'
 
-const dashboardTabs: Array<{ value: DashboardTab; label?: string; desktopLabel?: string; icon?: ReactNode; ariaLabel: string }> = [
-  { value: 'overview', label: 'Overview', desktopLabel: 'Overview', icon: <HomeRoundedIcon fontSize="small" />, ariaLabel: 'Overview' },
+const dashboardTabs: Array<{
+  value: DashboardTab
+  label?: string
+  desktopLabel?: string
+  icon?: ReactNode
+  ariaLabel: string
+}> = [
+  {
+    value: 'overview',
+    label: 'Overview',
+    desktopLabel: 'Overview',
+    icon: <HomeRoundedIcon fontSize="small" />,
+    ariaLabel: 'Overview',
+  },
   { value: 'network', label: 'Network', ariaLabel: 'Network' },
   { value: 'friends', label: 'Friends', ariaLabel: 'Friends' },
   { value: 'library', label: 'Library', ariaLabel: 'Library' },
   { value: 'discovery', label: 'Discover', ariaLabel: 'Discover' },
-  { value: 'play', label: 'Play', ariaLabel: 'Play' }
+  { value: 'play', label: 'Play', ariaLabel: 'Play' },
 ]
-
 
 export const DashboardLayout = ({
   activeTab,
@@ -45,20 +62,20 @@ export const DashboardLayout = ({
   onboarding,
   showDebugLink,
   tabsAnchorRef,
-  children
+  children,
 }: {
-  activeTab: DashboardTab;
-  onTabChange: (tab: DashboardTab) => void;
+  activeTab: DashboardTab
+  onTabChange: (tab: DashboardTab) => void
   installPrompt?: {
-    label: string;
-    pending: boolean;
-    onInstall: () => void | Promise<void>;
-  };
-  toastNotices: DashboardToast[];
-  onboarding?: ReactNode;
-  showDebugLink: boolean;
-  tabsAnchorRef: RefObject<HTMLDivElement>;
-  children: ReactNode;
+    label: string
+    pending: boolean
+    onInstall: () => void | Promise<void>
+  }
+  toastNotices: DashboardToast[]
+  onboarding?: ReactNode
+  showDebugLink: boolean
+  tabsAnchorRef: RefObject<HTMLDivElement>
+  children: ReactNode
 }) => {
   const stickyTabsRef = useRef<HTMLDivElement | null>(null)
   const [isTabsStuck, setIsTabsStuck] = useState(false)
@@ -74,7 +91,8 @@ export const DashboardLayout = ({
     }
 
     const updateStickyState = () => {
-      const stickyTop = Number.parseFloat(window.getComputedStyle(stickyTabs).top) || 0
+      const stickyTop =
+        Number.parseFloat(window.getComputedStyle(stickyTabs).top) || 0
       setIsTabsStuck(stickyTabs.getBoundingClientRect().top <= stickyTop + 0.5)
     }
 
@@ -98,9 +116,9 @@ export const DashboardLayout = ({
           px: { xs: 2, md: 4 },
           pt: {
             xs: 'calc(var(--app-top-inset, 0px) + 18px)',
-            md: 'calc(var(--app-top-inset, 0px) + 28px)'
+            md: 'calc(var(--app-top-inset, 0px) + 28px)',
           },
-          pb: { xs: 3, md: 5 }
+          pb: { xs: 3, md: 5 },
         }}
       >
         <Box
@@ -108,9 +126,10 @@ export const DashboardLayout = ({
           sx={{
             position: 'fixed',
             inset: 0,
-            backgroundImage: 'var(--gu-ambient-overlay-base), var(--gu-ambient-overlay-glow)',
+            backgroundImage:
+              'var(--gu-ambient-overlay-base), var(--gu-ambient-overlay-glow)',
             pointerEvents: 'none',
-            zIndex: 0
+            zIndex: 0,
           }}
         />
 
@@ -119,13 +138,14 @@ export const DashboardLayout = ({
           sx={{
             position: 'fixed',
             inset: 0,
-            backgroundImage: 'var(--gu-ambient-highlight), var(--gu-ambient-spectrum)',
+            backgroundImage:
+              'var(--gu-ambient-highlight), var(--gu-ambient-spectrum)',
             backgroundBlendMode: 'screen, normal',
             backgroundSize: 'auto, 100% 100%',
             backgroundPosition: 'center top, center',
             opacity: 0.05,
             pointerEvents: 'none',
-            zIndex: 0
+            zIndex: 0,
           }}
         />
 
@@ -142,7 +162,7 @@ export const DashboardLayout = ({
             backgroundPosition: 'center',
             opacity: 0.04,
             pointerEvents: 'none',
-            zIndex: 1
+            zIndex: 1,
           }}
         />
 
@@ -156,7 +176,7 @@ export const DashboardLayout = ({
               width: { xs: 'calc(100vw - 32px)', sm: 360 },
               maxWidth: 'calc(100vw - 32px)',
               zIndex: 1400,
-              pointerEvents: 'none'
+              pointerEvents: 'none',
             }}
           >
             {toastNotices.map((toast) => (
@@ -165,17 +185,19 @@ export const DashboardLayout = ({
                 color={toast.notice.tone}
                 variant="soft"
                 role={toast.notice.tone === 'neutral' ? 'status' : 'alert'}
-                endDecorator={toast.dismiss ? (
-                  <Button
-                    size="sm"
-                    variant="plain"
-                    color={toast.notice.tone}
-                    onClick={toast.dismiss}
-                    sx={{ minWidth: 'auto', px: 0.5, flexShrink: 0 }}
-                  >
-                    Dismiss
-                  </Button>
-                ) : null}
+                endDecorator={
+                  toast.dismiss ? (
+                    <Button
+                      size="sm"
+                      variant="plain"
+                      color={toast.notice.tone}
+                      onClick={toast.dismiss}
+                      sx={{ minWidth: 'auto', px: 0.5, flexShrink: 0 }}
+                    >
+                      Dismiss
+                    </Button>
+                  ) : null
+                }
                 sx={{
                   p: 1.5,
                   borderRadius: 'sm',
@@ -183,10 +205,13 @@ export const DashboardLayout = ({
                   border: '1px solid var(--gu-toast-border)',
                   boxShadow: 'none',
                   pointerEvents: 'auto',
-                  alignItems: 'center'
+                  alignItems: 'center',
                 }}
               >
-                <Typography level="body-sm" sx={{ minWidth: 0, lineHeight: 1.5 }}>
+                <Typography
+                  level="body-sm"
+                  sx={{ minWidth: 0, lineHeight: 1.5 }}
+                >
                   {toast.notice.message}
                 </Typography>
               </Alert>
@@ -194,7 +219,10 @@ export const DashboardLayout = ({
           </Stack>
         ) : null}
 
-        <Stack spacing={4} sx={{ position: 'relative', zIndex: 1, maxWidth: 1200, mx: 'auto' }}>
+        <Stack
+          spacing={4}
+          sx={{ position: 'relative', zIndex: 1, maxWidth: 1200, mx: 'auto' }}
+        >
           <Sheet
             variant="plain"
             sx={{
@@ -203,7 +231,7 @@ export const DashboardLayout = ({
               border: '1px solid var(--gu-hero-border)',
               backgroundColor: 'var(--joy-palette-background-level2)',
               backgroundImage: 'var(--gu-hero-background)',
-              boxShadow: 'xl'
+              boxShadow: 'xl',
             }}
           >
             <Stack spacing={2}>
@@ -230,7 +258,7 @@ export const DashboardLayout = ({
                       height: '100%',
                       display: 'block',
                       objectFit: 'contain',
-                      objectPosition: 'center'
+                      objectPosition: 'center',
                     }}
                   />
                 </Box>
@@ -239,10 +267,11 @@ export const DashboardLayout = ({
                   sx={{
                     color: 'neutral.200',
                     minWidth: 0,
-                    lineHeight: 1.5
+                    lineHeight: 1.5,
                   }}
                 >
-                  Build your library, find others that want to play the same games, and connect with them to make it happen.
+                  Build your library, find others that want to play the same
+                  games, and connect with them to make it happen.
                 </Typography>
                 <Dropdown>
                   <MenuButton
@@ -260,8 +289,8 @@ export const DashboardLayout = ({
                       color: 'var(--joy-palette-neutral-300)',
                       '&:hover': {
                         backgroundColor: 'var(--gu-tab-hover-background)',
-                        color: 'var(--gu-tab-hover-color)'
-                      }
+                        color: 'var(--gu-tab-hover-color)',
+                      },
                     }}
                   >
                     <PaletteRoundedIcon fontSize="small" />
@@ -274,7 +303,9 @@ export const DashboardLayout = ({
                         onClick={() => setDeviceTheme(option.value)}
                       >
                         <ListItemDecorator sx={{ minInlineSize: '1.75rem' }}>
-                          {option.value === deviceTheme ? <CheckRoundedIcon fontSize="small" /> : null}
+                          {option.value === deviceTheme ? (
+                            <CheckRoundedIcon fontSize="small" />
+                          ) : null}
                         </ListItemDecorator>
                         {option.label} theme
                       </MenuItem>
@@ -296,20 +327,27 @@ export const DashboardLayout = ({
                 borderRadius: 'xl',
                 border: '1px solid var(--gu-install-card-border)',
                 background: 'var(--gu-install-card-background)',
-                boxShadow: 'none'
+                boxShadow: 'none',
               }}
             >
               <Stack
                 direction={{ xs: 'column', sm: 'row' }}
                 spacing={1.5}
-                sx={{ alignItems: { xs: 'stretch', sm: 'center' }, justifyContent: 'space-between' }}
+                sx={{
+                  alignItems: { xs: 'stretch', sm: 'center' },
+                  justifyContent: 'space-between',
+                }}
               >
                 <Box>
-                  <Typography level="title-md" sx={{ color: 'primary.100', mb: 0.5 }}>
+                  <Typography
+                    level="title-md"
+                    sx={{ color: 'primary.100', mb: 0.5 }}
+                  >
                     Keep Game's Up on your home screen.
                   </Typography>
                   <Typography level="body-sm" sx={{ color: 'neutral.200' }}>
-                    Install it for faster launches and an app-like shell in supported browsers.
+                    Install it for faster launches and an app-like shell in
+                    supported browsers.
                   </Typography>
                 </Box>
                 <Button
@@ -336,7 +374,7 @@ export const DashboardLayout = ({
             sx={{
               '--Tabs-gap': '1rem',
               '--Tab-indicatorThickness': '0px',
-              backgroundColor: 'transparent'
+              backgroundColor: 'transparent',
             }}
           >
             <Box
@@ -345,9 +383,9 @@ export const DashboardLayout = ({
                 position: 'sticky',
                 top: {
                   xs: 'calc(var(--app-top-inset, 0px) + 12px)',
-                  md: 'calc(var(--app-top-inset, 0px) + 16px)'
+                  md: 'calc(var(--app-top-inset, 0px) + 16px)',
                 },
-                zIndex: 20
+                zIndex: 20,
               }}
             >
               <TabList
@@ -365,13 +403,13 @@ export const DashboardLayout = ({
                   overflowX: { xs: 'auto', sm: 'visible' },
                   scrollbarWidth: 'none',
                   '&::-webkit-scrollbar': {
-                    display: 'none'
+                    display: 'none',
                   },
                   backgroundColor: 'var(--gu-tab-bar-background)',
                   border: '1px solid var(--gu-tab-bar-border)',
                   backdropFilter: 'var(--gu-tab-bar-backdrop-filter)',
                   WebkitBackdropFilter: 'var(--gu-tab-bar-backdrop-filter)',
-                  boxShadow: 'var(--gu-tab-bar-shadow)'
+                  boxShadow: 'var(--gu-tab-bar-shadow)',
                 }}
               >
                 {dashboardTabs.map((tab) => (
@@ -385,15 +423,24 @@ export const DashboardLayout = ({
                   >
                     {tab.value === 'overview' ? (
                       <>
-                        <Box component="span" sx={{ display: { xs: 'inline-flex', sm: 'none' }, alignItems: 'center' }}>
+                        <Box
+                          component="span"
+                          sx={{
+                            display: { xs: 'inline-flex', sm: 'none' },
+                            alignItems: 'center',
+                          }}
+                        >
                           {tab.icon}
                         </Box>
-                        <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+                        <Box
+                          component="span"
+                          sx={{ display: { xs: 'none', sm: 'inline' } }}
+                        >
                           {tab.desktopLabel ?? tab.label}
                         </Box>
                       </>
                     ) : (
-                      tab.icon ?? tab.label
+                      (tab.icon ?? tab.label)
                     )}
                   </Tab>
                 ))}
@@ -403,12 +450,21 @@ export const DashboardLayout = ({
             <Box sx={{ pt: 3 }}>{children}</Box>
           </Tabs>
 
-          <Box
-            component="footer"
-            sx={{ textAlign: 'center', pb: 1 }}
-          >
-            <Stack direction="row" spacing={0.75} justifyContent="center" alignItems="center" sx={{ flexWrap: 'wrap' }}>
-              <Stack direction="row" spacing={0.5} justifyContent="center" alignItems="center" sx={{ flexWrap: 'wrap' }}>
+          <Box component="footer" sx={{ textAlign: 'center', pb: 1 }}>
+            <Stack
+              direction="row"
+              spacing={0.75}
+              justifyContent="center"
+              alignItems="center"
+              sx={{ flexWrap: 'wrap' }}
+            >
+              <Stack
+                direction="row"
+                spacing={0.5}
+                justifyContent="center"
+                alignItems="center"
+                sx={{ flexWrap: 'wrap' }}
+              >
                 <Typography level="body-xs" sx={{ color: 'neutral.600' }}>
                   Designed and built by
                 </Typography>
@@ -424,7 +480,10 @@ export const DashboardLayout = ({
                   sx={{
                     color: 'neutral.400',
                     textDecoration: 'none',
-                    '&:hover': { color: 'primary.200', textDecoration: 'underline' }
+                    '&:hover': {
+                      color: 'primary.200',
+                      textDecoration: 'underline',
+                    },
                   }}
                 >
                   @technicallyreal
@@ -442,7 +501,7 @@ export const DashboardLayout = ({
                     sx={{
                       color: 'neutral.500',
                       textDecoration: 'none',
-                      '&:hover': { color: 'neutral.300' }
+                      '&:hover': { color: 'neutral.300' },
                     }}
                   >
                     Debug

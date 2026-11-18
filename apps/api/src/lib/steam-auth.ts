@@ -14,49 +14,52 @@ import { env } from './env.js'
 import { HttpError } from './http-error.js'
 
 const STEAM_OPENID_URL = 'https://steamcommunity.com/openid/login'
-const STEAM_PLAYER_SUMMARIES_URL = 'https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v2/'
-const STEAM_OWNED_GAMES_URL = 'https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/'
+const STEAM_PLAYER_SUMMARIES_URL =
+  'https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v2/'
+const STEAM_OWNED_GAMES_URL =
+  'https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/'
 const OPENID_NS = 'http://specs.openid.net/auth/2.0'
-const OPENID_IDENTIFIER_SELECT = 'http://specs.openid.net/auth/2.0/identifier_select'
+const OPENID_IDENTIFIER_SELECT =
+  'http://specs.openid.net/auth/2.0/identifier_select'
 
 type SteamPlayerSummaryResponse = {
   response: {
     players: Array<{
-      steamid: string;
-      personaname: string;
-      avatarfull?: string;
-      profileurl?: string;
-    }>;
-  };
-};
+      steamid: string
+      personaname: string
+      avatarfull?: string
+      profileurl?: string
+    }>
+  }
+}
 
 type SteamOwnedGamesResponse = {
   response?: {
-    game_count?: number;
+    game_count?: number
     games?: Array<{
-      appid: number;
-      name?: string;
-      playtime_forever?: number;
-      playtime_2weeks?: number;
-    }>;
-  };
-};
+      appid: number
+      name?: string
+      playtime_forever?: number
+      playtime_2weeks?: number
+    }>
+  }
+}
 
 export type SteamProfileSummary = {
-  steamId: string;
-  displayName: string;
-  avatarUrl: string | null;
-  profileUrl: string | null;
-};
+  steamId: string
+  displayName: string
+  avatarUrl: string | null
+  profileUrl: string | null
+}
 
 export type SteamOwnedGame = {
-  sourceId: string;
-  title: string;
-  coverUrl: string | null;
-  platformLabels: string[];
-  minutesPlayedTotal: number;
-  minutesPlayedRecent: number;
-};
+  sourceId: string
+  title: string
+  coverUrl: string | null
+  platformLabels: string[]
+  minutesPlayedTotal: number
+  minutesPlayedRecent: number
+}
 
 function requireSteamConfig() {
   if (!env.STEAM_CALLBACK_URL || !env.STEAM_WEB_API_KEY) {
@@ -69,7 +72,9 @@ function buildSteamGameCoverUrl(appId: number): string {
 }
 
 function extractSteamIdFromClaimedId(claimedId: string): string | null {
-  const match = claimedId.match(/^https?:\/\/steamcommunity\.com\/openid\/id\/(\d+)$/u)
+  const match = claimedId.match(
+    /^https?:\/\/steamcommunity\.com\/openid\/id\/(\d+)$/u,
+  )
 
   return match?.[1] ?? null
 }
@@ -81,16 +86,18 @@ function parseOpenIdVerificationResponse(body: string): boolean {
 function buildSteamCredentialError(): HttpError {
   return new HttpError(
     502,
-    'Steam import is temporarily unavailable because the configured Steam Web API key was rejected. Update the Steam API key and try again.'
+    'Steam import is temporarily unavailable because the configured Steam Web API key was rejected. Update the Steam API key and try again.',
   )
 }
 
-function buildSteamUnavailableError(operation: 'profile' | 'library'): HttpError {
+function buildSteamUnavailableError(
+  operation: 'profile' | 'library',
+): HttpError {
   return new HttpError(
     502,
     operation === 'profile'
       ? 'Steam import is temporarily unavailable because Steam profile lookup failed.'
-      : 'Steam import is temporarily unavailable because Steam library lookup failed.'
+      : 'Steam import is temporarily unavailable because Steam library lookup failed.',
   )
 }
 
@@ -99,18 +106,21 @@ function buildSteamRateLimitError(operation: 'profile' | 'library'): HttpError {
     503,
     operation === 'profile'
       ? 'Steam import is temporarily unavailable because Steam is rate limiting profile lookups. Try again shortly.'
-      : 'Steam import is temporarily unavailable because Steam is rate limiting library lookups. Try again shortly.'
+      : 'Steam import is temporarily unavailable because Steam is rate limiting library lookups. Try again shortly.',
   )
 }
 
-async function fetchSteamWebApiJson<T>(url: URL, operation: 'profile' | 'library'): Promise<T> {
+async function fetchSteamWebApiJson<T>(
+  url: URL,
+  operation: 'profile' | 'library',
+): Promise<T> {
   let response: Response
 
   try {
     response = await fetch(url, {
       headers: {
-        Accept: 'application/json'
-      }
+        Accept: 'application/json',
+      },
     })
   } catch (error) {
     if (error instanceof HttpError) {
@@ -160,7 +170,9 @@ export function buildSteamAuthorizationUrl(state: string): string {
   return url.toString()
 }
 
-export async function verifySteamOpenIdResponse(query: Record<string, string | undefined>): Promise<string> {
+export async function verifySteamOpenIdResponse(
+  query: Record<string, string | undefined>,
+): Promise<string> {
   requireSteamConfig()
 
   const claimedId = query['openid.claimed_id']
@@ -173,7 +185,10 @@ export async function verifySteamOpenIdResponse(query: Record<string, string | u
   const configuredCallback = new URL(env.STEAM_CALLBACK_URL ?? '')
   const actualReturnTo = new URL(returnTo)
 
-  if (actualReturnTo.origin !== configuredCallback.origin || actualReturnTo.pathname !== configuredCallback.pathname) {
+  if (
+    actualReturnTo.origin !== configuredCallback.origin ||
+    actualReturnTo.pathname !== configuredCallback.pathname
+  ) {
     throw new Error('Steam returned an unexpected callback URL.')
   }
 
@@ -190,13 +205,15 @@ export async function verifySteamOpenIdResponse(query: Record<string, string | u
   const response = await fetch(STEAM_OPENID_URL, {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/x-www-form-urlencoded'
+      'Content-Type': 'application/x-www-form-urlencoded',
     },
-    body: verificationPayload
+    body: verificationPayload,
   })
 
   if (!response.ok) {
-    throw new Error(`Steam OpenID verification failed: ${response.status} ${response.statusText}`)
+    throw new Error(
+      `Steam OpenID verification failed: ${response.status} ${response.statusText}`,
+    )
   }
 
   const verificationText = await response.text()
@@ -214,29 +231,39 @@ export async function verifySteamOpenIdResponse(query: Record<string, string | u
   return steamId
 }
 
-export async function fetchSteamProfileSummary(steamId: string): Promise<SteamProfileSummary> {
+export async function fetchSteamProfileSummary(
+  steamId: string,
+): Promise<SteamProfileSummary> {
   requireSteamConfig()
 
   const url = new URL(STEAM_PLAYER_SUMMARIES_URL)
   url.searchParams.set('key', env.STEAM_WEB_API_KEY ?? '')
   url.searchParams.set('steamids', steamId)
 
-  const parsed = await fetchSteamWebApiJson<SteamPlayerSummaryResponse>(url, 'profile')
+  const parsed = await fetchSteamWebApiJson<SteamPlayerSummaryResponse>(
+    url,
+    'profile',
+  )
   const player = parsed.response.players[0]
 
   if (!player) {
-    throw new HttpError(502, 'Steam import is temporarily unavailable because Steam did not return a player profile for this account.')
+    throw new HttpError(
+      502,
+      'Steam import is temporarily unavailable because Steam did not return a player profile for this account.',
+    )
   }
 
   return {
     steamId: player.steamid,
     displayName: player.personaname,
     avatarUrl: player.avatarfull ?? null,
-    profileUrl: player.profileurl ?? null
+    profileUrl: player.profileurl ?? null,
   }
 }
 
-export async function fetchSteamOwnedGames(steamId: string): Promise<SteamOwnedGame[]> {
+export async function fetchSteamOwnedGames(
+  steamId: string,
+): Promise<SteamOwnedGame[]> {
   requireSteamConfig()
 
   const url = new URL(STEAM_OWNED_GAMES_URL)
@@ -245,18 +272,23 @@ export async function fetchSteamOwnedGames(steamId: string): Promise<SteamOwnedG
   url.searchParams.set('include_appinfo', 'true')
   url.searchParams.set('include_played_free_games', 'true')
 
-  const parsed = await fetchSteamWebApiJson<SteamOwnedGamesResponse>(url, 'library')
+  const parsed = await fetchSteamWebApiJson<SteamOwnedGamesResponse>(
+    url,
+    'library',
+  )
   const games = parsed.response?.games ?? []
 
   return games
-    .filter((game) => typeof game.appid === 'number' && Boolean(game.name?.trim()))
+    .filter(
+      (game) => typeof game.appid === 'number' && Boolean(game.name?.trim()),
+    )
     .map((game) => ({
       sourceId: game.appid.toString(),
       title: game.name?.trim() ?? 'Unknown Steam title',
       coverUrl: buildSteamGameCoverUrl(game.appid),
       platformLabels: ['PC'],
       minutesPlayedTotal: game.playtime_forever ?? 0,
-      minutesPlayedRecent: game.playtime_2weeks ?? 0
+      minutesPlayedRecent: game.playtime_2weeks ?? 0,
     }))
     .sort((left, right) => {
       if (right.minutesPlayedRecent !== left.minutesPlayedRecent) {
@@ -277,32 +309,34 @@ export async function upsertSteamIdentity(userId: string, steamId: string) {
       where: {
         provider_providerUserId: {
           provider: PrismaAuthProvider.STEAM,
-          providerUserId: steamId
-        }
-      }
+          providerUserId: steamId,
+        },
+      },
     }),
     prisma.userIdentity.findFirst({
       where: {
         userId,
-        provider: PrismaAuthProvider.STEAM
-      }
-    })
+        provider: PrismaAuthProvider.STEAM,
+      },
+    }),
   ])
 
   if (identityForSteamId && identityForSteamId.userId !== userId) {
-    throw new Error("That Steam account is already linked to another Game's Up user.")
+    throw new Error(
+      "That Steam account is already linked to another Game's Up user.",
+    )
   }
 
   if (identityForUser) {
     return prisma.userIdentity.update({
       where: {
-        id: identityForUser.id
+        id: identityForUser.id,
       },
       data: {
         providerUserId: steamId,
         email: null,
-        grantedScopes: ['library-read']
-      }
+        grantedScopes: ['library-read'],
+      },
     })
   }
 
@@ -312,7 +346,7 @@ export async function upsertSteamIdentity(userId: string, steamId: string) {
       provider: PrismaAuthProvider.STEAM,
       providerUserId: steamId,
       email: null,
-      grantedScopes: ['library-read']
-    }
+      grantedScopes: ['library-read'],
+    },
   })
 }

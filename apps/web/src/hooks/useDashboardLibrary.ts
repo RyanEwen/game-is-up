@@ -22,7 +22,7 @@ import type {
   UserGameAlias,
   UserPlatformAlias,
   SteamLibraryImportPreviewResponse,
-  UserProfileResponse
+  UserProfileResponse,
 } from '@game-is-up/shared'
 import {
   extractErrorMessage,
@@ -30,74 +30,87 @@ import {
   libraryResponseSchema,
   steamLibraryImportPreviewResponseSchema,
   userGameAliasesResponseSchema,
-  userPlatformAliasesResponseSchema
+  userPlatformAliasesResponseSchema,
 } from '@game-is-up/shared'
-import type { DashboardLibraryQuickAddGame, Notice } from '../components/dashboard/types'
+import type {
+  DashboardLibraryQuickAddGame,
+  Notice,
+} from '../components/dashboard/types'
 import { useLocation } from 'react-router-dom'
 
-const defaultPlatformOptions = ['PC', 'Xbox', 'PlayStation', 'Switch', 'Mobile', 'macOS', 'Linux'] as const
+const defaultPlatformOptions = [
+  'PC',
+  'Xbox',
+  'PlayStation',
+  'Switch',
+  'Mobile',
+  'macOS',
+  'Linux',
+] as const
 
 export type DashboardLibraryViewProps = {
-  isSignedIn: boolean;
-  steamImportEnabled: boolean;
-  steamConnected: boolean;
-  steamLinkPending: boolean;
-  steamPreviewLoading: boolean;
-  steamImporting: boolean;
-  steamDisconnectPending: boolean;
-  isSteamImportModalOpen: boolean;
-  steamImportPreview: SteamLibraryImportPreviewResponse | null;
-  onStartSteamLink: () => Promise<void>;
-  onOpenSteamImport: () => Promise<void>;
-  onCloseSteamImport: () => void;
-  onRefreshSteamImport: () => Promise<void>;
-  onImportSteamGames: (games: ImportSteamLibrarySelectionRequest['games']) => Promise<void>;
-  onDisconnectSteam: () => Promise<void>;
-  usualAvailability: string;
-  profileSaving: boolean;
-  usualAvailabilityChanged: boolean;
-  usualAvailabilityButtonLabel: string;
-  usualAvailabilityHelperText: string;
-  onUsualAvailabilityChange: (value: string) => void;
-  onSaveUsualAvailability: () => Promise<void>;
-  isLibraryEditorOpen: boolean;
-  openLibraryEditor: () => void;
-  closeLibraryEditor: () => void;
-  editingLibraryEntry: LibraryEntry | null;
-  libraryTitle: string;
-  onLibraryTitleChange: (value: string) => void;
-  selectedCatalogResult: GameSearchResult | null;
-  gameSuggestions: GameSearchResponse['results'];
-  gameSuggestionsLoading: boolean;
-  onSelectSuggestion: (result: GameSearchResult) => void;
-  platformOptions: string[];
-  selectedPlatformLabels: string[];
-  onTogglePlatformLabel: (platform: string) => void;
-  libraryIntent: LibraryEntryIntent;
-  onLibraryIntentChange: (intent: LibraryEntryIntent) => void;
-  currentUsualAvailability: string | null;
-  libraryAvailability: string;
-  onLibraryAvailabilityChange: (value: string) => void;
-  librarySaving: boolean;
-  onAddLibraryEntry: () => Promise<void>;
-  onCancelLibraryEdit: () => void;
-  libraryEntries: LibraryEntry[];
-  suggestedGames: LibrarySuggestedGame[];
-  trendingGames: LibraryTrendingGame[];
-  platformAliases: UserPlatformAlias[];
-  gameAliases: UserGameAlias[];
-  aliasSavingKey: string | null;
-  onSavePlatformAlias: (platform: string, aliasValue: string) => Promise<void>;
-  onDeletePlatformAlias: (platform: string) => Promise<void>;
-  onSaveGameAlias: (gameId: string, aliasValue: string) => Promise<void>;
-  onDeleteGameAlias: (gameId: string) => Promise<void>;
-  libraryGameIds: ReadonlySet<string>;
-  addingLibraryGameId: string | null;
-  editingLibraryEntryId: string | null;
-  removingLibraryEntryId: string | null;
-  onEditLibraryEntry: (entry: LibraryEntry) => void;
-  onRemoveLibraryEntry: (entryId: string) => Promise<void>;
-  onAddGameToLibrary: (game: DashboardLibraryQuickAddGame) => Promise<void>;
+  isSignedIn: boolean
+  steamImportEnabled: boolean
+  steamConnected: boolean
+  steamLinkPending: boolean
+  steamPreviewLoading: boolean
+  steamImporting: boolean
+  steamDisconnectPending: boolean
+  isSteamImportModalOpen: boolean
+  steamImportPreview: SteamLibraryImportPreviewResponse | null
+  onStartSteamLink: () => Promise<void>
+  onOpenSteamImport: () => Promise<void>
+  onCloseSteamImport: () => void
+  onRefreshSteamImport: () => Promise<void>
+  onImportSteamGames: (
+    games: ImportSteamLibrarySelectionRequest['games'],
+  ) => Promise<void>
+  onDisconnectSteam: () => Promise<void>
+  usualAvailability: string
+  profileSaving: boolean
+  usualAvailabilityChanged: boolean
+  usualAvailabilityButtonLabel: string
+  usualAvailabilityHelperText: string
+  onUsualAvailabilityChange: (value: string) => void
+  onSaveUsualAvailability: () => Promise<void>
+  isLibraryEditorOpen: boolean
+  openLibraryEditor: () => void
+  closeLibraryEditor: () => void
+  editingLibraryEntry: LibraryEntry | null
+  libraryTitle: string
+  onLibraryTitleChange: (value: string) => void
+  selectedCatalogResult: GameSearchResult | null
+  gameSuggestions: GameSearchResponse['results']
+  gameSuggestionsLoading: boolean
+  onSelectSuggestion: (result: GameSearchResult) => void
+  platformOptions: string[]
+  selectedPlatformLabels: string[]
+  onTogglePlatformLabel: (platform: string) => void
+  libraryIntent: LibraryEntryIntent
+  onLibraryIntentChange: (intent: LibraryEntryIntent) => void
+  currentUsualAvailability: string | null
+  libraryAvailability: string
+  onLibraryAvailabilityChange: (value: string) => void
+  librarySaving: boolean
+  onAddLibraryEntry: () => Promise<void>
+  onCancelLibraryEdit: () => void
+  libraryEntries: LibraryEntry[]
+  suggestedGames: LibrarySuggestedGame[]
+  trendingGames: LibraryTrendingGame[]
+  platformAliases: UserPlatformAlias[]
+  gameAliases: UserGameAlias[]
+  aliasSavingKey: string | null
+  onSavePlatformAlias: (platform: string, aliasValue: string) => Promise<void>
+  onDeletePlatformAlias: (platform: string) => Promise<void>
+  onSaveGameAlias: (gameId: string, aliasValue: string) => Promise<void>
+  onDeleteGameAlias: (gameId: string) => Promise<void>
+  libraryGameIds: ReadonlySet<string>
+  addingLibraryGameId: string | null
+  editingLibraryEntryId: string | null
+  removingLibraryEntryId: string | null
+  onEditLibraryEntry: (entry: LibraryEntry) => void
+  onRemoveLibraryEntry: (entryId: string) => Promise<void>
+  onAddGameToLibrary: (game: DashboardLibraryQuickAddGame) => Promise<void>
 }
 
 export function useDashboardLibrary({
@@ -119,59 +132,80 @@ export function useDashboardLibrary({
   setActionNotice,
   setProfileNotice,
   onStartSteamLink,
-  onAddGameToLibrary
+  onAddGameToLibrary,
 }: {
-  isSignedIn: boolean;
-  steamImportEnabled: boolean;
-  steamConnected: boolean;
-  steamLinkPending: boolean;
-  buildApiUrl: (path: string) => string;
-  libraryEntries: LibraryEntry[];
-  suggestedGames: LibrarySuggestedGame[];
-  trendingGames: LibraryTrendingGame[];
-  libraryGameIds: ReadonlySet<string>;
-  addingLibraryGameId: string | null;
-  currentUsualAvailability: string | null;
-  browserTimeZoneId: string | null;
-  loadDashboard: () => Promise<void>;
-  updateProfile: (profilePatch: { usualAvailability?: string; timezoneId?: string; discordAutoPromptPlayIntent?: boolean }) => Promise<UserProfileResponse>;
-  applyProfileUpdate: (profile: UserProfileResponse) => void;
-  setActionNotice: Dispatch<SetStateAction<Notice | null>>;
-  setProfileNotice: Dispatch<SetStateAction<Notice | null>>;
-  onStartSteamLink: () => Promise<void>;
-  onAddGameToLibrary?: (game: DashboardLibraryQuickAddGame) => Promise<void>;
+  isSignedIn: boolean
+  steamImportEnabled: boolean
+  steamConnected: boolean
+  steamLinkPending: boolean
+  buildApiUrl: (path: string) => string
+  libraryEntries: LibraryEntry[]
+  suggestedGames: LibrarySuggestedGame[]
+  trendingGames: LibraryTrendingGame[]
+  libraryGameIds: ReadonlySet<string>
+  addingLibraryGameId: string | null
+  currentUsualAvailability: string | null
+  browserTimeZoneId: string | null
+  loadDashboard: () => Promise<void>
+  updateProfile: (profilePatch: {
+    usualAvailability?: string
+    timezoneId?: string
+    discordAutoPromptPlayIntent?: boolean
+  }) => Promise<UserProfileResponse>
+  applyProfileUpdate: (profile: UserProfileResponse) => void
+  setActionNotice: Dispatch<SetStateAction<Notice | null>>
+  setProfileNotice: Dispatch<SetStateAction<Notice | null>>
+  onStartSteamLink: () => Promise<void>
+  onAddGameToLibrary?: (game: DashboardLibraryQuickAddGame) => Promise<void>
 }) {
   const location = useLocation()
   const previousPathnameRef = useRef(location.pathname)
   const [libraryTitle, setLibraryTitle] = useState('')
-  const [selectedPlatformLabels, setSelectedPlatformLabels] = useState<string[]>([])
+  const [selectedPlatformLabels, setSelectedPlatformLabels] = useState<
+    string[]
+  >([])
   const [libraryAvailability, setLibraryAvailability] = useState('')
   const [usualAvailability, setUsualAvailability] = useState('')
-  const [libraryIntent, setLibraryIntent] = useState<LibraryEntryIntent>('interested')
+  const [libraryIntent, setLibraryIntent] =
+    useState<LibraryEntryIntent>('interested')
   const [librarySaving, setLibrarySaving] = useState(false)
   const [profileSaving, setProfileSaving] = useState(false)
-  const [gameSuggestions, setGameSuggestions] = useState<GameSearchResponse['results']>([])
+  const [gameSuggestions, setGameSuggestions] = useState<
+    GameSearchResponse['results']
+  >([])
   const [gameSuggestionsLoading, setGameSuggestionsLoading] = useState(false)
-  const [selectedCatalogResult, setSelectedCatalogResult] = useState<GameSearchResult | null>(null)
-  const [editingLibraryEntryId, setEditingLibraryEntryId] = useState<string | null>(null)
-  const [removingLibraryEntryId, setRemovingLibraryEntryId] = useState<string | null>(null)
+  const [selectedCatalogResult, setSelectedCatalogResult] =
+    useState<GameSearchResult | null>(null)
+  const [editingLibraryEntryId, setEditingLibraryEntryId] = useState<
+    string | null
+  >(null)
+  const [removingLibraryEntryId, setRemovingLibraryEntryId] = useState<
+    string | null
+  >(null)
   const [isLibraryEditorOpen, setIsLibraryEditorOpen] = useState(false)
-  const [steamImportPreview, setSteamImportPreview] = useState<SteamLibraryImportPreviewResponse | null>(null)
+  const [steamImportPreview, setSteamImportPreview] =
+    useState<SteamLibraryImportPreviewResponse | null>(null)
   const [steamPreviewLoading, setSteamPreviewLoading] = useState(false)
   const [steamImporting, setSteamImporting] = useState(false)
   const [steamDisconnectPending, setSteamDisconnectPending] = useState(false)
   const [isSteamImportModalOpen, setIsSteamImportModalOpen] = useState(false)
-  const [platformAliases, setPlatformAliases] = useState<UserPlatformAlias[]>([])
+  const [platformAliases, setPlatformAliases] = useState<UserPlatformAlias[]>(
+    [],
+  )
   const [gameAliases, setGameAliases] = useState<UserGameAlias[]>([])
   const [aliasSavingKey, setAliasSavingKey] = useState<string | null>(null)
 
-  const editingLibraryEntry = libraryEntries.find((entry) => entry.id === editingLibraryEntryId) ?? null
-  const platformOptions = [...new Set([
-    ...defaultPlatformOptions,
-    ...(selectedCatalogResult?.platformLabels ?? []),
-    ...selectedPlatformLabels
-  ])]
-  const usualAvailabilityChanged = usualAvailability.trim() !== (currentUsualAvailability ?? '')
+  const editingLibraryEntry =
+    libraryEntries.find((entry) => entry.id === editingLibraryEntryId) ?? null
+  const platformOptions = [
+    ...new Set([
+      ...defaultPlatformOptions,
+      ...(selectedCatalogResult?.platformLabels ?? []),
+      ...selectedPlatformLabels,
+    ]),
+  ]
+  const usualAvailabilityChanged =
+    usualAvailability.trim() !== (currentUsualAvailability ?? '')
   const usualAvailabilityButtonLabel = profileSaving
     ? 'Saving schedule...'
     : !usualAvailabilityChanged && currentUsualAvailability
@@ -204,9 +238,14 @@ export function useDashboardLibrary({
     const timeoutId = window.setTimeout(() => {
       void (async () => {
         try {
-          const response = await fetch(buildApiUrl(`/api/library/catalog?query=${encodeURIComponent(query)}`), {
-            credentials: 'include'
-          })
+          const response = await fetch(
+            buildApiUrl(
+              `/api/library/catalog?query=${encodeURIComponent(query)}`,
+            ),
+            {
+              credentials: 'include',
+            },
+          )
           const responseJson = await response.json()
 
           if (cancelled) {
@@ -258,8 +297,10 @@ export function useDashboardLibrary({
     void (async () => {
       try {
         const [platformResponse, gameResponse] = await Promise.all([
-          fetch(buildApiUrl('/api/aliases/platforms'), { credentials: 'include' }),
-          fetch(buildApiUrl('/api/aliases/games'), { credentials: 'include' })
+          fetch(buildApiUrl('/api/aliases/platforms'), {
+            credentials: 'include',
+          }),
+          fetch(buildApiUrl('/api/aliases/games'), { credentials: 'include' }),
         ])
 
         if (!platformResponse.ok || !gameResponse.ok) {
@@ -268,14 +309,15 @@ export function useDashboardLibrary({
 
         const [platformBody, gameBody] = await Promise.all([
           platformResponse.json(),
-          gameResponse.json()
+          gameResponse.json(),
         ])
 
         if (cancelled) {
           return
         }
 
-        const parsedPlatforms = userPlatformAliasesResponseSchema.parse(platformBody)
+        const parsedPlatforms =
+          userPlatformAliasesResponseSchema.parse(platformBody)
         const parsedGames = userGameAliasesResponseSchema.parse(gameBody)
         setPlatformAliases(parsedPlatforms.aliases)
         setGameAliases(parsedGames.aliases)
@@ -292,19 +334,22 @@ export function useDashboardLibrary({
     }
   }, [buildApiUrl, isSignedIn, libraryEntries])
 
-  const handleLibraryTitleChange = useCallback((nextTitle: string) => {
-    setLibraryTitle(nextTitle)
+  const handleLibraryTitleChange = useCallback(
+    (nextTitle: string) => {
+      setLibraryTitle(nextTitle)
 
-    if (selectedCatalogResult && selectedCatalogResult.title !== nextTitle) {
-      setSelectedCatalogResult(null)
-    }
-  }, [selectedCatalogResult])
+      if (selectedCatalogResult && selectedCatalogResult.title !== nextTitle) {
+        setSelectedCatalogResult(null)
+      }
+    },
+    [selectedCatalogResult],
+  )
 
   const togglePlatformLabel = useCallback((platformLabel: string) => {
     setSelectedPlatformLabels((current) =>
       current.includes(platformLabel)
         ? current.filter((entry) => entry !== platformLabel)
-        : [...current, platformLabel]
+        : [...current, platformLabel],
     )
   }, [])
 
@@ -331,55 +376,76 @@ export function useDashboardLibrary({
     setActionNotice(null)
   }, [setActionNotice])
 
-  const openLibraryEditorForGame = useCallback(async ({ gameId, title, coverUrl, platformLabels }: DashboardLibraryQuickAddGame) => {
-    if (!isSignedIn) {
-      setActionNotice({
-        tone: 'danger',
-        message: 'Sign in before adding games to your library.'
-      })
-      return
-    }
-
-    if (libraryGameIds.has(gameId)) {
-      setActionNotice({
-        tone: 'neutral',
-        message: `${title} is already in your library.`
-      })
-      return
-    }
-
-    const normalizedPlatformLabels = [...new Set(platformLabels.map((platformLabel) => platformLabel.trim()).filter(Boolean))]
-
-    setIsLibraryEditorOpen(true)
-    setEditingLibraryEntryId(null)
-    setLibraryTitle(title)
-    setSelectedPlatformLabels(normalizedPlatformLabels)
-    setLibraryAvailability('')
-    setGameSuggestions([])
-    setSelectedCatalogResult({
-      id: gameId,
-      source: 'local',
-      sourceId: gameId,
+  const openLibraryEditorForGame = useCallback(
+    async ({
+      gameId,
       title,
       coverUrl,
-      platformLabels: normalizedPlatformLabels,
-      gameplayClassification: 'unknown'
-    })
-    setLibraryIntent('interested')
-    setActionNotice(null)
-  }, [isSignedIn, libraryGameIds, setActionNotice])
+      platformLabels,
+    }: DashboardLibraryQuickAddGame) => {
+      if (!isSignedIn) {
+        setActionNotice({
+          tone: 'danger',
+          message: 'Sign in before adding games to your library.',
+        })
+        return
+      }
 
-  const handleEditLibraryEntry = useCallback((entry: LibraryEntry) => {
-    setIsLibraryEditorOpen(true)
-    setEditingLibraryEntryId(entry.id)
-    setLibraryTitle(entry.title)
-    setSelectedPlatformLabels(entry.platformLabels)
-    setLibraryAvailability(entry.availabilitySource === 'game-specific' ? (entry.availability ?? '') : '')
-    setGameSuggestions([])
-    setSelectedCatalogResult(null)
-    setLibraryIntent(entry.intent)
-    setActionNotice(null)
-  }, [setActionNotice])
+      if (libraryGameIds.has(gameId)) {
+        setActionNotice({
+          tone: 'neutral',
+          message: `${title} is already in your library.`,
+        })
+        return
+      }
+
+      const normalizedPlatformLabels = [
+        ...new Set(
+          platformLabels
+            .map((platformLabel) => platformLabel.trim())
+            .filter(Boolean),
+        ),
+      ]
+
+      setIsLibraryEditorOpen(true)
+      setEditingLibraryEntryId(null)
+      setLibraryTitle(title)
+      setSelectedPlatformLabels(normalizedPlatformLabels)
+      setLibraryAvailability('')
+      setGameSuggestions([])
+      setSelectedCatalogResult({
+        id: gameId,
+        source: 'local',
+        sourceId: gameId,
+        title,
+        coverUrl,
+        platformLabels: normalizedPlatformLabels,
+        gameplayClassification: 'unknown',
+      })
+      setLibraryIntent('interested')
+      setActionNotice(null)
+    },
+    [isSignedIn, libraryGameIds, setActionNotice],
+  )
+
+  const handleEditLibraryEntry = useCallback(
+    (entry: LibraryEntry) => {
+      setIsLibraryEditorOpen(true)
+      setEditingLibraryEntryId(entry.id)
+      setLibraryTitle(entry.title)
+      setSelectedPlatformLabels(entry.platformLabels)
+      setLibraryAvailability(
+        entry.availabilitySource === 'game-specific'
+          ? (entry.availability ?? '')
+          : '',
+      )
+      setGameSuggestions([])
+      setSelectedCatalogResult(null)
+      setLibraryIntent(entry.intent)
+      setActionNotice(null)
+    },
+    [setActionNotice],
+  )
 
   const handleCancelLibraryEdit = useCallback(() => {
     setActionNotice(null)
@@ -400,7 +466,12 @@ export function useDashboardLibrary({
     if (isSteamImportModalOpen) {
       setIsSteamImportModalOpen(false)
     }
-  }, [handleCancelLibraryEdit, isLibraryEditorOpen, isSteamImportModalOpen, location.pathname])
+  }, [
+    handleCancelLibraryEdit,
+    isLibraryEditorOpen,
+    isSteamImportModalOpen,
+    location.pathname,
+  ])
 
   const handleSaveUsualAvailability = useCallback(async () => {
     setProfileSaving(true)
@@ -410,7 +481,7 @@ export function useDashboardLibrary({
     try {
       const parsedProfile = await updateProfile({
         timezoneId: browserTimeZoneId ?? undefined,
-        usualAvailability: usualAvailability.trim() || undefined
+        usualAvailability: usualAvailability.trim() || undefined,
       })
 
       applyProfileUpdate(parsedProfile)
@@ -418,24 +489,35 @@ export function useDashboardLibrary({
         tone: 'success',
         message: usualAvailability.trim()
           ? 'Saved as your default play schedule.'
-          : 'Cleared your default play schedule.'
+          : 'Cleared your default play schedule.',
       })
       void loadDashboard()
     } catch (error) {
       setProfileNotice({
         tone: 'danger',
-        message: error instanceof Error ? error.message : 'Unable to update your usual play schedule right now.'
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Unable to update your usual play schedule right now.',
       })
     } finally {
       setProfileSaving(false)
     }
-  }, [applyProfileUpdate, browserTimeZoneId, loadDashboard, setActionNotice, setProfileNotice, updateProfile, usualAvailability])
+  }, [
+    applyProfileUpdate,
+    browserTimeZoneId,
+    loadDashboard,
+    setActionNotice,
+    setProfileNotice,
+    updateProfile,
+    usualAvailability,
+  ])
 
   const fetchSteamImportPreview = useCallback(async () => {
     if (!steamImportEnabled) {
       setActionNotice({
         tone: 'neutral',
-        message: 'Steam import is not configured in this environment yet.'
+        message: 'Steam import is not configured in this environment yet.',
       })
       return null
     }
@@ -448,14 +530,18 @@ export function useDashboardLibrary({
 
     try {
       const response = await fetch(buildApiUrl('/api/library/imports/steam'), {
-        credentials: 'include'
+        credentials: 'include',
       })
-      const responseBody = (await response.json()) as SteamLibraryImportPreviewResponse | { error?: string }
+      const responseBody = (await response.json()) as
+        SteamLibraryImportPreviewResponse | { error?: string }
 
       if (!response.ok) {
         setActionNotice({
           tone: 'danger',
-          message: extractErrorMessage(responseBody, 'Unable to load your Steam library right now.')
+          message: extractErrorMessage(
+            responseBody,
+            'Unable to load your Steam library right now.',
+          ),
         })
         return null
       }
@@ -467,7 +553,10 @@ export function useDashboardLibrary({
     } catch (error) {
       setActionNotice({
         tone: 'danger',
-        message: error instanceof Error ? error.message : 'Unable to load your Steam library right now.'
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Unable to load your Steam library right now.',
       })
       return null
     } finally {
@@ -482,62 +571,83 @@ export function useDashboardLibrary({
     if (steamConnected && steamImportPreview == null) {
       await fetchSteamImportPreview()
     }
-  }, [fetchSteamImportPreview, setActionNotice, steamConnected, steamImportPreview])
+  }, [
+    fetchSteamImportPreview,
+    setActionNotice,
+    steamConnected,
+    steamImportPreview,
+  ])
 
   const handleRefreshSteamImport = useCallback(async () => {
     await fetchSteamImportPreview()
   }, [fetchSteamImportPreview])
 
-  const handleImportSteamGames = useCallback(async (games: ImportSteamLibrarySelectionRequest['games']) => {
-    if (games.length === 0) {
-      setActionNotice({
-        tone: 'neutral',
-        message: 'Choose at least one Steam game before importing.'
-      })
-      return
-    }
-
-    setSteamImporting(true)
-    setActionNotice(null)
-
-    try {
-      const response = await fetch(buildApiUrl('/api/library/imports/steam'), {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          games
-        })
-      })
-      const responseBody = (await response.json()) as LibraryResponse | { error?: string }
-
-      if (!response.ok) {
+  const handleImportSteamGames = useCallback(
+    async (games: ImportSteamLibrarySelectionRequest['games']) => {
+      if (games.length === 0) {
         setActionNotice({
-          tone: 'danger',
-          message: extractErrorMessage(responseBody, 'Unable to import those Steam games right now.')
+          tone: 'neutral',
+          message: 'Choose at least one Steam game before importing.',
         })
         return
       }
 
-      libraryResponseSchema.parse(responseBody)
-      setIsSteamImportModalOpen(false)
-      setActionNotice({
-        tone: 'success',
-        message: games.length === 1 ? 'Imported 1 Steam game into your library.' : `Imported ${games.length} Steam games into your library.`
-      })
-      await loadDashboard()
-      await fetchSteamImportPreview()
-    } catch (error) {
-      setActionNotice({
-        tone: 'danger',
-        message: error instanceof Error ? error.message : 'Unable to import those Steam games right now.'
-      })
-    } finally {
-      setSteamImporting(false)
-    }
-  }, [buildApiUrl, fetchSteamImportPreview, loadDashboard, setActionNotice])
+      setSteamImporting(true)
+      setActionNotice(null)
+
+      try {
+        const response = await fetch(
+          buildApiUrl('/api/library/imports/steam'),
+          {
+            method: 'POST',
+            credentials: 'include',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              games,
+            }),
+          },
+        )
+        const responseBody = (await response.json()) as
+          LibraryResponse | { error?: string }
+
+        if (!response.ok) {
+          setActionNotice({
+            tone: 'danger',
+            message: extractErrorMessage(
+              responseBody,
+              'Unable to import those Steam games right now.',
+            ),
+          })
+          return
+        }
+
+        libraryResponseSchema.parse(responseBody)
+        setIsSteamImportModalOpen(false)
+        setActionNotice({
+          tone: 'success',
+          message:
+            games.length === 1
+              ? 'Imported 1 Steam game into your library.'
+              : `Imported ${games.length} Steam games into your library.`,
+        })
+        await loadDashboard()
+        await fetchSteamImportPreview()
+      } catch (error) {
+        setActionNotice({
+          tone: 'danger',
+          message:
+            error instanceof Error
+              ? error.message
+              : 'Unable to import those Steam games right now.',
+        })
+      } finally {
+        setSteamImporting(false)
+      }
+    },
+    [buildApiUrl, fetchSteamImportPreview, loadDashboard, setActionNotice],
+  )
 
   const handleDisconnectSteam = useCallback(async () => {
     setSteamDisconnectPending(true)
@@ -546,14 +656,15 @@ export function useDashboardLibrary({
     try {
       const response = await fetch(buildApiUrl('/api/auth/steam/link'), {
         method: 'DELETE',
-        credentials: 'include'
+        credentials: 'include',
       })
 
       if (!response.ok) {
         const responseBody = (await response.json()) as { error?: string }
         setActionNotice({
           tone: 'danger',
-          message: responseBody.error ?? 'Unable to disconnect Steam right now.'
+          message:
+            responseBody.error ?? 'Unable to disconnect Steam right now.',
         })
         return
       }
@@ -562,13 +673,16 @@ export function useDashboardLibrary({
       setIsSteamImportModalOpen(false)
       setActionNotice({
         tone: 'success',
-        message: 'Steam account disconnected.'
+        message: 'Steam account disconnected.',
       })
       await loadDashboard()
     } catch (error) {
       setActionNotice({
         tone: 'danger',
-        message: error instanceof Error ? error.message : 'Unable to disconnect Steam right now.'
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Unable to disconnect Steam right now.',
       })
     } finally {
       setSteamDisconnectPending(false)
@@ -577,13 +691,20 @@ export function useDashboardLibrary({
 
   const handleAddLibraryEntry = useCallback(async () => {
     const title = libraryTitle.trim()
-    const platformLabels = [...new Set(selectedPlatformLabels.map((platformLabel) => platformLabel.trim()).filter(Boolean))]
+    const platformLabels = [
+      ...new Set(
+        selectedPlatformLabels
+          .map((platformLabel) => platformLabel.trim())
+          .filter(Boolean),
+      ),
+    ]
     const isEditingLibraryEntry = Boolean(editingLibraryEntryId)
 
     if (!title || platformLabels.length === 0) {
       setActionNotice({
         tone: 'danger',
-        message: 'Add a game title and choose at least one platform before saving to your library.'
+        message:
+          'Add a game title and choose at least one platform before saving to your library.',
       })
       return
     }
@@ -596,7 +717,7 @@ export function useDashboardLibrary({
         method: 'POST',
         credentials: 'include',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           title,
@@ -609,18 +730,22 @@ export function useDashboardLibrary({
                 sourceId: selectedCatalogResult.sourceId,
                 title: selectedCatalogResult.title,
                 coverUrl: selectedCatalogResult.coverUrl,
-                platformLabels: selectedCatalogResult.platformLabels
+                platformLabels: selectedCatalogResult.platformLabels,
               }
-            : undefined
-        })
+            : undefined,
+        }),
       })
 
-      const responseBody = (await response.json()) as LibraryResponse | { error?: string }
+      const responseBody = (await response.json()) as
+        LibraryResponse | { error?: string }
 
       if (!response.ok) {
         setActionNotice({
           tone: 'danger',
-          message: extractErrorMessage(responseBody, 'Unable to add that game right now.')
+          message: extractErrorMessage(
+            responseBody,
+            'Unable to add that game right now.',
+          ),
         })
         return
       }
@@ -632,195 +757,308 @@ export function useDashboardLibrary({
       } else {
         setActionNotice({
           tone: 'success',
-          message: `${title} was added to your library.`
+          message: `${title} was added to your library.`,
         })
       }
       await loadDashboard()
     } catch (error) {
       setActionNotice({
         tone: 'danger',
-        message: error instanceof Error ? error.message : 'Unable to add that game right now.'
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Unable to add that game right now.',
       })
     } finally {
       setLibrarySaving(false)
     }
-  }, [buildApiUrl, editingLibraryEntryId, libraryAvailability, libraryIntent, libraryTitle, loadDashboard, resetLibraryForm, selectedCatalogResult, selectedPlatformLabels, setActionNotice])
+  }, [
+    buildApiUrl,
+    editingLibraryEntryId,
+    libraryAvailability,
+    libraryIntent,
+    libraryTitle,
+    loadDashboard,
+    resetLibraryForm,
+    selectedCatalogResult,
+    selectedPlatformLabels,
+    setActionNotice,
+  ])
 
-  const handleRemoveLibraryEntry = useCallback(async (entryId: string) => {
-    setRemovingLibraryEntryId(entryId)
-    setActionNotice(null)
+  const handleRemoveLibraryEntry = useCallback(
+    async (entryId: string) => {
+      setRemovingLibraryEntryId(entryId)
+      setActionNotice(null)
 
-    try {
-      const response = await fetch(buildApiUrl(`/api/library/me/${entryId}`), {
-        method: 'DELETE',
-        credentials: 'include'
-      })
+      try {
+        const response = await fetch(
+          buildApiUrl(`/api/library/me/${entryId}`),
+          {
+            method: 'DELETE',
+            credentials: 'include',
+          },
+        )
 
-      if (!response.ok) {
-        const responseBody = (await response.json()) as { error?: string }
+        if (!response.ok) {
+          const responseBody = (await response.json()) as { error?: string }
+          setActionNotice({
+            tone: 'danger',
+            message:
+              responseBody.error ?? 'Unable to remove that game right now.',
+          })
+          return
+        }
+
+        setActionNotice({
+          tone: 'success',
+          message: 'Removed that game from your library.',
+        })
+
+        if (entryId === editingLibraryEntryId) {
+          resetLibraryForm()
+        }
+
+        await loadDashboard()
+      } catch (error) {
         setActionNotice({
           tone: 'danger',
-          message: responseBody.error ?? 'Unable to remove that game right now.'
+          message:
+            error instanceof Error
+              ? error.message
+              : 'Unable to remove that game right now.',
         })
-        return
+      } finally {
+        setRemovingLibraryEntryId(null)
       }
+    },
+    [
+      buildApiUrl,
+      editingLibraryEntryId,
+      loadDashboard,
+      resetLibraryForm,
+      setActionNotice,
+    ],
+  )
 
-      setActionNotice({
-        tone: 'success',
-        message: 'Removed that game from your library.'
-      })
+  const handleUsualAvailabilityChange = useCallback(
+    (value: string) => {
+      setUsualAvailability(value)
+      setProfileNotice(null)
+    },
+    [setProfileNotice],
+  )
 
-      if (entryId === editingLibraryEntryId) {
-        resetLibraryForm()
-      }
-
-      await loadDashboard()
-    } catch (error) {
-      setActionNotice({
-        tone: 'danger',
-        message: error instanceof Error ? error.message : 'Unable to remove that game right now.'
-      })
-    } finally {
-      setRemovingLibraryEntryId(null)
-    }
-  }, [buildApiUrl, editingLibraryEntryId, loadDashboard, resetLibraryForm, setActionNotice])
-
-  const handleUsualAvailabilityChange = useCallback((value: string) => {
-    setUsualAvailability(value)
-    setProfileNotice(null)
-  }, [setProfileNotice])
-
-  const handleLibraryIntentChange = useCallback((intent: LibraryEntryIntent) => {
-    setLibraryIntent(intent)
-  }, [])
+  const handleLibraryIntentChange = useCallback(
+    (intent: LibraryEntryIntent) => {
+      setLibraryIntent(intent)
+    },
+    [],
+  )
 
   const handleLibraryAvailabilityChange = useCallback((value: string) => {
     setLibraryAvailability(value)
   }, [])
 
-  const handleSavePlatformAlias = useCallback(async (platform: string, aliasValue: string) => {
-    const trimmedAlias = aliasValue.trim()
+  const handleSavePlatformAlias = useCallback(
+    async (platform: string, aliasValue: string) => {
+      const trimmedAlias = aliasValue.trim()
 
-    if (!trimmedAlias) {
-      return
-    }
-
-    setAliasSavingKey(`platform:${platform}`)
-
-    try {
-      const response = await fetch(buildApiUrl(`/api/aliases/platforms/${encodeURIComponent(platform)}`), {
-        method: 'PUT',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ aliasValue: trimmedAlias })
-      })
-
-      if (!response.ok) {
-        const body = (await response.json()) as { error?: string }
-        setActionNotice({ tone: 'danger', message: body.error ?? 'Unable to save that platform alias right now.' })
+      if (!trimmedAlias) {
         return
       }
 
-      const parsed = userPlatformAliasesResponseSchema.parse(await response.json())
-      const nextAlias = parsed.aliases[0]
+      setAliasSavingKey(`platform:${platform}`)
 
-      if (!nextAlias) {
+      try {
+        const response = await fetch(
+          buildApiUrl(`/api/aliases/platforms/${encodeURIComponent(platform)}`),
+          {
+            method: 'PUT',
+            credentials: 'include',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ aliasValue: trimmedAlias }),
+          },
+        )
+
+        if (!response.ok) {
+          const body = (await response.json()) as { error?: string }
+          setActionNotice({
+            tone: 'danger',
+            message:
+              body.error ?? 'Unable to save that platform alias right now.',
+          })
+          return
+        }
+
+        const parsed = userPlatformAliasesResponseSchema.parse(
+          await response.json(),
+        )
+        const nextAlias = parsed.aliases[0]
+
+        if (!nextAlias) {
+          return
+        }
+
+        setPlatformAliases((current) => {
+          const others = current.filter(
+            (entry) => entry.platform !== nextAlias.platform,
+          )
+          return [...others, nextAlias].sort((left, right) =>
+            left.platform.localeCompare(right.platform),
+          )
+        })
+        setActionNotice({
+          tone: 'success',
+          message: `Saved alias for ${platform}.`,
+        })
+      } catch (error) {
+        setActionNotice({
+          tone: 'danger',
+          message:
+            error instanceof Error
+              ? error.message
+              : 'Unable to save that platform alias right now.',
+        })
+      } finally {
+        setAliasSavingKey(null)
+      }
+    },
+    [buildApiUrl, setActionNotice],
+  )
+
+  const handleDeletePlatformAlias = useCallback(
+    async (platform: string) => {
+      setAliasSavingKey(`platform:${platform}`)
+
+      try {
+        await fetch(
+          buildApiUrl(`/api/aliases/platforms/${encodeURIComponent(platform)}`),
+          {
+            method: 'DELETE',
+            credentials: 'include',
+          },
+        )
+
+        setPlatformAliases((current) =>
+          current.filter((entry) => entry.platform !== platform),
+        )
+        setActionNotice({
+          tone: 'success',
+          message: `Removed alias for ${platform}.`,
+        })
+      } catch (error) {
+        setActionNotice({
+          tone: 'danger',
+          message:
+            error instanceof Error
+              ? error.message
+              : 'Unable to remove that platform alias right now.',
+        })
+      } finally {
+        setAliasSavingKey(null)
+      }
+    },
+    [buildApiUrl, setActionNotice],
+  )
+
+  const handleSaveGameAlias = useCallback(
+    async (gameId: string, aliasValue: string) => {
+      const trimmedAlias = aliasValue.trim()
+
+      if (!trimmedAlias) {
         return
       }
 
-      setPlatformAliases((current) => {
-        const others = current.filter((entry) => entry.platform !== nextAlias.platform)
-        return [...others, nextAlias].sort((left, right) => left.platform.localeCompare(right.platform))
-      })
-      setActionNotice({ tone: 'success', message: `Saved alias for ${platform}.` })
-    } catch (error) {
-      setActionNotice({ tone: 'danger', message: error instanceof Error ? error.message : 'Unable to save that platform alias right now.' })
-    } finally {
-      setAliasSavingKey(null)
-    }
-  }, [buildApiUrl, setActionNotice])
+      setAliasSavingKey(`game:${gameId}`)
 
-  const handleDeletePlatformAlias = useCallback(async (platform: string) => {
-    setAliasSavingKey(`platform:${platform}`)
+      try {
+        const response = await fetch(
+          buildApiUrl(`/api/aliases/games/${gameId}`),
+          {
+            method: 'PUT',
+            credentials: 'include',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ aliasValue: trimmedAlias }),
+          },
+        )
 
-    try {
-      await fetch(buildApiUrl(`/api/aliases/platforms/${encodeURIComponent(platform)}`), {
-        method: 'DELETE',
-        credentials: 'include'
-      })
+        if (!response.ok) {
+          const body = (await response.json()) as { error?: string }
+          setActionNotice({
+            tone: 'danger',
+            message: body.error ?? 'Unable to save that game alias right now.',
+          })
+          return
+        }
 
-      setPlatformAliases((current) => current.filter((entry) => entry.platform !== platform))
-      setActionNotice({ tone: 'success', message: `Removed alias for ${platform}.` })
-    } catch (error) {
-      setActionNotice({ tone: 'danger', message: error instanceof Error ? error.message : 'Unable to remove that platform alias right now.' })
-    } finally {
-      setAliasSavingKey(null)
-    }
-  }, [buildApiUrl, setActionNotice])
+        const parsed = userGameAliasesResponseSchema.parse(
+          await response.json(),
+        )
+        const nextAlias = parsed.aliases[0]
 
-  const handleSaveGameAlias = useCallback(async (gameId: string, aliasValue: string) => {
-    const trimmedAlias = aliasValue.trim()
+        if (!nextAlias) {
+          return
+        }
 
-    if (!trimmedAlias) {
-      return
-    }
-
-    setAliasSavingKey(`game:${gameId}`)
-
-    try {
-      const response = await fetch(buildApiUrl(`/api/aliases/games/${gameId}`), {
-        method: 'PUT',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ aliasValue: trimmedAlias })
-      })
-
-      if (!response.ok) {
-        const body = (await response.json()) as { error?: string }
-        setActionNotice({ tone: 'danger', message: body.error ?? 'Unable to save that game alias right now.' })
-        return
+        setGameAliases((current) => {
+          const others = current.filter(
+            (entry) => entry.gameId !== nextAlias.gameId,
+          )
+          return [...others, nextAlias].sort((left, right) =>
+            left.gameTitle.localeCompare(right.gameTitle),
+          )
+        })
+        setActionNotice({
+          tone: 'success',
+          message: `Saved alias for ${nextAlias.gameTitle}.`,
+        })
+      } catch (error) {
+        setActionNotice({
+          tone: 'danger',
+          message:
+            error instanceof Error
+              ? error.message
+              : 'Unable to save that game alias right now.',
+        })
+      } finally {
+        setAliasSavingKey(null)
       }
+    },
+    [buildApiUrl, setActionNotice],
+  )
 
-      const parsed = userGameAliasesResponseSchema.parse(await response.json())
-      const nextAlias = parsed.aliases[0]
+  const handleDeleteGameAlias = useCallback(
+    async (gameId: string) => {
+      setAliasSavingKey(`game:${gameId}`)
 
-      if (!nextAlias) {
-        return
+      try {
+        await fetch(buildApiUrl(`/api/aliases/games/${gameId}`), {
+          method: 'DELETE',
+          credentials: 'include',
+        })
+
+        setGameAliases((current) =>
+          current.filter((entry) => entry.gameId !== gameId),
+        )
+        setActionNotice({ tone: 'success', message: 'Removed game alias.' })
+      } catch (error) {
+        setActionNotice({
+          tone: 'danger',
+          message:
+            error instanceof Error
+              ? error.message
+              : 'Unable to remove that game alias right now.',
+        })
+      } finally {
+        setAliasSavingKey(null)
       }
-
-      setGameAliases((current) => {
-        const others = current.filter((entry) => entry.gameId !== nextAlias.gameId)
-        return [...others, nextAlias].sort((left, right) => left.gameTitle.localeCompare(right.gameTitle))
-      })
-      setActionNotice({ tone: 'success', message: `Saved alias for ${nextAlias.gameTitle}.` })
-    } catch (error) {
-      setActionNotice({ tone: 'danger', message: error instanceof Error ? error.message : 'Unable to save that game alias right now.' })
-    } finally {
-      setAliasSavingKey(null)
-    }
-  }, [buildApiUrl, setActionNotice])
-
-  const handleDeleteGameAlias = useCallback(async (gameId: string) => {
-    setAliasSavingKey(`game:${gameId}`)
-
-    try {
-      await fetch(buildApiUrl(`/api/aliases/games/${gameId}`), {
-        method: 'DELETE',
-        credentials: 'include'
-      })
-
-      setGameAliases((current) => current.filter((entry) => entry.gameId !== gameId))
-      setActionNotice({ tone: 'success', message: 'Removed game alias.' })
-    } catch (error) {
-      setActionNotice({ tone: 'danger', message: error instanceof Error ? error.message : 'Unable to remove that game alias right now.' })
-    } finally {
-      setAliasSavingKey(null)
-    }
-  }, [buildApiUrl, setActionNotice])
+    },
+    [buildApiUrl, setActionNotice],
+  )
 
   const libraryViewProps: DashboardLibraryViewProps = {
     isSignedIn,
@@ -882,12 +1120,12 @@ export function useDashboardLibrary({
     removingLibraryEntryId,
     onEditLibraryEntry: handleEditLibraryEntry,
     onRemoveLibraryEntry: handleRemoveLibraryEntry,
-    onAddGameToLibrary: onAddGameToLibrary ?? openLibraryEditorForGame
+    onAddGameToLibrary: onAddGameToLibrary ?? openLibraryEditorForGame,
   }
 
   return {
     profileSaving,
     libraryViewProps,
-    openLibraryEditorForGame
+    openLibraryEditorForGame,
   }
 }

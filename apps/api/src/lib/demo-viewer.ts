@@ -7,7 +7,7 @@ export async function getViewer(viewerId?: string | null) {
 
   return prisma.user.findUnique({
     where: {
-      id: viewerId
-    }
+      id: viewerId,
+    },
   })
 }

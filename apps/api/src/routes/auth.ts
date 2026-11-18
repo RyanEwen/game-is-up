@@ -12,7 +12,7 @@ import {
   authProvidersResponseSchema,
   authSessionResponseSchema,
   steamLinkIntentResponseSchema,
-  type AuthProvider
+  type AuthProvider,
 } from '@game-is-up/shared'
 import { AuthProvider as PrismaAuthProvider } from '@prisma/client'
 import { z } from 'zod'
@@ -28,19 +28,30 @@ import {
   isDiscordAuthConfigured,
   markDiscordGuildSync,
   storeDiscordOauthTokens,
-  upsertDiscordUser
+  upsertDiscordUser,
 } from '../lib/discord-auth.js'
 import { getDiscordPresenceBotState } from '../lib/discord-bot-runtime.js'
-import { getLatestDiscordInviteAttribution, recordDiscordInviteAttribution } from '../lib/discord-invite-attribution.js'
+import {
+  getLatestDiscordInviteAttribution,
+  recordDiscordInviteAttribution,
+} from '../lib/discord-invite-attribution.js'
 import {
   ensureDevelopmentSampleFriends,
   ensureDevelopmentSamplePlayIntentTargets,
-  ensureDevelopmentSampleServerOverlap
+  ensureDevelopmentSampleServerOverlap,
 } from '../lib/dev-sample-network.js'
-import { countBotVisibleDiscordServersForUser, syncDiscordServersForUser } from '../lib/discord-servers.js'
+import {
+  countBotVisibleDiscordServersForUser,
+  syncDiscordServersForUser,
+} from '../lib/discord-servers.js'
 import { env } from '../lib/env.js'
 import { resolveAuthRedirectTarget } from '../lib/origin.js'
-import { buildSteamAuthorizationUrl, isSteamImportConfigured, upsertSteamIdentity, verifySteamOpenIdResponse } from '../lib/steam-auth.js'
+import {
+  buildSteamAuthorizationUrl,
+  isSteamImportConfigured,
+  upsertSteamIdentity,
+  verifySteamOpenIdResponse,
+} from '../lib/steam-auth.js'
 import {
   clearAuthSession,
   clearDiscordState,
@@ -57,7 +68,9 @@ import { toClientAvatarUrl } from '../lib/game-media.js'
 
 export const authRouter = Router()
 
-function buildDiscordActivityTrackingNote(botState: ReturnType<typeof getDiscordPresenceBotState>) {
+function buildDiscordActivityTrackingNote(
+  botState: ReturnType<typeof getDiscordPresenceBotState>,
+) {
   if (botState.mode === 'gateway') {
     return 'Discord activity tracking is bot-based and lossy. It only records game activity seen in servers where the bot is installed.'
   }
@@ -79,12 +92,12 @@ async function buildDiscordGraphCapabilities(userId: string | null) {
   const identity = await prisma.userIdentity.findFirst({
     where: {
       userId,
-      provider: 'DISCORD'
+      provider: 'DISCORD',
     },
     select: {
       grantedScopes: true,
-      lastDiscordGuildsSyncAt: true
-    }
+      lastDiscordGuildsSyncAt: true,
+    },
   })
 
   if (!identity) {
@@ -94,7 +107,7 @@ async function buildDiscordGraphCapabilities(userId: string | null) {
       fallbackSources: ['mutual-servers', 'app-friends'] as const,
       guildSync: {
         active: false,
-        lastSyncedAt: null
+        lastSyncedAt: null,
       },
       activityTracking: {
         mode: 'bot-presence-lossy' as const,
@@ -104,15 +117,16 @@ async function buildDiscordGraphCapabilities(userId: string | null) {
         sharesServerWithBot: false,
         lastObservedAt: null,
         currentActivity: null,
-        note: buildDiscordActivityTrackingNote(botState)
-      }
+        note: buildDiscordActivityTrackingNote(botState),
+      },
     }
   }
 
-  const [{ currentActivity, lastObservedAt }, sharedServerCount] = await Promise.all([
-    getLatestDiscordActivityForUser(userId),
-    countBotVisibleDiscordServersForUser(userId)
-  ])
+  const [{ currentActivity, lastObservedAt }, sharedServerCount] =
+    await Promise.all([
+      getLatestDiscordActivityForUser(userId),
+      countBotVisibleDiscordServersForUser(userId),
+    ])
 
   return {
     requestedScopes: [...DISCORD_REQUESTED_SCOPES],
@@ -120,7 +134,7 @@ async function buildDiscordGraphCapabilities(userId: string | null) {
     fallbackSources: ['mutual-servers', 'app-friends'] as const,
     guildSync: {
       active: identity.grantedScopes.includes('guilds'),
-      lastSyncedAt: identity.lastDiscordGuildsSyncAt?.toISOString() ?? null
+      lastSyncedAt: identity.lastDiscordGuildsSyncAt?.toISOString() ?? null,
     },
     activityTracking: {
       mode: 'bot-presence-lossy' as const,
@@ -130,19 +144,24 @@ async function buildDiscordGraphCapabilities(userId: string | null) {
       sharesServerWithBot: sharedServerCount > 0,
       lastObservedAt,
       currentActivity,
-      note: buildDiscordActivityTrackingNote(botState)
-    }
+      note: buildDiscordActivityTrackingNote(botState),
+    },
   }
 }
 const steamLinkIntentRequestSchema = z.object({
-  returnTo: z.string().optional()
+  returnTo: z.string().optional(),
 })
 
 function toSharedAuthProvider(provider: PrismaAuthProvider): AuthProvider {
   return provider === PrismaAuthProvider.STEAM ? 'steam' : 'discord'
 }
 
-function buildClientRedirect(authProvider: AuthProvider, redirectTarget: string, status: 'success' | 'error', options?: { reason?: string; handoff?: string }): string {
+function buildClientRedirect(
+  authProvider: AuthProvider,
+  redirectTarget: string,
+  status: 'success' | 'error',
+  options?: { reason?: string; handoff?: string },
+): string {
   const redirectUrl = new URL(redirectTarget)
   redirectUrl.searchParams.set('auth', authProvider)
   redirectUrl.searchParams.set('status', status)
@@ -170,7 +189,7 @@ authRouter.get('/providers', (_request, response) => {
           clientId: env.DISCORD_CLIENT_ID ?? null,
           requestedScopes: [...DISCORD_REQUESTED_SCOPES],
           installUrl: buildDiscordBotInstallUrl(),
-          serverInstallUrl: buildDiscordBotInstallUrl()
+          serverInstallUrl: buildDiscordBotInstallUrl(),
         },
         {
           id: 'steam',
@@ -180,10 +199,10 @@ authRouter.get('/providers', (_request, response) => {
           clientId: null,
           requestedScopes: ['library-read'],
           installUrl: null,
-          serverInstallUrl: null
-        }
-      ]
-    })
+          serverInstallUrl: null,
+        },
+      ],
+    }),
   )
 })
 
@@ -197,15 +216,15 @@ authRouter.get('/me', async (request, response) => {
         user: null,
         discordGraph: null,
         inviteAttribution: null,
-        connectedProviders: []
-      })
+        connectedProviders: [],
+      }),
     )
     return
   }
 
   const user = await prisma.user.findUnique({
     where: {
-      id: session.userId
+      id: session.userId,
     },
     select: {
       id: true,
@@ -219,10 +238,10 @@ authRouter.get('/me', async (request, response) => {
       isAdmin: true,
       identities: {
         select: {
-          provider: true
-        }
-      }
-    }
+          provider: true,
+        },
+      },
+    },
   })
 
   if (!user) {
@@ -233,18 +252,23 @@ authRouter.get('/me', async (request, response) => {
         user: null,
         discordGraph: null,
         inviteAttribution: null,
-        connectedProviders: []
-      })
+        connectedProviders: [],
+      }),
     )
     return
   }
 
   const adminHandles = env.ADMIN_HANDLES
-    ? env.ADMIN_HANDLES.split(',').map((h) => h.trim().toLowerCase()).filter(Boolean)
+    ? env.ADMIN_HANDLES.split(',')
+        .map((h) => h.trim().toLowerCase())
+        .filter(Boolean)
     : []
   const shouldBeAdmin = adminHandles.includes(user.handle.toLowerCase())
   if (shouldBeAdmin !== user.isAdmin) {
-    await prisma.user.update({ where: { id: user.id }, data: { isAdmin: shouldBeAdmin } })
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { isAdmin: shouldBeAdmin },
+    })
     user.isAdmin = shouldBeAdmin
   }
 
@@ -254,9 +278,15 @@ authRouter.get('/me', async (request, response) => {
 
   const [discordGraph, inviteAttribution] = await Promise.all([
     buildDiscordGraphCapabilities(user.id),
-    getLatestDiscordInviteAttribution(user.id)
+    getLatestDiscordInviteAttribution(user.id),
   ])
-  const connectedProviders = [...new Set(user.identities.map((identity) => toSharedAuthProvider(identity.provider)).sort((left, right) => left.localeCompare(right)))]
+  const connectedProviders = [
+    ...new Set(
+      user.identities
+        .map((identity) => toSharedAuthProvider(identity.provider))
+        .sort((left, right) => left.localeCompare(right)),
+    ),
+  ]
 
   response.json(
     authSessionResponseSchema.parse({
@@ -264,39 +294,50 @@ authRouter.get('/me', async (request, response) => {
       user: {
         ...user,
         avatarUrl: toClientAvatarUrl(user.avatarUrl),
-        authProvider: session.authProvider
+        authProvider: session.authProvider,
       },
       discordGraph,
       inviteAttribution,
-      connectedProviders
-    })
+      connectedProviders,
+    }),
   )
 })
 
 authRouter.get('/discord/login', (request, response) => {
   if (!isDiscordAuthConfigured()) {
     response.status(503).json({
-      error: 'Discord OAuth is not configured.'
+      error: 'Discord OAuth is not configured.',
     })
     return
   }
 
   const state = createDiscordState()
-  const redirectTarget = resolveAuthRedirectTarget(typeof request.query.returnTo === 'string' ? request.query.returnTo : undefined)
+  const redirectTarget = resolveAuthRedirectTarget(
+    typeof request.query.returnTo === 'string'
+      ? request.query.returnTo
+      : undefined,
+  )
   setDiscordState(response, state, redirectTarget)
   response.redirect(buildDiscordAuthorizationUrl(state))
 })
 
 authRouter.get('/discord/callback', async (request, response) => {
-  const error = typeof request.query.error === 'string' ? request.query.error : null
-  const code = typeof request.query.code === 'string' ? request.query.code : null
-  const state = typeof request.query.state === 'string' ? request.query.state : null
+  const error =
+    typeof request.query.error === 'string' ? request.query.error : null
+  const code =
+    typeof request.query.code === 'string' ? request.query.code : null
+  const state =
+    typeof request.query.state === 'string' ? request.query.state : null
   const discordState = state ? consumeDiscordState(request, state) : null
   const redirectTarget = discordState?.redirectTo ?? env.CLIENT_ORIGIN
 
   if (error || !code || !state || !discordState) {
     clearDiscordState(response)
-    response.redirect(buildClientRedirect('discord', redirectTarget, 'error', { reason: error ?? 'invalid-callback' }))
+    response.redirect(
+      buildClientRedirect('discord', redirectTarget, 'error', {
+        reason: error ?? 'invalid-callback',
+      }),
+    )
     return
   }
 
@@ -314,7 +355,7 @@ authRouter.get('/discord/callback', async (request, response) => {
       await recordDiscordInviteAttribution({
         acceptedUserId: userResult.user.id,
         acceptedDiscordUserId: profile.id,
-        redirectTarget
+        redirectTarget,
       })
     }
 
@@ -322,13 +363,17 @@ authRouter.get('/discord/callback', async (request, response) => {
 
     setAuthSession(response, userResult.user.id, 'discord')
     publishDashboardInvalidation({
-      domains: ['auth', 'network', 'discovery', 'play-intents']
+      domains: ['auth', 'network', 'discovery', 'play-intents'],
     })
     response.redirect(buildClientRedirect('discord', redirectTarget, 'success'))
   } catch (callbackError) {
     console.error('Discord callback failed', callbackError)
     clearDiscordState(response)
-    response.redirect(buildClientRedirect('discord', redirectTarget, 'error', { reason: 'oauth-failed' }))
+    response.redirect(
+      buildClientRedirect('discord', redirectTarget, 'error', {
+        reason: 'oauth-failed',
+      }),
+    )
   }
 })
 
@@ -337,14 +382,14 @@ authRouter.post('/steam/link-intent', (request, response) => {
 
   if (!session) {
     response.status(401).json({
-      error: 'Authentication required.'
+      error: 'Authentication required.',
     })
     return
   }
 
   if (!isSteamImportConfigured()) {
     response.status(503).json({
-      error: 'Steam import is not configured.'
+      error: 'Steam import is not configured.',
     })
     return
   }
@@ -355,39 +400,52 @@ authRouter.post('/steam/link-intent', (request, response) => {
 
   response.json(
     steamLinkIntentResponseSchema.parse({
-      authorizationUrl: buildSteamAuthorizationUrl(state)
-    })
+      authorizationUrl: buildSteamAuthorizationUrl(state),
+    }),
   )
 })
 
 authRouter.get('/steam/callback', async (request, response) => {
-  const state = typeof request.query.state === 'string' ? request.query.state : undefined
+  const state =
+    typeof request.query.state === 'string' ? request.query.state : undefined
   const linkState = consumeSteamLinkState(state)
   const redirectTarget = linkState?.redirectTo ?? env.CLIENT_ORIGIN
 
   if (!linkState) {
-    response.redirect(buildClientRedirect('steam', redirectTarget, 'error', { reason: 'invalid-state' }))
+    response.redirect(
+      buildClientRedirect('steam', redirectTarget, 'error', {
+        reason: 'invalid-state',
+      }),
+    )
     return
   }
 
   try {
     const query = Object.fromEntries(
-      Object.entries(request.query).map(([key, value]) => [key, typeof value === 'string' ? value : undefined])
+      Object.entries(request.query).map(([key, value]) => [
+        key,
+        typeof value === 'string' ? value : undefined,
+      ]),
     )
     const steamId = await verifySteamOpenIdResponse(query)
 
     await upsertSteamIdentity(linkState.userId, steamId)
     publishDashboardInvalidation({
       domains: ['auth', 'library'],
-      userIds: [linkState.userId]
+      userIds: [linkState.userId],
     })
 
     response.redirect(buildClientRedirect('steam', redirectTarget, 'success'))
   } catch (callbackError) {
     console.error('Steam callback failed', callbackError)
-    response.redirect(buildClientRedirect('steam', redirectTarget, 'error', {
-      reason: callbackError instanceof Error ? callbackError.message : 'steam-link-failed'
-    }))
+    response.redirect(
+      buildClientRedirect('steam', redirectTarget, 'error', {
+        reason:
+          callbackError instanceof Error
+            ? callbackError.message
+            : 'steam-link-failed',
+      }),
+    )
   }
 })
 
@@ -396,7 +454,7 @@ authRouter.delete('/steam/link', async (request, response, next) => {
 
   if (!session) {
     response.status(401).json({
-      error: 'Authentication required.'
+      error: 'Authentication required.',
     })
     return
   }
@@ -405,13 +463,13 @@ authRouter.delete('/steam/link', async (request, response, next) => {
     await prisma.userIdentity.deleteMany({
       where: {
         userId: session.userId,
-        provider: PrismaAuthProvider.STEAM
-      }
+        provider: PrismaAuthProvider.STEAM,
+      },
     })
 
     publishDashboardInvalidation({
       domains: ['auth', 'library'],
-      userIds: [session.userId]
+      userIds: [session.userId],
     })
 
     response.status(204).send()
@@ -426,7 +484,7 @@ authRouter.post('/logout', (request, response) => {
   if (session) {
     publishDashboardInvalidation({
       domains: ['auth'],
-      userIds: [session.userId]
+      userIds: [session.userId],
     })
   }
 

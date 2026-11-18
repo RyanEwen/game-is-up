@@ -1,10 +1,10 @@
 export type BeforeInstallPromptEvent = Event & {
-  prompt: () => Promise<void>;
-  userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
+  prompt: () => Promise<void>
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>
 }
 
 type NavigatorWithStandalone = Navigator & {
-  standalone?: boolean;
+  standalone?: boolean
 }
 
 /**
@@ -40,7 +40,9 @@ export function getIsDiscordInAppBrowser(): boolean {
  * 'ios-manual' for iOS Safari (where install requires the share-sheet flow),
  * and null when the browser does not support installation.
  */
-export function getInstallSupport(installPromptEvent: BeforeInstallPromptEvent | null): 'prompt' | 'ios-manual' | null {
+export function getInstallSupport(
+  installPromptEvent: BeforeInstallPromptEvent | null,
+): 'prompt' | 'ios-manual' | null {
   if (typeof window === 'undefined') {
     return null
   }
@@ -55,7 +57,9 @@ export function getInstallSupport(installPromptEvent: BeforeInstallPromptEvent |
 
   const userAgent = window.navigator.userAgent.toLowerCase()
   const isiOS = /iphone|ipad|ipod/.test(userAgent)
-  const isSafari = /safari/.test(userAgent) && !/crios|fxios|edgios|chrome|android/.test(userAgent)
+  const isSafari =
+    /safari/.test(userAgent) &&
+    !/crios|fxios|edgios|chrome|android/.test(userAgent)
 
   if (isiOS && isSafari) {
     return 'ios-manual'
@@ -75,9 +79,11 @@ export function getIsInstalledBrowserApp(): boolean {
 
   const navigator = window.navigator as NavigatorWithStandalone
 
-  return navigator.standalone === true
-    || window.matchMedia('(display-mode: standalone)').matches
-    || window.matchMedia('(display-mode: window-controls-overlay)').matches
-    || window.matchMedia('(display-mode: minimal-ui)').matches
-    || window.matchMedia('(display-mode: fullscreen)').matches
+  return (
+    navigator.standalone === true ||
+    window.matchMedia('(display-mode: standalone)').matches ||
+    window.matchMedia('(display-mode: window-controls-overlay)').matches ||
+    window.matchMedia('(display-mode: minimal-ui)').matches ||
+    window.matchMedia('(display-mode: fullscreen)').matches
+  )
 }

@@ -1,6 +1,11 @@
 import { Box, Option, Select, Stack, Typography } from '@mui/joy'
 import { useEffect, useState } from 'react'
-import type { DiscordServerPreference, DiscoveryGame, DiscoveryPerson, LibraryTrendingGame } from '@game-is-up/shared'
+import type {
+  DiscordServerPreference,
+  DiscoveryGame,
+  DiscoveryPerson,
+  LibraryTrendingGame,
+} from '@game-is-up/shared'
 import { DashboardApiIssueCard } from '../components/dashboard/DashboardApiIssueCard'
 import { DiscordServerPicker } from '../components/dashboard/DiscordServerPicker'
 import { DashboardModal } from '../components/dashboard/DashboardModal'
@@ -11,9 +16,16 @@ import { LibraryTrendingRow } from '../components/dashboard/LibraryTrendingRow'
 import { PersonCard } from '../components/dashboard/PersonCard'
 import { SectionNav } from '../components/dashboard/SectionNav'
 import { sectionScrollMarginTop } from '../components/dashboard/SectionNav.constants'
-import { buildHeaderFilterSelectSx, discoveryGameGridSx, headerFilterControlSx } from '../components/dashboard/dashboardUtils'
+import {
+  buildHeaderFilterSelectSx,
+  discoveryGameGridSx,
+  headerFilterControlSx,
+} from '../components/dashboard/dashboardUtils'
 import { useDashboardContext } from '../contexts/useDashboardContext'
-import type { DashboardLibraryQuickAddGame, FriendTarget } from '../components/dashboard/types'
+import type {
+  DashboardLibraryQuickAddGame,
+  FriendTarget,
+} from '../components/dashboard/types'
 
 const showsDemoDiscoveryCopy = import.meta.env.DEV
 
@@ -26,19 +38,28 @@ function DiscoverySection({
   description,
   children,
   helperText,
-  sortControl
+  sortControl,
 }: {
-  isFirst?: boolean;
-  sectionId: SectionId;
-  title: string;
-  description: string;
-  helperText?: string;
-  children: React.ReactNode;
-  sortControl?: React.ReactNode;
+  isFirst?: boolean
+  sectionId: SectionId
+  title: string
+  description: string
+  helperText?: string
+  children: React.ReactNode
+  sortControl?: React.ReactNode
 }) {
   return (
-    <Stack id={sectionId} spacing={2} sx={{ mt: isFirst ? 0 : 3, scrollMarginTop: sectionScrollMarginTop }}>
-      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }}>
+    <Stack
+      id={sectionId}
+      spacing={2}
+      sx={{ mt: isFirst ? 0 : 3, scrollMarginTop: sectionScrollMarginTop }}
+    >
+      <Stack
+        direction={{ xs: 'column', sm: 'row' }}
+        spacing={1.5}
+        justifyContent="space-between"
+        alignItems={{ xs: 'stretch', sm: 'center' }}
+      >
         <Box>
           <Typography level="h2">{title}</Typography>
           <Typography level="body-md" sx={{ color: 'neutral.300', mt: 0.5 }}>
@@ -67,7 +88,10 @@ function sortGames(games: DiscoveryGame[], sort: GameSort): DiscoveryGame[] {
   })
 }
 
-function sortPeople(people: DiscoveryPerson[], sort: MemberSort): DiscoveryPerson[] {
+function sortPeople(
+  people: DiscoveryPerson[],
+  sort: MemberSort,
+): DiscoveryPerson[] {
   return [...people].sort((a, b) => {
     if (sort === 'games') return b.games.length - a.games.length
     return a.displayName.localeCompare(b.displayName)
@@ -94,28 +118,28 @@ function DiscoveryViewContent({
   onRemoveLibraryEntry,
   mutedPlayIntentUserIds,
   onMutePlayIntentUser,
-  onUnmutePlayIntentUser
+  onUnmutePlayIntentUser,
 }: {
-  error: string | null;
-  discoveryLoading: boolean;
-  overlapGames: DiscoveryGame[];
-  browseGames: DiscoveryGame[];
-  trendingGames: LibraryTrendingGame[];
-  discoveryPeople: DiscoveryPerson[];
-  selectedDiscoveryServers: DiscordServerPreference[];
-  noDiscoveryServersSelected: boolean;
-  isSignedIn: boolean;
-  libraryGameIds: ReadonlySet<string>;
-  libraryEntryIdsByGameId: ReadonlyMap<string, string>;
-  addingLibraryGameId: string | null;
-  removingLibraryEntryId: string | null;
-  friendPendingId: string | null;
-  onToggleFriend: (target: FriendTarget) => Promise<void>;
-  onAddGameToLibrary: (game: DashboardLibraryQuickAddGame) => Promise<void>;
-  onRemoveLibraryEntry: (entryId: string) => Promise<void>;
-  mutedPlayIntentUserIds: ReadonlySet<string>;
-  onMutePlayIntentUser: (userId: string) => Promise<void>;
-  onUnmutePlayIntentUser: (userId: string) => Promise<void>;
+  error: string | null
+  discoveryLoading: boolean
+  overlapGames: DiscoveryGame[]
+  browseGames: DiscoveryGame[]
+  trendingGames: LibraryTrendingGame[]
+  discoveryPeople: DiscoveryPerson[]
+  selectedDiscoveryServers: DiscordServerPreference[]
+  noDiscoveryServersSelected: boolean
+  isSignedIn: boolean
+  libraryGameIds: ReadonlySet<string>
+  libraryEntryIdsByGameId: ReadonlyMap<string, string>
+  addingLibraryGameId: string | null
+  removingLibraryEntryId: string | null
+  friendPendingId: string | null
+  onToggleFriend: (target: FriendTarget) => Promise<void>
+  onAddGameToLibrary: (game: DashboardLibraryQuickAddGame) => Promise<void>
+  onRemoveLibraryEntry: (entryId: string) => Promise<void>
+  mutedPlayIntentUserIds: ReadonlySet<string>
+  onMutePlayIntentUser: (userId: string) => Promise<void>
+  onUnmutePlayIntentUser: (userId: string) => Promise<void>
 }) {
   const networkPeople = discoveryPeople.filter((person) => !person.isFriend)
   const [gameSort, setGameSort] = useState<GameSort>('players')
@@ -127,7 +151,11 @@ function DiscoveryViewContent({
       return
     }
 
-    if (!selectedDiscoveryServers.some((server) => server.id === memberServerFilterId)) {
+    if (
+      !selectedDiscoveryServers.some(
+        (server) => server.id === memberServerFilterId,
+      )
+    ) {
       setMemberServerFilterId('')
     }
   }, [memberServerFilterId, selectedDiscoveryServers])
@@ -149,18 +177,30 @@ function DiscoveryViewContent({
   const sortedOverlapGames = sortGames(overlapGames, gameSort)
   const sortedBrowseGames = sortGames(browseGames, gameSort)
   const filteredNetworkPeople = memberServerFilterId
-    ? networkPeople.filter((person) => person.mutualServerIds.includes(memberServerFilterId))
+    ? networkPeople.filter((person) =>
+        person.mutualServerIds.includes(memberServerFilterId),
+      )
     : networkPeople
-  const activeMemberServerFilter = selectedDiscoveryServers.find((server) => server.id === memberServerFilterId) ?? null
+  const activeMemberServerFilter =
+    selectedDiscoveryServers.find(
+      (server) => server.id === memberServerFilterId,
+    ) ?? null
   const sortedNetworkPeople = sortPeople(filteredNetworkPeople, memberSort)
 
   const gameSortControl = (
     <Box sx={headerFilterControlSx}>
-      <Typography level="body-sm" sx={{ color: 'neutral.400', whiteSpace: 'nowrap' }}>Sort by</Typography>
+      <Typography
+        level="body-sm"
+        sx={{ color: 'neutral.400', whiteSpace: 'nowrap' }}
+      >
+        Sort by
+      </Typography>
       <Select
         size="sm"
         value={gameSort}
-        onChange={(_e, val) => { if (val) setGameSort(val) }}
+        onChange={(_e, val) => {
+          if (val) setGameSort(val)
+        }}
         sx={buildHeaderFilterSelectSx(140)}
       >
         <Option value="players">Number of players</Option>
@@ -171,11 +211,18 @@ function DiscoveryViewContent({
 
   const memberSortControl = (
     <Box sx={headerFilterControlSx}>
-      <Typography level="body-sm" sx={{ color: 'neutral.400', whiteSpace: 'nowrap' }}>Sort by</Typography>
+      <Typography
+        level="body-sm"
+        sx={{ color: 'neutral.400', whiteSpace: 'nowrap' }}
+      >
+        Sort by
+      </Typography>
       <Select
         size="sm"
         value={memberSort}
-        onChange={(_e, val) => { if (val) setMemberSort(val) }}
+        onChange={(_e, val) => {
+          if (val) setMemberSort(val)
+        }}
         sx={buildHeaderFilterSelectSx(140)}
       >
         <Option value="games">Number of games</Option>
@@ -184,32 +231,52 @@ function DiscoveryViewContent({
     </Box>
   )
 
-  const memberFilterControl = selectedDiscoveryServers.length > 1 ? (
-    <Box sx={headerFilterControlSx}>
-      <Typography level="body-sm" sx={{ color: 'neutral.400', whiteSpace: 'nowrap' }}>Filter</Typography>
-      <Box sx={{ flex: { xs: '1 1 0', sm: '0 0 auto' }, minWidth: { xs: 0, sm: 240 }, maxWidth: '100%' }}>
-        <DiscordServerPicker
-          options={selectedDiscoveryServers}
-          value={memberServerFilterId}
-          placeholder="Entire network"
-          onChange={setMemberServerFilterId}
-          emptyOptionLabel="Entire network"
-          getOptionDescription={(option) =>
-            option.knownUserCount > 0
-              ? `${option.knownUserCount} network member${option.knownUserCount === 1 ? '' : 's'} visible`
-              : 'No network members visible yet'
-          }
-        />
+  const memberFilterControl =
+    selectedDiscoveryServers.length > 1 ? (
+      <Box sx={headerFilterControlSx}>
+        <Typography
+          level="body-sm"
+          sx={{ color: 'neutral.400', whiteSpace: 'nowrap' }}
+        >
+          Filter
+        </Typography>
+        <Box
+          sx={{
+            flex: { xs: '1 1 0', sm: '0 0 auto' },
+            minWidth: { xs: 0, sm: 240 },
+            maxWidth: '100%',
+          }}
+        >
+          <DiscordServerPicker
+            options={selectedDiscoveryServers}
+            value={memberServerFilterId}
+            placeholder="Entire network"
+            onChange={setMemberServerFilterId}
+            emptyOptionLabel="Entire network"
+            getOptionDescription={(option) =>
+              option.knownUserCount > 0
+                ? `${option.knownUserCount} network member${option.knownUserCount === 1 ? '' : 's'} visible`
+                : 'No network members visible yet'
+            }
+          />
+        </Box>
       </Box>
-    </Box>
-  ) : null
+    ) : null
 
-  const memberControls = networkPeople.length > 0 || selectedDiscoveryServers.length > 1 ? (
-    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ width: { xs: '100%', sm: 'auto' }, alignItems: { xs: 'stretch', sm: 'center' } }}>
-      {memberFilterControl}
-      {memberSortControl}
-    </Stack>
-  ) : undefined
+  const memberControls =
+    networkPeople.length > 0 || selectedDiscoveryServers.length > 1 ? (
+      <Stack
+        direction={{ xs: 'column', sm: 'row' }}
+        spacing={1}
+        sx={{
+          width: { xs: '100%', sm: 'auto' },
+          alignItems: { xs: 'stretch', sm: 'center' },
+        }}
+      >
+        {memberFilterControl}
+        {memberSortControl}
+      </Stack>
+    ) : undefined
 
   return (
     <Stack spacing={0}>
@@ -221,22 +288,22 @@ function DiscoveryViewContent({
             label: 'Matching',
             desktopLabel: 'Matching Games',
             ariaLabel: 'Matching games',
-            count: sortedOverlapGames.length
+            count: sortedOverlapGames.length,
           },
           {
             id: 'other-games',
             label: 'Other',
             desktopLabel: 'Other Games',
             ariaLabel: 'Other games',
-            count: sortedBrowseGames.length
+            count: sortedBrowseGames.length,
           },
           {
             id: 'network-members',
             label: 'Members',
             desktopLabel: 'Network Members',
             ariaLabel: 'Network members',
-            count: sortedNetworkPeople.length
-          }
+            count: sortedNetworkPeople.length,
+          },
         ]}
       />
 
@@ -255,11 +322,17 @@ function DiscoveryViewContent({
         sectionId="matching-games"
         title="Matching games"
         description="Games you have in common with people in your network."
-        sortControl={overlapGames.length > 0 || browseGames.length > 0 ? gameSortControl : undefined}
+        sortControl={
+          overlapGames.length > 0 || browseGames.length > 0
+            ? gameSortControl
+            : undefined
+        }
       >
         {discoveryLoading ? (
           <Box sx={discoveryGameGridSx}>
-            {Array.from({ length: 6 }, (_, i) => <GameCardSkeleton key={i} compact />)}
+            {Array.from({ length: 6 }, (_, i) => (
+              <GameCardSkeleton key={i} compact />
+            ))}
           </Box>
         ) : sortedOverlapGames.length > 0 ? (
           <Box sx={discoveryGameGridSx}>
@@ -272,7 +345,10 @@ function DiscoveryViewContent({
                 isInLibrary={libraryGameIds.has(game.id)}
                 libraryEntryId={libraryEntryIdsByGameId.get(game.id) ?? null}
                 isAddingToLibrary={addingLibraryGameId === game.id}
-                isRemovingFromLibrary={removingLibraryEntryId === (libraryEntryIdsByGameId.get(game.id) ?? null)}
+                isRemovingFromLibrary={
+                  removingLibraryEntryId ===
+                  (libraryEntryIdsByGameId.get(game.id) ?? null)
+                }
                 pendingFriendId={friendPendingId}
                 onToggleFriend={onToggleFriend}
                 onAddToLibrary={onAddGameToLibrary}
@@ -283,7 +359,11 @@ function DiscoveryViewContent({
           </Box>
         ) : (
           <EmptyStateCard
-            title={isSignedIn ? 'No matching games yet' : 'Matching games will appear here'}
+            title={
+              isSignedIn
+                ? 'No matching games yet'
+                : 'Matching games will appear here'
+            }
             body={
               noDiscoveryServersSelected
                 ? 'You do not have any Discord servers in your network, so the app has no network members to compare against.'
@@ -301,11 +381,17 @@ function DiscoveryViewContent({
         sectionId="other-games"
         title="Other games"
         description="Games you don't have in common with people in your network."
-        sortControl={overlapGames.length > 0 || browseGames.length > 0 ? gameSortControl : undefined}
+        sortControl={
+          overlapGames.length > 0 || browseGames.length > 0
+            ? gameSortControl
+            : undefined
+        }
       >
         {discoveryLoading ? (
           <Box sx={discoveryGameGridSx}>
-            {Array.from({ length: 6 }, (_, i) => <GameCardSkeleton key={i} compact />)}
+            {Array.from({ length: 6 }, (_, i) => (
+              <GameCardSkeleton key={i} compact />
+            ))}
           </Box>
         ) : sortedBrowseGames.length > 0 ? (
           <Box sx={discoveryGameGridSx}>
@@ -318,7 +404,10 @@ function DiscoveryViewContent({
                 isInLibrary={libraryGameIds.has(game.id)}
                 libraryEntryId={libraryEntryIdsByGameId.get(game.id) ?? null}
                 isAddingToLibrary={addingLibraryGameId === game.id}
-                isRemovingFromLibrary={removingLibraryEntryId === (libraryEntryIdsByGameId.get(game.id) ?? null)}
+                isRemovingFromLibrary={
+                  removingLibraryEntryId ===
+                  (libraryEntryIdsByGameId.get(game.id) ?? null)
+                }
                 pendingFriendId={friendPendingId}
                 onToggleFriend={onToggleFriend}
                 onAddToLibrary={onAddGameToLibrary}
@@ -349,7 +438,11 @@ function DiscoveryViewContent({
         sectionId="network-members"
         title="Network members"
         description="People in your network who are not already on your friends list."
-        helperText={activeMemberServerFilter ? `Showing members visible through ${activeMemberServerFilter.name}.` : undefined}
+        helperText={
+          activeMemberServerFilter
+            ? `Showing members visible through ${activeMemberServerFilter.name}.`
+            : undefined
+        }
         sortControl={memberControls}
       >
         {sortedNetworkPeople.length > 0 ? (
@@ -376,17 +469,21 @@ function DiscoveryViewContent({
           </Stack>
         ) : (
           <EmptyStateCard
-            title={isSignedIn ? 'No network members to show yet' : 'Network members will appear here'}
+            title={
+              isSignedIn
+                ? 'No network members to show yet'
+                : 'Network members will appear here'
+            }
             body={
               noDiscoveryServersSelected
                 ? 'You do not have any Discord servers in your network to find others on.'
                 : activeMemberServerFilter
                   ? `No other people from ${activeMemberServerFilter.name} are available yet. Try another server or clear the filter.`
-                : isSignedIn
-                  ? 'No other people in your network are available yet. Friends appear in the Friends view.'
-                  : showsDemoDiscoveryCopy
-                    ? 'This section shows the seeded network-member view. Friends are listed separately in the Friends view.'
-                    : 'Sign in to browse people in your network here.'
+                  : isSignedIn
+                    ? 'No other people in your network are available yet. Friends appear in the Friends view.'
+                    : showsDemoDiscoveryCopy
+                      ? 'This section shows the seeded network-member view. Friends are listed separately in the Friends view.'
+                      : 'Sign in to browse people in your network here.'
             }
           />
         )}
@@ -397,15 +494,25 @@ function DiscoveryViewContent({
 
 export function DiscoveryView() {
   const { discoveryViewProps, libraryViewProps } = useDashboardContext()
-  const gameAliasByGameId = new Map(libraryViewProps.gameAliases.map((alias) => [alias.gameId, alias.aliasValue]))
+  const gameAliasByGameId = new Map(
+    libraryViewProps.gameAliases.map((alias) => [
+      alias.gameId,
+      alias.aliasValue,
+    ]),
+  )
   const editorGameAlias = libraryViewProps.editingLibraryEntry
-    ? (gameAliasByGameId.get(libraryViewProps.editingLibraryEntry.gameId) ?? null)
+    ? (gameAliasByGameId.get(libraryViewProps.editingLibraryEntry.gameId) ??
+      null)
     : null
 
   return (
     <>
       <DiscoveryViewContent {...discoveryViewProps} />
-      <DashboardModal open={libraryViewProps.isLibraryEditorOpen} onClose={libraryViewProps.closeLibraryEditor} width="min(96vw, 760px)">
+      <DashboardModal
+        open={libraryViewProps.isLibraryEditorOpen}
+        onClose={libraryViewProps.closeLibraryEditor}
+        width="min(96vw, 760px)"
+      >
         <LibraryEditorCard
           editingLibraryEntry={libraryViewProps.editingLibraryEntry}
           libraryTitle={libraryViewProps.libraryTitle}
@@ -421,11 +528,14 @@ export function DiscoveryView() {
           onLibraryIntentChange={libraryViewProps.onLibraryIntentChange}
           currentUsualAvailability={libraryViewProps.currentUsualAvailability}
           libraryAvailability={libraryViewProps.libraryAvailability}
-          onLibraryAvailabilityChange={libraryViewProps.onLibraryAvailabilityChange}
+          onLibraryAvailabilityChange={
+            libraryViewProps.onLibraryAvailabilityChange
+          }
           gameAlias={editorGameAlias}
           aliasSaving={Boolean(
             libraryViewProps.editingLibraryEntry &&
-            libraryViewProps.aliasSavingKey === `game:${libraryViewProps.editingLibraryEntry.gameId}`
+            libraryViewProps.aliasSavingKey ===
+              `game:${libraryViewProps.editingLibraryEntry.gameId}`,
           )}
           onSaveGameAlias={libraryViewProps.onSaveGameAlias}
           onDeleteGameAlias={libraryViewProps.onDeleteGameAlias}

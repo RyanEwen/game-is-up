@@ -1,21 +1,21 @@
 version: 2
 updates:
   # The root lockfile covers every npm workspace (apps/api, apps/web, packages/shared).
-  - package-ecosystem: "npm"
-    directory: "/"
+  - package-ecosystem: 'npm'
+    directory: '/'
     schedule:
-      interval: "weekly"
+      interval: 'weekly'
     groups:
       all-deps:
         patterns:
-          - "*"
+          - '*'
 
   # Workflows live only in the root .github/workflows.
-  - package-ecosystem: "github-actions"
-    directory: "/"
+  - package-ecosystem: 'github-actions'
+    directory: '/'
     schedule:
-      interval: "weekly"
+      interval: 'weekly'
     groups:
       all-actions:
         patterns:
-          - "*"
+          - '*'

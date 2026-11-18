@@ -12,9 +12,9 @@ Production runs from `compose.example.yml`, copied to an untracked `compose.yml`
 4. If you want the web container to proxy API traffic on the same origin, leave `VITE_API_BASE_URL` empty.
 5. Build and start the stack:
 
-  ```bash
-  docker compose up --build -d
-  ```
+```bash
+docker compose up --build -d
+```
 
 6. Open the app on `http://localhost:8080` by default. If you need a different host port, set `PORT`, for example `PORT=9090 docker compose up --build -d`.
 
@@ -62,9 +62,9 @@ The Postgres image reads `POSTGRES_PASSWORD` only when it creates an empty data 
 1. Generate a URL-safe value, for example with `openssl rand -hex 32`.
 2. Set it on the database role. `\password` prompts for the value, so it stays out of shell history and the process list:
 
-  ```bash
-  docker compose exec db psql -U postgres -d game_is_up -c '\password postgres'
-  ```
+```bash
+docker compose exec db psql -U postgres -d game_is_up -c '\password postgres'
+```
 
 3. Put the same value in the server's `.env` as `POSTGRES_PASSWORD`.
 4. Make sure the server's `compose.yml` reads `${POSTGRES_PASSWORD}` for both the `db` service and the API's `DATABASE_URL`, as `compose.example.yml` does.

@@ -8,7 +8,10 @@
  * messages with sender context so they read naturally inside Discord.
  */
 
-import type { DiscordServerMembersResponse, DiscordServerPreferencesResponse } from '@game-is-up/shared'
+import type {
+  DiscordServerMembersResponse,
+  DiscordServerPreferencesResponse,
+} from '@game-is-up/shared'
 import { AuthProvider as PrismaAuthProvider } from '@prisma/client'
 import { prisma } from './prisma.js'
 import {
@@ -17,13 +20,22 @@ import {
   markDiscordGuildSync,
   refreshDiscordAccessToken,
   storeDiscordOauthTokens,
-  type DiscordGuildSummary
+  type DiscordGuildSummary,
 } from './discord-auth.js'
-import { getDiscordBotPresentServerIds, isDiscordBotPresentInGuild, listDiscordGuildMembers, listDiscordGuildVoiceChannels, sendDiscordGuildInvites } from './discord-presence-bot.js'
+import {
+  getDiscordBotPresentServerIds,
+  isDiscordBotPresentInGuild,
+  listDiscordGuildMembers,
+  listDiscordGuildVoiceChannels,
+  sendDiscordGuildInvites,
+} from './discord-presence-bot.js'
 import { env } from './env.js'
 import { toClientAvatarUrl } from './game-media.js'
 
-export function buildDiscordServerIconUrl(serverId: string, iconHash: string | null): string | null {
+export function buildDiscordServerIconUrl(
+  serverId: string,
+  iconHash: string | null,
+): string | null {
   if (!iconHash) {
     return null
   }
@@ -31,7 +43,10 @@ export function buildDiscordServerIconUrl(serverId: string, iconHash: string | n
   return `https://cdn.discordapp.com/icons/${serverId}/${iconHash}.png?size=128`
 }
 
-function formatDiscordInviteSender(displayName: string | null | undefined, handle: string | null | undefined): string {
+function formatDiscordInviteSender(
+  displayName: string | null | undefined,
+  handle: string | null | undefined,
+): string {
   const normalizedDisplayName = displayName?.trim()
   const normalizedHandle = handle?.trim()
 
@@ -50,38 +65,41 @@ function formatDiscordInviteSender(displayName: string | null | undefined, handl
   return "A Game's Up player"
 }
 
-export async function syncDiscordServersForUser(userId: string, guilds: DiscordGuildSummary[]) {
+export async function syncDiscordServersForUser(
+  userId: string,
+  guilds: DiscordGuildSummary[],
+) {
   const serverIds = guilds.map((guild) => guild.id)
 
   await prisma.$transaction(async (transaction) => {
     for (const guild of guilds) {
       await transaction.discordServer.upsert({
         where: {
-          id: guild.id
+          id: guild.id,
         },
         update: {
           name: guild.name,
-          iconHash: guild.icon
+          iconHash: guild.icon,
         },
         create: {
           id: guild.id,
           name: guild.name,
-          iconHash: guild.icon
-        }
+          iconHash: guild.icon,
+        },
       })
 
       await transaction.discordServerMembership.upsert({
         where: {
           userId_serverId: {
             userId,
-            serverId: guild.id
-          }
+            serverId: guild.id,
+          },
         },
         update: {},
         create: {
           userId,
-          serverId: guild.id
-        }
+          serverId: guild.id,
+        },
       })
     }
 
@@ -91,79 +109,106 @@ export async function syncDiscordServersForUser(userId: string, guilds: DiscordG
         ...(serverIds.length > 0
           ? {
               serverId: {
-                notIn: serverIds
-              }
+                notIn: serverIds,
+              },
             }
-          : {})
-      }
+          : {}),
+      },
     })
   })
 }
 
-export async function buildDiscordServerPreferences(userId: string): Promise<DiscordServerPreferencesResponse> {
+export async function buildDiscordServerPreferences(
+  userId: string,
+): Promise<DiscordServerPreferencesResponse> {
   const memberships = await prisma.discordServerMembership.findMany({
     where: {
-      userId
+      userId,
     },
     include: {
       server: {
         include: {
           memberships: {
             select: {
-              userId: true
-            }
-          }
-        }
-      }
+              userId: true,
+            },
+          },
+        },
+      },
     },
     orderBy: {
       server: {
-        name: 'asc'
-      }
-    }
+        name: 'asc',
+      },
+    },
   })
 
   const appDiscordServerId = env.DISCORD_SERVER_ID?.trim()
   const visibleMemberships = appDiscordServerId
-    ? memberships.filter((membership) => membership.server.id !== appDiscordServerId)
+    ? memberships.filter(
+        (membership) => membership.server.id !== appDiscordServerId,
+      )
     : memberships
 
   const preferences = await prisma.discordServerPreference.findMany({
     where: {
-      userId
+      userId,
     },
     select: {
       serverId: true,
-      includeInDiscovery: true
-    }
+      includeInDiscovery: true,
+    },
   })
 
-  const preferenceMap = new Map(preferences.map((preference) => [preference.serverId, preference.includeInDiscovery]))
-  const botPresentServerIds = await getDiscordBotPresentServerIds(visibleMemberships.map((membership) => membership.server.id))
+  const preferenceMap = new Map(
+    preferences.map((preference) => [
+      preference.serverId,
+      preference.includeInDiscovery,
+    ]),
+  )
+  const botPresentServerIds = await getDiscordBotPresentServerIds(
+    visibleMemberships.map((membership) => membership.server.id),
+  )
 
   return {
     servers: visibleMemberships.map((membership) => ({
       id: membership.server.id,
       name: membership.server.name,
-      iconUrl: toClientAvatarUrl(buildDiscordServerIconUrl(membership.server.id, membership.server.iconHash)),
+      iconUrl: toClientAvatarUrl(
+        buildDiscordServerIconUrl(
+          membership.server.id,
+          membership.server.iconHash,
+        ),
+      ),
       botPresent: botPresentServerIds.has(membership.server.id),
-      selected: botPresentServerIds.has(membership.server.id) && (preferenceMap.get(membership.server.id) ?? false),
-      knownUserCount: Math.max(0, membership.server.memberships.filter((serverMembership) => serverMembership.userId !== userId).length)
-    }))
+      selected:
+        botPresentServerIds.has(membership.server.id) &&
+        (preferenceMap.get(membership.server.id) ?? false),
+      knownUserCount: Math.max(
+        0,
+        membership.server.memberships.filter(
+          (serverMembership) => serverMembership.userId !== userId,
+        ).length,
+      ),
+    })),
   }
 }
 
-export async function updateDiscordServerPreference(userId: string, serverId: string, selected: boolean): Promise<'updated' | 'not-found' | 'bot-required'> {
+export async function updateDiscordServerPreference(
+  userId: string,
+  serverId: string,
+  selected: boolean,
+): Promise<'updated' | 'not-found' | 'bot-required'> {
   const membership = await prisma.discordServerMembership.findUnique({
     where: {
       userId_serverId: {
         userId,
-        serverId
-      }
+        serverId,
+      },
     },
     select: {
-      serverId: true
-    }
+      serverId: true,
+    },
   })
 
   if (!membership) {
@@ -178,23 +223,25 @@ export async function updateDiscordServerPreference(userId: string, serverId: st
     where: {
       userId_serverId: {
         userId,
-        serverId
-      }
+        serverId,
+      },
     },
     update: {
-      includeInDiscovery: selected
+      includeInDiscovery: selected,
     },
     create: {
       userId,
       serverId,
-      includeInDiscovery: selected
-    }
+      includeInDiscovery: selected,
+    },
   })
 
   return 'updated'
 }
 
-export async function refreshDiscordServerPreferences(userId: string): Promise<
+export async function refreshDiscordServerPreferences(
+  userId: string,
+): Promise<
   | { status: 'refreshed'; response: DiscordServerPreferencesResponse }
   | { status: 'not-linked' }
   | { status: 'missing-scope' }
@@ -203,12 +250,12 @@ export async function refreshDiscordServerPreferences(userId: string): Promise<
   const identity = await prisma.userIdentity.findFirst({
     where: {
       userId,
-      provider: PrismaAuthProvider.DISCORD
+      provider: PrismaAuthProvider.DISCORD,
     },
     select: {
       grantedScopes: true,
-      discordRefreshToken: true
-    }
+      discordRefreshToken: true,
+    },
   })
 
   if (!identity) {
@@ -224,21 +271,26 @@ export async function refreshDiscordServerPreferences(userId: string): Promise<
   }
 
   try {
-    const tokenResponse = await refreshDiscordAccessToken(identity.discordRefreshToken)
+    const tokenResponse = await refreshDiscordAccessToken(
+      identity.discordRefreshToken,
+    )
     const guilds = await fetchDiscordGuilds(tokenResponse.access_token)
 
     await storeDiscordOauthTokens(userId, tokenResponse, {
-      fallbackRefreshToken: identity.discordRefreshToken
+      fallbackRefreshToken: identity.discordRefreshToken,
     })
     await syncDiscordServersForUser(userId, guilds)
     await markDiscordGuildSync(userId)
 
     return {
       status: 'refreshed',
-      response: await buildDiscordServerPreferences(userId)
+      response: await buildDiscordServerPreferences(userId),
     }
   } catch (error) {
-    if (error instanceof DiscordOauthRequestError && (error.status === 400 || error.status === 401)) {
+    if (
+      error instanceof DiscordOauthRequestError &&
+      (error.status === 400 || error.status === 401)
+    ) {
       return { status: 'reauth-required' }
     }
 
@@ -248,7 +300,7 @@ export async function refreshDiscordServerPreferences(userId: string): Promise<
 
 export async function buildDiscordServerMembers(
   userId: string,
-  serverId: string
+  serverId: string,
 ): Promise<
   | { status: 'ok'; response: DiscordServerMembersResponse }
   | { status: 'not-found' }
@@ -260,39 +312,39 @@ export async function buildDiscordServerMembers(
       where: {
         userId_serverId: {
           userId,
-          serverId
-        }
+          serverId,
+        },
       },
       include: {
         server: {
           select: {
-            name: true
-          }
-        }
-      }
+            name: true,
+          },
+        },
+      },
     }),
     prisma.discordServerPreference.findUnique({
       where: {
         userId_serverId: {
           userId,
-          serverId
-        }
+          serverId,
+        },
       },
       select: {
-        includeInDiscovery: true
-      }
-    })
+        includeInDiscovery: true,
+      },
+    }),
   ])
 
   if (!membership) {
     return {
-      status: 'not-found'
+      status: 'not-found',
     }
   }
 
   if (!preference?.includeInDiscovery) {
     return {
-      status: 'not-selected'
+      status: 'not-selected',
     }
   }
 
@@ -302,8 +354,8 @@ export async function buildDiscordServerMembers(
       where: {
         provider: PrismaAuthProvider.DISCORD,
         providerUserId: {
-          in: serverMembers.members.map((member) => member.id)
-        }
+          in: serverMembers.members.map((member) => member.id),
+        },
       },
       select: {
         providerUserId: true,
@@ -311,14 +363,14 @@ export async function buildDiscordServerMembers(
           select: {
             id: true,
             displayName: true,
-            handle: true
-          }
-        }
-      }
+            handle: true,
+          },
+        },
+      },
     })
 
     const appUserByDiscordId = new Map(
-      identities.map((identity) => [identity.providerUserId, identity.user])
+      identities.map((identity) => [identity.providerUserId, identity.user]),
     )
 
     return {
@@ -338,41 +390,46 @@ export async function buildDiscordServerMembers(
             isAppUser: Boolean(appUser),
             appUserId: appUser?.id ?? null,
             appDisplayName: appUser?.displayName ?? null,
-            appHandle: appUser?.handle ?? null
+            appHandle: appUser?.handle ?? null,
           }
-        })
-      }
+        }),
+      },
     }
   } catch (error) {
     return {
       status: 'unavailable',
-      reason: error instanceof Error ? error.message : 'Discord member browsing is unavailable right now.'
+      reason:
+        error instanceof Error
+          ? error.message
+          : 'Discord member browsing is unavailable right now.',
     }
   }
 }
 
-export async function buildSelectedDiscordVoiceChannels(userId: string): Promise<{
+export async function buildSelectedDiscordVoiceChannels(
+  userId: string,
+): Promise<{
   channels: Array<{
-    id: string;
-    name: string;
-    serverId: string;
-    serverName: string;
-    serverIconUrl: string | null;
-  }>;
+    id: string
+    name: string
+    serverId: string
+    serverName: string
+    serverIconUrl: string | null
+  }>
 }> {
   const memberships = await prisma.discordServerMembership.findMany({
     where: {
-      userId
+      userId,
     },
     include: {
       server: {
         select: {
           id: true,
           name: true,
-          iconHash: true
-        }
-      }
-    }
+          iconHash: true,
+        },
+      },
+    },
   })
 
   if (memberships.length === 0) {
@@ -382,75 +439,86 @@ export async function buildSelectedDiscordVoiceChannels(userId: string): Promise
   const preferences = await prisma.discordServerPreference.findMany({
     where: {
       userId,
-      includeInDiscovery: true
+      includeInDiscovery: true,
     },
     select: {
-      serverId: true
-    }
+      serverId: true,
+    },
   })
 
-  const selectedServerIds = new Set(preferences.map((preference) => preference.serverId))
-  const selectedMemberships = memberships.filter((membership) => selectedServerIds.has(membership.serverId))
+  const selectedServerIds = new Set(
+    preferences.map((preference) => preference.serverId),
+  )
+  const selectedMemberships = memberships.filter((membership) =>
+    selectedServerIds.has(membership.serverId),
+  )
 
   if (selectedMemberships.length === 0) {
     return { channels: [] }
   }
 
-  const channelsByServer = await Promise.all(selectedMemberships.map(async (membership) => {
-    if (!(await isDiscordBotPresentInGuild(membership.serverId))) {
-      return []
-    }
+  const channelsByServer = await Promise.all(
+    selectedMemberships.map(async (membership) => {
+      if (!(await isDiscordBotPresentInGuild(membership.serverId))) {
+        return []
+      }
 
-    try {
-      const response = await listDiscordGuildVoiceChannels(membership.serverId)
-      return response.channels.map((channel) => ({
-        id: channel.id,
-        name: channel.name,
-        serverId: response.serverId,
-        serverName: response.serverName,
-        serverIconUrl: toClientAvatarUrl(buildDiscordServerIconUrl(response.serverId, membership.server.iconHash))
-      }))
-    } catch {
-      return []
-    }
-  }))
+      try {
+        const response = await listDiscordGuildVoiceChannels(
+          membership.serverId,
+        )
+        return response.channels.map((channel) => ({
+          id: channel.id,
+          name: channel.name,
+          serverId: response.serverId,
+          serverName: response.serverName,
+          serverIconUrl: toClientAvatarUrl(
+            buildDiscordServerIconUrl(
+              response.serverId,
+              membership.server.iconHash,
+            ),
+          ),
+        }))
+      } catch {
+        return []
+      }
+    }),
+  )
 
   return {
-    channels: channelsByServer
-      .flat()
-      .sort((left, right) => {
-        const serverOrder = left.serverName.localeCompare(right.serverName)
+    channels: channelsByServer.flat().sort((left, right) => {
+      const serverOrder = left.serverName.localeCompare(right.serverName)
 
-        if (serverOrder !== 0) {
-          return serverOrder
-        }
+      if (serverOrder !== 0) {
+        return serverOrder
+      }
 
-        return left.name.localeCompare(right.name)
-      })
+      return left.name.localeCompare(right.name)
+    }),
   }
 }
 
 export async function sendDiscordServerInvites(options: {
-  userId: string;
-  serverId: string;
-  memberIds: string[];
-  inviteUrl: string;
+  userId: string
+  serverId: string
+  memberIds: string[]
+  inviteUrl: string
 }): Promise<
   | {
-      status: 'ok';
+      status: 'ok'
       response: {
-        serverId: string;
-        serverName: string;
-        sentCount: number;
-        failedCount: number;
+        serverId: string
+        serverName: string
+        sentCount: number
+        failedCount: number
         results: Array<{
-          memberId: string;
-          username: string;
-          displayName: string;
-          status: 'sent' | 'failed';
-          error: string | null;
-        }>;
-      };
+          memberId: string
+          username: string
+          displayName: string
+          status: 'sent' | 'failed'
+          error: string | null
+        }>
+      }
     }
   | { status: 'not-found' }
   | { status: 'not-selected' }
@@ -461,67 +529,76 @@ export async function sendDiscordServerInvites(options: {
       where: {
         userId_serverId: {
           userId: options.userId,
-          serverId: options.serverId
-        }
+          serverId: options.serverId,
+        },
       },
       select: {
-        serverId: true
-      }
+        serverId: true,
+      },
     }),
     prisma.discordServerPreference.findUnique({
       where: {
         userId_serverId: {
           userId: options.userId,
-          serverId: options.serverId
-        }
+          serverId: options.serverId,
+        },
       },
       select: {
-        includeInDiscovery: true
-      }
+        includeInDiscovery: true,
+      },
     }),
     prisma.user.findUnique({
       where: {
-        id: options.userId
+        id: options.userId,
       },
       select: {
         displayName: true,
         handle: true,
         identities: {
           where: {
-            provider: PrismaAuthProvider.DISCORD
+            provider: PrismaAuthProvider.DISCORD,
           },
           select: {
-            providerUserId: true
-          }
-        }
-      }
-    })
+            providerUserId: true,
+          },
+        },
+      },
+    }),
   ])
 
   if (!membership) {
     return { status: 'not-found' }
   }
 
-  if (!preference?.includeInDiscovery || !(await isDiscordBotPresentInGuild(options.serverId))) {
+  if (
+    !preference?.includeInDiscovery ||
+    !(await isDiscordBotPresentInGuild(options.serverId))
+  ) {
     return { status: 'not-selected' }
   }
 
   try {
     const serverMembers = await listDiscordGuildMembers(options.serverId)
-    const memberById = new Map(serverMembers.members.map((member) => [member.id, member]))
+    const memberById = new Map(
+      serverMembers.members.map((member) => [member.id, member]),
+    )
     const identities = await prisma.userIdentity.findMany({
       where: {
         provider: PrismaAuthProvider.DISCORD,
         providerUserId: {
-          in: options.memberIds
-        }
+          in: options.memberIds,
+        },
       },
       select: {
-        providerUserId: true
-      }
+        providerUserId: true,
+      },
     })
-    const appUserDiscordIds = new Set(identities.map((identity) => identity.providerUserId))
-    const inviteableMemberIds = options.memberIds.filter((memberId) => !appUserDiscordIds.has(memberId))
+    const appUserDiscordIds = new Set(
+      identities.map((identity) => identity.providerUserId),
+    )
+    const inviteableMemberIds = options.memberIds.filter(
+      (memberId) => !appUserDiscordIds.has(memberId),
+    )
     const skippedResults = options.memberIds
       .filter((memberId) => appUserDiscordIds.has(memberId))
       .map((memberId) => {
@@ -530,53 +607,74 @@ export async function sendDiscordServerInvites(options: {
         return {
           memberId,
           username: member?.username ?? 'unknown-user',
-          displayName: member?.displayName ?? member?.username ?? 'Unknown member',
+          displayName:
+            member?.displayName ?? member?.username ?? 'Unknown member',
           status: 'failed' as const,
-          error: "Already on Game's Up."
+          error: "Already on Game's Up.",
         }
       })
-    const inviteResults = inviteableMemberIds.length > 0
-      ? await sendDiscordGuildInvites({
-          serverId: options.serverId,
-          memberIds: inviteableMemberIds,
-          inviterLabel: formatDiscordInviteSender(user?.displayName, user?.handle),
-          inviterDiscordUserId: user?.identities[0]?.providerUserId ?? null,
-          inviteUrl: options.inviteUrl
-        })
-      : {
-          serverId: options.serverId,
-          serverName: serverMembers.serverName,
-          results: []
-        }
+    const inviteResults =
+      inviteableMemberIds.length > 0
+        ? await sendDiscordGuildInvites({
+            serverId: options.serverId,
+            memberIds: inviteableMemberIds,
+            inviterLabel: formatDiscordInviteSender(
+              user?.displayName,
+              user?.handle,
+            ),
+            inviterDiscordUserId: user?.identities[0]?.providerUserId ?? null,
+            inviteUrl: options.inviteUrl,
+          })
+        : {
+            serverId: options.serverId,
+            serverName: serverMembers.serverName,
+            results: [],
+          }
     const orderedResults = options.memberIds
-      .map((memberId) => skippedResults.find((result) => result.memberId === memberId) ?? inviteResults.results.find((result) => result.memberId === memberId))
-      .filter((result): result is {
-        memberId: string;
-        username: string;
-        displayName: string;
-        status: 'sent' | 'failed';
-        error: string | null;
-      } => result != null)
+      .map(
+        (memberId) =>
+          skippedResults.find((result) => result.memberId === memberId) ??
+          inviteResults.results.find((result) => result.memberId === memberId),
+      )
+      .filter(
+        (
+          result,
+        ): result is {
+          memberId: string
+          username: string
+          displayName: string
+          status: 'sent' | 'failed'
+          error: string | null
+        } => result != null,
+      )
 
     return {
       status: 'ok',
       response: {
         serverId: inviteResults.serverId,
         serverName: inviteResults.serverName,
-        sentCount: orderedResults.filter((result) => result.status === 'sent').length,
-        failedCount: orderedResults.filter((result) => result.status === 'failed').length,
-        results: orderedResults
-      }
+        sentCount: orderedResults.filter((result) => result.status === 'sent')
+          .length,
+        failedCount: orderedResults.filter(
+          (result) => result.status === 'failed',
+        ).length,
+        results: orderedResults,
+      },
     }
   } catch (error) {
     return {
       status: 'unavailable',
-      reason: error instanceof Error ? error.message : 'Discord invite sending is unavailable right now.'
+      reason:
+        error instanceof Error
+          ? error.message
+          : 'Discord invite sending is unavailable right now.',
     }
   }
 }
 
-export async function getSelectedDiscordServerIds(userId: string): Promise<string[]> {
+export async function getSelectedDiscordServerIds(
+  userId: string,
+): Promise<string[]> {
   const preferences = await prisma.discordServerPreference.findMany({
     where: {
       userId,
@@ -584,17 +682,19 @@ export async function getSelectedDiscordServerIds(userId: string): Promise<strin
       server: {
         memberships: {
           some: {
-            userId
-          }
-        }
-      }
+            userId,
+          },
+        },
+      },
     },
     select: {
-      serverId: true
-    }
+      serverId: true,
+    },
   })
 
-  const botPresentServerIds = await getDiscordBotPresentServerIds(preferences.map((preference) => preference.serverId))
+  const botPresentServerIds = await getDiscordBotPresentServerIds(
+    preferences.map((preference) => preference.serverId),
+  )
 
   if (botPresentServerIds.size === 0) {
     return []
@@ -605,24 +705,32 @@ export async function getSelectedDiscordServerIds(userId: string): Promise<strin
     .filter((serverId) => botPresentServerIds.has(serverId))
 }
 
-export async function getDiscordMembershipServerIds(userId: string): Promise<string[]> {
+export async function getDiscordMembershipServerIds(
+  userId: string,
+): Promise<string[]> {
   const memberships = await prisma.discordServerMembership.findMany({
     where: {
-      userId
+      userId,
     },
     select: {
-      serverId: true
-    }
+      serverId: true,
+    },
   })
 
   return memberships.map((membership) => membership.serverId)
 }
 
-export async function getTargetDiscordServerAudienceUserIds(userId: string, serverId: string): Promise<string[]> {
+export async function getTargetDiscordServerAudienceUserIds(
+  userId: string,
+  serverId: string,
+): Promise<string[]> {
   return getTargetDiscordServersAudienceUserIds(userId, [serverId])
 }
 
-export async function getTargetDiscordServersAudienceUserIds(userId: string, serverIds: string[]): Promise<string[]> {
+export async function getTargetDiscordServersAudienceUserIds(
+  userId: string,
+  serverIds: string[],
+): Promise<string[]> {
   if (serverIds.length === 0) {
     return []
   }
@@ -630,35 +738,44 @@ export async function getTargetDiscordServersAudienceUserIds(userId: string, ser
   const memberships = await prisma.discordServerMembership.findMany({
     where: {
       serverId: {
-        in: [...new Set(serverIds)]
+        in: [...new Set(serverIds)],
       },
       userId: {
-        not: userId
-      }
+        not: userId,
+      },
     },
     distinct: ['userId'],
     select: {
-      userId: true
-    }
+      userId: true,
+    },
   })
 
   return memberships.map((membership) => membership.userId)
 }
 
-export async function countBotVisibleDiscordServersForUser(userId: string): Promise<number> {
+export async function countBotVisibleDiscordServersForUser(
+  userId: string,
+): Promise<number> {
   const memberships = await prisma.discordServerMembership.findMany({
     where: {
-      userId
+      userId,
     },
     select: {
-      serverId: true
-    }
+      serverId: true,
+    },
   })
 
-  return (await getDiscordBotPresentServerIds(memberships.map((membership) => membership.serverId))).size
+  return (
+    await getDiscordBotPresentServerIds(
+      memberships.map((membership) => membership.serverId),
+    )
+  ).size
 }
 
-export async function getMutualDiscordServerNames(viewerId: string, candidateUserId: string): Promise<string[]> {
+export async function getMutualDiscordServerNames(
+  viewerId: string,
+  candidateUserId: string,
+): Promise<string[]> {
   const selectedServerIds = await getSelectedDiscordServerIds(viewerId)
 
   if (selectedServerIds.length === 0) {
@@ -669,27 +786,29 @@ export async function getMutualDiscordServerNames(viewerId: string, candidateUse
     where: {
       userId: candidateUserId,
       serverId: {
-        in: selectedServerIds
-      }
+        in: selectedServerIds,
+      },
     },
     include: {
       server: {
         select: {
-          name: true
-        }
-      }
+          name: true,
+        },
+      },
     },
     orderBy: {
       server: {
-        name: 'asc'
-      }
-    }
+        name: 'asc',
+      },
+    },
   })
 
   return memberships.map((membership) => membership.server.name)
 }
 
-export async function getMutualDiscoveryAudienceUserIds(userId: string): Promise<string[]> {
+export async function getMutualDiscoveryAudienceUserIds(
+  userId: string,
+): Promise<string[]> {
   const selectedServerIds = await getSelectedDiscordServerIds(userId)
 
   if (selectedServerIds.length === 0) {
@@ -700,39 +819,47 @@ export async function getMutualDiscoveryAudienceUserIds(userId: string): Promise
     prisma.discordServerMembership.findMany({
       where: {
         userId: {
-          not: userId
+          not: userId,
         },
         serverId: {
-          in: selectedServerIds
-        }
+          in: selectedServerIds,
+        },
       },
       select: {
         userId: true,
-        serverId: true
-      }
+        serverId: true,
+      },
     }),
     prisma.discordServerPreference.findMany({
       where: {
         userId: {
-          not: userId
+          not: userId,
         },
         includeInDiscovery: true,
         serverId: {
-          in: selectedServerIds
-        }
+          in: selectedServerIds,
+        },
       },
       select: {
         userId: true,
-        serverId: true
-      }
-    })
+        serverId: true,
+      },
+    }),
   ])
 
-  const optedInPairs = new Set(preferences.map((preference) => `${preference.userId}:${preference.serverId}`))
+  const optedInPairs = new Set(
+    preferences.map(
+      (preference) => `${preference.userId}:${preference.serverId}`,
+    ),
+  )
 
-  return [...new Set(
-    memberships
-      .filter((membership) => optedInPairs.has(`${membership.userId}:${membership.serverId}`))
-      .map((membership) => membership.userId)
-  )]
+  return [
+    ...new Set(
+      memberships
+        .filter((membership) =>
+          optedInPairs.has(`${membership.userId}:${membership.serverId}`),
+        )
+        .map((membership) => membership.userId),
+    ),
+  ]
 }

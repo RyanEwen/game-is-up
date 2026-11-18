@@ -1,38 +1,43 @@
 import {
   dashboardInvalidationEventSchema,
   type DashboardInvalidationDomain,
-  type DashboardInvalidationEvent
+  type DashboardInvalidationEvent,
 } from '@game-is-up/shared'
 
 type DashboardEventSubscriber = {
-  userId: string;
-  listener: (event: DashboardInvalidationEvent) => void;
-};
+  userId: string
+  listener: (event: DashboardInvalidationEvent) => void
+}
 
 type PublishDashboardInvalidationOptions = {
-  domains: DashboardInvalidationDomain[];
-  userIds?: string[];
-};
+  domains: DashboardInvalidationDomain[]
+  userIds?: string[]
+}
 
 type PublishPlayIntentInvalidationOptions = {
-  userIds?: string[];
-};
+  userIds?: string[]
+}
 
 const dashboardEventSubscribers = new Set<DashboardEventSubscriber>()
 let nextDashboardEventId = 0
 
-function buildDashboardInvalidationEvent(domains: DashboardInvalidationDomain[]) {
+function buildDashboardInvalidationEvent(
+  domains: DashboardInvalidationDomain[],
+) {
   return dashboardInvalidationEventSchema.parse({
     id: `${Date.now()}-${nextDashboardEventId++}`,
     occurredAt: new Date().toISOString(),
-    domains: [...new Set(domains)]
+    domains: [...new Set(domains)],
   })
 }
 
-export function subscribeToDashboardInvalidations(userId: string, listener: (event: DashboardInvalidationEvent) => void) {
+export function subscribeToDashboardInvalidations(
+  userId: string,
+  listener: (event: DashboardInvalidationEvent) => void,
+) {
   const subscriber: DashboardEventSubscriber = {
     userId,
-    listener
+    listener,
   }
 
   dashboardEventSubscribers.add(subscriber)
@@ -42,7 +47,9 @@ export function subscribeToDashboardInvalidations(userId: string, listener: (eve
   }
 }
 
-export function publishDashboardInvalidation(options: PublishDashboardInvalidationOptions) {
+export function publishDashboardInvalidation(
+  options: PublishDashboardInvalidationOptions,
+) {
   if (options.domains.length === 0 || dashboardEventSubscribers.size === 0) {
     return
   }
@@ -59,9 +66,11 @@ export function publishDashboardInvalidation(options: PublishDashboardInvalidati
   }
 }
 
-export function publishPlayIntentInvalidation(options: PublishPlayIntentInvalidationOptions = {}) {
+export function publishPlayIntentInvalidation(
+  options: PublishPlayIntentInvalidationOptions = {},
+) {
   publishDashboardInvalidation({
     domains: ['play-intents', 'discovery'],
-    userIds: options.userIds
+    userIds: options.userIds,
   })
 }

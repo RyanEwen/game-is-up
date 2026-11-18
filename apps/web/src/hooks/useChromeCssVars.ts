@@ -19,7 +19,9 @@ export function useChromeCssVars(chromeCssVars: Record<string, string>) {
     }
     const themeColor = chromeCssVars['--gu-body-background-color']
     if (themeColor) {
-      document.querySelector('meta[name="theme-color"]')?.setAttribute('content', themeColor)
+      document
+        .querySelector('meta[name="theme-color"]')
+        ?.setAttribute('content', themeColor)
     }
   }, [chromeCssVars])
 }

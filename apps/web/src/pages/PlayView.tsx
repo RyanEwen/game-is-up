@@ -1,5 +1,14 @@
 import { useState } from 'react'
-import { Box, Button, Card, Option, Select, Stack, Switch, Typography } from '@mui/joy'
+import {
+  Box,
+  Button,
+  Card,
+  Option,
+  Select,
+  Stack,
+  Switch,
+  Typography,
+} from '@mui/joy'
 import { useNavigate } from 'react-router-dom'
 import type {
   ActivePlayIntent,
@@ -9,7 +18,7 @@ import type {
   FriendsList,
   LibraryEntry,
   PlayIntentNotifyScope,
-  PlayIntentPreview
+  PlayIntentPreview,
 } from '@game-is-up/shared'
 import { DashboardApiIssueCard } from '../components/dashboard/DashboardApiIssueCard'
 import { EmptyStateCard } from '../components/dashboard/EmptyStateCard'
@@ -23,38 +32,47 @@ import {
   headerActionFilterButtonSx,
   headerActionFilterStackSx,
   headerFilterControlMatchActionWidthSx,
-  headerFilterControlSx
+  headerFilterControlSx,
 } from '../components/dashboard/dashboardUtils'
 import { useDashboardContext } from '../contexts/useDashboardContext'
 import type {
   PlayIntentStartMode,
   PlayIntentTimingMode,
-  PlayIntentVoiceMode
+  PlayIntentVoiceMode,
 } from '../components/dashboard/types'
 
 type PlayIntentAudienceFilter = 'applicable' | 'all'
 type EndedPlayIntentWindowFilter = '1d' | '1w' | '1m'
 
-const endedPlayIntentWindowDurationsMs: Record<EndedPlayIntentWindowFilter, number> = {
+const endedPlayIntentWindowDurationsMs: Record<
+  EndedPlayIntentWindowFilter,
+  number
+> = {
   '1d': 24 * 60 * 60 * 1000,
   '1w': 7 * 24 * 60 * 60 * 1000,
-  '1m': 30 * 24 * 60 * 60 * 1000
+  '1m': 30 * 24 * 60 * 60 * 1000,
 }
 
-const endedPlayIntentWindowLabels: Record<EndedPlayIntentWindowFilter, string> = {
-  '1d': '1 day',
-  '1w': '1 week',
-  '1m': '1 month'
-}
+const endedPlayIntentWindowLabels: Record<EndedPlayIntentWindowFilter, string> =
+  {
+    '1d': '1 day',
+    '1w': '1 week',
+    '1m': '1 month',
+  }
 
-function sortPlayIntentPreviews(intents: PlayIntentPreview[], status: PlayIntentPreview['status']) {
+function sortPlayIntentPreviews(
+  intents: PlayIntentPreview[],
+  status: PlayIntentPreview['status'],
+) {
   return [...intents].sort((left, right) => {
-    const leftTime = status === 'ended'
-      ? new Date(left.availabilityWindow.endsAt).getTime()
-      : new Date(left.availabilityWindow.startsAt).getTime()
-    const rightTime = status === 'ended'
-      ? new Date(right.availabilityWindow.endsAt).getTime()
-      : new Date(right.availabilityWindow.startsAt).getTime()
+    const leftTime =
+      status === 'ended'
+        ? new Date(left.availabilityWindow.endsAt).getTime()
+        : new Date(left.availabilityWindow.startsAt).getTime()
+    const rightTime =
+      status === 'ended'
+        ? new Date(right.availabilityWindow.endsAt).getTime()
+        : new Date(right.availabilityWindow.startsAt).getTime()
 
     if (leftTime !== rightTime) {
       return status === 'ended' ? rightTime - leftTime : leftTime - rightTime
@@ -67,15 +85,24 @@ function sortPlayIntentPreviews(intents: PlayIntentPreview[], status: PlayIntent
 function PlayIntentFilterControl({
   value,
   onChange,
-  matchActionWidth = false
+  matchActionWidth = false,
 }: {
-  value: PlayIntentAudienceFilter;
-  onChange: (value: PlayIntentAudienceFilter) => void;
-  matchActionWidth?: boolean;
+  value: PlayIntentAudienceFilter
+  onChange: (value: PlayIntentAudienceFilter) => void
+  matchActionWidth?: boolean
 }) {
   return (
-    <Box sx={matchActionWidth ? headerFilterControlMatchActionWidthSx : headerFilterControlSx}>
-      <Typography level="body-sm" sx={{ color: 'neutral.400', whiteSpace: 'nowrap' }}>
+    <Box
+      sx={
+        matchActionWidth
+          ? headerFilterControlMatchActionWidthSx
+          : headerFilterControlSx
+      }
+    >
+      <Typography
+        level="body-sm"
+        sx={{ color: 'neutral.400', whiteSpace: 'nowrap' }}
+      >
         Show
       </Typography>
       <Select
@@ -97,14 +124,17 @@ function PlayIntentFilterControl({
 
 function EndedPlayIntentWindowFilterControl({
   value,
-  onChange
+  onChange,
 }: {
-  value: EndedPlayIntentWindowFilter;
-  onChange: (value: EndedPlayIntentWindowFilter) => void;
+  value: EndedPlayIntentWindowFilter
+  onChange: (value: EndedPlayIntentWindowFilter) => void
 }) {
   return (
     <Box sx={headerFilterControlSx}>
-      <Typography level="body-sm" sx={{ color: 'neutral.400', whiteSpace: 'nowrap' }}>
+      <Typography
+        level="body-sm"
+        sx={{ color: 'neutral.400', whiteSpace: 'nowrap' }}
+      >
         Max Age
       </Typography>
       <Select
@@ -128,20 +158,30 @@ function EndedPlayIntentWindowFilterControl({
 function DiscordAutomationCard({
   enabled,
   saving,
-  onToggle
+  onToggle,
 }: {
-  enabled: boolean;
-  saving: boolean;
-  onToggle: (nextEnabled: boolean) => Promise<void>;
+  enabled: boolean
+  saving: boolean
+  onToggle: (nextEnabled: boolean) => Promise<void>
 }) {
   return (
     <Card variant="soft" sx={{ p: 3 }}>
-      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }}>
+      <Stack
+        direction={{ xs: 'column', sm: 'row' }}
+        spacing={1.5}
+        justifyContent="space-between"
+        alignItems={{ xs: 'stretch', sm: 'center' }}
+      >
         <Box>
-          <Typography level="title-sm">Automatic call-to-play prompting</Typography>
+          <Typography level="title-sm">
+            Automatic call-to-play prompting
+          </Typography>
           <Typography level="body-sm" sx={{ color: 'neutral.400', mt: 0.5 }}>
-            Allow the bot to DM you about creating a call to play when it detects that a game from your library is being played.<br />
-            You will only be prompted if you do not already have an overlapping call, and there are matches in your network who can receive it.
+            Allow the bot to DM you about creating a call to play when it
+            detects that a game from your library is being played.
+            <br />
+            You will only be prompted if you do not already have an overlapping
+            call, and there are matches in your network who can receive it.
           </Typography>
         </Box>
         <Switch
@@ -219,79 +259,85 @@ function PlayViewContent({
   playIntentDiscordSpaceDeletePendingIntentId,
   onDeletePlayIntentDiscordSpace,
   playIntentPreviews,
-  onToggleDiscordAutoPromptPlayIntent
-  ,
+  onToggleDiscordAutoPromptPlayIntent,
   openPlayIntentDetails,
 }: {
-  error: string | null;
-  isSignedIn: boolean;
-  currentUserId: string | null;
-  discordAutoPromptPlayIntent: boolean;
-  discordAutoPromptPlayIntentSaving: boolean;
-  activePlayIntent: ActivePlayIntent | null;
-  composerPlayIntent: ActivePlayIntent | null;
-  isPlayIntentComposerOpen: boolean;
-  openPlayIntentComposer: () => void;
-  closePlayIntentComposer: () => void;
-  playIntentFilteredAudienceMessage: string | null;
-  playIntentTargetedAudienceWarningMessage: string | null;
-  playIntentUnmatchedTargetUsers: Array<Pick<DiscoveryPerson, 'id' | 'displayName' | 'avatarUrl'>>;
-  playIntentNotifyScope: PlayIntentNotifyScope;
-  onPlayIntentNotifyScopeChange: (scope: PlayIntentNotifyScope) => void;
-  playIntentFriendOptions: Array<Pick<DiscoveryPerson, 'id' | 'handle' | 'displayName' | 'avatarUrl'>>;
-  playIntentDiscordServerOptions: DiscordServerPreference[];
-  selectedPlayIntentTargetDiscordServerIds: string[];
-  onTogglePlayIntentTargetDiscordServer: (serverId: string) => void;
-  selectedPlayIntentTargetUserIds: string[];
-  onTogglePlayIntentTargetUser: (userId: string) => void;
-  friendsLists: FriendsList[];
-  selectedPlayIntentFriendsListId: string | null;
-  onPlayIntentFriendsListChange: (listId: string | null) => void;
-  libraryEntries: LibraryEntry[];
-  selectedPlayIntentGameIds: string[];
-  onTogglePlayIntentGame: (gameId: string) => void;
-  playIntentStartMode: PlayIntentStartMode;
-  onPlayIntentStartModeChange: (mode: PlayIntentStartMode) => void;
-  playIntentStartAtInput: string;
-  onPlayIntentStartAtInputChange: (value: string) => void;
-  minPlayIntentStartAtInput: string;
-  playIntentStartHelperText: string;
-  playIntentStartHasError: boolean;
-  playIntentTimingMode: PlayIntentTimingMode;
-  onPlayIntentTimingModeChange: (mode: PlayIntentTimingMode) => void;
-  playIntentDurationMinutes: number;
-  onPlayIntentPresetSelect: (durationMinutes: number) => void;
-  playIntentCustomDurationInput: string;
-  onPlayIntentCustomDurationInputChange: (value: string) => void;
-  playIntentEndAtInput: string;
-  onPlayIntentEndAtInputChange: (value: string) => void;
-  minPlayIntentEndAtInput: string;
-  maxPlayIntentEndAtInput: string;
-  playIntentTimingHelperText: string;
-  playIntentTimingHasError: boolean;
-  playIntentTitle: string;
-  onPlayIntentTitleChange: (value: string) => void;
-  playIntentNote: string;
-  onPlayIntentNoteChange: (value: string) => void;
-  playIntentAllowParticipantInvites: boolean;
-  onPlayIntentAllowParticipantInvitesChange: (value: boolean) => void;
-  playIntentVoiceMode: PlayIntentVoiceMode;
-  onPlayIntentVoiceModeChange: (mode: PlayIntentVoiceMode) => void;
-  playIntentVoiceChannelId: string;
-  playIntentVoiceChannelOptions: DiscordVoiceChannel[];
-  onPlayIntentVoiceChannelSelect: (channelId: string | null) => void;
-  playIntentSaving: boolean;
-  onSavePlayIntent: () => Promise<void>;
-  onClearPlayIntent: () => Promise<void>;
-  playIntentDiscordSpaceDeletePendingIntentId: string | null;
-  onDeletePlayIntentDiscordSpace: (playIntentId: string) => Promise<void>;
-  playIntentPreviews: PlayIntentPreview[];
-  onToggleDiscordAutoPromptPlayIntent: (nextEnabled: boolean) => Promise<void>;
-  openPlayIntentDetails: (playIntentId: string) => void;
+  error: string | null
+  isSignedIn: boolean
+  currentUserId: string | null
+  discordAutoPromptPlayIntent: boolean
+  discordAutoPromptPlayIntentSaving: boolean
+  activePlayIntent: ActivePlayIntent | null
+  composerPlayIntent: ActivePlayIntent | null
+  isPlayIntentComposerOpen: boolean
+  openPlayIntentComposer: () => void
+  closePlayIntentComposer: () => void
+  playIntentFilteredAudienceMessage: string | null
+  playIntentTargetedAudienceWarningMessage: string | null
+  playIntentUnmatchedTargetUsers: Array<
+    Pick<DiscoveryPerson, 'id' | 'displayName' | 'avatarUrl'>
+  >
+  playIntentNotifyScope: PlayIntentNotifyScope
+  onPlayIntentNotifyScopeChange: (scope: PlayIntentNotifyScope) => void
+  playIntentFriendOptions: Array<
+    Pick<DiscoveryPerson, 'id' | 'handle' | 'displayName' | 'avatarUrl'>
+  >
+  playIntentDiscordServerOptions: DiscordServerPreference[]
+  selectedPlayIntentTargetDiscordServerIds: string[]
+  onTogglePlayIntentTargetDiscordServer: (serverId: string) => void
+  selectedPlayIntentTargetUserIds: string[]
+  onTogglePlayIntentTargetUser: (userId: string) => void
+  friendsLists: FriendsList[]
+  selectedPlayIntentFriendsListId: string | null
+  onPlayIntentFriendsListChange: (listId: string | null) => void
+  libraryEntries: LibraryEntry[]
+  selectedPlayIntentGameIds: string[]
+  onTogglePlayIntentGame: (gameId: string) => void
+  playIntentStartMode: PlayIntentStartMode
+  onPlayIntentStartModeChange: (mode: PlayIntentStartMode) => void
+  playIntentStartAtInput: string
+  onPlayIntentStartAtInputChange: (value: string) => void
+  minPlayIntentStartAtInput: string
+  playIntentStartHelperText: string
+  playIntentStartHasError: boolean
+  playIntentTimingMode: PlayIntentTimingMode
+  onPlayIntentTimingModeChange: (mode: PlayIntentTimingMode) => void
+  playIntentDurationMinutes: number
+  onPlayIntentPresetSelect: (durationMinutes: number) => void
+  playIntentCustomDurationInput: string
+  onPlayIntentCustomDurationInputChange: (value: string) => void
+  playIntentEndAtInput: string
+  onPlayIntentEndAtInputChange: (value: string) => void
+  minPlayIntentEndAtInput: string
+  maxPlayIntentEndAtInput: string
+  playIntentTimingHelperText: string
+  playIntentTimingHasError: boolean
+  playIntentTitle: string
+  onPlayIntentTitleChange: (value: string) => void
+  playIntentNote: string
+  onPlayIntentNoteChange: (value: string) => void
+  playIntentAllowParticipantInvites: boolean
+  onPlayIntentAllowParticipantInvitesChange: (value: boolean) => void
+  playIntentVoiceMode: PlayIntentVoiceMode
+  onPlayIntentVoiceModeChange: (mode: PlayIntentVoiceMode) => void
+  playIntentVoiceChannelId: string
+  playIntentVoiceChannelOptions: DiscordVoiceChannel[]
+  onPlayIntentVoiceChannelSelect: (channelId: string | null) => void
+  playIntentSaving: boolean
+  onSavePlayIntent: () => Promise<void>
+  onClearPlayIntent: () => Promise<void>
+  playIntentDiscordSpaceDeletePendingIntentId: string | null
+  onDeletePlayIntentDiscordSpace: (playIntentId: string) => Promise<void>
+  playIntentPreviews: PlayIntentPreview[]
+  onToggleDiscordAutoPromptPlayIntent: (nextEnabled: boolean) => Promise<void>
+  openPlayIntentDetails: (playIntentId: string) => void
 }) {
-  const [activeAudienceFilter, setActiveAudienceFilter] = useState<PlayIntentAudienceFilter>('applicable')
-  const [endedAudienceFilter, setEndedAudienceFilter] = useState<PlayIntentAudienceFilter>('applicable')
-  const [endedWindowFilter, setEndedWindowFilter] = useState<EndedPlayIntentWindowFilter>('1d')
+  const [activeAudienceFilter, setActiveAudienceFilter] =
+    useState<PlayIntentAudienceFilter>('applicable')
+  const [endedAudienceFilter, setEndedAudienceFilter] =
+    useState<PlayIntentAudienceFilter>('applicable')
+  const [endedWindowFilter, setEndedWindowFilter] =
+    useState<EndedPlayIntentWindowFilter>('1d')
 
   if (error) {
     return <DashboardApiIssueCard error={error} />
@@ -312,36 +358,55 @@ function PlayViewContent({
     : 'Create call to play'
   const activePlayIntentPreviews = sortPlayIntentPreviews(
     playIntentPreviews.filter((intent) => intent.status === 'active'),
-    'active'
+    'active',
   )
   const endedPlayIntentPreviews = sortPlayIntentPreviews(
     playIntentPreviews.filter((intent) => intent.status === 'ended'),
-    'ended'
+    'ended',
   )
-  const endedWindowCutoff = Date.now() - endedPlayIntentWindowDurationsMs[endedWindowFilter]
+  const endedWindowCutoff =
+    Date.now() - endedPlayIntentWindowDurationsMs[endedWindowFilter]
   const windowedEndedPlayIntentPreviews = endedPlayIntentPreviews.filter(
-    (intent) => new Date(intent.availabilityWindow.endsAt).getTime() >= endedWindowCutoff
+    (intent) =>
+      new Date(intent.availabilityWindow.endsAt).getTime() >= endedWindowCutoff,
   )
-  const filteredActivePlayIntentPreviews = activePlayIntentPreviews.filter((intent) => activeAudienceFilter === 'all' || intent.appliesToViewer)
-  const filteredEndedPlayIntentPreviews = windowedEndedPlayIntentPreviews.filter((intent) => endedAudienceFilter === 'all' || intent.appliesToViewer)
-  const canDeleteDiscordSpace = (intent: PlayIntentPreview) => Boolean(
-    currentUserId
-    && currentUserId === intent.user.id
-    && intent.status === 'ended'
-    && intent.discordSpace
-    && intent.discordSpace.status !== 'requested'
-    && intent.discordSpace.status !== 'provisioning'
-    && intent.discordSpace.status !== 'deleted'
+  const filteredActivePlayIntentPreviews = activePlayIntentPreviews.filter(
+    (intent) => activeAudienceFilter === 'all' || intent.appliesToViewer,
   )
+  const filteredEndedPlayIntentPreviews =
+    windowedEndedPlayIntentPreviews.filter(
+      (intent) => endedAudienceFilter === 'all' || intent.appliesToViewer,
+    )
+  const canDeleteDiscordSpace = (intent: PlayIntentPreview) =>
+    Boolean(
+      currentUserId &&
+      currentUserId === intent.user.id &&
+      intent.status === 'ended' &&
+      intent.discordSpace &&
+      intent.discordSpace.status !== 'requested' &&
+      intent.discordSpace.status !== 'provisioning' &&
+      intent.discordSpace.status !== 'deleted',
+    )
   const activeHeaderControls = isSignedIn ? (
     <Stack spacing={1} alignItems="stretch" sx={headerActionFilterStackSx}>
-      <Button color="primary" onClick={openPlayIntentComposer} sx={headerActionFilterButtonSx}>
+      <Button
+        color="primary"
+        onClick={openPlayIntentComposer}
+        sx={headerActionFilterButtonSx}
+      >
         {playComposerButtonLabel}
       </Button>
-      <PlayIntentFilterControl value={activeAudienceFilter} onChange={setActiveAudienceFilter} matchActionWidth />
+      <PlayIntentFilterControl
+        value={activeAudienceFilter}
+        onChange={setActiveAudienceFilter}
+        matchActionWidth
+      />
     </Stack>
   ) : (
-    <PlayIntentFilterControl value={activeAudienceFilter} onChange={setActiveAudienceFilter} />
+    <PlayIntentFilterControl
+      value={activeAudienceFilter}
+      onChange={setActiveAudienceFilter}
+    />
   )
   const playSections = [
     {
@@ -350,7 +415,7 @@ function PlayViewContent({
       mobileLabel: 'Active',
       desktopLabel: 'Active Calls',
       ariaLabel: 'Active calls to play',
-      count: filteredActivePlayIntentPreviews.length
+      count: filteredActivePlayIntentPreviews.length,
     },
     {
       id: 'ended-calls-to-play',
@@ -358,84 +423,111 @@ function PlayViewContent({
       mobileLabel: 'Ended',
       desktopLabel: 'Ended Calls',
       ariaLabel: 'Ended calls to play',
-      count: filteredEndedPlayIntentPreviews.length
+      count: filteredEndedPlayIntentPreviews.length,
     },
-    ...(isSignedIn ? [{ id: 'play-settings', label: 'Settings', ariaLabel: 'Play settings' }] : [])
+    ...(isSignedIn
+      ? [{ id: 'play-settings', label: 'Settings', ariaLabel: 'Play settings' }]
+      : []),
   ]
 
   return (
     <Stack spacing={3}>
-      <SectionNav
-        aria-label="Play sections"
-        mb={0}
-        sections={playSections}
-      />
+      <SectionNav aria-label="Play sections" mb={0} sections={playSections} />
 
       {isSignedIn ? (
-        <DashboardModal open={isPlayIntentComposerOpen} onClose={closePlayIntentComposer} width="min(96vw, 820px)">
-            <PlayIntentComposerCard
-              isOpen={isPlayIntentComposerOpen}
-              composerPlayIntent={composerPlayIntent}
-              playIntentFilteredAudienceMessage={playIntentFilteredAudienceMessage}
-              playIntentTargetedAudienceWarningMessage={playIntentTargetedAudienceWarningMessage}
-              playIntentUnmatchedTargetUsers={playIntentUnmatchedTargetUsers}
-              playIntentNotifyScope={playIntentNotifyScope}
-              onPlayIntentNotifyScopeChange={onPlayIntentNotifyScopeChange}
-              playIntentFriendOptions={playIntentFriendOptions}
-              playIntentDiscordServerOptions={playIntentDiscordServerOptions}
-              selectedPlayIntentTargetDiscordServerIds={selectedPlayIntentTargetDiscordServerIds}
-              onTogglePlayIntentTargetDiscordServer={onTogglePlayIntentTargetDiscordServer}
-              selectedPlayIntentTargetUserIds={selectedPlayIntentTargetUserIds}
-              onTogglePlayIntentTargetUser={onTogglePlayIntentTargetUser}
-              friendsLists={friendsLists}
-              selectedPlayIntentFriendsListId={selectedPlayIntentFriendsListId}
-              onPlayIntentFriendsListChange={onPlayIntentFriendsListChange}
-              libraryEntries={libraryEntries}
-              selectedPlayIntentGameIds={selectedPlayIntentGameIds}
-              onTogglePlayIntentGame={onTogglePlayIntentGame}
-              playIntentStartMode={playIntentStartMode}
-              onPlayIntentStartModeChange={onPlayIntentStartModeChange}
-              playIntentStartAtInput={playIntentStartAtInput}
-              onPlayIntentStartAtInputChange={onPlayIntentStartAtInputChange}
-              minPlayIntentStartAtInput={minPlayIntentStartAtInput}
-              playIntentStartHelperText={playIntentStartHelperText}
-              playIntentStartHasError={playIntentStartHasError}
-              playIntentTimingMode={playIntentTimingMode}
-              onPlayIntentTimingModeChange={onPlayIntentTimingModeChange}
-              playIntentDurationMinutes={playIntentDurationMinutes}
-              onPlayIntentPresetSelect={onPlayIntentPresetSelect}
-              playIntentCustomDurationInput={playIntentCustomDurationInput}
-              onPlayIntentCustomDurationInputChange={onPlayIntentCustomDurationInputChange}
-              playIntentEndAtInput={playIntentEndAtInput}
-              onPlayIntentEndAtInputChange={onPlayIntentEndAtInputChange}
-              minPlayIntentEndAtInput={minPlayIntentEndAtInput}
-              maxPlayIntentEndAtInput={maxPlayIntentEndAtInput}
-              playIntentTimingHelperText={playIntentTimingHelperText}
-              playIntentTimingHasError={playIntentTimingHasError}
-              playIntentTitle={playIntentTitle}
-              onPlayIntentTitleChange={onPlayIntentTitleChange}
-              playIntentNote={playIntentNote}
-              onPlayIntentNoteChange={onPlayIntentNoteChange}
-              playIntentAllowParticipantInvites={playIntentAllowParticipantInvites}
-              onPlayIntentAllowParticipantInvitesChange={onPlayIntentAllowParticipantInvitesChange}
-              playIntentVoiceMode={playIntentVoiceMode}
-              onPlayIntentVoiceModeChange={onPlayIntentVoiceModeChange}
-              playIntentVoiceChannelId={playIntentVoiceChannelId}
-              playIntentVoiceChannelOptions={playIntentVoiceChannelOptions}
-              onPlayIntentVoiceChannelSelect={onPlayIntentVoiceChannelSelect}
-              playIntentSaving={playIntentSaving}
-              onSavePlayIntent={onSavePlayIntent}
-              onCancel={closePlayIntentComposer}
-              onClearPlayIntent={onClearPlayIntent}
-            />
+        <DashboardModal
+          open={isPlayIntentComposerOpen}
+          onClose={closePlayIntentComposer}
+          width="min(96vw, 820px)"
+        >
+          <PlayIntentComposerCard
+            isOpen={isPlayIntentComposerOpen}
+            composerPlayIntent={composerPlayIntent}
+            playIntentFilteredAudienceMessage={
+              playIntentFilteredAudienceMessage
+            }
+            playIntentTargetedAudienceWarningMessage={
+              playIntentTargetedAudienceWarningMessage
+            }
+            playIntentUnmatchedTargetUsers={playIntentUnmatchedTargetUsers}
+            playIntentNotifyScope={playIntentNotifyScope}
+            onPlayIntentNotifyScopeChange={onPlayIntentNotifyScopeChange}
+            playIntentFriendOptions={playIntentFriendOptions}
+            playIntentDiscordServerOptions={playIntentDiscordServerOptions}
+            selectedPlayIntentTargetDiscordServerIds={
+              selectedPlayIntentTargetDiscordServerIds
+            }
+            onTogglePlayIntentTargetDiscordServer={
+              onTogglePlayIntentTargetDiscordServer
+            }
+            selectedPlayIntentTargetUserIds={selectedPlayIntentTargetUserIds}
+            onTogglePlayIntentTargetUser={onTogglePlayIntentTargetUser}
+            friendsLists={friendsLists}
+            selectedPlayIntentFriendsListId={selectedPlayIntentFriendsListId}
+            onPlayIntentFriendsListChange={onPlayIntentFriendsListChange}
+            libraryEntries={libraryEntries}
+            selectedPlayIntentGameIds={selectedPlayIntentGameIds}
+            onTogglePlayIntentGame={onTogglePlayIntentGame}
+            playIntentStartMode={playIntentStartMode}
+            onPlayIntentStartModeChange={onPlayIntentStartModeChange}
+            playIntentStartAtInput={playIntentStartAtInput}
+            onPlayIntentStartAtInputChange={onPlayIntentStartAtInputChange}
+            minPlayIntentStartAtInput={minPlayIntentStartAtInput}
+            playIntentStartHelperText={playIntentStartHelperText}
+            playIntentStartHasError={playIntentStartHasError}
+            playIntentTimingMode={playIntentTimingMode}
+            onPlayIntentTimingModeChange={onPlayIntentTimingModeChange}
+            playIntentDurationMinutes={playIntentDurationMinutes}
+            onPlayIntentPresetSelect={onPlayIntentPresetSelect}
+            playIntentCustomDurationInput={playIntentCustomDurationInput}
+            onPlayIntentCustomDurationInputChange={
+              onPlayIntentCustomDurationInputChange
+            }
+            playIntentEndAtInput={playIntentEndAtInput}
+            onPlayIntentEndAtInputChange={onPlayIntentEndAtInputChange}
+            minPlayIntentEndAtInput={minPlayIntentEndAtInput}
+            maxPlayIntentEndAtInput={maxPlayIntentEndAtInput}
+            playIntentTimingHelperText={playIntentTimingHelperText}
+            playIntentTimingHasError={playIntentTimingHasError}
+            playIntentTitle={playIntentTitle}
+            onPlayIntentTitleChange={onPlayIntentTitleChange}
+            playIntentNote={playIntentNote}
+            onPlayIntentNoteChange={onPlayIntentNoteChange}
+            playIntentAllowParticipantInvites={
+              playIntentAllowParticipantInvites
+            }
+            onPlayIntentAllowParticipantInvitesChange={
+              onPlayIntentAllowParticipantInvitesChange
+            }
+            playIntentVoiceMode={playIntentVoiceMode}
+            onPlayIntentVoiceModeChange={onPlayIntentVoiceModeChange}
+            playIntentVoiceChannelId={playIntentVoiceChannelId}
+            playIntentVoiceChannelOptions={playIntentVoiceChannelOptions}
+            onPlayIntentVoiceChannelSelect={onPlayIntentVoiceChannelSelect}
+            playIntentSaving={playIntentSaving}
+            onSavePlayIntent={onSavePlayIntent}
+            onCancel={closePlayIntentComposer}
+            onClearPlayIntent={onClearPlayIntent}
+          />
         </DashboardModal>
       ) : null}
-      <Box id="active-calls-to-play" sx={{ scrollMarginTop: sectionScrollMarginTop }}>
+      <Box
+        id="active-calls-to-play"
+        sx={{ scrollMarginTop: sectionScrollMarginTop }}
+      >
         <Stack spacing={2}>
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }}>
+          <Stack
+            direction={{ xs: 'column', sm: 'row' }}
+            spacing={1.5}
+            justifyContent="space-between"
+            alignItems={{ xs: 'stretch', sm: 'center' }}
+          >
             <Box>
               <Typography level="h3">Active calls to play</Typography>
-              <Typography level="body-sm" sx={{ color: 'neutral.400', mt: 0.5 }}>
+              <Typography
+                level="body-sm"
+                sx={{ color: 'neutral.400', mt: 0.5 }}
+              >
                 Live now or scheduled soon.
               </Typography>
             </Box>
@@ -450,7 +542,9 @@ function PlayViewContent({
                   intent={intent}
                   onOpenDetails={openPlayIntentDetails}
                   canDeleteDiscordSpace={canDeleteDiscordSpace(intent)}
-                  isDeletingDiscordSpace={playIntentDiscordSpaceDeletePendingIntentId === intent.id}
+                  isDeletingDiscordSpace={
+                    playIntentDiscordSpaceDeletePendingIntentId === intent.id
+                  }
                   onDeleteDiscordSpace={onDeletePlayIntentDiscordSpace}
                 />
               ))}
@@ -480,17 +574,41 @@ function PlayViewContent({
         </Stack>
       </Box>
 
-      <Stack id="ended-calls-to-play" spacing={2} sx={{ scrollMarginTop: sectionScrollMarginTop }}>
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }}>
+      <Stack
+        id="ended-calls-to-play"
+        spacing={2}
+        sx={{ scrollMarginTop: sectionScrollMarginTop }}
+      >
+        <Stack
+          direction={{ xs: 'column', sm: 'row' }}
+          spacing={1.5}
+          justifyContent="space-between"
+          alignItems={{ xs: 'stretch', sm: 'center' }}
+        >
           <Box>
             <Typography level="h3">Ended calls to play</Typography>
             <Typography level="body-sm" sx={{ color: 'neutral.400', mt: 0.5 }}>
-              Ended calls from the last {endedPlayIntentWindowLabels[endedWindowFilter].toLowerCase()} from people in your network.
+              Ended calls from the last{' '}
+              {endedPlayIntentWindowLabels[endedWindowFilter].toLowerCase()}{' '}
+              from people in your network.
             </Typography>
           </Box>
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ width: { xs: '100%', sm: 'auto' }, alignItems: { xs: 'stretch', sm: 'center' } }}>
-            <EndedPlayIntentWindowFilterControl value={endedWindowFilter} onChange={setEndedWindowFilter} />
-            <PlayIntentFilterControl value={endedAudienceFilter} onChange={setEndedAudienceFilter} />
+          <Stack
+            direction={{ xs: 'column', sm: 'row' }}
+            spacing={1}
+            sx={{
+              width: { xs: '100%', sm: 'auto' },
+              alignItems: { xs: 'stretch', sm: 'center' },
+            }}
+          >
+            <EndedPlayIntentWindowFilterControl
+              value={endedWindowFilter}
+              onChange={setEndedWindowFilter}
+            />
+            <PlayIntentFilterControl
+              value={endedAudienceFilter}
+              onChange={setEndedAudienceFilter}
+            />
           </Stack>
         </Stack>
 
@@ -502,7 +620,9 @@ function PlayViewContent({
                 intent={intent}
                 onOpenDetails={openPlayIntentDetails}
                 canDeleteDiscordSpace={canDeleteDiscordSpace(intent)}
-                isDeletingDiscordSpace={playIntentDiscordSpaceDeletePendingIntentId === intent.id}
+                isDeletingDiscordSpace={
+                  playIntentDiscordSpaceDeletePendingIntentId === intent.id
+                }
                 onDeleteDiscordSpace={onDeletePlayIntentDiscordSpace}
               />
             ))}
@@ -528,12 +648,18 @@ function PlayViewContent({
       </Stack>
 
       {isSignedIn ? (
-        <Box id="play-settings" sx={{ scrollMarginTop: sectionScrollMarginTop }}>
+        <Box
+          id="play-settings"
+          sx={{ scrollMarginTop: sectionScrollMarginTop }}
+        >
           <Stack spacing={2}>
             <Stack spacing={0.5}>
               <Box>
                 <Typography level="h3">Settings</Typography>
-                <Typography level="body-sm" sx={{ color: 'neutral.400', mt: 0.5 }}>
+                <Typography
+                  level="body-sm"
+                  sx={{ color: 'neutral.400', mt: 0.5 }}
+                >
                   Control automatic prompting and manage your calls to play.
                 </Typography>
               </Box>
@@ -553,14 +679,21 @@ function PlayViewContent({
 
 export function PlayView() {
   const navigate = useNavigate()
-  const { playViewProps, debugViewProps, overviewViewProps } = useDashboardContext()
+  const { playViewProps, debugViewProps, overviewViewProps } =
+    useDashboardContext()
 
   return (
     <PlayViewContent
       {...playViewProps}
       {...debugViewProps}
-      currentUserId={overviewViewProps.session?.authenticated ? overviewViewProps.session.user?.id ?? null : null}
-      openPlayIntentDetails={(playIntentId) => navigate(`/play/${playIntentId}`)}
+      currentUserId={
+        overviewViewProps.session?.authenticated
+          ? (overviewViewProps.session.user?.id ?? null)
+          : null
+      }
+      openPlayIntentDetails={(playIntentId) =>
+        navigate(`/play/${playIntentId}`)
+      }
     />
   )
 }

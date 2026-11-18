@@ -10,19 +10,20 @@
  */
 
 type ZonedParts = {
-  year: number;
-  month: number;
-  day: number;
-  hour: number;
-  minute: number;
-};
+  year: number
+  month: number
+  day: number
+  hour: number
+  minute: number
+}
 
 export type ComposerStartParseResult =
   | { kind: 'now' }
   | { kind: 'scheduled'; startAt: Date }
-  | { kind: 'error'; error: string };
+  | { kind: 'error'; error: string }
 
-const startFormatHint = 'Try formats like "8pm", "20:30", "tomorrow 19:00", "2026-07-15 20:00", or "in 45m".'
+const startFormatHint =
+  'Try formats like "8pm", "20:30", "tomorrow 19:00", "2026-07-15 20:00", or "in 45m".'
 
 function getZonedParts(timeZone: string, at: Date): ZonedParts {
   const formatter = new Intl.DateTimeFormat('en-US', {
@@ -32,9 +33,11 @@ function getZonedParts(timeZone: string, at: Date): ZonedParts {
     month: '2-digit',
     day: '2-digit',
     hour: '2-digit',
-    minute: '2-digit'
+    minute: '2-digit',
   })
-  const parts = new Map(formatter.formatToParts(at).map((part) => [part.type, part.value]))
+  const parts = new Map(
+    formatter.formatToParts(at).map((part) => [part.type, part.value]),
+  )
 
   return {
     year: Number(parts.get('year')),
@@ -42,13 +45,19 @@ function getZonedParts(timeZone: string, at: Date): ZonedParts {
     day: Number(parts.get('day')),
     // Intl renders midnight as "24" in some environments; normalize to 0.
     hour: Number(parts.get('hour')) % 24,
-    minute: Number(parts.get('minute'))
+    minute: Number(parts.get('minute')),
   }
 }
 
 function getTimeZoneOffsetMs(timeZone: string, at: Date): number {
   const parts = getZonedParts(timeZone, at)
-  const asUtc = Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute)
+  const asUtc = Date.UTC(
+    parts.year,
+    parts.month - 1,
+    parts.day,
+    parts.hour,
+    parts.minute,
+  )
   const atMinutePrecision = Math.floor(at.getTime() / 60000) * 60000
 
   return asUtc - atMinutePrecision
@@ -60,9 +69,17 @@ function getTimeZoneOffsetMs(timeZone: string, at: Date): number {
  * resolve to a valid instant instead of drifting by the offset delta.
  */
 export function zonedTimeToUtc(parts: ZonedParts, timeZone: string): Date {
-  const naiveUtc = Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute)
-  const firstGuess = naiveUtc - getTimeZoneOffsetMs(timeZone, new Date(naiveUtc))
-  const secondGuess = naiveUtc - getTimeZoneOffsetMs(timeZone, new Date(firstGuess))
+  const naiveUtc = Date.UTC(
+    parts.year,
+    parts.month - 1,
+    parts.day,
+    parts.hour,
+    parts.minute,
+  )
+  const firstGuess =
+    naiveUtc - getTimeZoneOffsetMs(timeZone, new Date(naiveUtc))
+  const secondGuess =
+    naiveUtc - getTimeZoneOffsetMs(timeZone, new Date(firstGuess))
 
   return new Date(secondGuess)
 }
@@ -76,7 +93,9 @@ function isValidTimeZone(timeZone: string): boolean {
   }
 }
 
-function parseTimeToken(token: string): { hour: number; minute: number } | null {
+function parseTimeToken(
+  token: string,
+): { hour: number; minute: number } | null {
   const meridiemMatch = token.match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)$/)
 
   if (meridiemMatch) {
@@ -108,7 +127,9 @@ function parseTimeToken(token: string): { hour: number; minute: number } | null 
 }
 
 function parseRelativeOffsetMinutes(input: string): number | null {
-  const match = input.match(/^(?:in\s+|\+)(?:(\d+)\s*h(?:ours?)?)?\s*(?:(\d+)\s*m(?:in(?:ute)?s?)?)?$/)
+  const match = input.match(
+    /^(?:in\s+|\+)(?:(\d+)\s*h(?:ours?)?)?\s*(?:(\d+)\s*m(?:in(?:ute)?s?)?)?$/,
+  )
 
   if (!match || (!match[1] && !match[2])) {
     return null
@@ -123,7 +144,11 @@ function parseRelativeOffsetMinutes(input: string): number | null {
  * times with an optional day prefix ("8pm", "today 20:30", "tomorrow 19:00",
  * "2026-07-15 20:00").
  */
-export function parseComposerStartInput(rawInput: string, timeZoneId: string, now: Date): ComposerStartParseResult {
+export function parseComposerStartInput(
+  rawInput: string,
+  timeZoneId: string,
+  now: Date,
+): ComposerStartParseResult {
   const input = rawInput.trim().toLowerCase().replace(/\s+/g, ' ')
   const timeZone = isValidTimeZone(timeZoneId) ? timeZoneId : 'Etc/UTC'
 
@@ -142,7 +167,10 @@ export function parseComposerStartInput(rawInput: string, timeZoneId: string, no
       return { kind: 'now' }
     }
 
-    return { kind: 'scheduled', startAt: new Date(now.getTime() + relativeMinutes * 60 * 1000) }
+    return {
+      kind: 'scheduled',
+      startAt: new Date(now.getTime() + relativeMinutes * 60 * 1000),
+    }
   }
 
   const dateMatch = input.match(/^(\d{4})-(\d{2})-(\d{2})\s+(.+)$/)
@@ -151,7 +179,10 @@ export function parseComposerStartInput(rawInput: string, timeZoneId: string, no
   const time = parseTimeToken(timeToken)
 
   if (!time) {
-    return { kind: 'error', error: `I couldn't read that start time. ${startFormatHint}` }
+    return {
+      kind: 'error',
+      error: `I couldn't read that start time. ${startFormatHint}`,
+    }
   }
 
   const zonedNow = getZonedParts(timeZone, now)
@@ -162,12 +193,26 @@ export function parseComposerStartInput(rawInput: string, timeZoneId: string, no
     const day = Number(dateMatch[3])
 
     if (month < 1 || month > 12 || day < 1 || day > 31) {
-      return { kind: 'error', error: `That date does not look valid. ${startFormatHint}` }
+      return {
+        kind: 'error',
+        error: `That date does not look valid. ${startFormatHint}`,
+      }
     }
 
-    candidate = zonedTimeToUtc({ year: Number(dateMatch[1]), month, day, ...time }, timeZone)
+    candidate = zonedTimeToUtc(
+      { year: Number(dateMatch[1]), month, day, ...time },
+      timeZone,
+    )
   } else {
-    candidate = zonedTimeToUtc({ year: zonedNow.year, month: zonedNow.month, day: zonedNow.day, ...time }, timeZone)
+    candidate = zonedTimeToUtc(
+      {
+        year: zonedNow.year,
+        month: zonedNow.month,
+        day: zonedNow.day,
+        ...time,
+      },
+      timeZone,
+    )
 
     if (dayWordMatch?.[1] === 'tomorrow') {
       candidate = new Date(candidate.getTime() + 24 * 60 * 60 * 1000)
@@ -178,7 +223,10 @@ export function parseComposerStartInput(rawInput: string, timeZoneId: string, no
   }
 
   if (candidate.getTime() <= now.getTime()) {
-    return { kind: 'error', error: 'Choose a future start time, or enter "now" to start right away.' }
+    return {
+      kind: 'error',
+      error: 'Choose a future start time, or enter "now" to start right away.',
+    }
   }
 
   return { kind: 'scheduled', startAt: candidate }
@@ -189,7 +237,9 @@ export function parseComposerStartInput(rawInput: string, timeZoneId: string, no
  * minutes. Range validation stays with the caller so limits live in one
  * place (the play-intent service).
  */
-export function parseComposerDurationInput(rawInput: string): { minutes: number } | { error: string } {
+export function parseComposerDurationInput(
+  rawInput: string,
+): { minutes: number } | { error: string } {
   const input = rawInput.trim().toLowerCase().replace(/\s+/g, '')
   const formatHint = 'Try a number of minutes like "90", or "2h" / "1h30m".'
 
@@ -203,10 +253,14 @@ export function parseComposerDurationInput(rawInput: string): { minutes: number 
     return { minutes: Number(bareMinutes[1]) }
   }
 
-  const hoursAndMinutes = input.match(/^(\d+(?:\.\d+)?)h(?:ours?)?(?:(\d+)m(?:in(?:ute)?s?)?)?$/)
+  const hoursAndMinutes = input.match(
+    /^(\d+(?:\.\d+)?)h(?:ours?)?(?:(\d+)m(?:in(?:ute)?s?)?)?$/,
+  )
 
   if (hoursAndMinutes) {
-    const minutes = Math.round(Number(hoursAndMinutes[1]) * 60) + Number(hoursAndMinutes[2] ?? 0)
+    const minutes =
+      Math.round(Number(hoursAndMinutes[1]) * 60) +
+      Number(hoursAndMinutes[2] ?? 0)
     return { minutes }
   }
 

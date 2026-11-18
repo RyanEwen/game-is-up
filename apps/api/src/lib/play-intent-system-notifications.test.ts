@@ -23,7 +23,7 @@ import {
   getPlayIntentSystemNotificationDefinitionByTitle,
   groupLaunchedGameSystemNotification,
   interestedPlayerLaunchedGameSystemNotification,
-  voiceChannelJoinedSystemNotification
+  voiceChannelJoinedSystemNotification,
 } from './play-intent-system-notifications.js'
 
 // ---------------------------------------------------------------------------
@@ -42,54 +42,77 @@ test('getPlayIntentSystemNotificationDefinitionByTitle round-trips every known d
     creatorInterestWithdrawnSystemNotification,
     audienceInterestWithdrawnSystemNotification,
     creatorRunningLateSystemNotification,
-    audienceRunningLateSystemNotification
+    audienceRunningLateSystemNotification,
   ]) {
-    assert.equal(getPlayIntentSystemNotificationDefinitionByTitle(definition.title), definition)
+    assert.equal(
+      getPlayIntentSystemNotificationDefinitionByTitle(definition.title),
+      definition,
+    )
   }
 })
 
 test('getPlayIntentSystemNotificationDefinitionByTitle returns null for an unknown title', () => {
-  assert.equal(getPlayIntentSystemNotificationDefinitionByTitle('not a real title'), null)
+  assert.equal(
+    getPlayIntentSystemNotificationDefinitionByTitle('not a real title'),
+    null,
+  )
 })
 
 // ---------------------------------------------------------------------------
 // Running late
 test('delay estimates appear in creator and audience updates', () => {
-  const options = { recipientDisplayName: 'Sam', gameTitle: 'Helldivers 2', runningLateMinutes: 15 }
-  assert.equal(formatCreatorRunningLateSystemNotification(options).body,
-    'Sam is interested but about 15 minutes late for Helldivers 2.')
-  assert.equal(formatAudienceRunningLateSystemNotification(options).body,
-    'Sam is interested but about 15 minutes late for Helldivers 2.')
+  const options = {
+    recipientDisplayName: 'Sam',
+    gameTitle: 'Helldivers 2',
+    runningLateMinutes: 15,
+  }
+  assert.equal(
+    formatCreatorRunningLateSystemNotification(options).body,
+    'Sam is interested but about 15 minutes late for Helldivers 2.',
+  )
+  assert.equal(
+    formatAudienceRunningLateSystemNotification(options).body,
+    'Sam is interested but about 15 minutes late for Helldivers 2.',
+  )
 })
 // ---------------------------------------------------------------------------
 
 test('creator running-late notification describes the late interested player in plain text', () => {
   const notification = formatCreatorRunningLateSystemNotification({
     recipientDisplayName: 'Sam',
-    gameTitle: 'Helldivers 2'
+    gameTitle: 'Helldivers 2',
   })
 
   assert.equal(notification.title, creatorRunningLateSystemNotification.title)
-  assert.equal(notification.body, 'Sam is interested but running late for Helldivers 2.')
+  assert.equal(
+    notification.body,
+    'Sam is interested but running late for Helldivers 2.',
+  )
 })
 
 test('creator running-late notification falls back to the call when no game is set', () => {
   const notification = formatCreatorRunningLateSystemNotification({
     recipientDisplayName: 'Sam',
-    gameTitle: null
+    gameTitle: null,
   })
 
-  assert.equal(notification.body, 'Sam is interested but running late for your call to play.')
+  assert.equal(
+    notification.body,
+    'Sam is interested but running late for your call to play.',
+  )
 })
 
 test('audience running-late notification points at this call for other interested players', () => {
   const notification = formatAudienceRunningLateSystemNotification({
     recipientDisplayName: 'Sam',
-    gameTitle: null
+    gameTitle: null,
   })
 
   assert.equal(notification.title, audienceRunningLateSystemNotification.title)
-  assert.equal(notification.body, 'Sam is interested but running late for this call to play.')
+  assert.equal(
+    notification.body,
+    'Sam is interested but running late for this call to play.',
+  )
 })
 
 // ---------------------------------------------------------------------------
@@ -99,17 +122,20 @@ test('audience running-late notification points at this call for other intereste
 test('creator interest update notification renders the configured title and body', () => {
   const notification = formatCreatorInterestUpdateSystemNotification({
     recipientDisplayName: 'Sam',
-    gameTitle: 'Helldivers 2'
+    gameTitle: 'Helldivers 2',
   })
 
-  assert.equal(notification.title, creatorInterestUpdateSystemNotification.title)
+  assert.equal(
+    notification.title,
+    creatorInterestUpdateSystemNotification.title,
+  )
   assert.equal(notification.body, 'Sam is interested in playing Helldivers 2.')
 })
 
 test('creator interest update notification falls back when no game title is provided', () => {
   const notification = formatCreatorInterestUpdateSystemNotification({
     recipientDisplayName: 'Sam',
-    gameTitle: null
+    gameTitle: null,
   })
 
   assert.equal(notification.body, 'Sam is interested in your call to play.')
@@ -118,17 +144,20 @@ test('creator interest update notification falls back when no game title is prov
 test('creator interest withdrawn notification renders the configured title and body', () => {
   const notification = formatCreatorInterestWithdrawnSystemNotification({
     recipientDisplayName: 'Sam',
-    gameTitle: 'Helldivers 2'
+    gameTitle: 'Helldivers 2',
   })
 
-  assert.equal(notification.title, creatorInterestWithdrawnSystemNotification.title)
+  assert.equal(
+    notification.title,
+    creatorInterestWithdrawnSystemNotification.title,
+  )
   assert.equal(notification.body, "Sam can't make it for Helldivers 2.")
 })
 
 test('creator interest withdrawn notification falls back when no game title is provided', () => {
   const notification = formatCreatorInterestWithdrawnSystemNotification({
     recipientDisplayName: 'Sam',
-    gameTitle: null
+    gameTitle: null,
   })
 
   assert.equal(notification.body, "Sam can't make it for your call to play.")
@@ -137,17 +166,20 @@ test('creator interest withdrawn notification falls back when no game title is p
 test('audience interest withdrawn notification renders the configured title and body', () => {
   const notification = formatAudienceInterestWithdrawnSystemNotification({
     recipientDisplayName: 'Sam',
-    gameTitle: 'Helldivers 2'
+    gameTitle: 'Helldivers 2',
   })
 
-  assert.equal(notification.title, audienceInterestWithdrawnSystemNotification.title)
+  assert.equal(
+    notification.title,
+    audienceInterestWithdrawnSystemNotification.title,
+  )
   assert.equal(notification.body, "Sam can't make it for Helldivers 2.")
 })
 
 test('audience interest withdrawn notification falls back when no game title is provided', () => {
   const notification = formatAudienceInterestWithdrawnSystemNotification({
     recipientDisplayName: 'Sam',
-    gameTitle: null
+    gameTitle: null,
   })
 
   assert.equal(notification.body, "Sam can't make it for this call to play.")
@@ -156,17 +188,20 @@ test('audience interest withdrawn notification falls back when no game title is 
 test('audience interest update notification renders the configured title and body', () => {
   const notification = formatAudienceInterestUpdateSystemNotification({
     recipientDisplayName: 'Sam',
-    gameTitle: 'Helldivers 2'
+    gameTitle: 'Helldivers 2',
   })
 
-  assert.equal(notification.title, audienceInterestUpdateSystemNotification.title)
+  assert.equal(
+    notification.title,
+    audienceInterestUpdateSystemNotification.title,
+  )
   assert.equal(notification.body, 'Sam is interested in playing Helldivers 2.')
 })
 
 test('audience interest update notification falls back when no game title is provided', () => {
   const notification = formatAudienceInterestUpdateSystemNotification({
     recipientDisplayName: 'Sam',
-    gameTitle: null
+    gameTitle: null,
   })
 
   assert.equal(notification.body, 'Sam is interested in this call to play.')
@@ -179,31 +214,43 @@ test('audience interest update notification falls back when no game title is pro
 test('creator launched game notification audience copy targets interested players', () => {
   const notification = formatCreatorLaunchedGameSystemNotification({
     actorDisplayName: 'Ryan',
-    gameTitle: 'Helldivers 2'
+    gameTitle: 'Helldivers 2',
   })
 
   assert.equal(notification.title, creatorLaunchedGameSystemNotification.title)
-  assert.equal(notification.body, 'Ryan just launched Helldivers 2 for the active call to play you are interested in.')
+  assert.equal(
+    notification.body,
+    'Ryan just launched Helldivers 2 for the active call to play you are interested in.',
+  )
 })
 
 test('group launched game notification audience copy targets the call to play group', () => {
   const notification = formatGroupLaunchedGameSystemNotification({
     actorDisplayName: 'Ryan',
-    gameTitle: 'Helldivers 2'
+    gameTitle: 'Helldivers 2',
   })
 
   assert.equal(notification.title, groupLaunchedGameSystemNotification.title)
-  assert.equal(notification.body, 'Ryan just launched Helldivers 2 for this call to play.')
+  assert.equal(
+    notification.body,
+    'Ryan just launched Helldivers 2 for this call to play.',
+  )
 })
 
 test('interested-player launched game notification audience copy targets the creator', () => {
   const notification = formatInterestedPlayerLaunchedGameSystemNotification({
     actorDisplayName: 'Ryan',
-    gameTitle: 'Helldivers 2'
+    gameTitle: 'Helldivers 2',
   })
 
-  assert.equal(notification.title, interestedPlayerLaunchedGameSystemNotification.title)
-  assert.equal(notification.body, 'Ryan just launched Helldivers 2 for your active call to play.')
+  assert.equal(
+    notification.title,
+    interestedPlayerLaunchedGameSystemNotification.title,
+  )
+  assert.equal(
+    notification.body,
+    'Ryan just launched Helldivers 2 for your active call to play.',
+  )
 })
 
 // ---------------------------------------------------------------------------
@@ -213,20 +260,26 @@ test('interested-player launched game notification audience copy targets the cre
 test('voice channel join notification names the channel when provided', () => {
   const notification = formatVoiceChannelJoinedSystemNotification({
     actorDisplayName: 'Sam',
-    voiceChannelName: 'squad-up'
+    voiceChannelName: 'squad-up',
   })
 
   assert.equal(notification.title, voiceChannelJoinedSystemNotification.title)
-  assert.equal(notification.body, 'Sam just joined the voice channel squad-up for this call to play.')
+  assert.equal(
+    notification.body,
+    'Sam just joined the voice channel squad-up for this call to play.',
+  )
 })
 
 test('voice channel join notification omits the channel name when missing', () => {
   const notification = formatVoiceChannelJoinedSystemNotification({
     actorDisplayName: 'Sam',
-    voiceChannelName: null
+    voiceChannelName: null,
   })
 
-  assert.equal(notification.body, 'Sam just joined the voice channel for this call to play.')
+  assert.equal(
+    notification.body,
+    'Sam just joined the voice channel for this call to play.',
+  )
 })
 
 // ---------------------------------------------------------------------------
@@ -235,14 +288,35 @@ test('voice channel join notification omits the channel name when missing', () =
 
 test('system notification bodies never contain Discord mention markup', () => {
   const notifications = [
-    formatCreatorInterestUpdateSystemNotification({ recipientDisplayName: 'Sam', gameTitle: 'Helldivers 2' }),
-    formatCreatorInterestWithdrawnSystemNotification({ recipientDisplayName: 'Sam', gameTitle: null }),
-    formatCreatorRunningLateSystemNotification({ recipientDisplayName: 'Sam', gameTitle: null }),
-    formatAudienceInterestUpdateSystemNotification({ recipientDisplayName: 'Sam', gameTitle: null }),
-    formatAudienceInterestWithdrawnSystemNotification({ recipientDisplayName: 'Sam', gameTitle: null }),
-    formatAudienceRunningLateSystemNotification({ recipientDisplayName: 'Sam', gameTitle: null }),
+    formatCreatorInterestUpdateSystemNotification({
+      recipientDisplayName: 'Sam',
+      gameTitle: 'Helldivers 2',
+    }),
+    formatCreatorInterestWithdrawnSystemNotification({
+      recipientDisplayName: 'Sam',
+      gameTitle: null,
+    }),
+    formatCreatorRunningLateSystemNotification({
+      recipientDisplayName: 'Sam',
+      gameTitle: null,
+    }),
+    formatAudienceInterestUpdateSystemNotification({
+      recipientDisplayName: 'Sam',
+      gameTitle: null,
+    }),
+    formatAudienceInterestWithdrawnSystemNotification({
+      recipientDisplayName: 'Sam',
+      gameTitle: null,
+    }),
+    formatAudienceRunningLateSystemNotification({
+      recipientDisplayName: 'Sam',
+      gameTitle: null,
+    }),
     formatVoiceChannelJoinedSystemNotification({ actorDisplayName: 'Sam' }),
-    formatGroupLaunchedGameSystemNotification({ actorDisplayName: 'Ryan', gameTitle: 'Helldivers 2' })
+    formatGroupLaunchedGameSystemNotification({
+      actorDisplayName: 'Ryan',
+      gameTitle: 'Helldivers 2',
+    }),
   ]
 
   for (const notification of notifications) {

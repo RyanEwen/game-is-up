@@ -7,42 +7,47 @@ import {
   CssBaseline,
   Sheet,
   Stack,
-  Typography
+  Typography,
 } from '@mui/joy'
 import { CssVarsProvider } from '@mui/joy/styles'
-import { authSessionResponseSchema, type AuthSessionResponse } from '@game-is-up/shared'
+import {
+  authSessionResponseSchema,
+  type AuthSessionResponse,
+} from '@game-is-up/shared'
 import { useChromeCssVars } from '../hooks/useChromeCssVars'
 import { appThemeVariants, DEFAULT_APP_THEME } from '../theme/themes'
 
 type InviteLandingDetails = {
-  serverName: string | null;
-  inviterLabel: string | null;
-  memberCount: number | null;
-  kind: 'direct' | 'server';
+  serverName: string | null
+  inviterLabel: string | null
+  memberCount: number | null
+  kind: 'direct' | 'server'
 }
 
 type InviteAuthState = {
-  tone: 'success' | 'danger' | 'primary';
-  title: string;
-  body: string;
+  tone: 'success' | 'danger' | 'primary'
+  title: string
+  body: string
 } | null
 
-const ambientSpectrumGradient = 'linear-gradient(115deg, #7dff92 0%, #49ff66 22%, #2fe07f 54%, #8bff7a 100%)'
+const ambientSpectrumGradient =
+  'linear-gradient(115deg, #7dff92 0%, #49ff66 22%, #2fe07f 54%, #8bff7a 100%)'
 
 function parseInviteDetails(url: URL): InviteLandingDetails {
   const serverName = url.searchParams.get('server')?.trim() || null
   const inviterLabel = url.searchParams.get('inviter')?.trim() || null
   const kind = url.searchParams.get('kind') === 'direct' ? 'direct' : 'server'
   const rawMemberCount = Number(url.searchParams.get('members') ?? '')
-  const memberCount = Number.isFinite(rawMemberCount) && rawMemberCount >= 0
-    ? rawMemberCount
-    : null
+  const memberCount =
+    Number.isFinite(rawMemberCount) && rawMemberCount >= 0
+      ? rawMemberCount
+      : null
 
   return {
     serverName,
     inviterLabel,
     memberCount,
-    kind
+    kind,
   }
 }
 
@@ -58,14 +63,14 @@ function parseAuthState(url: URL): InviteAuthState {
     return {
       tone: 'success',
       title: 'Discord connected',
-      body: 'Your Game\'s Up session is ready. Open the app to add friends, compare libraries, and jump into calls to play.'
+      body: "Your Game's Up session is ready. Open the app to add friends, compare libraries, and jump into calls to play.",
     }
   }
 
   return {
     tone: 'danger',
     title: 'Sign-in did not finish',
-    body: 'Try again with Discord. If the problem keeps happening, open the app directly and start sign-in there.'
+    body: 'Try again with Discord. If the problem keeps happening, open the app directly and start sign-in there.',
   }
 }
 
@@ -82,10 +87,13 @@ function buildInviteHeadline(details: InviteLandingDetails) {
     return `Join Game's Up through ${details.serverName}`
   }
 
-  return 'Join Game\'s Up'
+  return "Join Game's Up"
 }
 
-function buildMemberCountCopy(memberCount: number | null, serverName: string | null) {
+function buildMemberCountCopy(
+  memberCount: number | null,
+  serverName: string | null,
+) {
   if (memberCount == null) {
     return 'Sign in with Discord to see who is already around, compare libraries, and turn a quick idea into a real session.'
   }
@@ -93,7 +101,7 @@ function buildMemberCountCopy(memberCount: number | null, serverName: string | n
   if (memberCount === 0) {
     return serverName
       ? `Be the first person from ${serverName} on Game's Up.`
-      : 'Be the first person from your group on Game\'s Up.'
+      : "Be the first person from your group on Game's Up."
   }
 
   return serverName
@@ -125,7 +133,7 @@ export function InviteLandingView() {
     return {
       cleanInviteUrl: stripAuthParams(currentUrl).toString(),
       details: parseInviteDetails(currentUrl),
-      authState: parseAuthState(currentUrl)
+      authState: parseAuthState(currentUrl),
     }
   }, [])
 
@@ -139,9 +147,10 @@ export function InviteLandingView() {
   }, [])
 
   useEffect(() => {
-    document.title = authState?.tone === 'success'
-      ? "Game's Up • Invite Accepted"
-      : "Game's Up • Invite"
+    document.title =
+      authState?.tone === 'success'
+        ? "Game's Up • Invite Accepted"
+        : "Game's Up • Invite"
   }, [authState])
 
   useEffect(() => {
@@ -150,7 +159,7 @@ export function InviteLandingView() {
     void (async () => {
       try {
         const response = await fetch('/api/auth/me', {
-          credentials: 'include'
+          credentials: 'include',
         })
         const responseJson = await response.json()
 
@@ -181,7 +190,10 @@ export function InviteLandingView() {
   useChromeCssVars(appThemeVariants[DEFAULT_APP_THEME].chromeCssVars)
 
   return (
-    <CssVarsProvider theme={appThemeVariants[DEFAULT_APP_THEME].theme} defaultMode="dark">
+    <CssVarsProvider
+      theme={appThemeVariants[DEFAULT_APP_THEME].theme}
+      defaultMode="dark"
+    >
       <CssBaseline />
       <Box
         sx={{
@@ -189,7 +201,8 @@ export function InviteLandingView() {
           position: 'relative',
           px: { xs: 2, md: 4 },
           py: { xs: 3, md: 5 },
-          background: 'linear-gradient(180deg, rgba(8, 16, 14, 0.14) 0px, rgba(7, 13, 12, 0.22) 240px, rgba(6, 10, 9, 0.72) 100%)'
+          background:
+            'linear-gradient(180deg, rgba(8, 16, 14, 0.14) 0px, rgba(7, 13, 12, 0.22) 240px, rgba(6, 10, 9, 0.72) 100%)',
         }}
       >
         <Box
@@ -200,17 +213,20 @@ export function InviteLandingView() {
             backgroundImage: [
               'radial-gradient(circle at 16% 18%, rgba(73, 255, 102, 0.18), transparent 24%)',
               'radial-gradient(circle at 84% 14%, rgba(139, 255, 122, 0.14), transparent 28%)',
-              ambientSpectrumGradient
+              ambientSpectrumGradient,
             ].join(','),
             backgroundBlendMode: 'screen, screen, normal',
             backgroundSize: 'auto, auto, 100% 100%',
             backgroundPosition: 'center, center, center',
             opacity: 0.12,
-            pointerEvents: 'none'
+            pointerEvents: 'none',
           }}
         />
 
-        <Stack spacing={3} sx={{ position: 'relative', zIndex: 1, maxWidth: 880, mx: 'auto' }}>
+        <Stack
+          spacing={3}
+          sx={{ position: 'relative', zIndex: 1, maxWidth: 880, mx: 'auto' }}
+        >
           <Sheet
             variant="plain"
             sx={{
@@ -218,21 +234,43 @@ export function InviteLandingView() {
               borderRadius: 'xl',
               border: '1px solid #272f3c',
               background: 'linear-gradient(135deg, #10182b, #16233a)',
-              boxShadow: 'xl'
+              boxShadow: 'xl',
             }}
           >
             <Stack spacing={3}>
               <Stack spacing={1.5}>
                 <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-                  <Chip color="primary" variant="soft">Discord invite</Chip>
-                  {details.kind === 'direct' ? <Chip color="warning" variant="soft">Direct invite</Chip> : null}
-                  {details.serverName ? <Chip color="neutral" variant="outlined">{details.serverName}</Chip> : null}
+                  <Chip color="primary" variant="soft">
+                    Discord invite
+                  </Chip>
+                  {details.kind === 'direct' ? (
+                    <Chip color="warning" variant="soft">
+                      Direct invite
+                    </Chip>
+                  ) : null}
+                  {details.serverName ? (
+                    <Chip color="neutral" variant="outlined">
+                      {details.serverName}
+                    </Chip>
+                  ) : null}
                 </Stack>
-                <Typography level="h1" sx={{ fontSize: { xs: '2.25rem', md: '3.5rem' }, maxWidth: 720 }}>
+                <Typography
+                  level="h1"
+                  sx={{
+                    fontSize: { xs: '2.25rem', md: '3.5rem' },
+                    maxWidth: 720,
+                  }}
+                >
                   {buildInviteHeadline(details)}
                 </Typography>
-                <Typography level="body-lg" sx={{ color: 'neutral.200', maxWidth: 720 }}>
-                  {buildMemberCountCopy(details.memberCount, details.serverName)}
+                <Typography
+                  level="body-lg"
+                  sx={{ color: 'neutral.200', maxWidth: 720 }}
+                >
+                  {buildMemberCountCopy(
+                    details.memberCount,
+                    details.serverName,
+                  )}
                 </Typography>
               </Stack>
 
@@ -241,10 +279,14 @@ export function InviteLandingView() {
                   size="lg"
                   color="primary"
                   onClick={() => {
-                    window.location.assign(isAuthenticated ? '/play' : buildDiscordLoginUrl(cleanInviteUrl))
+                    window.location.assign(
+                      isAuthenticated
+                        ? '/play'
+                        : buildDiscordLoginUrl(cleanInviteUrl),
+                    )
                   }}
                 >
-                  {isAuthenticated ? 'Open Game\'s Up' : 'Continue with Discord'}
+                  {isAuthenticated ? "Open Game's Up" : 'Continue with Discord'}
                 </Button>
                 <Button
                   size="lg"
@@ -278,7 +320,8 @@ export function InviteLandingView() {
                       Post a call to play when you want people now or later.
                     </Typography>
                     <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
-                      Use Discord-connected discovery instead of broadcasting to everyone.
+                      Use Discord-connected discovery instead of broadcasting to
+                      everyone.
                     </Typography>
                   </Stack>
                 </Card>
@@ -294,7 +337,7 @@ export function InviteLandingView() {
                     <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
                       {details.serverName
                         ? `Shared through ${details.serverName}.`
-                        : 'Shared from a Game\'s Up Discord invite flow.'}
+                        : "Shared from a Game's Up Discord invite flow."}
                     </Typography>
                     <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
                       {sessionLoading

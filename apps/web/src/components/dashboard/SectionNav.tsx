@@ -6,11 +6,13 @@ import { useEffect, useRef, useState } from 'react'
 // md: 16 + 4 + 1 + 8 + 52 + 8 + 1 = 90px
 const sectionNavTop = {
   xs: 'calc(var(--app-top-inset, 0px) + 73px)',
-  md: 'calc(var(--app-top-inset, 0px) + 89px)'
+  md: 'calc(var(--app-top-inset, 0px) + 89px)',
 } as const
 
 function scrollToSection(id: string) {
-  document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  document
+    .getElementById(id)
+    ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
 
 export type SectionNavEntry = {
@@ -25,7 +27,7 @@ export type SectionNavEntry = {
 export function SectionNav({
   sections,
   mb = 3,
-  'aria-label': ariaLabel = 'Page sections'
+  'aria-label': ariaLabel = 'Page sections',
 }: {
   sections: SectionNavEntry[]
   mb?: number
@@ -64,7 +66,7 @@ export function SectionNav({
         zIndex: 19,
         mb,
         display: 'flex',
-        justifyContent: 'center'
+        justifyContent: 'center',
       }}
     >
       <Box
@@ -81,7 +83,7 @@ export function SectionNav({
           overflowY: 'hidden',
           scrollbarWidth: 'none',
           '&::-webkit-scrollbar': {
-            display: 'none'
+            display: 'none',
           },
           gap: 0,
           px: { xs: 2, sm: 2.5 },
@@ -94,71 +96,91 @@ export function SectionNav({
           borderTopRightRadius: topRadius,
           borderBottomLeftRadius: 'var(--joy-radius-xl, 16px)',
           borderBottomRightRadius: 'var(--joy-radius-xl, 16px)',
-          transition: 'border-top-left-radius 120ms ease, border-top-right-radius 120ms ease',
+          transition:
+            'border-top-left-radius 120ms ease, border-top-right-radius 120ms ease',
           backgroundColor: 'var(--gu-section-nav-background)',
           backdropFilter: 'var(--gu-section-nav-backdrop-filter)',
           WebkitBackdropFilter: 'var(--gu-section-nav-backdrop-filter)',
-          boxShadow: 'var(--gu-section-nav-shadow)'
+          boxShadow: 'var(--gu-section-nav-shadow)',
         }}
       >
-        {sections.map(({ id, label, mobileLabel, desktopLabel, ariaLabel, count }, i) => (
-          <Box key={id} sx={{ display: 'flex', alignItems: 'center' }}>
-            {i > 0 && (
-              <Box
-                component="span"
-                aria-hidden
-                sx={{ mx: 1.5, color: 'var(--gu-section-nav-separator)', userSelect: 'none', fontSize: 'sm' }}
-              >
-                ·
-              </Box>
-            )}
-            <Box
-              component="button"
-              aria-label={ariaLabel ?? label}
-              onClick={() => scrollToSection(id)}
-              sx={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 0.75,
-                border: 'none',
-                background: 'none',
-                padding: 0,
-                color: 'var(--gu-section-nav-text)',
-                fontSize: { xs: 'var(--joy-fontSize-sm)', sm: 'var(--joy-fontSize-md)' },
-                fontWeight: 'var(--joy-fontWeight-md)',
-                fontFamily: 'var(--joy-fontFamily-body)',
-                whiteSpace: 'nowrap',
-                cursor: 'pointer',
-                transition: 'color 150ms ease',
-                '&:hover': { color: 'var(--gu-section-nav-text-hover)' },
-                '&:focus-visible': {
-                  outline: '2px solid var(--gu-section-nav-focus-ring)',
-                  outlineOffset: 3,
-                  borderRadius: 2
-                }
-              }}
-            >
-              <Box component="span" sx={{ display: { xs: 'inline', sm: 'none' } }}>
-                {mobileLabel ?? label}
-              </Box>
-              <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
-                {desktopLabel ?? label}
-              </Box>
-              {count != null && count > 0 && (
+        {sections.map(
+          ({ id, label, mobileLabel, desktopLabel, ariaLabel, count }, i) => (
+            <Box key={id} sx={{ display: 'flex', alignItems: 'center' }}>
+              {i > 0 && (
                 <Box
                   component="span"
+                  aria-hidden
                   sx={{
-                    color: 'var(--gu-section-nav-count)',
-                    fontSize: { xs: 'var(--joy-fontSize-xs)', sm: 'var(--joy-fontSize-sm)' },
-                    fontWeight: 'var(--joy-fontWeight-md)'
+                    mx: 1.5,
+                    color: 'var(--gu-section-nav-separator)',
+                    userSelect: 'none',
+                    fontSize: 'sm',
                   }}
                 >
-                  {count}
+                  ·
                 </Box>
               )}
+              <Box
+                component="button"
+                aria-label={ariaLabel ?? label}
+                onClick={() => scrollToSection(id)}
+                sx={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 0.75,
+                  border: 'none',
+                  background: 'none',
+                  padding: 0,
+                  color: 'var(--gu-section-nav-text)',
+                  fontSize: {
+                    xs: 'var(--joy-fontSize-sm)',
+                    sm: 'var(--joy-fontSize-md)',
+                  },
+                  fontWeight: 'var(--joy-fontWeight-md)',
+                  fontFamily: 'var(--joy-fontFamily-body)',
+                  whiteSpace: 'nowrap',
+                  cursor: 'pointer',
+                  transition: 'color 150ms ease',
+                  '&:hover': { color: 'var(--gu-section-nav-text-hover)' },
+                  '&:focus-visible': {
+                    outline: '2px solid var(--gu-section-nav-focus-ring)',
+                    outlineOffset: 3,
+                    borderRadius: 2,
+                  },
+                }}
+              >
+                <Box
+                  component="span"
+                  sx={{ display: { xs: 'inline', sm: 'none' } }}
+                >
+                  {mobileLabel ?? label}
+                </Box>
+                <Box
+                  component="span"
+                  sx={{ display: { xs: 'none', sm: 'inline' } }}
+                >
+                  {desktopLabel ?? label}
+                </Box>
+                {count != null && count > 0 && (
+                  <Box
+                    component="span"
+                    sx={{
+                      color: 'var(--gu-section-nav-count)',
+                      fontSize: {
+                        xs: 'var(--joy-fontSize-xs)',
+                        sm: 'var(--joy-fontSize-sm)',
+                      },
+                      fontWeight: 'var(--joy-fontWeight-md)',
+                    }}
+                  >
+                    {count}
+                  </Box>
+                )}
+              </Box>
             </Box>
-          </Box>
-        ))}
+          ),
+        )}
       </Box>
     </Box>
   )

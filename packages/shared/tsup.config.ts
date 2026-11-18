@@ -14,7 +14,7 @@ export default defineConfig({
   clean: true,
   dts: {
     compilerOptions: {
-      ignoreDeprecations: '6.0'
-    }
-  }
+      ignoreDeprecations: '6.0',
+    },
+  },
 })

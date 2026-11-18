@@ -5,7 +5,10 @@ function resolvePlayIntentTimezoneId(timezoneId: string | null | undefined) {
   return normalizeTimezoneId(timezoneId) ?? 'Etc/UTC'
 }
 
-function findDateTimePartValue(parts: Intl.DateTimeFormatPart[], type: Intl.DateTimeFormatPartTypes) {
+function findDateTimePartValue(
+  parts: Intl.DateTimeFormatPart[],
+  type: Intl.DateTimeFormatPartTypes,
+) {
   return parts.find((part) => part.type === type)?.value ?? ''
 }
 
@@ -37,17 +40,24 @@ export function formatPlayIntentDurationLabel(durationMinutes: number) {
   return `${durationMinutes} minutes`
 }
 
-export function formatPlayIntentDateLabel(date: Date, timezoneId: string | null | undefined) {
+export function formatPlayIntentDateLabel(
+  date: Date,
+  timezoneId: string | null | undefined,
+) {
   const normalizedTimezoneId = resolvePlayIntentTimezoneId(timezoneId)
-  const parts = formatDateTimeToParts(date, {
-    timeZone: normalizedTimezoneId,
-    weekday: 'long',
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true
-  }, 'en-US') as Intl.DateTimeFormatPart[]
+  const parts = formatDateTimeToParts(
+    date,
+    {
+      timeZone: normalizedTimezoneId,
+      weekday: 'long',
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    },
+    'en-US',
+  ) as Intl.DateTimeFormatPart[]
 
   const weekday = findDateTimePartValue(parts, 'weekday')
   const month = findDateTimePartValue(parts, 'month')
@@ -57,19 +67,28 @@ export function formatPlayIntentDateLabel(date: Date, timezoneId: string | null 
   return `${weekday} ${month} ${formatOrdinalDay(day)} at ${timeLabel}`
 }
 
-export function formatPlayIntentTimeLabel(date: Date, timezoneId: string | null | undefined) {
+export function formatPlayIntentTimeLabel(
+  date: Date,
+  timezoneId: string | null | undefined,
+) {
   const normalizedTimezoneId = resolvePlayIntentTimezoneId(timezoneId)
-  const parts = formatDateTimeToParts(date, {
-    timeZone: normalizedTimezoneId,
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true
-  }, 'en-US') as Intl.DateTimeFormatPart[]
+  const parts = formatDateTimeToParts(
+    date,
+    {
+      timeZone: normalizedTimezoneId,
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    },
+    'en-US',
+  ) as Intl.DateTimeFormatPart[]
 
   const hour = findDateTimePartValue(parts, 'hour')
   const minute = findDateTimePartValue(parts, 'minute')
   const dayPeriod = findDateTimePartValue(parts, 'dayPeriod').toLowerCase()
-  return minute === '00' ? `${hour}${dayPeriod}` : `${hour}:${minute}${dayPeriod}`
+  return minute === '00'
+    ? `${hour}${dayPeriod}`
+    : `${hour}:${minute}${dayPeriod}`
 }
 
 /**
@@ -77,12 +96,19 @@ export function formatPlayIntentTimeLabel(date: Date, timezoneId: string | null 
  * text (not Discord `<t:…>` markup) because the log DM's content is shown raw
  * in Android push notifications.
  */
-export function formatPlayIntentLogTimestampLabel(date: Date, timezoneId: string | null | undefined) {
+export function formatPlayIntentLogTimestampLabel(
+  date: Date,
+  timezoneId: string | null | undefined,
+) {
   const normalizedTimezoneId = resolvePlayIntentTimezoneId(timezoneId)
-  const parts = formatDateTimeToParts(date, {
-    timeZone: normalizedTimezoneId,
-    weekday: 'short'
-  }, 'en-US') as Intl.DateTimeFormatPart[]
+  const parts = formatDateTimeToParts(
+    date,
+    {
+      timeZone: normalizedTimezoneId,
+      weekday: 'short',
+    },
+    'en-US',
+  ) as Intl.DateTimeFormatPart[]
 
   return `${findDateTimePartValue(parts, 'weekday')} ${formatPlayIntentTimeLabel(date, timezoneId)}`
 }
@@ -90,9 +116,12 @@ export function formatPlayIntentLogTimestampLabel(date: Date, timezoneId: string
 export function formatPlayIntentWindowLabel(
   startsAt: Date,
   endsAt: Date,
-  timezoneId: string | null | undefined
+  timezoneId: string | null | undefined,
 ) {
-  const durationMinutes = Math.max(1, Math.round((endsAt.getTime() - startsAt.getTime()) / (60 * 1000)))
+  const durationMinutes = Math.max(
+    1,
+    Math.round((endsAt.getTime() - startsAt.getTime()) / (60 * 1000)),
+  )
 
   return `${formatPlayIntentDateLabel(startsAt, timezoneId)}, for ${formatPlayIntentDurationLabel(durationMinutes)}`
 }

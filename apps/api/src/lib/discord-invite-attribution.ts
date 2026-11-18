@@ -8,17 +8,20 @@
  * credit the inviter.
  */
 
-import { AuthProvider as PrismaAuthProvider, DiscordInviteAttributionKind } from '@prisma/client'
+import {
+  AuthProvider as PrismaAuthProvider,
+  DiscordInviteAttributionKind,
+} from '@prisma/client'
 import { env } from './env.js'
 import { prisma } from './prisma.js'
 
 type ParsedDiscordInviteAttribution = {
-  serverId: string | null;
-  serverName: string | null;
-  inviterDiscordUserId: string | null;
-  inviterLabel: string | null;
-  memberCount: number | null;
-  kind: DiscordInviteAttributionKind;
+  serverId: string | null
+  serverName: string | null
+  inviterDiscordUserId: string | null
+  inviterLabel: string | null
+  memberCount: number | null
+  kind: DiscordInviteAttributionKind
 }
 
 const inviteAttributionDedupWindowMs = 24 * 60 * 60 * 1000
@@ -35,29 +38,35 @@ function parseMemberCount(rawValue: string | null) {
 
   const parsed = Number(rawValue)
 
-  return Number.isFinite(parsed) && parsed >= 0
-    ? Math.floor(parsed)
-    : null
+  return Number.isFinite(parsed) && parsed >= 0 ? Math.floor(parsed) : null
 }
 
-export function parseDiscordInviteAttributionFromRedirectTarget(redirectTarget: string): ParsedDiscordInviteAttribution | null {
+export function parseDiscordInviteAttributionFromRedirectTarget(
+  redirectTarget: string,
+): ParsedDiscordInviteAttribution | null {
   try {
     const redirectUrl = new URL(redirectTarget)
     const clientOrigin = new URL(env.CLIENT_ORIGIN)
 
-    if (redirectUrl.origin !== clientOrigin.origin || redirectUrl.pathname !== '/invite') {
+    if (
+      redirectUrl.origin !== clientOrigin.origin ||
+      redirectUrl.pathname !== '/invite'
+    ) {
       return null
     }
 
     return {
       serverId: normalizeString(redirectUrl.searchParams.get('serverId')),
       serverName: normalizeString(redirectUrl.searchParams.get('server')),
-      inviterDiscordUserId: normalizeString(redirectUrl.searchParams.get('inviterDiscordId')),
+      inviterDiscordUserId: normalizeString(
+        redirectUrl.searchParams.get('inviterDiscordId'),
+      ),
       inviterLabel: normalizeString(redirectUrl.searchParams.get('inviter')),
       memberCount: parseMemberCount(redirectUrl.searchParams.get('members')),
-      kind: redirectUrl.searchParams.get('kind') === 'direct'
-        ? DiscordInviteAttributionKind.DIRECT
-        : DiscordInviteAttributionKind.SERVER
+      kind:
+        redirectUrl.searchParams.get('kind') === 'direct'
+          ? DiscordInviteAttributionKind.DIRECT
+          : DiscordInviteAttributionKind.SERVER,
     }
   } catch {
     return null
@@ -65,17 +74,27 @@ export function parseDiscordInviteAttributionFromRedirectTarget(redirectTarget: 
 }
 
 export async function recordDiscordInviteAttribution(options: {
-  acceptedUserId: string;
-  acceptedDiscordUserId: string;
-  redirectTarget: string;
+  acceptedUserId: string
+  acceptedDiscordUserId: string
+  redirectTarget: string
 }) {
-  const parsed = parseDiscordInviteAttributionFromRedirectTarget(options.redirectTarget)
+  const parsed = parseDiscordInviteAttributionFromRedirectTarget(
+    options.redirectTarget,
+  )
 
-  if (!parsed || (parsed.serverId == null && parsed.inviterDiscordUserId == null && parsed.inviterLabel == null)) {
+  if (
+    !parsed ||
+    (parsed.serverId == null &&
+      parsed.inviterDiscordUserId == null &&
+      parsed.inviterLabel == null)
+  ) {
     return null
   }
 
-  if (parsed.inviterDiscordUserId && parsed.inviterDiscordUserId === options.acceptedDiscordUserId) {
+  if (
+    parsed.inviterDiscordUserId &&
+    parsed.inviterDiscordUserId === options.acceptedDiscordUserId
+  ) {
     return null
   }
 
@@ -85,12 +104,12 @@ export async function recordDiscordInviteAttribution(options: {
           where: {
             provider_providerUserId: {
               provider: PrismaAuthProvider.DISCORD,
-              providerUserId: parsed.inviterDiscordUserId
-            }
+              providerUserId: parsed.inviterDiscordUserId,
+            },
           },
           select: {
-            userId: true
-          }
+            userId: true,
+          },
         })
       : Promise.resolve(null),
     prisma.discordInviteAttribution.findFirst({
@@ -100,16 +119,16 @@ export async function recordDiscordInviteAttribution(options: {
         serverId: parsed.serverId,
         kind: parsed.kind,
         acceptedAt: {
-          gte: new Date(Date.now() - inviteAttributionDedupWindowMs)
-        }
+          gte: new Date(Date.now() - inviteAttributionDedupWindowMs),
+        },
       },
       select: {
-        id: true
+        id: true,
       },
       orderBy: {
-        acceptedAt: 'desc'
-      }
-    })
+        acceptedAt: 'desc',
+      },
+    }),
   ])
 
   if (existingRecentAttribution) {
@@ -119,15 +138,15 @@ export async function recordDiscordInviteAttribution(options: {
   if (parsed.serverId && parsed.serverName) {
     await prisma.discordServer.upsert({
       where: {
-        id: parsed.serverId
+        id: parsed.serverId,
       },
       update: {
-        name: parsed.serverName
+        name: parsed.serverName,
       },
       create: {
         id: parsed.serverId,
-        name: parsed.serverName
-      }
+        name: parsed.serverName,
+      },
     })
   }
 
@@ -140,11 +159,11 @@ export async function recordDiscordInviteAttribution(options: {
       serverId: parsed.serverId,
       serverName: parsed.serverName,
       hintedMemberCount: parsed.memberCount,
-      kind: parsed.kind
+      kind: parsed.kind,
     },
     select: {
-      id: true
-    }
+      id: true,
+    },
   })
 
   return created.id
@@ -153,20 +172,20 @@ export async function recordDiscordInviteAttribution(options: {
 export async function getLatestDiscordInviteAttribution(userId: string) {
   const attribution = await prisma.discordInviteAttribution.findFirst({
     where: {
-      acceptedUserId: userId
+      acceptedUserId: userId,
     },
     include: {
       inviterUser: {
         select: {
           id: true,
           displayName: true,
-          handle: true
-        }
-      }
+          handle: true,
+        },
+      },
     },
     orderBy: {
-      acceptedAt: 'desc'
-    }
+      acceptedAt: 'desc',
+    },
   })
 
   if (!attribution) {
@@ -182,7 +201,10 @@ export async function getLatestDiscordInviteAttribution(userId: string) {
     serverId: attribution.serverId,
     serverName: attribution.serverName,
     memberCount: attribution.hintedMemberCount,
-    kind: attribution.kind === DiscordInviteAttributionKind.DIRECT ? 'direct' : 'server',
-    acceptedAt: attribution.acceptedAt.toISOString()
+    kind:
+      attribution.kind === DiscordInviteAttributionKind.DIRECT
+        ? 'direct'
+        : 'server',
+    acceptedAt: attribution.acceptedAt.toISOString(),
   }
 }

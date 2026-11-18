@@ -36,9 +36,15 @@ const GOLD = '#F7B733'
 const WHITE = '#FFFFFF'
 
 const fontBuf = fs.readFileSync(fontPath)
-const font = opentype.parse(fontBuf.buffer.slice(fontBuf.byteOffset, fontBuf.byteOffset + fontBuf.byteLength))
+const font = opentype.parse(
+  fontBuf.buffer.slice(
+    fontBuf.byteOffset,
+    fontBuf.byteOffset + fontBuf.byteLength,
+  ),
+)
 const unitsPerEm = font.unitsPerEm
-const capHeightEm = (font.tables.os2?.sCapHeight ?? 0.71 * unitsPerEm) / unitsPerEm
+const capHeightEm =
+  (font.tables.os2?.sCapHeight ?? 0.71 * unitsPerEm) / unitsPerEm
 
 const advance = (text, size) => font.getAdvanceWidth(text, size)
 const fitSize = (text, targetWidth) => targetWidth / (advance(text, 100) / 100)
@@ -49,15 +55,23 @@ function outlinedText(text, startX, baselineY, size, fill) {
 }
 
 function centeredText(text, centerX, baselineY, size, fill) {
-  return outlinedText(text, centerX - advance(text, size) / 2, baselineY, size, fill)
+  return outlinedText(
+    text,
+    centerX - advance(text, size) / 2,
+    baselineY,
+    size,
+    fill,
+  )
 }
 
 /** "UP" in one color plus "!" in another, centered as a single run. */
 function upBangRun(centerX, baselineY, size, upFill, bangFill) {
   const upWidth = advance('UP', size)
   const startX = centerX - (upWidth + advance('!', size)) / 2
-  return outlinedText('UP', startX, baselineY, size, upFill)
-    + outlinedText('!', startX + upWidth, baselineY, size, bangFill)
+  return (
+    outlinedText('UP', startX, baselineY, size, upFill) +
+    outlinedText('!', startX + upWidth, baselineY, size, bangFill)
+  )
 }
 
 // App icon ("Gold Up"): gold outline bubble, white GAME'S, gold UP, white bang.
@@ -104,13 +118,14 @@ const botSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <circle cx="256" cy="316" r="34" fill="${INK}"/>
 </svg>`
 
-const renderPng = (svg, px) => new Resvg(svg, { fitTo: { mode: 'width', value: px } }).render().asPng()
+const renderPng = (svg, px) =>
+  new Resvg(svg, { fitTo: { mode: 'width', value: px } }).render().asPng()
 
 const outputs = [
   ['icon-wordmark-gold-bubble.svg', appSvg, [1024, 512, 192]],
   ['icon-wordmark-gold-bubble-maskable.svg', maskableSvg, [512, 192]],
   ['icon-up-bang.svg', faviconSvg, [64]],
-  ['icon-gold-ping-bot.svg', botSvg, [1024, 512]]
+  ['icon-gold-ping-bot.svg', botSvg, [1024, 512]],
 ]
 
 for (const [svgName, svg, pngSizes] of outputs) {

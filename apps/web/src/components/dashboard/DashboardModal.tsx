@@ -5,8 +5,8 @@ import { Modal, ModalClose, ModalDialog } from '@mui/joy'
 const dialogHistoryStackStateKey = '__gameIsUpDialogStack'
 
 type ActiveDialogEntry = {
-  token: string;
-  requestClose: () => void;
+  token: string
+  requestClose: () => void
 }
 
 let dialogHistoryTokenCounter = 0
@@ -21,7 +21,9 @@ function createDialogHistoryToken() {
 }
 
 function isStringArray(value: unknown): value is string[] {
-  return Array.isArray(value) && value.every((entry) => typeof entry === 'string')
+  return (
+    Array.isArray(value) && value.every((entry) => typeof entry === 'string')
+  )
 }
 
 function readDialogHistoryStack(state: unknown): string[] {
@@ -35,13 +37,14 @@ function readDialogHistoryStack(state: unknown): string[] {
 
 function buildDialogHistoryState(stack: string[]) {
   const currentState = window.history.state
-  const baseState = currentState != null && typeof currentState === 'object'
-    ? currentState as Record<string, unknown>
-    : {}
+  const baseState =
+    currentState != null && typeof currentState === 'object'
+      ? (currentState as Record<string, unknown>)
+      : {}
 
   return {
     ...baseState,
-    [dialogHistoryStackStateKey]: stack
+    [dialogHistoryStackStateKey]: stack,
   }
 }
 
@@ -50,11 +53,17 @@ function getActiveDialogStack() {
 }
 
 function areDialogStacksEqual(left: string[], right: string[]) {
-  return left.length === right.length && left.every((entry, index) => entry === right[index])
+  return (
+    left.length === right.length &&
+    left.every((entry, index) => entry === right[index])
+  )
 }
 
 function isDialogStackPrefix(prefix: string[], full: string[]) {
-  return prefix.length <= full.length && prefix.every((entry, index) => entry === full[index])
+  return (
+    prefix.length <= full.length &&
+    prefix.every((entry, index) => entry === full[index])
+  )
 }
 
 function isTopHistoryDialog(token: string) {
@@ -63,11 +72,16 @@ function isTopHistoryDialog(token: string) {
 }
 
 function replaceCurrentDialogHistoryWithActiveStack() {
-  window.history.replaceState(buildDialogHistoryState(getActiveDialogStack()), document.title)
+  window.history.replaceState(
+    buildDialogHistoryState(getActiveDialogStack()),
+    document.title,
+  )
 }
 
 function registerActiveDialog(token: string, requestClose: () => void) {
-  const existingEntry = activeDialogEntries.find((entry) => entry.token === token)
+  const existingEntry = activeDialogEntries.find(
+    (entry) => entry.token === token,
+  )
 
   if (existingEntry) {
     existingEntry.requestClose = requestClose
@@ -79,7 +93,9 @@ function registerActiveDialog(token: string, requestClose: () => void) {
 }
 
 function unregisterActiveDialog(token: string) {
-  const entryIndex = activeDialogEntries.findIndex((entry) => entry.token === token)
+  const entryIndex = activeDialogEntries.findIndex(
+    (entry) => entry.token === token,
+  )
 
   if (entryIndex === -1) {
     return false
@@ -108,7 +124,9 @@ function handleDialogHistoryPopState(event: PopStateEvent) {
     return
   }
 
-  const isStaleDialogEntry = nextStack.some((token) => dismissedDialogTokens.has(token)) || !isDialogStackPrefix(currentStack, nextStack)
+  const isStaleDialogEntry =
+    nextStack.some((token) => dismissedDialogTokens.has(token)) ||
+    !isDialogStackPrefix(currentStack, nextStack)
 
   if (!isStaleDialogEntry) {
     return
@@ -136,12 +154,12 @@ export function DashboardModal({
   open,
   onClose,
   width,
-  children
+  children,
 }: {
-  open: boolean;
-  onClose: () => void;
-  width: string;
-  children: ReactNode;
+  open: boolean
+  onClose: () => void
+  width: string
+  children: ReactNode
 }) {
   const previousOpenRef = useRef(open)
   const onCloseRef = useRef(onClose)
@@ -149,17 +167,25 @@ export function DashboardModal({
 
   onCloseRef.current = onClose
 
-  const syncClosedDialog = useCallback((token: string, closeViaHistory: boolean) => {
-    const closedFromHistory = closingDialogTokensFromHistory.delete(token)
+  const syncClosedDialog = useCallback(
+    (token: string, closeViaHistory: boolean) => {
+      const closedFromHistory = closingDialogTokensFromHistory.delete(token)
 
-    dismissedDialogTokens.add(token)
-    unregisterActiveDialog(token)
-    dialogTokenRef.current = null
+      dismissedDialogTokens.add(token)
+      unregisterActiveDialog(token)
+      dialogTokenRef.current = null
 
-    if (!closedFromHistory && closeViaHistory && isTopHistoryDialog(token) && window.history.length > 1) {
-      window.history.back()
-    }
-  }, [])
+      if (
+        !closedFromHistory &&
+        closeViaHistory &&
+        isTopHistoryDialog(token) &&
+        window.history.length > 1
+      ) {
+        window.history.back()
+      }
+    },
+    [],
+  )
 
   useEffect(() => {
     if (!open) {
@@ -171,10 +197,15 @@ export function DashboardModal({
     const dialogToken = dialogTokenRef.current ?? createDialogHistoryToken()
     dialogTokenRef.current = dialogToken
 
-    const didRegister = registerActiveDialog(dialogToken, () => onCloseRef.current())
+    const didRegister = registerActiveDialog(dialogToken, () =>
+      onCloseRef.current(),
+    )
 
     if (didRegister) {
-      window.history.pushState(buildDialogHistoryState(getActiveDialogStack()), document.title)
+      window.history.pushState(
+        buildDialogHistoryState(getActiveDialogStack()),
+        document.title,
+      )
     }
   }, [open])
 
@@ -237,7 +268,7 @@ export function DashboardModal({
           overflow: 'hidden',
           backgroundColor: 'var(--gu-modal-dialog-background)',
           borderColor: 'var(--gu-modal-dialog-border)',
-          boxShadow: 'none'
+          boxShadow: 'none',
         }}
       >
         <ModalClose sx={{ zIndex: 1 }} />

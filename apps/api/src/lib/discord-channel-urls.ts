@@ -1,4 +1,7 @@
-export function buildDiscordChannelUrl(serverId: string, channelId: string | null | undefined) {
+export function buildDiscordChannelUrl(
+  serverId: string,
+  channelId: string | null | undefined,
+) {
   if (!channelId) {
     return null
   }

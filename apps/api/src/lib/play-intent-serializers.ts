@@ -6,18 +6,31 @@
  * actually entitled to see.
  */
 
-import { PlayIntentDiscordSpaceStatus, PlayIntentScope, PlayIntentSelectionMode } from '@prisma/client'
+import {
+  PlayIntentDiscordSpaceStatus,
+  PlayIntentScope,
+  PlayIntentSelectionMode,
+} from '@prisma/client'
 import { buildDiscordChannelUrl } from './discord-channel-urls.js'
 import { buildDiscordServerIconUrl } from './discord-servers.js'
 import { toClientAvatarUrl } from './game-media.js'
 
-export function toSelectionMode(selectionMode: PlayIntentSelectionMode): 'library' | 'subset' {
-  return selectionMode === PlayIntentSelectionMode.ENTIRE_LIBRARY ? 'library' : 'subset'
+export function toSelectionMode(
+  selectionMode: PlayIntentSelectionMode,
+): 'library' | 'subset' {
+  return selectionMode === PlayIntentSelectionMode.ENTIRE_LIBRARY
+    ? 'library'
+    : 'subset'
 }
 
 export function toNotifyScope(
-  scope: PlayIntentScope
-): 'friends-only' | 'network' | 'specific-friends' | 'friends-list' | 'specific-discord-server' {
+  scope: PlayIntentScope,
+):
+  | 'friends-only'
+  | 'network'
+  | 'specific-friends'
+  | 'friends-list'
+  | 'specific-discord-server' {
   switch (scope) {
     case PlayIntentScope.SPECIFIC_DISCORD_SERVER:
       return 'specific-discord-server'
@@ -32,20 +45,30 @@ export function toNotifyScope(
   }
 }
 
-export function formatAvailabilityLabel(displayName: string, startsAt: Date, now: Date) {
+export function formatAvailabilityLabel(
+  displayName: string,
+  startsAt: Date,
+  now: Date,
+) {
   return startsAt.getTime() > now.getTime() + 60 * 1000
     ? `${displayName} is scheduled for ${startsAt.toLocaleString([], {
         month: 'short',
         day: 'numeric',
         hour: 'numeric',
-        minute: '2-digit'
+        minute: '2-digit',
       })}`
     : `${displayName} is available now`
 }
 
-type TargetDiscordServerInput = { id: string; name: string; iconHash: string | null } | null
+type TargetDiscordServerInput = {
+  id: string
+  name: string
+  iconHash: string | null
+} | null
 
-export function serializeTargetDiscordServer(targetDiscordServer: TargetDiscordServerInput) {
+export function serializeTargetDiscordServer(
+  targetDiscordServer: TargetDiscordServerInput,
+) {
   if (!targetDiscordServer) {
     return null
   }
@@ -53,18 +76,29 @@ export function serializeTargetDiscordServer(targetDiscordServer: TargetDiscordS
   return {
     id: targetDiscordServer.id,
     name: targetDiscordServer.name,
-    iconUrl: toClientAvatarUrl(buildDiscordServerIconUrl(targetDiscordServer.id, targetDiscordServer.iconHash))
+    iconUrl: toClientAvatarUrl(
+      buildDiscordServerIconUrl(
+        targetDiscordServer.id,
+        targetDiscordServer.iconHash,
+      ),
+    ),
   }
 }
 
-export type SerializedTargetDiscordServer = NonNullable<ReturnType<typeof serializeTargetDiscordServer>>
+export type SerializedTargetDiscordServer = NonNullable<
+  ReturnType<typeof serializeTargetDiscordServer>
+>
 
 export function serializeTargetDiscordServers(
-  targetDiscordServers: Array<{ server: { id: string; name: string; iconHash: string | null } }>
+  targetDiscordServers: Array<{
+    server: { id: string; name: string; iconHash: string | null }
+  }>,
 ): SerializedTargetDiscordServer[] {
   return targetDiscordServers
     .map((entry) => serializeTargetDiscordServer(entry.server))
-    .filter((server): server is SerializedTargetDiscordServer => server !== null)
+    .filter(
+      (server): server is SerializedTargetDiscordServer => server !== null,
+    )
 }
 
 export function toDiscordSpaceStatus(status: PlayIntentDiscordSpaceStatus) {
@@ -87,33 +121,33 @@ export function toDiscordSpaceStatus(status: PlayIntentDiscordSpaceStatus) {
 }
 
 export type DiscordSpaceSummaryInput = {
-  serverId: string;
-  status: PlayIntentDiscordSpaceStatus;
-  categoryChannelName: string | null;
-  textChannelId: string | null;
-  textChannelName: string | null;
-  voiceChannelId: string | null;
-  voiceChannelName: string | null;
-  inviteUrl: string | null;
-  deleteAfter: Date | null;
-  lastSyncError: string | null;
+  serverId: string
+  status: PlayIntentDiscordSpaceStatus
+  categoryChannelName: string | null
+  textChannelId: string | null
+  textChannelName: string | null
+  voiceChannelId: string | null
+  voiceChannelName: string | null
+  inviteUrl: string | null
+  deleteAfter: Date | null
+  lastSyncError: string | null
 }
 
 export type SerializedDiscordSpaceSummary = {
-  status: ReturnType<typeof toDiscordSpaceStatus>;
-  serverId: string;
-  categoryChannelName: string | null;
-  textChannelName: string | null;
-  textChannelUrl: string | null;
-  voiceChannelName: string | null;
-  voiceChannelUrl: string | null;
-  inviteUrl: string | null;
-  deleteAfter: string | null;
-  lastSyncError: string | null;
+  status: ReturnType<typeof toDiscordSpaceStatus>
+  serverId: string
+  categoryChannelName: string | null
+  textChannelName: string | null
+  textChannelUrl: string | null
+  voiceChannelName: string | null
+  voiceChannelUrl: string | null
+  inviteUrl: string | null
+  deleteAfter: string | null
+  lastSyncError: string | null
 }
 
 export function serializeDiscordSpaceSummary(
-  space: DiscordSpaceSummaryInput | null
+  space: DiscordSpaceSummaryInput | null,
 ): SerializedDiscordSpaceSummary | null {
   if (!space) {
     return null
@@ -126,21 +160,24 @@ export function serializeDiscordSpaceSummary(
     textChannelName: space.textChannelName,
     textChannelUrl: buildDiscordChannelUrl(space.serverId, space.textChannelId),
     voiceChannelName: space.voiceChannelName,
-    voiceChannelUrl: buildDiscordChannelUrl(space.serverId, space.voiceChannelId),
+    voiceChannelUrl: buildDiscordChannelUrl(
+      space.serverId,
+      space.voiceChannelId,
+    ),
     inviteUrl: space.inviteUrl,
     deleteAfter: space.deleteAfter?.toISOString() ?? null,
-    lastSyncError: space.lastSyncError
+    lastSyncError: space.lastSyncError,
   }
 }
 
 type AudienceVisibilityArgs = {
-  isOwnIntent: boolean;
-  hasDirectNotification?: boolean;
-  scope: PlayIntentScope;
-  isExplicitFriend: boolean;
-  isInDiscoveryAudience: boolean;
-  isTargetedFriend: boolean;
-  isTargetedServer: boolean;
+  isOwnIntent: boolean
+  hasDirectNotification?: boolean
+  scope: PlayIntentScope
+  isExplicitFriend: boolean
+  isInDiscoveryAudience: boolean
+  isTargetedFriend: boolean
+  isTargetedServer: boolean
 }
 
 export function isViewerIncludedByPlayIntentAudience({
@@ -150,7 +187,7 @@ export function isViewerIncludedByPlayIntentAudience({
   isExplicitFriend,
   isInDiscoveryAudience,
   isTargetedFriend,
-  isTargetedServer
+  isTargetedServer,
 }: AudienceVisibilityArgs) {
   if (isOwnIntent || hasDirectNotification) {
     return true
@@ -176,7 +213,7 @@ export function isPlayIntentVisibleToViewer({
   isExplicitFriend,
   isInDiscoveryAudience,
   isTargetedFriend,
-  isTargetedServer
+  isTargetedServer,
 }: AudienceVisibilityArgs) {
   if (isOwnIntent || hasDirectNotification) {
     return true

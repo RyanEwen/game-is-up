@@ -12,10 +12,13 @@ loadEnv()
 const parsed = serverEnvSchema.safeParse(process.env)
 
 if (!parsed.success) {
-  console.error('Invalid server environment', parsed.error.flatten().fieldErrors)
+  console.error(
+    'Invalid server environment',
+    parsed.error.flatten().fieldErrors,
+  )
   process.exit(1)
 }
 
 export const env = {
-  ...parsed.data
+  ...parsed.data,
 }

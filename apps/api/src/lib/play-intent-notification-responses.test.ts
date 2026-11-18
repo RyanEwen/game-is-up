@@ -7,10 +7,13 @@ import type { APIEmbed } from 'discord.js'
 import {
   buildCreatorPlayIntentSummaryPreview,
   buildNotificationDirectMessagePreview,
-  buildPlayIntentNotificationPromptPreview
+  buildPlayIntentNotificationPromptPreview,
 } from './play-intent-notification-responses.js'
 
-for (const responseChoice of [NotificationResponseChoice.JOIN, NotificationResponseChoice.DECLINE] as const) {
+for (const responseChoice of [
+  NotificationResponseChoice.JOIN,
+  NotificationResponseChoice.DECLINE,
+] as const) {
   test(`audience notification summaries keep the voice channel field after ${responseChoice.toLowerCase()}`, () => {
     const preview = buildNotificationDirectMessagePreview({
       notificationId: 'notification-1',
@@ -26,7 +29,7 @@ for (const responseChoice of [NotificationResponseChoice.JOIN, NotificationRespo
       voiceChannel: {
         channelId: null,
         channelName: 'ryan-friday-night-helldivers-abcdef',
-        recipientSharesServer: true
+        recipientSharesServer: true,
       },
       discordSpace: {
         status: 'active',
@@ -35,30 +38,42 @@ for (const responseChoice of [NotificationResponseChoice.JOIN, NotificationRespo
         textChannelUrl: 'https://discord.com/channels/1/2',
         voiceChannelName: 'ryan-friday-night-helldivers-abcdef',
         voiceChannelUrl: 'https://discord.com/channels/1/3',
-        inviteUrl: 'https://discord.gg/test-invite'
+        inviteUrl: 'https://discord.gg/test-invite',
       },
       intentDetails: {
         headline: 'Friday Night Helldivers',
         selectionMode: 'library',
         selectedGameTitles: ['Helldivers 2'],
         scope: 'FRIENDS_ONLY',
-        note: null
-      }
+        note: null,
+      },
     })
 
     assert.ok(preview.embeds)
 
     const firstEmbed = preview.embeds[0]
-    const embedJson = (firstEmbed && typeof firstEmbed === 'object' && 'toJSON' in firstEmbed && typeof firstEmbed.toJSON === 'function'
+    const embedJson = (firstEmbed &&
+    typeof firstEmbed === 'object' &&
+    'toJSON' in firstEmbed &&
+    typeof firstEmbed.toJSON === 'function'
       ? firstEmbed.toJSON()
       : firstEmbed) as unknown as APIEmbed | undefined
-    const voiceChannelField = embedJson?.fields?.find((field: { name: string; value: string }) => field.name === '🎙 Voice Channel')
+    const voiceChannelField = embedJson?.fields?.find(
+      (field: { name: string; value: string }) =>
+        field.name === '🎙 Voice Channel',
+    )
 
     assert.ok(voiceChannelField)
     assert.match(voiceChannelField?.value ?? '', /Status: Active/)
     assert.match(voiceChannelField?.value ?? '', /Text channel:/)
-    assert.match(voiceChannelField?.value ?? '', /Voice channel: .*ryan-friday-night-helldivers-abcdef/)
-    assert.match(voiceChannelField?.value ?? '', /https:\/\/discord\.gg\/test-invite/)
+    assert.match(
+      voiceChannelField?.value ?? '',
+      /Voice channel: .*ryan-friday-night-helldivers-abcdef/,
+    )
+    assert.match(
+      voiceChannelField?.value ?? '',
+      /https:\/\/discord\.gg\/test-invite/,
+    )
   })
 }
 
@@ -77,8 +92,8 @@ test('audience invite summaries keep the temporary Discord invite URL out of the
       textChannelUrl: 'https://discord.com/channels/1/2',
       voiceChannelName: 'ryan-friday-night-helldivers-abcdef',
       voiceChannelUrl: 'https://discord.com/channels/1/3',
-      inviteUrl: 'https://discord.gg/test-invite'
-    }
+      inviteUrl: 'https://discord.gg/test-invite',
+    },
   })
 
   assert.doesNotMatch(preview.content, /https:\/\/discord\.gg\/test-invite/)
@@ -97,7 +112,7 @@ test('creator summary DMs keep the temporary Discord invite URL out of the summa
     voiceChannelName: null,
     user: {
       displayName: 'Ryan',
-      timezoneId: 'UTC'
+      timezoneId: 'UTC',
     },
     targetDiscordServers: [],
     targetFriends: [],
@@ -110,9 +125,9 @@ test('creator summary DMs keep the temporary Discord invite URL out of the summa
       voiceChannelName: 'ryan-friday-night-helldivers-abcdef',
       voiceChannelUrl: 'https://discord.com/channels/1/3',
       inviteUrl: 'https://discord.gg/test-invite',
-      deleteAfter: null
+      deleteAfter: null,
     },
-    currentTime: new Date('2026-04-25T19:30:00.000Z')
+    currentTime: new Date('2026-04-25T19:30:00.000Z'),
   })
 
   assert.doesNotMatch(preview.content, /https:\/\/discord\.gg\/test-invite/)
@@ -120,16 +135,25 @@ test('creator summary DMs keep the temporary Discord invite URL out of the summa
   assert.ok(preview.embeds)
 
   const firstEmbed = preview.embeds[0]
-  const embedJson = (firstEmbed && typeof firstEmbed === 'object' && 'toJSON' in firstEmbed && typeof firstEmbed.toJSON === 'function'
+  const embedJson = (firstEmbed &&
+  typeof firstEmbed === 'object' &&
+  'toJSON' in firstEmbed &&
+  typeof firstEmbed.toJSON === 'function'
     ? firstEmbed.toJSON()
     : firstEmbed) as unknown as APIEmbed | undefined
-  const voiceChannelField = embedJson?.fields?.find((field: { name: string; value: string }) => field.name === '🎙 Voice Channel')
+  const voiceChannelField = embedJson?.fields?.find(
+    (field: { name: string; value: string }) =>
+      field.name === '🎙 Voice Channel',
+  )
 
   assert.ok(voiceChannelField)
   assert.match(voiceChannelField?.value ?? '', /Status: Active/)
   assert.match(voiceChannelField?.value ?? '', /Text channel:/)
   assert.match(voiceChannelField?.value ?? '', /Voice channel:/)
-  assert.match(voiceChannelField?.value ?? '', /https:\/\/discord\.gg\/test-invite/)
+  assert.match(
+    voiceChannelField?.value ?? '',
+    /https:\/\/discord\.gg\/test-invite/,
+  )
 })
 
 test('the joined acknowledgement DM no longer repeats the voice channel line', () => {
@@ -149,9 +173,9 @@ test('the joined acknowledgement DM no longer repeats the voice channel line', (
       textChannelUrl: 'https://discord.com/channels/1/2',
       voiceChannelName: 'ryan-friday-night-helldivers-abcdef',
       voiceChannelUrl: 'https://discord.com/channels/1/3',
-      inviteUrl: 'https://discord.gg/test-invite'
+      inviteUrl: 'https://discord.gg/test-invite',
     },
-    renderSurface: 'response'
+    renderSurface: 'response',
   })
 
   assert.doesNotMatch(preview.content, /Voice channel:/)
@@ -176,25 +200,46 @@ test('non-member audience notification summaries keep temporary Discord channels
       textChannelUrl: 'https://discord.com/channels/1/2',
       voiceChannelName: 'ryan-friday-night-helldivers-abcdef',
       voiceChannelUrl: 'https://discord.com/channels/1/3',
-      inviteUrl: 'https://discord.gg/test-invite'
-    }
+      inviteUrl: 'https://discord.gg/test-invite',
+    },
   })
 
   assert.ok(preview.embeds)
 
   const firstEmbed = preview.embeds[0]
-  const embedJson = (firstEmbed && typeof firstEmbed === 'object' && 'toJSON' in firstEmbed && typeof firstEmbed.toJSON === 'function'
+  const embedJson = (firstEmbed &&
+  typeof firstEmbed === 'object' &&
+  'toJSON' in firstEmbed &&
+  typeof firstEmbed.toJSON === 'function'
     ? firstEmbed.toJSON()
     : firstEmbed) as unknown as APIEmbed | undefined
-  const voiceChannelField = embedJson?.fields?.find((field: { name: string; value: string }) => field.name === '🎙 Voice Channel')
+  const voiceChannelField = embedJson?.fields?.find(
+    (field: { name: string; value: string }) =>
+      field.name === '🎙 Voice Channel',
+  )
 
   assert.ok(voiceChannelField)
-  assert.match(voiceChannelField?.value ?? '', /Temporary Discord channel: This call uses a temporary Discord channel\. Use the invite to access it\./)
-  assert.match(voiceChannelField?.value ?? '', /https:\/\/discord\.gg\/test-invite/)
+  assert.match(
+    voiceChannelField?.value ?? '',
+    /Temporary Discord channel: This call uses a temporary Discord channel\. Use the invite to access it\./,
+  )
+  assert.match(
+    voiceChannelField?.value ?? '',
+    /https:\/\/discord\.gg\/test-invite/,
+  )
   assert.match(voiceChannelField?.value ?? '', /Text channel: general/)
-  assert.match(voiceChannelField?.value ?? '', /Voice channel: ryan-friday-night-helldivers-abcdef/)
-  assert.doesNotMatch(voiceChannelField?.value ?? '', /Text channel: https:\/\/discord\.com\/channels\/1\/2/)
-  assert.doesNotMatch(voiceChannelField?.value ?? '', /Voice channel: https:\/\/discord\.com\/channels\/1\/3/)
+  assert.match(
+    voiceChannelField?.value ?? '',
+    /Voice channel: ryan-friday-night-helldivers-abcdef/,
+  )
+  assert.doesNotMatch(
+    voiceChannelField?.value ?? '',
+    /Text channel: https:\/\/discord\.com\/channels\/1\/2/,
+  )
+  assert.doesNotMatch(
+    voiceChannelField?.value ?? '',
+    /Voice channel: https:\/\/discord\.com\/channels\/1\/3/,
+  )
 })
 
 test('non-member join acknowledgements point recipients to the invite instead of channel links', () => {
@@ -214,17 +259,32 @@ test('non-member join acknowledgements point recipients to the invite instead of
       textChannelUrl: 'https://discord.com/channels/1/2',
       voiceChannelName: 'ryan-friday-night-helldivers-abcdef',
       voiceChannelUrl: 'https://discord.com/channels/1/3',
-      inviteUrl: 'https://discord.gg/test-invite'
+      inviteUrl: 'https://discord.gg/test-invite',
     },
-    renderSurface: 'response'
+    renderSurface: 'response',
   })
 
-  assert.match(preview.content, /Temporary Discord channel: This call uses a temporary Discord channel\. Use the invite to access it\./)
-  assert.match(preview.content, /Invite link \(shareable\): https:\/\/discord\.gg\/test-invite/)
-  assert.match(preview.content, /Join the server from the invite above to access it\./)
-  assert.doesNotMatch(preview.content, /Text channel: https:\/\/discord\.com\/channels\/1\/2/)
+  assert.match(
+    preview.content,
+    /Temporary Discord channel: This call uses a temporary Discord channel\. Use the invite to access it\./,
+  )
+  assert.match(
+    preview.content,
+    /Invite link \(shareable\): https:\/\/discord\.gg\/test-invite/,
+  )
+  assert.match(
+    preview.content,
+    /Join the server from the invite above to access it\./,
+  )
+  assert.doesNotMatch(
+    preview.content,
+    /Text channel: https:\/\/discord\.com\/channels\/1\/2/,
+  )
   assert.doesNotMatch(preview.content, /Text channel: general/)
-  assert.doesNotMatch(preview.content, /Voice channel: ryan-friday-night-helldivers-abcdef/)
+  assert.doesNotMatch(
+    preview.content,
+    /Voice channel: ryan-friday-night-helldivers-abcdef/,
+  )
 })
 
 test('go-time confirmed previews use the clock emoji heading', () => {
@@ -235,7 +295,7 @@ test('go-time confirmed previews use the clock emoji heading', () => {
     title: 'Call to Play',
     body: 'Games: Helldivers 2\nWhen: Tonight',
     creatorDiscordUserId: 'discord-creator-1',
-    creatorDisplayName: 'Ryan'
+    creatorDisplayName: 'Ryan',
   })
 
   assert.match(preview.content, /^⏰ Go Time/m)
@@ -252,7 +312,7 @@ test('pass acknowledgements use a heading emoji that cannot be mistaken for the 
     creatorDisplayName: 'Ryan',
     creatorDiscordUserId: 'discord-creator-1',
     playIntentIsActive: true,
-    renderSurface: 'response'
+    renderSurface: 'response',
   })
 
   assert.match(preview.content, /^❌ Can't Make It/m)
@@ -270,16 +330,19 @@ test('pass acknowledgements always name the creator as notified', () => {
     creatorDisplayName: 'Ryan',
     creatorDiscordUserId: 'discord-creator-1',
     playIntentIsActive: true,
-    renderSurface: 'response'
+    renderSurface: 'response',
   })
 
-  assert.match(preview.content, /You are marked as unable to make it\. <@discord-creator-1> has been notified\./)
+  assert.match(
+    preview.content,
+    /You are marked as unable to make it\. <@discord-creator-1> has been notified\./,
+  )
   assert.doesNotMatch(preview.content, /anonymous/i)
 })
 
 for (const notificationType of [
   NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED,
-  NotificationType.SCHEDULED_PLAY_INTENT_REMINDER
+  NotificationType.SCHEDULED_PLAY_INTENT_REMINDER,
 ] as const) {
   test(`scheduled ${notificationType.toLowerCase()} previews keep go-time replies non-interactive`, () => {
     const preview = buildPlayIntentNotificationPromptPreview({
@@ -290,20 +353,32 @@ for (const notificationType of [
       body: 'Games: Helldivers 2\nWhen: Tonight',
       creatorUserId: 'creator-1',
       creatorDiscordUserId: 'discord-creator-1',
-      creatorDisplayName: 'Ryan'
+      creatorDisplayName: 'Ryan',
     })
 
     assert.deepEqual(preview.components, [])
-    assert.match(preview.content, /See original invite above for details or to change your response\./)
-    assert.doesNotMatch(preview.content, /Use the buttons below if you want in\./)
+    assert.match(
+      preview.content,
+      /See original invite above for details or to change your response\./,
+    )
+    assert.doesNotMatch(
+      preview.content,
+      /Use the buttons below if you want in\./,
+    )
   })
 }
 
-function collectButtonLabels(components: ReturnType<typeof buildPlayIntentNotificationPromptPreview>['components']) {
+function collectButtonLabels(
+  components: ReturnType<
+    typeof buildPlayIntentNotificationPromptPreview
+  >['components'],
+) {
   const labels: string[] = []
 
   for (const row of components ?? []) {
-    const rowJson = (row as { toJSON: () => { components?: Array<{ label?: string }> } }).toJSON()
+    const rowJson = (
+      row as { toJSON: () => { components?: Array<{ label?: string }> } }
+    ).toJSON()
 
     for (const component of rowJson.components ?? []) {
       if (component.label) {
@@ -325,13 +400,13 @@ test('interested recipients see an "I\'ll be late" button on the prompt', () => 
     responseChoice: NotificationResponseChoice.JOIN,
     creatorUserId: 'creator-1',
     creatorDiscordUserId: 'discord-creator-1',
-    creatorDisplayName: 'Ryan'
+    creatorDisplayName: 'Ryan',
   })
 
   const labels = collectButtonLabels(preview.components)
-  assert.ok(labels.includes('I\'ll be late'))
-  assert.ok(labels.includes('Can\'t make it'))
-  assert.ok(!labels.includes('I\'m interested'))
+  assert.ok(labels.includes("I'll be late"))
+  assert.ok(labels.includes("Can't make it"))
+  assert.ok(!labels.includes("I'm interested"))
 })
 
 test('late recipients can update their delay estimate', () => {
@@ -345,13 +420,13 @@ test('late recipients can update their delay estimate', () => {
     runningLate: true,
     creatorUserId: 'creator-1',
     creatorDiscordUserId: 'discord-creator-1',
-    creatorDisplayName: 'Ryan'
+    creatorDisplayName: 'Ryan',
   })
 
   const labels = collectButtonLabels(preview.components)
-  assert.ok(!labels.includes('I\'ll be late'))
+  assert.ok(!labels.includes("I'll be late"))
   assert.ok(labels.includes('Update delay'))
-  assert.ok(labels.includes('Can\'t make it'))
+  assert.ok(labels.includes("Can't make it"))
 })
 
 test('recipients who have not accepted do not see an "I\'ll be late" button', () => {
@@ -364,10 +439,10 @@ test('recipients who have not accepted do not see an "I\'ll be late" button', ()
     responseChoice: null,
     creatorUserId: 'creator-1',
     creatorDiscordUserId: 'discord-creator-1',
-    creatorDisplayName: 'Ryan'
+    creatorDisplayName: 'Ryan',
   })
 
   const labels = collectButtonLabels(preview.components)
-  assert.ok(!labels.includes('I\'ll be late'))
-  assert.ok(labels.includes('I\'m interested'))
+  assert.ok(!labels.includes("I'll be late"))
+  assert.ok(labels.includes("I'm interested"))
 })

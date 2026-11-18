@@ -4,7 +4,10 @@ import test from 'node:test'
 import { extractErrorMessage } from '../src/api-errors.js'
 
 test('returns the body.error string when present', () => {
-  assert.equal(extractErrorMessage({ error: 'Invite expired.' }, 'fallback'), 'Invite expired.')
+  assert.equal(
+    extractErrorMessage({ error: 'Invite expired.' }, 'fallback'),
+    'Invite expired.',
+  )
 })
 
 test('falls back when body is null', () => {
@@ -23,7 +26,10 @@ test('falls back when body lacks an error key', () => {
 
 test('falls back when body.error is not a string', () => {
   assert.equal(extractErrorMessage({ error: 123 }, 'fallback'), 'fallback')
-  assert.equal(extractErrorMessage({ error: { nested: true } }, 'fallback'), 'fallback')
+  assert.equal(
+    extractErrorMessage({ error: { nested: true } }, 'fallback'),
+    'fallback',
+  )
   assert.equal(extractErrorMessage({ error: null }, 'fallback'), 'fallback')
 })
 

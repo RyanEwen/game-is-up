@@ -7,7 +7,10 @@
  */
 
 import { useEffect } from 'react'
-import { dashboardInvalidationEventSchema, type DashboardInvalidationDomain } from '@game-is-up/shared'
+import {
+  dashboardInvalidationEventSchema,
+  type DashboardInvalidationDomain,
+} from '@game-is-up/shared'
 
 /**
  * Subscribes to the authenticated dashboard SSE stream and invokes
@@ -20,10 +23,10 @@ import { dashboardInvalidationEventSchema, type DashboardInvalidationDomain } fr
  * without re-implementing the EventSource lifecycle.
  */
 export function useDashboardSseInvalidation(options: {
-  enabled: boolean;
-  buildApiUrl: (path: string) => string;
-  onInvalidation: (domains: DashboardInvalidationDomain[]) => void;
-  onOpen?: () => void;
+  enabled: boolean
+  buildApiUrl: (path: string) => string
+  onInvalidation: (domains: DashboardInvalidationDomain[]) => void
+  onOpen?: () => void
 }) {
   const { enabled, buildApiUrl, onInvalidation, onOpen } = options
 
@@ -33,7 +36,7 @@ export function useDashboardSseInvalidation(options: {
     }
 
     const eventSource = new EventSource(buildApiUrl('/api/events/dashboard'), {
-      withCredentials: true
+      withCredentials: true,
     })
 
     if (onOpen) {
@@ -44,7 +47,9 @@ export function useDashboardSseInvalidation(options: {
 
     eventSource.onmessage = (messageEvent) => {
       try {
-        const payload = dashboardInvalidationEventSchema.parse(JSON.parse(messageEvent.data) as unknown)
+        const payload = dashboardInvalidationEventSchema.parse(
+          JSON.parse(messageEvent.data) as unknown,
+        )
 
         if (payload.domains.length > 0) {
           onInvalidation(payload.domains)

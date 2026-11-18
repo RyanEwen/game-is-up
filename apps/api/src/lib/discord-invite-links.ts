@@ -12,7 +12,7 @@ import {
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
-  type MessageActionRowComponentBuilder
+  type MessageActionRowComponentBuilder,
 } from 'discord.js'
 import { env } from './env.js'
 import { getApiOrigin } from './origin.js'
@@ -26,12 +26,12 @@ export function buildPlayUrl() {
 }
 
 export function buildInviteLandingUrl(options: {
-  serverId?: string | null;
-  serverName?: string | null;
-  inviterDiscordUserId?: string | null;
-  inviterLabel?: string | null;
-  memberCount?: number | null;
-  kind?: 'direct' | 'server';
+  serverId?: string | null
+  serverName?: string | null
+  inviterDiscordUserId?: string | null
+  inviterLabel?: string | null
+  memberCount?: number | null
+  kind?: 'direct' | 'server'
 }) {
   try {
     const inviteUrl = new URL('/invite', env.CLIENT_ORIGIN)
@@ -45,7 +45,10 @@ export function buildInviteLandingUrl(options: {
     }
 
     if (options.inviterDiscordUserId?.trim()) {
-      inviteUrl.searchParams.set('inviterDiscordId', options.inviterDiscordUserId.trim())
+      inviteUrl.searchParams.set(
+        'inviterDiscordId',
+        options.inviterDiscordUserId.trim(),
+      )
     }
 
     if (options.inviterLabel?.trim()) {
@@ -53,7 +56,10 @@ export function buildInviteLandingUrl(options: {
     }
 
     if (options.memberCount != null && Number.isFinite(options.memberCount)) {
-      inviteUrl.searchParams.set('members', String(Math.max(0, Math.floor(options.memberCount))))
+      inviteUrl.searchParams.set(
+        'members',
+        String(Math.max(0, Math.floor(options.memberCount))),
+      )
     }
 
     inviteUrl.searchParams.set('kind', options.kind ?? 'server')
@@ -74,7 +80,7 @@ export function buildInviteButtonRow(url: string) {
   return new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
     new ButtonBuilder()
       .setStyle(ButtonStyle.Link)
-      .setLabel('Join Game\'s Up')
-      .setURL(url)
+      .setLabel("Join Game's Up")
+      .setURL(url),
   )
 }

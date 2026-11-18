@@ -9,7 +9,12 @@
  * grid.
  */
 
-import type { DiscoveryFeed, DiscoveryGame, DiscoveryGamePlayer, DiscoveryPerson } from '@game-is-up/shared'
+import type {
+  DiscoveryFeed,
+  DiscoveryGame,
+  DiscoveryGamePlayer,
+  DiscoveryPerson,
+} from '@game-is-up/shared'
 import { GameIntentType } from '@prisma/client'
 import { getLatestDiscordActivitiesForUsers } from './discord-activity.js'
 import { prisma } from './prisma.js'
@@ -23,7 +28,7 @@ import { formatTimezoneLabel } from './timezone-label.js'
 const intentOrder: Record<'playing-now' | 'interested' | 'wishlist', number> = {
   'playing-now': 0,
   interested: 1,
-  wishlist: 2
+  wishlist: 2,
 }
 
 function normalizeGameTitle(title: string): string {
@@ -31,71 +36,80 @@ function normalizeGameTitle(title: string): string {
 }
 
 function mergePlatformLabels(...platformGroups: string[][]): string[] {
-  return [...new Set(platformGroups.flatMap((platforms) => platforms))].sort((left, right) => left.localeCompare(right))
+  return [...new Set(platformGroups.flatMap((platforms) => platforms))].sort(
+    (left, right) => left.localeCompare(right),
+  )
 }
 
 function pickPreferredIntent(
   currentIntent: 'playing-now' | 'interested' | 'wishlist',
-  nextIntent: 'playing-now' | 'interested' | 'wishlist'
+  nextIntent: 'playing-now' | 'interested' | 'wishlist',
 ) {
-  return intentOrder[currentIntent] <= intentOrder[nextIntent] ? currentIntent : nextIntent
+  return intentOrder[currentIntent] <= intentOrder[nextIntent]
+    ? currentIntent
+    : nextIntent
 }
 
 function pickPreferredAvailability(
   currentGame: DiscoveryPerson['games'][number],
-  nextGame: DiscoveryPerson['games'][number]
+  nextGame: DiscoveryPerson['games'][number],
 ) {
   if (!currentGame.availability) {
     return {
       availability: nextGame.availability,
-      availabilitySource: nextGame.availabilitySource
+      availabilitySource: nextGame.availabilitySource,
     }
   }
 
   if (!nextGame.availability) {
     return {
       availability: currentGame.availability,
-      availabilitySource: currentGame.availabilitySource
+      availabilitySource: currentGame.availabilitySource,
     }
   }
 
   if (currentGame.availabilitySource === 'game-specific') {
     return {
       availability: currentGame.availability,
-      availabilitySource: currentGame.availabilitySource
+      availabilitySource: currentGame.availabilitySource,
     }
   }
 
   if (nextGame.availabilitySource === 'game-specific') {
     return {
       availability: nextGame.availability,
-      availabilitySource: nextGame.availabilitySource
+      availabilitySource: nextGame.availabilitySource,
     }
   }
 
   return {
     availability: currentGame.availability,
-    availabilitySource: currentGame.availabilitySource
+    availabilitySource: currentGame.availabilitySource,
   }
 }
 
 function mergeDiscoveryPersonGame(
   currentGame: DiscoveryPerson['games'][number],
-  nextGame: DiscoveryPerson['games'][number]
+  nextGame: DiscoveryPerson['games'][number],
 ): DiscoveryPerson['games'][number] {
   const preferredAvailability = pickPreferredAvailability(currentGame, nextGame)
 
   return {
     ...currentGame,
     coverUrl: currentGame.coverUrl ?? nextGame.coverUrl,
-    platformLabels: mergePlatformLabels(currentGame.platformLabels, nextGame.platformLabels),
+    platformLabels: mergePlatformLabels(
+      currentGame.platformLabels,
+      nextGame.platformLabels,
+    ),
     intent: pickPreferredIntent(currentGame.intent, nextGame.intent),
     availability: preferredAvailability.availability,
-    availabilitySource: preferredAvailability.availabilitySource
+    availabilitySource: preferredAvailability.availabilitySource,
   }
 }
 
-function toFeedIntent(intentType: GameIntentType): 'wishlist' | 'interested' | 'playing-now' {
+function toFeedIntent(
+  intentType: GameIntentType,
+): 'wishlist' | 'interested' | 'playing-now' {
   switch (intentType) {
     case GameIntentType.WISHLIST:
       return 'wishlist'
@@ -106,14 +120,16 @@ function toFeedIntent(intentType: GameIntentType): 'wishlist' | 'interested' | '
   }
 }
 
-export async function buildDiscoveryFeed(viewerId?: string | null): Promise<DiscoveryFeed> {
+export async function buildDiscoveryFeed(
+  viewerId?: string | null,
+): Promise<DiscoveryFeed> {
   const viewer = await getViewer(viewerId)
 
   if (!viewer) {
     return {
       generatedAt: new Date().toISOString(),
       games: [],
-      people: []
+      people: [],
     }
   }
 
@@ -122,30 +138,34 @@ export async function buildDiscoveryFeed(viewerId?: string | null): Promise<Disc
       where: {
         userId: viewer.id,
         intentType: {
-          not: GameIntentType.COMPLETED
-        }
+          not: GameIntentType.COMPLETED,
+        },
       },
       select: {
         game: {
           select: {
-            title: true
-          }
-        }
-      }
+            title: true,
+          },
+        },
+      },
     }),
     getSelectedDiscordServerIds(viewer.id),
     prisma.friend.findMany({
       where: {
-        userId: viewer.id
+        userId: viewer.id,
       },
       select: {
-        friendedUserId: true
-      }
-    })
+        friendedUserId: true,
+      },
+    }),
   ])
 
-  const viewerGameTitleKeys = new Set(viewerInterests.map((interest) => normalizeGameTitle(interest.game.title)))
-  const friendIds = new Set(friendLinks.map((friendLink) => friendLink.friendedUserId))
+  const viewerGameTitleKeys = new Set(
+    viewerInterests.map((interest) => normalizeGameTitle(interest.game.title)),
+  )
+  const friendIds = new Set(
+    friendLinks.map((friendLink) => friendLink.friendedUserId),
+  )
 
   const candidateFilters: Array<Record<string, unknown>> = []
 
@@ -154,18 +174,18 @@ export async function buildDiscoveryFeed(viewerId?: string | null): Promise<Disc
       discordServers: {
         some: {
           serverId: {
-            in: selectedServerIds
-          }
-        }
-      }
+            in: selectedServerIds,
+          },
+        },
+      },
     })
   }
 
   if (friendIds.size > 0) {
     candidateFilters.push({
       id: {
-        in: [...friendIds]
-      }
+        in: [...friendIds],
+      },
     })
   }
 
@@ -173,85 +193,104 @@ export async function buildDiscoveryFeed(viewerId?: string | null): Promise<Disc
     return {
       generatedAt: new Date().toISOString(),
       games: [],
-      people: []
+      people: [],
     }
   }
 
   const candidates = await prisma.user.findMany({
     where: {
       id: {
-        not: viewer.id
+        not: viewer.id,
       },
       blocksGiven: {
         none: {
-          blockedUserId: viewer.id
-        }
+          blockedUserId: viewer.id,
+        },
       },
       blocksReceived: {
         none: {
-          userId: viewer.id
-        }
+          userId: viewer.id,
+        },
       },
-      OR: candidateFilters
+      OR: candidateFilters,
     },
     include: {
       identities: {
         where: {
-          provider: 'DISCORD'
+          provider: 'DISCORD',
         },
         select: {
-          providerUserId: true
+          providerUserId: true,
         },
-        take: 1
+        take: 1,
       },
       gameInterests: {
         where: {
           intentType: {
-            not: GameIntentType.COMPLETED
-          }
+            not: GameIntentType.COMPLETED,
+          },
         },
         include: {
           game: true,
-          platforms: true
-        }
+          platforms: true,
+        },
       },
       discordServers: {
         where: {
           serverId: {
-            in: selectedServerIds
-          }
+            in: selectedServerIds,
+          },
         },
         include: {
-          server: true
-        }
-      }
-    }
+          server: true,
+        },
+      },
+    },
   })
-  const latestActivitiesByUserId = await getLatestDiscordActivitiesForUsers(candidates.map((candidate) => candidate.id))
+  const latestActivitiesByUserId = await getLatestDiscordActivitiesForUsers(
+    candidates.map((candidate) => candidate.id),
+  )
 
   const people: DiscoveryPerson[] = candidates
     .map((candidate) => {
       const isFriend = friendIds.has(candidate.id)
-      const mutualServerIds = [...new Set(candidate.discordServers.map((membership) => membership.serverId))]
-        .sort((left, right) => left.localeCompare(right))
-      const mutualServers = [...new Set(candidate.discordServers.map((membership) => membership.server.name))]
-        .sort((left, right) => left.localeCompare(right))
-      const gamesByTitleKey = new Map<string, DiscoveryPerson['games'][number]>()
+      const mutualServerIds = [
+        ...new Set(
+          candidate.discordServers.map((membership) => membership.serverId),
+        ),
+      ].sort((left, right) => left.localeCompare(right))
+      const mutualServers = [
+        ...new Set(
+          candidate.discordServers.map((membership) => membership.server.name),
+        ),
+      ].sort((left, right) => left.localeCompare(right))
+      const gamesByTitleKey = new Map<
+        string,
+        DiscoveryPerson['games'][number]
+      >()
 
       for (const interest of candidate.gameInterests) {
         const nextGame: DiscoveryPerson['games'][number] = {
           id: interest.game.id,
           title: interest.game.title,
           coverUrl: toClientGameCoverUrl(interest.game.coverUrl),
-          platformLabels: interest.platforms.map((platform) => platform.platformLabel),
+          platformLabels: interest.platforms.map(
+            (platform) => platform.platformLabel,
+          ),
           intent: toFeedIntent(interest.intentType),
-          ...resolveAvailability(interest.availability, candidate.usualAvailability)
+          ...resolveAvailability(
+            interest.availability,
+            candidate.usualAvailability,
+          ),
         }
         const titleKey = normalizeGameTitle(nextGame.title)
         const existingGame = gamesByTitleKey.get(titleKey)
 
         if (existingGame) {
-          gamesByTitleKey.set(titleKey, mergeDiscoveryPersonGame(existingGame, nextGame))
+          gamesByTitleKey.set(
+            titleKey,
+            mergeDiscoveryPersonGame(existingGame, nextGame),
+          )
           continue
         }
 
@@ -270,15 +309,16 @@ export async function buildDiscoveryFeed(viewerId?: string | null): Promise<Disc
         usualAvailability: candidate.usualAvailability,
         mutualServerIds,
         mutualServers,
-        games: [...gamesByTitleKey.values()]
-          .sort((left, right) => left.title.localeCompare(right.title)),
+        games: [...gamesByTitleKey.values()].sort((left, right) =>
+          left.title.localeCompare(right.title),
+        ),
         discordActivity: latestActivitiesByUserId.get(candidate.id) ?? null,
         lastActiveLabel: formatRelativeTime(candidate.lastSeenAt),
         isFriend,
         friendEligible: !isFriend,
         contactHint: isFriend
           ? 'Already in your friends list.'
-          : "Add them as a friend to keep track of them in Game's Up."
+          : "Add them as a friend to keep track of them in Game's Up.",
       }
     })
     .sort((left, right) => {
@@ -312,14 +352,18 @@ export async function buildDiscoveryFeed(viewerId?: string | null): Promise<Disc
         mutualServers: person.mutualServers,
         isFriend: person.isFriend,
         friendEligible: person.friendEligible,
-        contactHint: person.contactHint
+        contactHint: person.contactHint,
       }
 
       if (existingGame) {
         existingGame.players.push(player)
         existingGame.playerCount = existingGame.players.length
-        existingGame.platformLabels = mergePlatformLabels(existingGame.platformLabels, game.platformLabels)
-        existingGame.sharedWithViewer = existingGame.sharedWithViewer || viewerGameTitleKeys.has(titleKey)
+        existingGame.platformLabels = mergePlatformLabels(
+          existingGame.platformLabels,
+          game.platformLabels,
+        )
+        existingGame.sharedWithViewer =
+          existingGame.sharedWithViewer || viewerGameTitleKeys.has(titleKey)
         existingGame.coverUrl = existingGame.coverUrl ?? game.coverUrl
         continue
       }
@@ -331,7 +375,7 @@ export async function buildDiscoveryFeed(viewerId?: string | null): Promise<Disc
         platformLabels: mergePlatformLabels(game.platformLabels),
         sharedWithViewer: viewerGameTitleKeys.has(titleKey),
         playerCount: 1,
-        players: [player]
+        players: [player],
       })
     }
   }
@@ -349,7 +393,7 @@ export async function buildDiscoveryFeed(viewerId?: string | null): Promise<Disc
         }
 
         return left.displayName.localeCompare(right.displayName)
-      })
+      }),
     }))
     .sort((left, right) => {
       if (left.sharedWithViewer !== right.sharedWithViewer) {
@@ -366,6 +410,6 @@ export async function buildDiscoveryFeed(viewerId?: string | null): Promise<Disc
   return {
     generatedAt: new Date().toISOString(),
     games,
-    people
+    people,
   }
 }

@@ -5,7 +5,7 @@ import {
   formatPlayIntentDateLabel,
   formatPlayIntentDurationLabel,
   formatPlayIntentTimeLabel,
-  formatPlayIntentWindowLabel
+  formatPlayIntentWindowLabel,
 } from './play-intent-time-format.js'
 
 test('formatPlayIntentDurationLabel uses singular hour for 60 minutes', () => {
@@ -30,17 +30,19 @@ test('formatPlayIntentDateLabel uses an English ordinal day suffix', () => {
 
   assert.match(
     formatPlayIntentDateLabel(date, 'America/New_York'),
-    /Apr 1st at 1(:00)?pm$/
+    /Apr 1st at 1(:00)?pm$/,
   )
 })
 
 test('formatPlayIntentDateLabel handles the special 11th/12th/13th teen suffix', () => {
   for (const day of [11, 12, 13]) {
-    const date = new Date(`2026-05-${String(day).padStart(2, '0')}T17:00:00.000Z`)
+    const date = new Date(
+      `2026-05-${String(day).padStart(2, '0')}T17:00:00.000Z`,
+    )
 
     assert.match(
       formatPlayIntentDateLabel(date, 'America/New_York'),
-      new RegExp(`May ${day}th`)
+      new RegExp(`May ${day}th`),
     )
   }
 })
@@ -54,15 +56,17 @@ test('formatPlayIntentDateLabel uses st/nd/rd/th suffixes for non-teen days', ()
     [21, '21st'],
     [22, '22nd'],
     [23, '23rd'],
-    [31, '31st']
+    [31, '31st'],
   ]
 
   for (const [day, expectedSuffix] of cases) {
-    const date = new Date(`2026-05-${String(day).padStart(2, '0')}T17:00:00.000Z`)
+    const date = new Date(
+      `2026-05-${String(day).padStart(2, '0')}T17:00:00.000Z`,
+    )
 
     assert.match(
       formatPlayIntentDateLabel(date, 'America/New_York'),
-      new RegExp(`May ${expectedSuffix}`)
+      new RegExp(`May ${expectedSuffix}`),
     )
   }
 })
@@ -71,8 +75,14 @@ test('formatPlayIntentDateLabel falls back to UTC when the timezone is missing o
   const date = new Date('2026-04-01T20:30:00.000Z')
 
   // 2026-04-01 is a Wednesday at 20:30 UTC.
-  assert.match(formatPlayIntentDateLabel(date, null), /^Wednesday Apr 1st at 8:30pm$/)
-  assert.match(formatPlayIntentDateLabel(date, 'Not/A_Real_Zone'), /^Wednesday Apr 1st at 8:30pm$/)
+  assert.match(
+    formatPlayIntentDateLabel(date, null),
+    /^Wednesday Apr 1st at 8:30pm$/,
+  )
+  assert.match(
+    formatPlayIntentDateLabel(date, 'Not/A_Real_Zone'),
+    /^Wednesday Apr 1st at 8:30pm$/,
+  )
 })
 
 test('formatPlayIntentDateLabel collapses :00 minutes from the rendered time', () => {
@@ -85,7 +95,10 @@ test('formatPlayIntentTimeLabel renders a compact localized time label', () => {
   const date = new Date('2026-04-01T20:30:00.000Z')
 
   assert.equal(formatPlayIntentTimeLabel(date, 'Etc/UTC'), '8:30pm')
-  assert.equal(formatPlayIntentTimeLabel(new Date('2026-04-01T17:00:00.000Z'), 'Etc/UTC'), '5pm')
+  assert.equal(
+    formatPlayIntentTimeLabel(new Date('2026-04-01T17:00:00.000Z'), 'Etc/UTC'),
+    '5pm',
+  )
 })
 
 test('formatPlayIntentWindowLabel combines the date label with a duration label', () => {
@@ -94,7 +107,7 @@ test('formatPlayIntentWindowLabel combines the date label with a duration label'
 
   assert.equal(
     formatPlayIntentWindowLabel(startsAt, endsAt, 'Etc/UTC'),
-    'Wednesday Apr 1st at 8pm, for 2 hours'
+    'Wednesday Apr 1st at 8pm, for 2 hours',
   )
 })
 
@@ -104,6 +117,6 @@ test('formatPlayIntentWindowLabel rounds the rendered duration to the nearest mi
 
   assert.match(
     formatPlayIntentWindowLabel(startsAt, endsAtJustOver, 'Etc/UTC'),
-    /, for 15 minutes$/
+    /, for 15 minutes$/,
   )
 })

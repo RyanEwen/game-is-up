@@ -20,52 +20,52 @@ const DISCORD_GUILDS_URL = 'https://discord.com/api/users/@me/guilds'
 const DISCORD_BOT_SCOPES = ['bot', 'applications.commands'] as const
 const DISCORD_BOT_PERMISSIONS = '0'
 const developmentSeededDiscordHandleAliases = new Map([
-  ['technicallyreal', 'technicallyreal']
+  ['technicallyreal', 'technicallyreal'],
 ])
 
 export const DISCORD_REQUESTED_SCOPES = ['identify', 'email', 'guilds'] as const
 
 type DiscordTokenResponse = {
-  access_token: string;
-  token_type: string;
-  expires_in: number;
-  refresh_token?: string;
-  scope: string;
-};
+  access_token: string
+  token_type: string
+  expires_in: number
+  refresh_token?: string
+  scope: string
+}
 
 export type DiscordUserProfile = {
-  id: string;
-  username: string;
-  global_name: string | null;
-  avatar: string | null;
-  email?: string | null;
-};
+  id: string
+  username: string
+  global_name: string | null
+  avatar: string | null
+  email?: string | null
+}
 
 export type DiscordGuildSummary = {
-  id: string;
-  name: string;
-  icon: string | null;
-};
+  id: string
+  name: string
+  icon: string | null
+}
 
 export type UpsertDiscordUserResult = {
   user: {
-    id: string;
-    handle: string;
-    displayName: string;
-    email: string | null;
-    avatarUrl: string | null;
-    bio: string;
-    timezoneId: string;
-    usualAvailability: string | null;
-    discordAutoPromptPlayIntent: boolean;
-    isAdmin: boolean;
-    visibility: import('@prisma/client').ProfileVisibility;
-    lastSeenAt: Date;
-    createdAt: Date;
-    updatedAt: Date;
-  };
-  isNewDiscordIdentity: boolean;
-};
+    id: string
+    handle: string
+    displayName: string
+    email: string | null
+    avatarUrl: string | null
+    bio: string
+    timezoneId: string
+    usualAvailability: string | null
+    discordAutoPromptPlayIntent: boolean
+    isAdmin: boolean
+    visibility: import('@prisma/client').ProfileVisibility
+    lastSeenAt: Date
+    createdAt: Date
+    updatedAt: Date
+  }
+  isNewDiscordIdentity: boolean
+}
 
 export class DiscordOauthRequestError extends Error {
   readonly status: number
@@ -78,7 +78,14 @@ export class DiscordOauthRequestError extends Error {
 }
 
 function normalizeGrantedScopes(scope: string): string[] {
-  return [...new Set(scope.split(/\s+/u).map((entry) => entry.trim()).filter(Boolean))].sort((left, right) => left.localeCompare(right))
+  return [
+    ...new Set(
+      scope
+        .split(/\s+/u)
+        .map((entry) => entry.trim())
+        .filter(Boolean),
+    ),
+  ].sort((left, right) => left.localeCompare(right))
 }
 
 function buildDiscordAvatarUrl(profile: DiscordUserProfile): string | null {
@@ -89,7 +96,9 @@ function buildDiscordAvatarUrl(profile: DiscordUserProfile): string | null {
   return `https://cdn.discordapp.com/avatars/${profile.id}/${profile.avatar}.png?size=256`
 }
 
-function getDevelopmentSeededHandleAlias(profile: DiscordUserProfile): string | null {
+function getDevelopmentSeededHandleAlias(
+  profile: DiscordUserProfile,
+): string | null {
   if (env.NODE_ENV === 'production') {
     return null
   }
@@ -110,7 +119,11 @@ function getDevelopmentSeededHandleAlias(profile: DiscordUserProfile): string | 
 }
 
 export function isDiscordAuthConfigured(): boolean {
-  return Boolean(env.DISCORD_CLIENT_ID && env.DISCORD_CLIENT_SECRET && env.DISCORD_CALLBACK_URL)
+  return Boolean(
+    env.DISCORD_CLIENT_ID &&
+    env.DISCORD_CLIENT_SECRET &&
+    env.DISCORD_CALLBACK_URL,
+  )
 }
 
 export function buildDiscordAuthorizationUrl(state: string): string {
@@ -137,24 +150,29 @@ export function buildDiscordBotInstallUrl(): string | null {
   return url.toString()
 }
 
-async function parseDiscordError(response: Response, action: string): Promise<never> {
+async function parseDiscordError(
+  response: Response,
+  action: string,
+): Promise<never> {
   const responseText = await response.text()
   const normalizedText = responseText.trim()
   const detail = normalizedText ? ` - ${normalizedText}` : ''
 
   throw new DiscordOauthRequestError(
     `Discord ${action} failed: ${response.status} ${response.statusText}${detail}`,
-    response.status
+    response.status,
   )
 }
 
-async function requestDiscordToken(body: URLSearchParams): Promise<DiscordTokenResponse> {
+async function requestDiscordToken(
+  body: URLSearchParams,
+): Promise<DiscordTokenResponse> {
   const response = await fetch(DISCORD_TOKEN_URL, {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/x-www-form-urlencoded'
+      'Content-Type': 'application/x-www-form-urlencoded',
     },
-    body
+    body,
   })
 
   if (!response.ok) {
@@ -164,15 +182,21 @@ async function requestDiscordToken(body: URLSearchParams): Promise<DiscordTokenR
   return response.json() as Promise<DiscordTokenResponse>
 }
 
-export async function exchangeDiscordCode(code: string, options?: { redirectUri?: string | null }): Promise<DiscordTokenResponse> {
+export async function exchangeDiscordCode(
+  code: string,
+  options?: { redirectUri?: string | null },
+): Promise<DiscordTokenResponse> {
   const body = new URLSearchParams({
     client_id: env.DISCORD_CLIENT_ID ?? '',
     client_secret: env.DISCORD_CLIENT_SECRET ?? '',
     grant_type: 'authorization_code',
-    code
+    code,
   })
 
-  const redirectUri = options?.redirectUri === undefined ? (env.DISCORD_CALLBACK_URL ?? '') : options.redirectUri
+  const redirectUri =
+    options?.redirectUri === undefined
+      ? (env.DISCORD_CALLBACK_URL ?? '')
+      : options.redirectUri
 
   if (redirectUri) {
     body.set('redirect_uri', redirectUri)
@@ -181,12 +205,14 @@ export async function exchangeDiscordCode(code: string, options?: { redirectUri?
   return requestDiscordToken(body)
 }
 
-export async function refreshDiscordAccessToken(refreshToken: string): Promise<DiscordTokenResponse> {
+export async function refreshDiscordAccessToken(
+  refreshToken: string,
+): Promise<DiscordTokenResponse> {
   const body = new URLSearchParams({
     client_id: env.DISCORD_CLIENT_ID ?? '',
     client_secret: env.DISCORD_CLIENT_SECRET ?? '',
     grant_type: 'refresh_token',
-    refresh_token: refreshToken
+    refresh_token: refreshToken,
   })
 
   const redirectUri = env.DISCORD_CALLBACK_URL ?? ''
@@ -198,11 +224,13 @@ export async function refreshDiscordAccessToken(refreshToken: string): Promise<D
   return requestDiscordToken(body)
 }
 
-export async function fetchDiscordUser(accessToken: string): Promise<DiscordUserProfile> {
+export async function fetchDiscordUser(
+  accessToken: string,
+): Promise<DiscordUserProfile> {
   const response = await fetch(DISCORD_ME_URL, {
     headers: {
-      Authorization: `Bearer ${accessToken}`
-    }
+      Authorization: `Bearer ${accessToken}`,
+    },
   })
 
   if (!response.ok) {
@@ -212,14 +240,16 @@ export async function fetchDiscordUser(accessToken: string): Promise<DiscordUser
   return response.json() as Promise<DiscordUserProfile>
 }
 
-export async function fetchDiscordGuilds(accessToken: string): Promise<DiscordGuildSummary[]> {
+export async function fetchDiscordGuilds(
+  accessToken: string,
+): Promise<DiscordGuildSummary[]> {
   const url = new URL(DISCORD_GUILDS_URL)
   url.searchParams.set('with_counts', 'true')
 
   const response = await fetch(url, {
     headers: {
-      Authorization: `Bearer ${accessToken}`
-    }
+      Authorization: `Bearer ${accessToken}`,
+    },
   })
 
   if (!response.ok) {
@@ -232,24 +262,27 @@ export async function fetchDiscordGuilds(accessToken: string): Promise<DiscordGu
 export async function storeDiscordOauthTokens(
   userId: string,
   tokenResponse: DiscordTokenResponse,
-  options?: { fallbackRefreshToken?: string | null }
+  options?: { fallbackRefreshToken?: string | null },
 ) {
   await prisma.userIdentity.updateMany({
     where: {
       userId,
-      provider: PrismaAuthProvider.DISCORD
+      provider: PrismaAuthProvider.DISCORD,
     },
     data: {
       discordAccessToken: tokenResponse.access_token,
-      discordRefreshToken: tokenResponse.refresh_token ?? options?.fallbackRefreshToken ?? null,
-      discordAccessTokenExpiresAt: new Date(Date.now() + tokenResponse.expires_in * 1000)
-    }
+      discordRefreshToken:
+        tokenResponse.refresh_token ?? options?.fallbackRefreshToken ?? null,
+      discordAccessTokenExpiresAt: new Date(
+        Date.now() + tokenResponse.expires_in * 1000,
+      ),
+    },
   })
 }
 
 export async function upsertDiscordUser(
   profile: DiscordUserProfile,
-  grantedScopeString = DISCORD_REQUESTED_SCOPES.join(' ')
+  grantedScopeString = DISCORD_REQUESTED_SCOPES.join(' '),
 ): Promise<UpsertDiscordUserResult> {
   const email = profile.email?.toLowerCase() ?? null
   const displayName = profile.global_name?.trim() || profile.username
@@ -260,53 +293,56 @@ export async function upsertDiscordUser(
     where: {
       provider_providerUserId: {
         provider: PrismaAuthProvider.DISCORD,
-        providerUserId: profile.id
-      }
+        providerUserId: profile.id,
+      },
     },
     include: {
-      user: true
-    }
+      user: true,
+    },
   })
 
   if (existingIdentity) {
     const conflictingUser = email
       ? await prisma.user.findUnique({
           where: {
-            email
+            email,
           },
           select: {
-            id: true
-          }
+            id: true,
+          },
         })
       : null
 
-    const nextEmail = conflictingUser && conflictingUser.id !== existingIdentity.userId ? existingIdentity.user.email : email
+    const nextEmail =
+      conflictingUser && conflictingUser.id !== existingIdentity.userId
+        ? existingIdentity.user.email
+        : email
 
     const updatedUser = await prisma.user.update({
       where: {
-        id: existingIdentity.userId
+        id: existingIdentity.userId,
       },
       data: {
         displayName,
         avatarUrl,
         email: nextEmail,
-        lastSeenAt: new Date()
-      }
+        lastSeenAt: new Date(),
+      },
     })
 
     await prisma.userIdentity.update({
       where: {
-        id: existingIdentity.id
+        id: existingIdentity.id,
       },
       data: {
         email,
-        grantedScopes
-      }
+        grantedScopes,
+      },
     })
 
     return {
       user: updatedUser,
-      isNewDiscordIdentity: false
+      isNewDiscordIdentity: false,
     }
   }
 
@@ -315,16 +351,16 @@ export async function upsertDiscordUser(
   let user = developmentSeededHandleAlias
     ? await prisma.user.findUnique({
         where: {
-          handle: developmentSeededHandleAlias
-        }
+          handle: developmentSeededHandleAlias,
+        },
       })
     : null
 
   if (!user && email) {
     user = await prisma.user.findUnique({
       where: {
-        email
-      }
+        email,
+      },
     })
   }
 
@@ -336,20 +372,20 @@ export async function upsertDiscordUser(
         displayName,
         email,
         avatarUrl,
-        lastSeenAt: new Date()
-      }
+        lastSeenAt: new Date(),
+      },
     })
   } else {
     user = await prisma.user.update({
       where: {
-        id: user.id
+        id: user.id,
       },
       data: {
         displayName,
         avatarUrl,
         email: email ?? user.email,
-        lastSeenAt: new Date()
-      }
+        lastSeenAt: new Date(),
+      },
     })
   }
 
@@ -359,13 +395,13 @@ export async function upsertDiscordUser(
       provider: PrismaAuthProvider.DISCORD,
       providerUserId: profile.id,
       email,
-      grantedScopes
-    }
+      grantedScopes,
+    },
   })
 
   return {
     user,
-    isNewDiscordIdentity: true
+    isNewDiscordIdentity: true,
   }
 }
 
@@ -373,10 +409,10 @@ export async function markDiscordGuildSync(userId: string) {
   await prisma.userIdentity.updateMany({
     where: {
       userId,
-      provider: PrismaAuthProvider.DISCORD
+      provider: PrismaAuthProvider.DISCORD,
     },
     data: {
-      lastDiscordGuildsSyncAt: new Date()
-    }
+      lastDiscordGuildsSyncAt: new Date(),
+    },
   })
 }

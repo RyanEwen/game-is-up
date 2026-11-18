@@ -1,4 +1,8 @@
-import type { LibraryEntryIntent, PlayIntentPreview, PlayIntentSelectionMode } from '@game-is-up/shared'
+import type {
+  LibraryEntryIntent,
+  PlayIntentPreview,
+  PlayIntentSelectionMode,
+} from '@game-is-up/shared'
 import { formatMonthDayTime } from '../../lib/dateTime'
 import type { DashboardTab } from './types'
 
@@ -9,7 +13,7 @@ export const dashboardTabPaths: Record<DashboardTab, string> = {
   friends: '/friends',
   discovery: '/discovery',
   play: '/play',
-  debug: '/debug'
+  debug: '/debug',
 }
 
 export const minimumPlayIntentDurationMinutes = 15
@@ -26,55 +30,56 @@ export const dashboardTabSx = {
   fontSize: { xs: 'sm', sm: 'md' },
   fontWeight: 'md',
   whiteSpace: 'nowrap',
-  transition: 'background-color 180ms ease, color 180ms ease, box-shadow 180ms ease',
+  transition:
+    'background-color 180ms ease, color 180ms ease, box-shadow 180ms ease',
   '&:hover': {
     backgroundColor: 'var(--gu-tab-hover-background)',
-    color: 'var(--gu-tab-hover-color)'
+    color: 'var(--gu-tab-hover-color)',
   },
   '&.Mui-selected': {
     color: 'var(--gu-tab-selected-color)',
     background: 'var(--gu-tab-selected-background)',
-    boxShadow: 'var(--gu-tab-selected-shadow)'
-  }
+    boxShadow: 'var(--gu-tab-selected-shadow)',
+  },
 } as const
 
 export const discoveryGameGridSx = {
   display: 'grid',
   gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 260px), 1fr))',
-  gap: '16px'
+  gap: '16px',
 } as const
 
 export const memberGameGridSx = {
   display: 'grid',
   gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 260px), 1fr))',
-  gap: '12px'
+  gap: '12px',
 } as const
 
 export const commonWideGameCoverAspectRatio = '460 / 215' as const
 
 export const topLevelCardSx = {
   borderColor: 'var(--joy-palette-neutral-700)',
-  boxShadow: 'none'
+  boxShadow: 'none',
 } as const
 
 export const topLevelGridCardSx = {
   ...topLevelCardSx,
-  height: '100%'
+  height: '100%',
 } as const
 
 export const dashedTopLevelCardSx = {
   ...topLevelCardSx,
-  border: '1px dashed var(--joy-palette-neutral-700)'
+  border: '1px dashed var(--joy-palette-neutral-700)',
 } as const
 
 export const nestedInsetSurfaceSx = {
   backgroundColor: 'var(--joy-palette-background-surface)',
   border: '1px solid var(--joy-palette-neutral-700)',
-  boxShadow: 'none'
+  boxShadow: 'none',
 } as const
 
 export const nestedInsetMediaSx = {
-  backgroundColor: 'var(--joy-palette-background-popup)'
+  backgroundColor: 'var(--joy-palette-background-popup)',
 } as const
 
 export const headerFilterControlSx = {
@@ -82,39 +87,41 @@ export const headerFilterControlSx = {
   alignItems: 'center',
   gap: 1,
   width: { xs: '100%', sm: 'auto' },
-  flexWrap: { xs: 'nowrap', sm: 'wrap' }
+  flexWrap: { xs: 'nowrap', sm: 'wrap' },
 } as const
 
 export const headerActionFilterStackSx = {
   width: { xs: '100%', sm: 'max-content' },
-  minWidth: { xs: 0, sm: 'fit-content' }
+  minWidth: { xs: 0, sm: 'fit-content' },
 } as const
 
 export const headerActionFilterButtonSx = {
-  width: { xs: '100%', sm: 'auto' }
+  width: { xs: '100%', sm: 'auto' },
 } as const
 
 export const headerFilterControlMatchActionWidthSx = {
   ...headerFilterControlSx,
   width: '100%',
-  justifyContent: { xs: 'flex-start', sm: 'space-between' }
+  justifyContent: { xs: 'flex-start', sm: 'space-between' },
 } as const
 
 export function buildHeaderFilterSelectSx(desktopMinWidth: number) {
   return {
     flex: { xs: '1 1 0', sm: '0 0 auto' },
     minWidth: { xs: 0, sm: desktopMinWidth },
-    maxWidth: '100%'
+    maxWidth: '100%',
   } as const
 }
 
 export const libraryEntryGridSx = {
   display: 'grid',
   gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 260px), 1fr))',
-  gap: '16px'
+  gap: '16px',
 } as const
 
-export function getDashboardTabFromPathname(pathname: string): DashboardTab | null {
+export function getDashboardTabFromPathname(
+  pathname: string,
+): DashboardTab | null {
   const normalizedPathname = pathname.replace(/\/+$/, '') || '/'
 
   if (normalizedPathname.startsWith(`${dashboardTabPaths.play}/`)) {
@@ -155,7 +162,9 @@ export function formatLibraryIntentLabel(intent: LibraryEntryIntent): string {
   }
 }
 
-export function formatNotifyScopeLabel(scope: PlayIntentPreview['notifyScope']): string {
+export function formatNotifyScopeLabel(
+  scope: PlayIntentPreview['notifyScope'],
+): string {
   switch (scope) {
     case 'network':
       return 'Anyone in your network'
@@ -170,7 +179,9 @@ export function formatNotifyScopeLabel(scope: PlayIntentPreview['notifyScope']):
   }
 }
 
-export function formatNotifyScopeDescription(scope: PlayIntentPreview['notifyScope']): string {
+export function formatNotifyScopeDescription(
+  scope: PlayIntentPreview['notifyScope'],
+): string {
   switch (scope) {
     case 'network':
       return 'Anyone in your network, plus people you added as friends, where there are matching games.'
@@ -185,8 +196,12 @@ export function formatNotifyScopeDescription(scope: PlayIntentPreview['notifySco
   }
 }
 
-export function formatPlayIntentSelectionModeLabel(selectionMode: PlayIntentSelectionMode): string {
-  return selectionMode === 'library' ? 'Any game in my library' : 'Selected games'
+export function formatPlayIntentSelectionModeLabel(
+  selectionMode: PlayIntentSelectionMode,
+): string {
+  return selectionMode === 'library'
+    ? 'Any game in my library'
+    : 'Selected games'
 }
 
 export function formatPlayIntentDurationLabel(durationMinutes: number): string {
@@ -198,11 +213,19 @@ export function formatPlayIntentDurationLabel(durationMinutes: number): string {
   return `${durationMinutes} min`
 }
 
-export function formatPlayIntentTimingSummary(startsAt: string, endsAt: string, baseDate = new Date()): string {
+export function formatPlayIntentTimingSummary(
+  startsAt: string,
+  endsAt: string,
+  baseDate = new Date(),
+): string {
   const startDate = new Date(startsAt)
   const endDate = new Date(endsAt)
-  const durationMinutes = Math.max(1, Math.round((endDate.getTime() - startDate.getTime()) / (60 * 1000)))
-  const prefix = startDate.getTime() > baseDate.getTime() ? 'Scheduled for ' : ''
+  const durationMinutes = Math.max(
+    1,
+    Math.round((endDate.getTime() - startDate.getTime()) / (60 * 1000)),
+  )
+  const prefix =
+    startDate.getTime() > baseDate.getTime() ? 'Scheduled for ' : ''
 
   return `${prefix}${formatMonthDayTime(startDate)} for ${formatPlayIntentDurationLabel(durationMinutes)}`
 }
@@ -221,13 +244,20 @@ export function parsePlayIntentDurationMinutes(value: string): number | null {
 
 export function toLocalDateTimeInputValue(dateInput: Date | string): string {
   const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput
-  const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60 * 1000)
+  const localDate = new Date(
+    date.getTime() - date.getTimezoneOffset() * 60 * 1000,
+  )
 
   return localDate.toISOString().slice(0, 16)
 }
 
-export function buildPlayIntentEndTimeInputValue(durationMinutes: number, baseDate = new Date()): string {
-  return toLocalDateTimeInputValue(new Date(baseDate.getTime() + durationMinutes * 60 * 1000))
+export function buildPlayIntentEndTimeInputValue(
+  durationMinutes: number,
+  baseDate = new Date(),
+): string {
+  return toLocalDateTimeInputValue(
+    new Date(baseDate.getTime() + durationMinutes * 60 * 1000),
+  )
 }
 
 export function parseLocalDateTimeInput(value: string): Date | null {
@@ -246,7 +276,7 @@ export function parsePlayIntentEndAt(value: string): Date | null {
 
 export function formatDiscordActivityTypeLabel(
   activityType: 'playing' | 'competing',
-  isActive: boolean
+  isActive: boolean,
 ): string {
   if (activityType === 'competing') {
     return isActive ? 'Competing in' : 'Last competed in'
@@ -255,7 +285,10 @@ export function formatDiscordActivityTypeLabel(
   return isActive ? 'Playing' : 'Last played:'
 }
 
-export function formatRelativeTimeShort(dateInput: string | Date, baseDate = new Date()): string {
+export function formatRelativeTimeShort(
+  dateInput: string | Date,
+  baseDate = new Date(),
+): string {
   const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput
   const diffMs = Math.max(0, baseDate.getTime() - date.getTime())
   const diffMinutes = Math.floor(diffMs / (60 * 1000))

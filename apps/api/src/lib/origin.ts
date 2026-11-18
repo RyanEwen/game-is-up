@@ -16,7 +16,9 @@ export function getAllowedClientOrigins(): string[] {
   return [env.CLIENT_ORIGIN]
 }
 
-export function resolveAuthRedirectTarget(candidate: string | undefined): string {
+export function resolveAuthRedirectTarget(
+  candidate: string | undefined,
+): string {
   if (!candidate) {
     return env.CLIENT_ORIGIN
   }
@@ -25,7 +27,9 @@ export function resolveAuthRedirectTarget(candidate: string | undefined): string
     const candidateUrl = new URL(candidate)
     const clientUrl = new URL(env.CLIENT_ORIGIN)
 
-    return candidateUrl.origin === clientUrl.origin ? candidateUrl.toString() : env.CLIENT_ORIGIN
+    return candidateUrl.origin === clientUrl.origin
+      ? candidateUrl.toString()
+      : env.CLIENT_ORIGIN
   } catch {
     return env.CLIENT_ORIGIN
   }

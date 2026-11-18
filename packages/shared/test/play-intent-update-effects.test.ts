@@ -4,7 +4,7 @@ import test from 'node:test'
 import {
   buildPlayIntentUpdatedFieldsSummary,
   resolvePlayIntentUpdatedFields,
-  shouldInvalidatePlayIntentAudienceResponse
+  shouldInvalidatePlayIntentAudienceResponse,
 } from '../src/play-intent-update-effects.js'
 
 // ---------------------------------------------------------------------------
@@ -20,7 +20,10 @@ test('audience-only updates preserve existing audience responses', () => {
 })
 
 test('temporary-Discord-channel-only updates preserve existing audience responses', () => {
-  assert.equal(shouldInvalidatePlayIntentAudienceResponse(['temporary Discord channel']), false)
+  assert.equal(
+    shouldInvalidatePlayIntentAudienceResponse(['temporary Discord channel']),
+    false,
+  )
 })
 
 test('time updates invalidate existing audience responses', () => {
@@ -28,12 +31,25 @@ test('time updates invalidate existing audience responses', () => {
 })
 
 test('game-selection updates invalidate existing audience responses', () => {
-  assert.equal(shouldInvalidatePlayIntentAudienceResponse(['game selection']), true)
+  assert.equal(
+    shouldInvalidatePlayIntentAudienceResponse(['game selection']),
+    true,
+  )
 })
 
 test('mixed updates invalidate audience responses when time or game selection changed', () => {
-  assert.equal(shouldInvalidatePlayIntentAudienceResponse(['note', 'time']), true)
-  assert.equal(shouldInvalidatePlayIntentAudienceResponse(['note', 'audience', 'game selection']), true)
+  assert.equal(
+    shouldInvalidatePlayIntentAudienceResponse(['note', 'time']),
+    true,
+  )
+  assert.equal(
+    shouldInvalidatePlayIntentAudienceResponse([
+      'note',
+      'audience',
+      'game selection',
+    ]),
+    true,
+  )
 })
 
 test('an empty updated-field list does not invalidate audience responses', () => {
@@ -41,7 +57,10 @@ test('an empty updated-field list does not invalidate audience responses', () =>
 })
 
 test('unknown updated fields do not invalidate audience responses', () => {
-  assert.equal(shouldInvalidatePlayIntentAudienceResponse(['something else']), false)
+  assert.equal(
+    shouldInvalidatePlayIntentAudienceResponse(['something else']),
+    false,
+  )
 })
 
 // ---------------------------------------------------------------------------
@@ -52,32 +71,44 @@ test('resolvePlayIntentUpdatedFields returns no fields when comparisons are equa
   assert.deepEqual(resolvePlayIntentUpdatedFields({}, {}), [])
   assert.deepEqual(
     resolvePlayIntentUpdatedFields(
-      { timeKey: 'a', note: 'n', audienceKey: ['x'], gameSelectionKey: ['g'], hasTemporaryDiscordChannel: true },
-      { timeKey: 'a', note: 'n', audienceKey: ['x'], gameSelectionKey: ['g'], hasTemporaryDiscordChannel: true }
+      {
+        timeKey: 'a',
+        note: 'n',
+        audienceKey: ['x'],
+        gameSelectionKey: ['g'],
+        hasTemporaryDiscordChannel: true,
+      },
+      {
+        timeKey: 'a',
+        note: 'n',
+        audienceKey: ['x'],
+        gameSelectionKey: ['g'],
+        hasTemporaryDiscordChannel: true,
+      },
     ),
-    []
+    [],
   )
 })
 
 test('resolvePlayIntentUpdatedFields treats null/undefined/empty-string note values as equivalent', () => {
   assert.deepEqual(
     resolvePlayIntentUpdatedFields({ note: null }, { note: '' }),
-    []
+    [],
   )
   assert.deepEqual(
     resolvePlayIntentUpdatedFields({ note: undefined }, { note: '   ' }),
-    []
+    [],
   )
 })
 
 test('resolvePlayIntentUpdatedFields trims note before comparing', () => {
   assert.deepEqual(
     resolvePlayIntentUpdatedFields({ note: 'hello' }, { note: '  hello  ' }),
-    []
+    [],
   )
   assert.deepEqual(
     resolvePlayIntentUpdatedFields({ note: 'hello' }, { note: 'hello world' }),
-    ['note']
+    ['note'],
   )
 })
 
@@ -85,9 +116,9 @@ test('resolvePlayIntentUpdatedFields ignores audience ordering and duplicates', 
   assert.deepEqual(
     resolvePlayIntentUpdatedFields(
       { audienceKey: ['user-b', 'user-a'] },
-      { audienceKey: ['user-a', 'user-b', 'user-a'] }
+      { audienceKey: ['user-a', 'user-b', 'user-a'] },
     ),
-    []
+    [],
   )
 })
 
@@ -95,16 +126,16 @@ test('resolvePlayIntentUpdatedFields detects audience changes after dedup and tr
   assert.deepEqual(
     resolvePlayIntentUpdatedFields(
       { audienceKey: ['user-a'] },
-      { audienceKey: ['user-a', 'user-b'] }
+      { audienceKey: ['user-a', 'user-b'] },
     ),
-    ['audience']
+    ['audience'],
   )
   assert.deepEqual(
     resolvePlayIntentUpdatedFields(
       { audienceKey: ['user-a', '  '] },
-      { audienceKey: ['user-a'] }
+      { audienceKey: ['user-a'] },
     ),
-    []
+    [],
   )
 })
 
@@ -112,9 +143,9 @@ test('resolvePlayIntentUpdatedFields ignores game-selection ordering and duplica
   assert.deepEqual(
     resolvePlayIntentUpdatedFields(
       { gameSelectionKey: ['game-b', 'game-a'] },
-      { gameSelectionKey: ['game-a', 'game-b'] }
+      { gameSelectionKey: ['game-a', 'game-b'] },
     ),
-    []
+    [],
   )
 })
 
@@ -122,26 +153,38 @@ test('resolvePlayIntentUpdatedFields treats temporary Discord channel toggles as
   assert.deepEqual(
     resolvePlayIntentUpdatedFields(
       { hasTemporaryDiscordChannel: false },
-      { hasTemporaryDiscordChannel: true }
+      { hasTemporaryDiscordChannel: true },
     ),
-    ['temporary Discord channel']
+    ['temporary Discord channel'],
   )
   assert.deepEqual(
     resolvePlayIntentUpdatedFields(
       { hasTemporaryDiscordChannel: null },
-      { hasTemporaryDiscordChannel: false }
+      { hasTemporaryDiscordChannel: false },
     ),
-    []
+    [],
   )
 })
 
 test('resolvePlayIntentUpdatedFields preserves the canonical field ordering', () => {
   assert.deepEqual(
     resolvePlayIntentUpdatedFields(
-      { timeKey: 'a', gameSelectionKey: ['x'], note: '1', audienceKey: ['p'], hasTemporaryDiscordChannel: false },
-      { timeKey: 'b', gameSelectionKey: ['y'], note: '2', audienceKey: ['q'], hasTemporaryDiscordChannel: true }
+      {
+        timeKey: 'a',
+        gameSelectionKey: ['x'],
+        note: '1',
+        audienceKey: ['p'],
+        hasTemporaryDiscordChannel: false,
+      },
+      {
+        timeKey: 'b',
+        gameSelectionKey: ['y'],
+        note: '2',
+        audienceKey: ['q'],
+        hasTemporaryDiscordChannel: true,
+      },
     ),
-    ['time', 'game selection', 'note', 'audience', 'temporary Discord channel']
+    ['time', 'game selection', 'note', 'audience', 'temporary Discord channel'],
   )
 })
 
@@ -152,17 +195,17 @@ test('resolvePlayIntentUpdatedFields preserves the canonical field ordering', ()
 test('buildPlayIntentUpdatedFieldsSummary uses the generic phrasing when no fields changed', () => {
   assert.equal(
     buildPlayIntentUpdatedFieldsSummary([]),
-    'Updated the call to play details.'
+    'Updated the call to play details.',
   )
 })
 
 test('buildPlayIntentUpdatedFieldsSummary lists changed fields in the provided order', () => {
   assert.equal(
     buildPlayIntentUpdatedFieldsSummary(['time']),
-    'Updated the call to play: time changed.'
+    'Updated the call to play: time changed.',
   )
   assert.equal(
     buildPlayIntentUpdatedFieldsSummary(['time', 'game selection']),
-    'Updated the call to play: time, game selection changed.'
+    'Updated the call to play: time, game selection changed.',
   )
 })

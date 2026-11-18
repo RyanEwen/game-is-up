@@ -9,14 +9,14 @@
  */
 
 export type ArchivedNotificationCandidate = {
-  channelId: string;
-  messageId: string;
-  notificationId: string;
+  channelId: string
+  messageId: string
+  notificationId: string
 }
 
 export type NotificationDmReferenceUpdate = {
-  discordDmChannelId: string | null;
-  discordDmMessageId: string | null;
+  discordDmChannelId: string | null
+  discordDmMessageId: string | null
 }
 
 /**
@@ -26,8 +26,8 @@ export type NotificationDmReferenceUpdate = {
  * notification somehow appears under multiple candidates.
  */
 export function buildArchivedNotificationReferenceUpdates(options: {
-  candidates: ArchivedNotificationCandidate[];
-  keptMessageId: string;
+  candidates: ArchivedNotificationCandidate[]
+  keptMessageId: string
 }) {
   const updates = new Map<string, NotificationDmReferenceUpdate>()
 
@@ -41,7 +41,7 @@ export function buildArchivedNotificationReferenceUpdates(options: {
 
     updates.set(candidate.notificationId, {
       discordDmChannelId: isKept ? candidate.channelId : null,
-      discordDmMessageId: isKept ? candidate.messageId : null
+      discordDmMessageId: isKept ? candidate.messageId : null,
     })
   }
 

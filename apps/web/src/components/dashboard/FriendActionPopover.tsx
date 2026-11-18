@@ -1,4 +1,13 @@
-import { Avatar, Divider, Dropdown, Menu, MenuButton, MenuItem, Stack, Typography } from '@mui/joy'
+import {
+  Avatar,
+  Divider,
+  Dropdown,
+  Menu,
+  MenuButton,
+  MenuItem,
+  Stack,
+  Typography,
+} from '@mui/joy'
 import type { FriendTarget } from './types'
 
 const interactiveTriggerSx = {
@@ -19,13 +28,13 @@ const interactiveTriggerSx = {
     transform: 'translateY(-1px)',
     textDecoration: 'underline',
     textDecorationColor: '#8dffd8',
-    textUnderlineOffset: '0.18em'
+    textUnderlineOffset: '0.18em',
   },
   '&:focus-visible': {
     outline: '2px solid',
     outlineColor: 'primary.400',
-    outlineOffset: '3px'
-  }
+    outlineOffset: '3px',
+  },
 } as const
 
 function buildDiscordUserLink(discordUserId: string) {
@@ -44,23 +53,27 @@ export function FriendActionPopover({
   isMutePending = false,
   onToggleFriend,
   onMute,
-  onUnmute
+  onUnmute,
 }: {
-  target: FriendTarget;
-  handle: string;
-  canManage: boolean;
-  isPending: boolean;
-  supportingText?: string;
-  detailLines?: string[];
-  large?: boolean;
-  isMuted?: boolean;
-  isMutePending?: boolean;
-  onToggleFriend: (target: FriendTarget) => Promise<void>;
-  onMute?: (userId: string) => Promise<void>;
-  onUnmute?: (userId: string) => Promise<void>;
+  target: FriendTarget
+  handle: string
+  canManage: boolean
+  isPending: boolean
+  supportingText?: string
+  detailLines?: string[]
+  large?: boolean
+  isMuted?: boolean
+  isMutePending?: boolean
+  onToggleFriend: (target: FriendTarget) => Promise<void>
+  onMute?: (userId: string) => Promise<void>
+  onUnmute?: (userId: string) => Promise<void>
 }) {
-  const visibleDetailLines = detailLines.map((line) => line.trim()).filter(Boolean)
-  const discordUserLink = target.discordUserId ? buildDiscordUserLink(target.discordUserId) : null
+  const visibleDetailLines = detailLines
+    .map((line) => line.trim())
+    .filter(Boolean)
+  const discordUserLink = target.discordUserId
+    ? buildDiscordUserLink(target.discordUserId)
+    : null
 
   return (
     <Dropdown>
@@ -72,21 +85,33 @@ export function FriendActionPopover({
           variant="soft"
           sx={{ flexShrink: 0 }}
         />
-        <MenuButton
-          variant="plain"
-          color="neutral"
-          sx={interactiveTriggerSx}
-        >
-          <Typography className="friend-trigger-name" level={large ? 'title-lg' : 'title-sm'} sx={{ lineHeight: 1.2, display: 'block' }}>
+        <MenuButton variant="plain" color="neutral" sx={interactiveTriggerSx}>
+          <Typography
+            className="friend-trigger-name"
+            level={large ? 'title-lg' : 'title-sm'}
+            sx={{ lineHeight: 1.2, display: 'block' }}
+          >
             {target.displayName}
           </Typography>
         </MenuButton>
       </Stack>
 
-      <Menu placement="bottom-start" size="sm" sx={{ minWidth: 280, maxWidth: 320 }}>
-        <MenuItem disabled sx={{ whiteSpace: 'normal', alignItems: 'flex-start', py: 1.25 }}>
+      <Menu
+        placement="bottom-start"
+        size="sm"
+        sx={{ minWidth: 280, maxWidth: 320 }}
+      >
+        <MenuItem
+          disabled
+          sx={{ whiteSpace: 'normal', alignItems: 'flex-start', py: 1.25 }}
+        >
           <Stack direction="row" spacing={1.25} alignItems="center">
-            <Avatar src={target.avatarUrl ?? undefined} alt={target.displayName} size="md" variant="soft" />
+            <Avatar
+              src={target.avatarUrl ?? undefined}
+              alt={target.displayName}
+              size="md"
+              variant="soft"
+            />
             <Stack spacing={0.5}>
               <Typography level="title-md">{target.displayName}</Typography>
               <Typography level="body-sm" sx={{ color: 'primary.200' }}>
@@ -102,7 +127,11 @@ export function FriendActionPopover({
         </MenuItem>
 
         {visibleDetailLines.map((line) => (
-          <MenuItem key={line} disabled sx={{ whiteSpace: 'normal', alignItems: 'flex-start', py: 1 }}>
+          <MenuItem
+            key={line}
+            disabled
+            sx={{ whiteSpace: 'normal', alignItems: 'flex-start', py: 1 }}
+          >
             <Typography level="body-sm" sx={{ color: 'neutral.300' }}>
               {line}
             </Typography>
@@ -111,7 +140,10 @@ export function FriendActionPopover({
 
         <Divider inset="context" />
 
-        <MenuItem disabled={!canManage || isPending} onClick={() => void onToggleFriend(target)}>
+        <MenuItem
+          disabled={!canManage || isPending}
+          onClick={() => void onToggleFriend(target)}
+        >
           {!canManage
             ? 'Sign in to manage friends'
             : isPending
@@ -124,13 +156,15 @@ export function FriendActionPopover({
         {onMute && onUnmute ? (
           <MenuItem
             disabled={!canManage || isMutePending}
-            onClick={() => void (isMuted ? onUnmute(target.id) : onMute(target.id))}
+            onClick={() =>
+              void (isMuted ? onUnmute(target.id) : onMute(target.id))
+            }
           >
             {isMutePending
               ? 'Updating...'
               : isMuted
-                ? 'Unmute this player\'s CTPs'
-                : 'Mute this player\'s CTPs'}
+                ? "Unmute this player's CTPs"
+                : "Mute this player's CTPs"}
           </MenuItem>
         ) : null}
 

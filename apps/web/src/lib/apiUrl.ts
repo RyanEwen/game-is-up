@@ -1,5 +1,6 @@
 const configuredApiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim()
-const apiBaseUrl = configuredApiBaseUrl != null ? configuredApiBaseUrl.replace(/\/$/, '') : ''
+const apiBaseUrl =
+  configuredApiBaseUrl != null ? configuredApiBaseUrl.replace(/\/$/, '') : ''
 
 /**
  * Resolve a relative API path against the configured `VITE_API_BASE_URL`. When

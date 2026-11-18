@@ -6,7 +6,12 @@ import tseslint from 'typescript-eslint'
 
 export default tseslint.config(
   {
-    ignores: ['**/dist/**', '**/node_modules/**', '**/.vite/**', '**/coverage/**']
+    ignores: [
+      '**/dist/**',
+      '**/node_modules/**',
+      '**/.vite/**',
+      '**/coverage/**',
+    ],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
@@ -17,24 +22,27 @@ export default tseslint.config(
       sourceType: 'module',
       globals: {
         ...globals.browser,
-        ...globals.node
-      }
+        ...globals.node,
+      },
     },
     rules: {
-      semi: ['error', 'never']
-    }
+      semi: ['error', 'never'],
+    },
   },
   {
     files: ['apps/web/**/*.{ts,tsx}'],
     plugins: {
       'react-hooks': reactHooks,
-      'react-refresh': reactRefresh
+      'react-refresh': reactRefresh,
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
-      'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
+      'react-refresh/only-export-components': [
+        'warn',
+        { allowConstantExport: true },
+      ],
       // Native alert, confirm and prompt dialogs break the app's Back-aware modal convention.
-      'no-alert': 'error'
-    }
-  }
+      'no-alert': 'error',
+    },
+  },
 )

@@ -26,8 +26,8 @@ discoveryRouter.get('/feed', async (_request, response, next) => {
         discoveryFeedSchema.parse({
           generatedAt: new Date().toISOString(),
           games: [],
-          people: []
-        })
+          people: [],
+        }),
       )
       return
     }

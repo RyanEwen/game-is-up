@@ -42,14 +42,22 @@ function parseArgs(argv) {
     host: process.env.DEPLOY_SSH_HOST?.trim() || '',
     port: process.env.DEPLOY_SSH_PORT?.trim() || '22',
     repoPath: process.env.DEPLOY_REPO_PATH?.trim() || '',
-    skipValidate: false
+    skipValidate: false,
   }
 
   const valueFlags = {
-    '--host': (value) => { options.host = value },
-    '--port': (value) => { options.port = value },
-    '--repo-path': (value) => { options.repoPath = value },
-    '--compose-file': (value) => { options.composeFiles.push(value) }
+    '--host': (value) => {
+      options.host = value
+    },
+    '--port': (value) => {
+      options.port = value
+    },
+    '--repo-path': (value) => {
+      options.repoPath = value
+    },
+    '--compose-file': (value) => {
+      options.composeFiles.push(value)
+    },
   }
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -116,11 +124,12 @@ Options:
  * @returns {string[]} The non-empty entries.
  */
 function parseComposeFiles(value) {
-  return value
-    ?.split(',')
-    .map((entry) => entry.trim())
-    .filter(Boolean)
-    ?? []
+  return (
+    value
+      ?.split(',')
+      .map((entry) => entry.trim())
+      .filter(Boolean) ?? []
+  )
 }
 
 function shellQuote(value) {
@@ -138,7 +147,7 @@ function runCommand(command, args, options = {}) {
   const result = spawnSync(command, args, {
     cwd: repoRoot,
     encoding: 'utf8',
-    stdio: options.captureOutput ? ['inherit', 'pipe', 'pipe'] : 'inherit'
+    stdio: options.captureOutput ? ['inherit', 'pipe', 'pipe'] : 'inherit',
   })
 
   if (result.error) {
@@ -162,16 +171,26 @@ function runCommand(command, args, options = {}) {
  */
 function requireCleanPushedMain() {
   if (runCommand('git', ['status', '--porcelain'], { captureOutput: true })) {
-    throw new Error('Refusing to deploy: the local tree has uncommitted changes. Commit or stash them first.')
+    throw new Error(
+      'Refusing to deploy: the local tree has uncommitted changes. Commit or stash them first.',
+    )
   }
 
   runCommand('git', ['fetch', 'origin', deployBranch])
 
-  const localHead = runCommand('git', ['rev-parse', 'HEAD'], { captureOutput: true })
-  const remoteHead = runCommand('git', ['rev-parse', `origin/${deployBranch}`], { captureOutput: true })
+  const localHead = runCommand('git', ['rev-parse', 'HEAD'], {
+    captureOutput: true,
+  })
+  const remoteHead = runCommand(
+    'git',
+    ['rev-parse', `origin/${deployBranch}`],
+    { captureOutput: true },
+  )
 
   if (localHead !== remoteHead) {
-    throw new Error(`Refusing to deploy: HEAD (${localHead.slice(0, 8)}) is not origin/${deployBranch} (${remoteHead.slice(0, 8)}). Push to ${deployBranch} first.`)
+    throw new Error(
+      `Refusing to deploy: HEAD (${localHead.slice(0, 8)}) is not origin/${deployBranch} (${remoteHead.slice(0, 8)}). Push to ${deployBranch} first.`,
+    )
   }
 }
 
@@ -183,14 +202,17 @@ function requireCleanPushedMain() {
 function buildRemoteDeployCommand(options) {
   const branch = shellQuote(deployBranch)
   const repoPath = shellQuote(options.repoPath)
-  const composeFileCommands = options.composeFiles.length > 0
-    ? options.composeFiles.map((composeFile) => `compose_args+=("-f" ${shellQuote(composeFile)})`)
-    : [
-        'compose_args+=("-f" "compose.yml")',
-        'if [[ -f compose.prod.yml ]]; then',
-        '  compose_args+=("-f" "compose.prod.yml")',
-        'fi'
-      ]
+  const composeFileCommands =
+    options.composeFiles.length > 0
+      ? options.composeFiles.map(
+          (composeFile) => `compose_args+=("-f" ${shellQuote(composeFile)})`,
+        )
+      : [
+          'compose_args+=("-f" "compose.yml")',
+          'if [[ -f compose.prod.yml ]]; then',
+          '  compose_args+=("-f" "compose.prod.yml")',
+          'fi',
+        ]
 
   return [
     'set -euo pipefail',
@@ -208,7 +230,7 @@ function buildRemoteDeployCommand(options) {
     `git pull --ff-only origin ${branch}`,
     'docker compose "${compose_args[@]}" up --build -d',
     'docker compose "${compose_args[@]}" ps',
-    'printf "%s %s\n" "Deployed commit:" "$(git rev-parse --short HEAD)"'
+    'printf "%s %s\n" "Deployed commit:" "$(git rev-parse --short HEAD)"',
   ].join('\n')
 }
 
@@ -225,11 +247,15 @@ function main() {
 
   // Phase 1: refusals that need nothing but the local checkout.
   if (!options.host) {
-    throw new Error('Set DEPLOY_SSH_HOST (or pass --host) to the SSH host to deploy to.')
+    throw new Error(
+      'Set DEPLOY_SSH_HOST (or pass --host) to the SSH host to deploy to.',
+    )
   }
 
   if (!options.repoPath) {
-    throw new Error('Set DEPLOY_REPO_PATH (or pass --repo-path) to the checkout path on the server.')
+    throw new Error(
+      'Set DEPLOY_REPO_PATH (or pass --repo-path) to the checkout path on the server.',
+    )
   }
 
   requireCleanPushedMain()
@@ -239,12 +265,18 @@ function main() {
 
   if (options.dryRun) {
     process.stdout.write(`Local repo: ${repoRoot}\n`)
-    process.stdout.write(`Commit: ${runCommand('git', ['rev-parse', '--short', 'HEAD'], { captureOutput: true })} (origin/${deployBranch})\n`)
+    process.stdout.write(
+      `Commit: ${runCommand('git', ['rev-parse', '--short', 'HEAD'], { captureOutput: true })} (origin/${deployBranch})\n`,
+    )
     process.stdout.write(`Remote host: ${options.host}:${options.port}\n`)
     process.stdout.write(`Remote repo: ${options.repoPath}\n`)
     process.stdout.write(`Compose files: ${describeComposeFiles(options)}\n`)
-    process.stdout.write(`Will validate first: ${options.skipValidate ? 'no' : 'yes'}\n`)
-    process.stdout.write(`SSH command: ssh ${sshArgs.map(shellQuote).join(' ')}\n`)
+    process.stdout.write(
+      `Will validate first: ${options.skipValidate ? 'no' : 'yes'}\n`,
+    )
+    process.stdout.write(
+      `SSH command: ssh ${sshArgs.map(shellQuote).join(' ')}\n`,
+    )
     return
   }
 

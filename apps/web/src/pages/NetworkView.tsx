@@ -35,7 +35,7 @@ export function NetworkView() {
     onRetryInviteMembers,
     inviteSending,
     onSendBotInvites,
-    inviteSendSummary
+    inviteSendSummary,
   } = overviewViewProps
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false)
 
@@ -66,19 +66,30 @@ export function NetworkView() {
           <Stack spacing={1.5}>
             <Card variant="soft" sx={{ p: 3 }}>
               <Stack spacing={1.5}>
-                <Typography level="title-lg">Sign in to manage your network</Typography>
+                <Typography level="title-lg">
+                  Sign in to manage your network
+                </Typography>
                 <Typography level="body-md" sx={{ color: 'neutral.300' }}>
-                  Network management becomes available after Discord sign-in. Once you are signed in, you can select Discord servers, browse members, and invite people into Game&apos;s Up.
+                  Network management becomes available after Discord sign-in.
+                  Once you are signed in, you can select Discord servers, browse
+                  members, and invite people into Game&apos;s Up.
                 </Typography>
               </Stack>
             </Card>
-            <DiscordSignInCard disabled={!discordEnabled} onClick={() => void onDiscordLogin()} />
+            <DiscordSignInCard
+              disabled={!discordEnabled}
+              onClick={() => void onDiscordLogin()}
+            />
           </Stack>
         )}
       </Stack>
 
       {isSignedIn ? (
-        <DashboardModal open={isInviteModalOpen} onClose={() => setIsInviteModalOpen(false)} width="min(96vw, 920px)">
+        <DashboardModal
+          open={isInviteModalOpen}
+          onClose={() => setIsInviteModalOpen(false)}
+          width="min(96vw, 920px)"
+        >
           <InviteUsersCard
             onClose={() => setIsInviteModalOpen(false)}
             inviteUrl={inviteUrl}

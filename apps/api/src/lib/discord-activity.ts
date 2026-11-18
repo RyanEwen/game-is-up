@@ -14,43 +14,47 @@ import type { DiscoveryPerson } from '@game-is-up/shared'
 import { AuthProvider, DiscordActivityType, type Prisma } from '@prisma/client'
 import {
   expireDiscordAutoPlayPromptsForInactiveObservations,
-  maybeSendDiscordAutoPlayPromptForObservation
+  maybeSendDiscordAutoPlayPromptForObservation,
 } from './discord-auto-play-prompts.js'
 import { findOrCreateGameByTitle } from './game-catalog.js'
 import { maybeSendPlayIntentLaunchNotificationsForObservation } from './play-intent-launch-notifications.js'
 import { prisma } from './prisma.js'
 
 type DiscordPresenceActivityInput = {
-  name: string;
-  applicationId: string | null;
-  activityType: DiscordActivityType;
-  details: string | null;
-  state: string | null;
-  startedAt: Date | null;
-  rawPayload: Prisma.InputJsonValue;
-};
+  name: string
+  applicationId: string | null
+  activityType: DiscordActivityType
+  details: string | null
+  state: string | null
+  startedAt: Date | null
+  rawPayload: Prisma.InputJsonValue
+}
 
 type DiscordActivityObservationRecord = {
-  activityName: string;
-  applicationId: string | null;
-  activityType: DiscordActivityType;
-  endedAt: Date | null;
-  details: string | null;
-  state: string | null;
-  startedAt: Date | null;
-  firstObservedAt: Date;
-  lastObservedAt: Date;
+  activityName: string
+  applicationId: string | null
+  activityType: DiscordActivityType
+  endedAt: Date | null
+  details: string | null
+  state: string | null
+  startedAt: Date | null
+  firstObservedAt: Date
+  lastObservedAt: Date
   sourceServer: {
-    name: string;
-  } | null;
-};
+    name: string
+  } | null
+}
 
-function activityTypeToClientLabel(activityType: DiscordActivityType): 'playing' | 'competing' {
-  return activityType === DiscordActivityType.COMPETING ? 'competing' : 'playing'
+function activityTypeToClientLabel(
+  activityType: DiscordActivityType,
+): 'playing' | 'competing' {
+  return activityType === DiscordActivityType.COMPETING
+    ? 'competing'
+    : 'playing'
 }
 
 function toDiscordActivitySummary(
-  observation: DiscordActivityObservationRecord
+  observation: DiscordActivityObservationRecord,
 ): NonNullable<DiscoveryPerson['discordActivity']> {
   return {
     title: observation.activityName,
@@ -62,26 +66,28 @@ function toDiscordActivitySummary(
     startedAt: observation.startedAt?.toISOString() ?? null,
     firstObservedAt: observation.firstObservedAt.toISOString(),
     lastObservedAt: observation.lastObservedAt.toISOString(),
-    sourceServerName: observation.sourceServer?.name ?? null
+    sourceServerName: observation.sourceServer?.name ?? null,
   }
 }
 
 function activityMatches(
   existing: {
-    activityName: string;
-    applicationId: string | null;
-    activityType: DiscordActivityType;
-    startedAt: Date | null;
+    activityName: string
+    applicationId: string | null
+    activityType: DiscordActivityType
+    startedAt: Date | null
   },
-  nextActivity: DiscordPresenceActivityInput
+  nextActivity: DiscordPresenceActivityInput,
 ) {
   const existingStart = existing.startedAt?.toISOString() ?? null
   const nextStart = nextActivity.startedAt?.toISOString() ?? null
 
-  return existing.activityName === nextActivity.name
-    && existing.applicationId === nextActivity.applicationId
-    && existing.activityType === nextActivity.activityType
-    && existingStart === nextStart
+  return (
+    existing.activityName === nextActivity.name &&
+    existing.applicationId === nextActivity.applicationId &&
+    existing.activityType === nextActivity.activityType &&
+    existingStart === nextStart
+  )
 }
 
 async function getAppUserIdForDiscordUser(discordUserId: string) {
@@ -89,39 +95,40 @@ async function getAppUserIdForDiscordUser(discordUserId: string) {
     where: {
       provider_providerUserId: {
         provider: AuthProvider.DISCORD,
-        providerUserId: discordUserId
-      }
+        providerUserId: discordUserId,
+      },
     },
     select: {
-      userId: true
-    }
+      userId: true,
+    },
   })
 
   return identity?.userId ?? null
 }
 
 async function upsertObservedDiscordGame(options: {
-  discordUserId: string;
-  sourceServerId: string | null;
-  activity: DiscordPresenceActivityInput;
-  gameId: string;
-  observedAt: Date;
+  discordUserId: string
+  sourceServerId: string | null
+  activity: DiscordPresenceActivityInput
+  gameId: string
+  observedAt: Date
 }) {
-  const { activity, discordUserId, gameId, observedAt, sourceServerId } = options
+  const { activity, discordUserId, gameId, observedAt, sourceServerId } =
+    options
 
   await prisma.discordObservedGame.upsert({
     where: {
       discordUserId_gameId: {
         discordUserId,
-        gameId
-      }
+        gameId,
+      },
     },
     update: {
       sourceServerId,
       activityName: activity.name,
       applicationId: activity.applicationId,
       activityType: activity.activityType,
-      lastObservedAt: observedAt
+      lastObservedAt: observedAt,
     },
     create: {
       discordUserId,
@@ -131,15 +138,15 @@ async function upsertObservedDiscordGame(options: {
       applicationId: activity.applicationId,
       activityType: activity.activityType,
       firstObservedAt: observedAt,
-      lastObservedAt: observedAt
-    }
+      lastObservedAt: observedAt,
+    },
   })
 }
 
 export async function recordDiscordPresence(
   discordUserId: string,
   sourceServerId: string | null,
-  activities: DiscordPresenceActivityInput[]
+  activities: DiscordPresenceActivityInput[],
 ) {
   const now = new Date()
   const userId = await getAppUserIdForDiscordUser(discordUserId)
@@ -147,42 +154,46 @@ export async function recordDiscordPresence(
     ? await prisma.discordActivityObservation.findMany({
         where: {
           userId,
-          isActive: true
+          isActive: true,
         },
         select: {
           id: true,
           activityName: true,
           applicationId: true,
           activityType: true,
-          startedAt: true
-        }
+          startedAt: true,
+        },
       })
     : []
   const matchedObservationIds = new Set<string>()
 
   for (const activity of activities) {
-    const game = await findOrCreateGameByTitle(activity.name, { searchCatalog: true })
+    const game = await findOrCreateGameByTitle(activity.name, {
+      searchCatalog: true,
+    })
 
     await upsertObservedDiscordGame({
       discordUserId,
       sourceServerId,
       activity,
       gameId: game.id,
-      observedAt: now
+      observedAt: now,
     })
 
     if (!userId) {
       continue
     }
 
-    const matchingObservation = activeObservations.find((existingObservation) => activityMatches(existingObservation, activity))
+    const matchingObservation = activeObservations.find((existingObservation) =>
+      activityMatches(existingObservation, activity),
+    )
 
     if (matchingObservation) {
       matchedObservationIds.add(matchingObservation.id)
 
       await prisma.discordActivityObservation.update({
         where: {
-          id: matchingObservation.id
+          id: matchingObservation.id,
         },
         data: {
           gameId: game.id,
@@ -192,8 +203,8 @@ export async function recordDiscordPresence(
           lastObservedAt: now,
           endedAt: null,
           isActive: true,
-          rawPayload: activity.rawPayload
-        }
+          rawPayload: activity.rawPayload,
+        },
       })
 
       continue
@@ -212,16 +223,18 @@ export async function recordDiscordPresence(
         startedAt: activity.startedAt,
         firstObservedAt: now,
         lastObservedAt: now,
-        rawPayload: activity.rawPayload
+        rawPayload: activity.rawPayload,
       },
       select: {
-        id: true
-      }
+        id: true,
+      },
     })
 
     matchedObservationIds.add(createdObservation.id)
     void maybeSendDiscordAutoPlayPromptForObservation(createdObservation.id)
-    void maybeSendPlayIntentLaunchNotificationsForObservation(createdObservation.id)
+    void maybeSendPlayIntentLaunchNotificationsForObservation(
+      createdObservation.id,
+    )
   }
 
   if (!userId) {
@@ -229,24 +242,29 @@ export async function recordDiscordPresence(
   }
 
   const staleObservationIds = activeObservations
-    .filter((existingObservation) => !matchedObservationIds.has(existingObservation.id))
+    .filter(
+      (existingObservation) =>
+        !matchedObservationIds.has(existingObservation.id),
+    )
     .map((existingObservation) => existingObservation.id)
 
   if (staleObservationIds.length > 0) {
     await prisma.discordActivityObservation.updateMany({
       where: {
         id: {
-          in: staleObservationIds
-        }
+          in: staleObservationIds,
+        },
       },
       data: {
         isActive: false,
         endedAt: now,
-        lastObservedAt: now
-      }
+        lastObservedAt: now,
+      },
     })
 
-    await expireDiscordAutoPlayPromptsForInactiveObservations(staleObservationIds)
+    await expireDiscordAutoPlayPromptsForInactiveObservations(
+      staleObservationIds,
+    )
   }
 
   return true
@@ -255,30 +273,32 @@ export async function recordDiscordPresence(
 export async function getLatestDiscordActivityForUser(userId: string) {
   const latestObservation = await prisma.discordActivityObservation.findFirst({
     where: {
-      userId
+      userId,
     },
     orderBy: {
-      lastObservedAt: 'desc'
+      lastObservedAt: 'desc',
     },
     include: {
       sourceServer: {
         select: {
-          name: true
-        }
-      }
-    }
+          name: true,
+        },
+      },
+    },
   })
 
   if (!latestObservation) {
     return {
       currentActivity: null,
-      lastObservedAt: null
+      lastObservedAt: null,
     }
   }
 
   return {
-    currentActivity: latestObservation.isActive ? toDiscordActivitySummary(latestObservation) : null,
-    lastObservedAt: latestObservation.lastObservedAt.toISOString()
+    currentActivity: latestObservation.isActive
+      ? toDiscordActivitySummary(latestObservation)
+      : null,
+    lastObservedAt: latestObservation.lastObservedAt.toISOString(),
   }
 }
 
@@ -290,30 +310,36 @@ export async function getLatestDiscordActivitiesForUsers(userIds: string[]) {
   const observations = await prisma.discordActivityObservation.findMany({
     where: {
       userId: {
-        in: userIds
-      }
+        in: userIds,
+      },
     },
     orderBy: [
       {
-        userId: 'asc'
+        userId: 'asc',
       },
       {
-        lastObservedAt: 'desc'
-      }
+        lastObservedAt: 'desc',
+      },
     ],
     include: {
       sourceServer: {
         select: {
-          name: true
-        }
-      }
-    }
+          name: true,
+        },
+      },
+    },
   })
-  const latestByUserId = new Map<string, NonNullable<DiscoveryPerson['discordActivity']>>()
+  const latestByUserId = new Map<
+    string,
+    NonNullable<DiscoveryPerson['discordActivity']>
+  >()
 
   for (const observation of observations) {
     if (!latestByUserId.has(observation.userId)) {
-      latestByUserId.set(observation.userId, toDiscordActivitySummary(observation))
+      latestByUserId.set(
+        observation.userId,
+        toDiscordActivitySummary(observation),
+      )
     }
   }
 

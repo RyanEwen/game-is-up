@@ -10,12 +10,12 @@ Most client data still loads through normal HTTP requests, but signed-in dashboa
 
 ## Layers
 
-| Layer | Description |
-|---|---|
-| `apps/web` | Web-first client shell, discovery UI, auth entry points, and installable PWA behavior. |
-| `apps/api` | Express API, auth integration, discovery ranking, notification fan-out, SSE invalidation publishing, and persistence orchestration around Prisma. |
-| `packages/shared` | Zod schemas, DTOs, SSE event contracts, and shared runtime validation used by both the web app and API. |
-| `apps/api/prisma` | Core relational model for users, friends, game interests, play intents, moderation, and notifications. |
+| Layer             | Description                                                                                                                                       |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/web`        | Web-first client shell, discovery UI, auth entry points, and installable PWA behavior.                                                            |
+| `apps/api`        | Express API, auth integration, discovery ranking, notification fan-out, SSE invalidation publishing, and persistence orchestration around Prisma. |
+| `packages/shared` | Zod schemas, DTOs, SSE event contracts, and shared runtime validation used by both the web app and API.                                           |
+| `apps/api/prisma` | Core relational model for users, friends, game interests, play intents, moderation, and notifications.                                            |
 
 ## Dashboard refresh flow
 

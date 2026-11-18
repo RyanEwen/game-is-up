@@ -19,6 +19,7 @@ Server admins can place a persistent Game's Up hub with `/setup-ctp-post`. Its b
 The Discord composer's title, note, and Friend invites actions share their step's navigation row so they stay visible alongside dropdowns. Discord determines native button widths. Errors appear in separate red-accented embeds above the composer or management panel, while successful changes have green notices. Stale forms ask you to refresh instead of overwriting newer settings.
 
 Signed-in dashboard sessions also keep themselves fresh through a same-origin Server-Sent Events invalidation stream. When impactful shared state changes land on the API, open tabs can automatically reload discovery, play, library, network, and session data without a polling loop.
+
 ## Play intent model
 
 Users are not limited to one active call to play. They can keep multiple active calls as long as those availability windows do not overlap. Each call can target:
@@ -39,6 +40,7 @@ In the web composer, choosing "Schedule later" suggests a start one hour ahead, 
 The Play view keeps recently ended calls to play visible for a short closed-history window and marks whether each visible call currently applies to the signed-in viewer's library.
 
 Automatic detected-game prompts open the same Discord call-to-play wizard, with the detected game and immediate start preset. Title, audience, duration, note, and voice setup remain available. Automatic drafts are saved separately from manual drafts for 24 hours. While bot message actions are processing, the selected control shows "Working..." and action controls remain disabled until processing finishes.
+
 ## Discord
 
 1. When a call to play matches someone who should be notified and that user has a linked Discord account, the bot can DM them directly. If someone becomes newly eligible later because they add overlapping library games while the call is still active, the app backfills the missing call notification for them as well. Quick response buttons in Discord are only active in the gateway-owning environment.

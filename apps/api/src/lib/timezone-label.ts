@@ -42,36 +42,42 @@ const legacyTimezoneIdMap: Record<string, string> = {
   'UTC+11': 'Pacific/Noumea',
   'GMT+11': 'Pacific/Noumea',
   'UTC+12': 'Pacific/Auckland',
-  'GMT+12': 'Pacific/Auckland'
+  'GMT+12': 'Pacific/Auckland',
 }
 
 function canonicalizeTimezoneId(timezoneId: string): string | null {
   try {
     return new Intl.DateTimeFormat('en-US', {
-      timeZone: timezoneId
+      timeZone: timezoneId,
     }).resolvedOptions().timeZone
   } catch {
     return null
   }
 }
 
-export function normalizeTimezoneId(timezoneId: string | null | undefined): string | null {
+export function normalizeTimezoneId(
+  timezoneId: string | null | undefined,
+): string | null {
   const normalizedTimezoneId = timezoneId?.trim()
 
   if (!normalizedTimezoneId) {
     return null
   }
 
-  const mappedTimezoneId = legacyTimezoneIdMap[normalizedTimezoneId.toUpperCase()] ?? normalizedTimezoneId
+  const mappedTimezoneId =
+    legacyTimezoneIdMap[normalizedTimezoneId.toUpperCase()] ??
+    normalizedTimezoneId
 
   return canonicalizeTimezoneId(mappedTimezoneId)
 }
 
-export function formatTimezoneLabel(timezoneId: string | null | undefined): string {
+export function formatTimezoneLabel(
+  timezoneId: string | null | undefined,
+): string {
   const normalizedTimezoneId = normalizeTimezoneId(timezoneId) ?? 'Etc/UTC'
   const timeZoneName = new Intl.DateTimeFormat('en-US', {
     timeZone: normalizedTimezoneId,
-    timeZoneName: 'short'
+    timeZoneName: 'short',
   })
     .formatToParts(new Date())
     .find((part) => part.type === 'timeZoneName')?.value
@@ -84,5 +90,8 @@ export function formatTimezoneLabel(timezoneId: string | null | undefined): stri
     return 'UTC'
   }
 
-  return normalizedTimezoneId.split('/').at(-1)?.replace(/_/g, ' ') ?? normalizedTimezoneId
+  return (
+    normalizedTimezoneId.split('/').at(-1)?.replace(/_/g, ' ') ??
+    normalizedTimezoneId
+  )
 }

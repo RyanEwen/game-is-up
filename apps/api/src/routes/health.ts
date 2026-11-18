@@ -15,7 +15,7 @@ healthRouter.get('/', (_request, response) => {
       status: 'ok',
       service: 'game-is-up-api',
       timestamp: new Date().toISOString(),
-      version: '0.1.0'
-    })
+      version: '0.1.0',
+    }),
   )
 })

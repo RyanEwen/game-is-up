@@ -19,7 +19,7 @@ debugRouter.get('/admin', async (request, response, next) => {
 
   if (!session) {
     response.status(401).json({
-      error: 'Authentication required.'
+      error: 'Authentication required.',
     })
     return
   }
@@ -28,7 +28,7 @@ debugRouter.get('/admin', async (request, response, next) => {
 
   if (!user?.isAdmin) {
     response.status(403).json({
-      error: 'Admin access required.'
+      error: 'Admin access required.',
     })
     return
   }

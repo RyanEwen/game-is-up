@@ -7,7 +7,10 @@ import { getAuthSession } from './session.js'
  * response and return null when no valid session is present. Route handlers
  * should bail out (`return`) when this returns null.
  */
-export function requireSignedInUserId(request: Request, response: Response): string | null {
+export function requireSignedInUserId(
+  request: Request,
+  response: Response,
+): string | null {
   const session = getAuthSession(request)
 
   if (!session) {
@@ -23,9 +26,11 @@ export function requireSignedInUserId(request: Request, response: Response): str
  * exist. Callers are responsible for emitting the 403 response when the result
  * is null or `isAdmin` is false.
  */
-export async function getUserAdminStatus(userId: string): Promise<{ isAdmin: boolean } | null> {
+export async function getUserAdminStatus(
+  userId: string,
+): Promise<{ isAdmin: boolean } | null> {
   return prisma.user.findUnique({
     where: { id: userId },
-    select: { isAdmin: true }
+    select: { isAdmin: true },
   })
 }

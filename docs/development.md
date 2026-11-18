@@ -57,16 +57,16 @@ compose.example.yml   Production stack template
 
 5. Wait for the configured database to become reachable:
 
-  ```bash
-  npm run db:wait
-  ```
+```bash
+npm run db:wait
+```
 
 6. Apply the checked-in migrations and seed demo data:
 
-  ```bash
-  npm run db:migrate:deploy
-  npm run db:seed
-  ```
+```bash
+npm run db:migrate:deploy
+npm run db:seed
+```
 
 7. Start the workspace:
 
@@ -194,6 +194,7 @@ The library search can query RAWG for broad multi-platform game data instead of 
 2. Set `RAWG_API_KEY` in your `.env` file.
 3. If the key is missing, the app falls back to locally known games only.
 4. Keep the RAWG attribution link visible anywhere RAWG-backed catalog results are shown.
+
 ## Repository automation
 
 - `AGENTS.md` and nested `AGENTS.md` files define agent guidance at workspace, web, API, and Prisma scopes.

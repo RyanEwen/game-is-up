@@ -1,4 +1,10 @@
-import { useEffect, useMemo, useRef, useState, type TouchEvent as ReactTouchEvent } from 'react'
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type TouchEvent as ReactTouchEvent,
+} from 'react'
 import { Box, Button, Card, Stack, Typography } from '@mui/joy'
 import type { LibraryTrendingGame } from '@game-is-up/shared'
 import type { DashboardLibraryQuickAddGame } from './types'
@@ -31,24 +37,30 @@ function buildTrendingGameTitle(game: LibraryTrendingGame) {
     : `Seen played by ${game.recentPlayerCount} ${game.recentPlayerCount === 1 ? 'person' : 'people'} in your network recently.`
 }
 
-function buildMinimumTickerCopyCount(baseCycleWidth: number, viewportWidth: number) {
+function buildMinimumTickerCopyCount(
+  baseCycleWidth: number,
+  viewportWidth: number,
+) {
   if (baseCycleWidth <= 0) {
     return minimumTickerCopyCount
   }
 
-  return Math.max(minimumTickerCopyCount, Math.ceil(viewportWidth / baseCycleWidth) + 2)
+  return Math.max(
+    minimumTickerCopyCount,
+    Math.ceil(viewportWidth / baseCycleWidth) + 2,
+  )
 }
 
 export function LibraryTrendingRow({
   trendingGames,
   addingLibraryGameId,
   onAddToLibrary,
-  showWhenEmpty = false
+  showWhenEmpty = false,
 }: {
-  trendingGames: LibraryTrendingGame[];
-  addingLibraryGameId: string | null;
-  onAddToLibrary: (game: DashboardLibraryQuickAddGame) => Promise<void>;
-  showWhenEmpty?: boolean;
+  trendingGames: LibraryTrendingGame[]
+  addingLibraryGameId: string | null
+  onAddToLibrary: (game: DashboardLibraryQuickAddGame) => Promise<void>
+  showWhenEmpty?: boolean
 }) {
   const viewportRef = useRef<HTMLDivElement | null>(null)
   const trackRef = useRef<HTMLDivElement | null>(null)
@@ -56,17 +68,17 @@ export function LibraryTrendingRow({
   const offsetRef = useRef(0)
   const suppressClickRef = useRef(false)
   const dragStateRef = useRef<{
-    pointerId: number;
-    startX: number;
-    startOffset: number;
-    moved: boolean;
+    pointerId: number
+    startX: number
+    startOffset: number
+    moved: boolean
   } | null>(null)
   const touchDragStateRef = useRef<{
-    startX: number;
-    startY: number;
-    startOffset: number;
-    moved: boolean;
-    axis: 'undecided' | 'x' | 'y';
+    startX: number
+    startY: number
+    startOffset: number
+    moved: boolean
+    axis: 'undecided' | 'x' | 'y'
   } | null>(null)
   const [copyCount, setCopyCount] = useState(minimumTickerCopyCount)
   const [isViewportHovered, setIsViewportHovered] = useState(false)
@@ -77,8 +89,12 @@ export function LibraryTrendingRow({
   const isTickerPaused = isViewportHovered || hasFocusWithin || isDragging
 
   const tickerCycles = useMemo(
-    () => Array.from({ length: copyCount }, (_, copyIndex) => ({ copyIndex, games: trendingGames })),
-    [copyCount, trendingGames]
+    () =>
+      Array.from({ length: copyCount }, (_, copyIndex) => ({
+        copyIndex,
+        games: trendingGames,
+      })),
+    [copyCount, trendingGames],
   )
 
   useEffect(() => {
@@ -86,7 +102,13 @@ export function LibraryTrendingRow({
     const track = trackRef.current
     const baseCycle = baseCycleRef.current
 
-    if (!viewport || !track || !baseCycle || typeof ResizeObserver === 'undefined' || trendingGames.length === 0) {
+    if (
+      !viewport ||
+      !track ||
+      !baseCycle ||
+      typeof ResizeObserver === 'undefined' ||
+      trendingGames.length === 0
+    ) {
       setShouldAutoScroll(false)
       setLoopWidth(0)
       offsetRef.current = 0
@@ -104,7 +126,9 @@ export function LibraryTrendingRow({
         ? buildMinimumTickerCopyCount(nextLoopWidth, viewport.clientWidth)
         : 1
 
-      setCopyCount((currentCopyCount) => (currentCopyCount === nextCopyCount ? currentCopyCount : nextCopyCount))
+      setCopyCount((currentCopyCount) =>
+        currentCopyCount === nextCopyCount ? currentCopyCount : nextCopyCount,
+      )
       setLoopWidth(nextLoopWidth)
 
       const canScroll = overflowsViewport && nextLoopWidth > 0
@@ -135,11 +159,19 @@ export function LibraryTrendingRow({
   useEffect(() => {
     const track = trackRef.current
 
-    if (!track || !shouldAutoScroll || isTickerPaused || loopWidth <= 0 || typeof window === 'undefined') {
+    if (
+      !track ||
+      !shouldAutoScroll ||
+      isTickerPaused ||
+      loopWidth <= 0 ||
+      typeof window === 'undefined'
+    ) {
       return
     }
 
-    const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
+    const reducedMotionQuery = window.matchMedia(
+      '(prefers-reduced-motion: reduce)',
+    )
 
     if (reducedMotionQuery.matches) {
       return
@@ -149,12 +181,13 @@ export function LibraryTrendingRow({
     let previousTimestamp: number | null = null
 
     const tick = (timestamp: number) => {
-      const elapsedMs = previousTimestamp === null ? 0 : timestamp - previousTimestamp
+      const elapsedMs =
+        previousTimestamp === null ? 0 : timestamp - previousTimestamp
       previousTimestamp = timestamp
 
       offsetRef.current = normalizeTickerOffset(
-        offsetRef.current + ((elapsedMs / 1000) * trendingTickerSpeedPxPerSecond),
-        loopWidth
+        offsetRef.current + (elapsedMs / 1000) * trendingTickerSpeedPxPerSecond,
+        loopWidth,
       )
       applyTickerOffset(track, offsetRef.current)
 
@@ -197,7 +230,7 @@ export function LibraryTrendingRow({
       pointerId: event.pointerId,
       startX: event.clientX,
       startOffset: offsetRef.current,
-      moved: false
+      moved: false,
     }
     setIsDragging(true)
   }
@@ -205,7 +238,11 @@ export function LibraryTrendingRow({
   const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
     const dragState = dragStateRef.current
 
-    if (!dragState || dragState.pointerId !== event.pointerId || loopWidth <= 0) {
+    if (
+      !dragState ||
+      dragState.pointerId !== event.pointerId ||
+      loopWidth <= 0
+    ) {
       return
     }
 
@@ -220,7 +257,10 @@ export function LibraryTrendingRow({
       return
     }
 
-    offsetRef.current = normalizeTickerOffset(dragState.startOffset - deltaX, loopWidth)
+    offsetRef.current = normalizeTickerOffset(
+      dragState.startOffset - deltaX,
+      loopWidth,
+    )
     applyTickerOffset(trackRef.current, offsetRef.current)
   }
 
@@ -240,7 +280,9 @@ export function LibraryTrendingRow({
     stopDragging(event.pointerId)
   }
 
-  const handleLostPointerCapture = (event: React.PointerEvent<HTMLDivElement>) => {
+  const handleLostPointerCapture = (
+    event: React.PointerEvent<HTMLDivElement>,
+  ) => {
     if (dragStateRef.current?.pointerId !== event.pointerId) {
       return
     }
@@ -274,7 +316,7 @@ export function LibraryTrendingRow({
       startY: touch.clientY,
       startOffset: offsetRef.current,
       moved: false,
-      axis: 'undecided'
+      axis: 'undecided',
     }
   }
 
@@ -295,7 +337,9 @@ export function LibraryTrendingRow({
     const deltaY = touch.clientY - touchDragState.startY
 
     if (touchDragState.axis === 'undecided') {
-      if (Math.max(Math.abs(deltaX), Math.abs(deltaY)) < dragActivationThresholdPx) {
+      if (
+        Math.max(Math.abs(deltaX), Math.abs(deltaY)) < dragActivationThresholdPx
+      ) {
         return
       }
 
@@ -320,7 +364,10 @@ export function LibraryTrendingRow({
       suppressClickRef.current = true
     }
 
-    offsetRef.current = normalizeTickerOffset(touchDragState.startOffset - deltaX, loopWidth)
+    offsetRef.current = normalizeTickerOffset(
+      touchDragState.startOffset - deltaX,
+      loopWidth,
+    )
     applyTickerOffset(trackRef.current, offsetRef.current)
   }
 
@@ -344,7 +391,8 @@ export function LibraryTrendingRow({
           <Typography level="title-md">Trending in your network</Typography>
           {trendingGames.length === 0 ? (
             <Typography level="body-sm" sx={{ color: 'neutral.400', mt: 0.5 }}>
-              When games start picking up across your network, they will show up here.
+              When games start picking up across your network, they will show up
+              here.
             </Typography>
           ) : null}
         </Box>
@@ -366,13 +414,21 @@ export function LibraryTrendingRow({
             onClickCapture={handleClickCapture}
             onFocusCapture={() => setHasFocusWithin(true)}
             onBlurCapture={(event) => {
-              if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+              if (
+                !event.currentTarget.contains(
+                  event.relatedTarget as Node | null,
+                )
+              ) {
                 setHasFocusWithin(false)
               }
             }}
             sx={{
               overflow: 'hidden',
-              cursor: shouldAutoScroll ? (isDragging ? 'grabbing' : 'grab') : 'default',
+              cursor: shouldAutoScroll
+                ? isDragging
+                  ? 'grabbing'
+                  : 'grab'
+                : 'default',
               userSelect: isDragging ? 'none' : 'auto',
               touchAction: shouldAutoScroll ? 'pan-y' : 'auto',
               maskImage: shouldAutoScroll
@@ -380,7 +436,7 @@ export function LibraryTrendingRow({
                 : 'none',
               WebkitMaskImage: shouldAutoScroll
                 ? 'linear-gradient(90deg, transparent 0, rgba(0, 0, 0, 1) 2.5rem, rgba(0, 0, 0, 1) calc(100% - 2.5rem), transparent 100%)'
-                : 'none'
+                : 'none',
             }}
           >
             <Box
@@ -390,7 +446,7 @@ export function LibraryTrendingRow({
                 alignItems: 'center',
                 width: 'max-content',
                 py: 0.25,
-                willChange: shouldAutoScroll ? 'transform' : 'auto'
+                willChange: shouldAutoScroll ? 'transform' : 'auto',
               }}
             >
               {tickerCycles.map(({ copyIndex, games }) => {
@@ -406,7 +462,7 @@ export function LibraryTrendingRow({
                       alignItems: 'center',
                       gap: 1,
                       pr: 1,
-                      flexShrink: 0
+                      flexShrink: 0,
                     }}
                   >
                     {games.map((game) => (
@@ -415,14 +471,19 @@ export function LibraryTrendingRow({
                         variant={game.alreadyInLibrary ? 'soft' : 'plain'}
                         color={game.alreadyInLibrary ? 'neutral' : 'primary'}
                         size="sm"
-                        disabled={game.alreadyInLibrary || addingLibraryGameId === game.gameId}
+                        disabled={
+                          game.alreadyInLibrary ||
+                          addingLibraryGameId === game.gameId
+                        }
                         tabIndex={isDuplicateCopy ? -1 : 0}
-                        onClick={() => void onAddToLibrary({
-                          gameId: game.gameId,
-                          title: game.title,
-                          coverUrl: game.coverUrl,
-                          platformLabels: game.platformLabels
-                        })}
+                        onClick={() =>
+                          void onAddToLibrary({
+                            gameId: game.gameId,
+                            title: game.title,
+                            coverUrl: game.coverUrl,
+                            platformLabels: game.platformLabels,
+                          })
+                        }
                         sx={{
                           flexShrink: 0,
                           minWidth: 'max-content',
@@ -435,30 +496,39 @@ export function LibraryTrendingRow({
                           backgroundColor: game.alreadyInLibrary
                             ? 'rgba(59, 77, 102, 0.46)'
                             : 'rgba(16, 106, 84, 0.12)',
-                          color: game.alreadyInLibrary ? 'neutral.500' : 'primary.100',
+                          color: game.alreadyInLibrary
+                            ? 'neutral.500'
+                            : 'primary.100',
                           border: game.alreadyInLibrary
                             ? '1px solid rgba(80, 96, 119, 0.58)'
                             : '1px solid rgba(87, 244, 193, 0.14)',
-                          transition: 'background-color 180ms ease, color 180ms ease, border-color 180ms ease',
+                          transition:
+                            'background-color 180ms ease, color 180ms ease, border-color 180ms ease',
                           '&:hover': {
-                            backgroundColor: game.alreadyInLibrary ? 'rgba(59, 77, 102, 0.46)' : 'rgba(16, 106, 84, 0.22)',
-                            borderColor: game.alreadyInLibrary ? 'rgba(var(--joy-palette-neutral-mainChannel) / 0.5)' : 'rgba(var(--joy-palette-primary-lightChannel) / 0.24)',
-                            color: game.alreadyInLibrary ? 'neutral.500' : 'primary.50'
+                            backgroundColor: game.alreadyInLibrary
+                              ? 'rgba(59, 77, 102, 0.46)'
+                              : 'rgba(16, 106, 84, 0.22)',
+                            borderColor: game.alreadyInLibrary
+                              ? 'rgba(var(--joy-palette-neutral-mainChannel) / 0.5)'
+                              : 'rgba(var(--joy-palette-primary-lightChannel) / 0.24)',
+                            color: game.alreadyInLibrary
+                              ? 'neutral.500'
+                              : 'primary.50',
                           },
                           '&.Mui-disabled': {
                             opacity: 1,
                             backgroundColor: 'rgba(59, 77, 102, 0.42)',
                             color: 'neutral.500',
-                            borderColor: 'rgba(80, 96, 119, 0.54)'
+                            borderColor: 'rgba(80, 96, 119, 0.54)',
                           },
                           '&:focus-visible': {
                             outline: '2px solid',
                             outlineColor: 'primary.400',
-                            outlineOffset: '3px'
-                          }
+                            outlineOffset: '3px',
+                          },
                         }}
                         title={buildTrendingGameTitle(game)}
-                        endDecorator={(
+                        endDecorator={
                           <Box
                             component="span"
                             sx={{
@@ -474,12 +544,14 @@ export function LibraryTrendingRow({
                               backgroundColor: game.alreadyInLibrary
                                 ? 'rgba(80, 96, 119, 0.38)'
                                 : 'rgba(28, 171, 132, 0.22)',
-                              color: game.alreadyInLibrary ? 'neutral.400' : 'primary.100'
+                              color: game.alreadyInLibrary
+                                ? 'neutral.400'
+                                : 'primary.100',
                             }}
                           >
                             {game.recentPlayerCount}
                           </Box>
-                        )}
+                        }
                       >
                         {game.title}
                       </Button>

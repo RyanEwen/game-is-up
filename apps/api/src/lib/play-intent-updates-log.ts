@@ -36,7 +36,7 @@ import {
   deleteDiscordDirectMessage,
   editDiscordDirectMessage,
   sendDiscordDirectMessages,
-  type DiscordDirectMessagePayload
+  type DiscordDirectMessagePayload,
 } from './discord-bot-runtime.js'
 import { isMissingDiscordMessageError } from './discord-tracked-direct-message.js'
 import { buildDiscordMessageHeading } from './discord-dm-formatting.js'
@@ -44,21 +44,24 @@ import { callToPlayEndedSystemNotification } from './play-intent-system-notifica
 import { prisma } from './prisma.js'
 
 export type PlayIntentUpdatesLogEntry = {
-  title: string;
-  body: string;
+  title: string
+  body: string
   /** Pre-formatted "Fri 7:05pm" label in the recipient's timezone. */
-  timestampLabel?: string | null;
+  timestampLabel?: string | null
 }
 
 /** Builds a log entry from a SYSTEM notification row, stamping the entry time in the recipient's timezone. */
 export function buildPlayIntentUpdatesLogEntry(
   row: { title: string; body: string; createdAt: Date },
-  recipientTimezoneId: string | null | undefined
+  recipientTimezoneId: string | null | undefined,
 ): PlayIntentUpdatesLogEntry {
   return {
     title: row.title,
     body: row.body,
-    timestampLabel: formatPlayIntentLogTimestampLabel(row.createdAt, recipientTimezoneId)
+    timestampLabel: formatPlayIntentLogTimestampLabel(
+      row.createdAt,
+      recipientTimezoneId,
+    ),
   }
 }
 
@@ -78,12 +81,12 @@ const defaultPlayIntentHeadline = 'Call to play'
 const updatesLogReplyAnchorNotificationTypes = [
   NotificationType.FRIEND_PLAYING,
   NotificationType.SCHEDULED_PLAY_INTENT_REMINDER,
-  NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED
+  NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED,
 ] as NotificationType[]
 
 export function buildTrackedDirectMessageReplyReference(
   channelId: string | null | undefined,
-  messageId: string | null | undefined
+  messageId: string | null | undefined,
 ): DiscordDirectMessagePayload['replyTo'] {
   if (!channelId || !messageId) {
     return undefined
@@ -91,56 +94,61 @@ export function buildTrackedDirectMessageReplyReference(
 
   return {
     channelId,
-    messageId
+    messageId,
   }
 }
 
 /** Reply reference pointing at the creator's tracked summary DM. */
-export async function getCreatorPlayIntentSummaryReplyReference(playIntentId: string) {
+export async function getCreatorPlayIntentSummaryReplyReference(
+  playIntentId: string,
+) {
   const playIntent = await prisma.playIntent.findUnique({
     where: {
-      id: playIntentId
+      id: playIntentId,
     },
     select: {
       creatorDiscordDmChannelId: true,
-      creatorDiscordDmMessageId: true
-    }
+      creatorDiscordDmMessageId: true,
+    },
   })
 
   return buildTrackedDirectMessageReplyReference(
     playIntent?.creatorDiscordDmChannelId,
-    playIntent?.creatorDiscordDmMessageId
+    playIntent?.creatorDiscordDmMessageId,
   )
 }
 
 /** Reply reference pointing at the recipient's newest tracked invite/go-time DM. */
-export async function getAudiencePlayIntentReplyReference(playIntentId: string, userId: string) {
+export async function getAudiencePlayIntentReplyReference(
+  playIntentId: string,
+  userId: string,
+) {
   const notification = await prisma.notification.findFirst({
     where: {
       playIntentId,
       userId,
       type: {
-        in: updatesLogReplyAnchorNotificationTypes
+        in: updatesLogReplyAnchorNotificationTypes,
       },
       discordDmChannelId: {
-        not: null
+        not: null,
       },
       discordDmMessageId: {
-        not: null
-      }
+        not: null,
+      },
     },
     orderBy: {
-      createdAt: 'desc'
+      createdAt: 'desc',
     },
     select: {
       discordDmChannelId: true,
-      discordDmMessageId: true
-    }
+      discordDmMessageId: true,
+    },
   })
 
   return buildTrackedDirectMessageReplyReference(
     notification?.discordDmChannelId,
-    notification?.discordDmMessageId
+    notification?.discordDmMessageId,
   )
 }
 
@@ -168,8 +176,8 @@ function formatUpdatesLogEntryLine(entry: PlayIntentUpdatesLogEntry) {
   return decoration ? `${decoration} ${line}` : line
 }
 
-const respondCallToActionLine
-  = 'You haven\'t responded yet — tap "I\'m interested" or "Can\'t make it" on your invite above. Saying you can\'t make it stops these updates.'
+const respondCallToActionLine =
+  'You haven\'t responded yet — tap "I\'m interested" or "Can\'t make it" on your invite above. Saying you can\'t make it stops these updates.'
 
 /**
  * Renders the full log DM content from entries ordered newest-first. Exported
@@ -180,16 +188,16 @@ const respondCallToActionLine
  * the raw content, markup and all.
  */
 export function buildPlayIntentUpdatesLogContent(options: {
-  headline?: string | null;
-  entries: PlayIntentUpdatesLogEntry[];
+  headline?: string | null
+  entries: PlayIntentUpdatesLogEntry[]
   /** Appends the respond call-to-action for recipients who have not answered their invite. */
-  showRespondCallToAction?: boolean;
+  showRespondCallToAction?: boolean
 }) {
   const headline = options.headline?.trim()
   const heading = buildDiscordMessageHeading(
     headline && headline !== defaultPlayIntentHeadline
       ? `📣 Updates — ${headline}`
-      : '📣 Call to Play Updates'
+      : '📣 Call to Play Updates',
   )
   const renderedEntries = options.entries.slice(0, maxRenderedUpdatesLogEntries)
   const hiddenEntryCount = options.entries.length - renderedEntries.length
@@ -197,23 +205,25 @@ export function buildPlayIntentUpdatesLogContent(options: {
     hiddenEntryCount > 0
       ? `…and ${hiddenEntryCount} earlier ${hiddenEntryCount === 1 ? 'update' : 'updates'}.`
       : null,
-    options.showRespondCallToAction ? respondCallToActionLine : null
+    options.showRespondCallToAction ? respondCallToActionLine : null,
   ].filter((line): line is string => Boolean(line))
 
   return [
     heading,
     renderedEntries.map((entry) => formatUpdatesLogEntryLine(entry)).join('\n'),
-    footerLines.join('\n')
-  ].filter((part) => part.length > 0).join('\n\n')
+    footerLines.join('\n'),
+  ]
+    .filter((part) => part.length > 0)
+    .join('\n\n')
 }
 
 type UpdatesLogNotificationRow = {
-  id: string;
-  title: string;
-  body: string;
-  createdAt: Date;
-  discordDmChannelId: string | null;
-  discordDmMessageId: string | null;
+  id: string
+  title: string
+  body: string
+  createdAt: Date
+  discordDmChannelId: string | null
+  discordDmMessageId: string | null
 }
 
 /**
@@ -224,7 +234,7 @@ type UpdatesLogNotificationRow = {
  */
 export async function getPendingResponsePlayIntentPairKeys(
   playIntentIds: string[],
-  recipientUserIds: string[]
+  recipientUserIds: string[],
 ) {
   const uniquePlayIntentIds = [...new Set(playIntentIds.filter(Boolean))]
   const uniqueRecipientUserIds = [...new Set(recipientUserIds.filter(Boolean))]
@@ -236,29 +246,29 @@ export async function getPendingResponsePlayIntentPairKeys(
   const rows = await prisma.notification.findMany({
     where: {
       playIntentId: {
-        in: uniquePlayIntentIds
+        in: uniquePlayIntentIds,
       },
       userId: {
-        in: uniqueRecipientUserIds
+        in: uniqueRecipientUserIds,
       },
       type: {
-        in: updatesLogReplyAnchorNotificationTypes
-      }
+        in: updatesLogReplyAnchorNotificationTypes,
+      },
     },
     orderBy: [
       {
-        createdAt: 'desc'
+        createdAt: 'desc',
       },
       {
-        id: 'desc'
-      }
+        id: 'desc',
+      },
     ],
     select: {
       playIntentId: true,
       userId: true,
       type: true,
-      responseChoice: true
-    }
+      responseChoice: true,
+    },
   })
 
   const seenPairKeys = new Set<string>()
@@ -281,71 +291,85 @@ export async function getPendingResponsePlayIntentPairKeys(
   return pendingPairKeys
 }
 
-async function getUpdatesLogState(playIntentId: string, recipientUserId: string) {
-  const [playIntent, recipient, rows, pendingResponsePairKeys] = await Promise.all([
-    prisma.playIntent.findUnique({
-      where: {
-        id: playIntentId
-      },
-      select: {
-        userId: true,
-        headline: true
-      }
-    }),
-    prisma.user.findUnique({
-      where: {
-        id: recipientUserId
-      },
-      select: {
-        timezoneId: true
-      }
-    }),
-    prisma.notification.findMany({
-      where: {
-        playIntentId,
-        userId: recipientUserId,
-        type: NotificationType.SYSTEM,
-        title: {
-          not: callToPlayEndedSystemNotification.title
-        }
-      },
-      orderBy: [
-        {
-          createdAt: 'desc'
+async function getUpdatesLogState(
+  playIntentId: string,
+  recipientUserId: string,
+) {
+  const [playIntent, recipient, rows, pendingResponsePairKeys] =
+    await Promise.all([
+      prisma.playIntent.findUnique({
+        where: {
+          id: playIntentId,
         },
-        {
-          id: 'desc'
-        }
-      ],
-      select: {
-        id: true,
-        title: true,
-        body: true,
-        createdAt: true,
-        discordDmChannelId: true,
-        discordDmMessageId: true
-      }
-    }),
-    getPendingResponsePlayIntentPairKeys([playIntentId], [recipientUserId])
-  ])
+        select: {
+          userId: true,
+          headline: true,
+        },
+      }),
+      prisma.user.findUnique({
+        where: {
+          id: recipientUserId,
+        },
+        select: {
+          timezoneId: true,
+        },
+      }),
+      prisma.notification.findMany({
+        where: {
+          playIntentId,
+          userId: recipientUserId,
+          type: NotificationType.SYSTEM,
+          title: {
+            not: callToPlayEndedSystemNotification.title,
+          },
+        },
+        orderBy: [
+          {
+            createdAt: 'desc',
+          },
+          {
+            id: 'desc',
+          },
+        ],
+        select: {
+          id: true,
+          title: true,
+          body: true,
+          createdAt: true,
+          discordDmChannelId: true,
+          discordDmMessageId: true,
+        },
+      }),
+      getPendingResponsePlayIntentPairKeys([playIntentId], [recipientUserId]),
+    ])
 
   return {
     playIntent,
     rows: rows as UpdatesLogNotificationRow[],
-    entries: (rows as UpdatesLogNotificationRow[]).map((row) => buildPlayIntentUpdatesLogEntry(row, recipient?.timezoneId)),
-    showRespondCallToAction: pendingResponsePairKeys.has(`${playIntentId}:${recipientUserId}`)
+    entries: (rows as UpdatesLogNotificationRow[]).map((row) =>
+      buildPlayIntentUpdatesLogEntry(row, recipient?.timezoneId),
+    ),
+    showRespondCallToAction: pendingResponsePairKeys.has(
+      `${playIntentId}:${recipientUserId}`,
+    ),
   }
 }
 
 function collectTrackedMessages(rows: UpdatesLogNotificationRow[]) {
-  const trackedMessages = new Map<string, { channelId: string; messageId: string }>()
+  const trackedMessages = new Map<
+    string,
+    { channelId: string; messageId: string }
+  >()
 
   for (const row of rows) {
     if (row.discordDmChannelId && row.discordDmMessageId) {
-      trackedMessages.set(`${row.discordDmChannelId}:${row.discordDmMessageId}`, {
-        channelId: row.discordDmChannelId,
-        messageId: row.discordDmMessageId
-      })
+      trackedMessages.set(
+        `${row.discordDmChannelId}:${row.discordDmMessageId}`,
+        {
+          channelId: row.discordDmChannelId,
+          messageId: row.discordDmMessageId,
+        },
+      )
     }
   }
 
@@ -360,13 +384,13 @@ async function clearUpdatesLogReferences(rowIds: string[]) {
   await prisma.notification.updateMany({
     where: {
       id: {
-        in: rowIds
-      }
+        in: rowIds,
+      },
     },
     data: {
       discordDmChannelId: null,
-      discordDmMessageId: null
-    }
+      discordDmMessageId: null,
+    },
   })
 }
 
@@ -377,11 +401,12 @@ async function clearUpdatesLogReferences(rowIds: string[]) {
  * Falls back to editing the existing message in place if the resend fails.
  */
 export async function syncPlayIntentUpdatesLogDirectMessage(options: {
-  playIntentId: string;
-  recipientUserId: string;
-  discordUserId: string;
+  playIntentId: string
+  recipientUserId: string
+  discordUserId: string
 }) {
-  const { playIntent, rows, entries, showRespondCallToAction } = await getUpdatesLogState(options.playIntentId, options.recipientUserId)
+  const { playIntent, rows, entries, showRespondCallToAction } =
+    await getUpdatesLogState(options.playIntentId, options.recipientUserId)
 
   if (!playIntent || rows.length === 0) {
     return
@@ -396,45 +421,60 @@ export async function syncPlayIntentUpdatesLogDirectMessage(options: {
   const content = buildPlayIntentUpdatesLogContent({
     headline: playIntent.headline,
     entries,
-    showRespondCallToAction
+    showRespondCallToAction,
   })
   const trackedMessages = collectTrackedMessages(rows)
-  const replyTo = options.recipientUserId === playIntent.userId
-    ? await getCreatorPlayIntentSummaryReplyReference(options.playIntentId)
-    : await getAudiencePlayIntentReplyReference(options.playIntentId, options.recipientUserId)
+  const replyTo =
+    options.recipientUserId === playIntent.userId
+      ? await getCreatorPlayIntentSummaryReplyReference(options.playIntentId)
+      : await getAudiencePlayIntentReplyReference(
+          options.playIntentId,
+          options.recipientUserId,
+        )
 
-  const sendResult = (await sendDiscordDirectMessages([
-    {
-      discordUserId: options.discordUserId,
-      content,
-      components: [],
-      replyTo
-    }
-  ]))[0]
+  const sendResult = (
+    await sendDiscordDirectMessages([
+      {
+        discordUserId: options.discordUserId,
+        content,
+        components: [],
+        replyTo,
+      },
+    ])
+  )[0]
 
   if (sendResult?.status === 'sent' && sendResult.emulated) {
     return
   }
 
-  if (sendResult?.status === 'sent' && sendResult.channelId && sendResult.messageId) {
+  if (
+    sendResult?.status === 'sent' &&
+    sendResult.channelId &&
+    sendResult.messageId
+  ) {
     await prisma.notification.update({
       where: {
-        id: newestRow.id
+        id: newestRow.id,
       },
       data: {
         deliveredAt: new Date(),
         discordDmChannelId: sendResult.channelId,
-        discordDmMessageId: sendResult.messageId
-      }
+        discordDmMessageId: sendResult.messageId,
+      },
     })
-    await clearUpdatesLogReferences(rows.slice(1).filter((row) => row.discordDmChannelId || row.discordDmMessageId).map((row) => row.id))
+    await clearUpdatesLogReferences(
+      rows
+        .slice(1)
+        .filter((row) => row.discordDmChannelId || row.discordDmMessageId)
+        .map((row) => row.id),
+    )
 
     const newMessageKey = `${sendResult.channelId}:${sendResult.messageId}`
 
     await Promise.all(
       [...trackedMessages.entries()]
         .filter(([key]) => key !== newMessageKey)
-        .map(([, message]) => deleteDiscordDirectMessage(message))
+        .map(([, message]) => deleteDiscordDirectMessage(message)),
     )
 
     return
@@ -444,7 +484,7 @@ export async function syncPlayIntentUpdatesLogDirectMessage(options: {
   // at least shows the latest entries.
   await refreshPlayIntentUpdatesLogDirectMessage({
     playIntentId: options.playIntentId,
-    recipientUserId: options.recipientUserId
+    recipientUserId: options.recipientUserId,
   })
 }
 
@@ -455,16 +495,19 @@ export async function syncPlayIntentUpdatesLogDirectMessage(options: {
  * tracked log message.
  */
 export async function refreshPlayIntentUpdatesLogDirectMessage(options: {
-  playIntentId: string;
-  recipientUserId: string;
+  playIntentId: string
+  recipientUserId: string
 }) {
-  const { playIntent, rows, entries, showRespondCallToAction } = await getUpdatesLogState(options.playIntentId, options.recipientUserId)
+  const { playIntent, rows, entries, showRespondCallToAction } =
+    await getUpdatesLogState(options.playIntentId, options.recipientUserId)
 
   if (!playIntent) {
     return
   }
 
-  const trackedRows = rows.filter((row) => row.discordDmChannelId && row.discordDmMessageId)
+  const trackedRows = rows.filter(
+    (row) => row.discordDmChannelId && row.discordDmMessageId,
+  )
 
   if (trackedRows.length === 0) {
     return
@@ -473,19 +516,24 @@ export async function refreshPlayIntentUpdatesLogDirectMessage(options: {
   const content = buildPlayIntentUpdatesLogContent({
     headline: playIntent.headline,
     entries,
-    showRespondCallToAction
+    showRespondCallToAction,
   })
 
-  await Promise.all(trackedRows.map(async (row) => {
-    const editResult = await editDiscordDirectMessage({
-      channelId: row.discordDmChannelId as string,
-      messageId: row.discordDmMessageId as string,
-      content,
-      components: []
-    })
+  await Promise.all(
+    trackedRows.map(async (row) => {
+      const editResult = await editDiscordDirectMessage({
+        channelId: row.discordDmChannelId as string,
+        messageId: row.discordDmMessageId as string,
+        content,
+        components: [],
+      })
 
-    if (editResult.status === 'failed' && isMissingDiscordMessageError(editResult.error)) {
-      await clearUpdatesLogReferences([row.id])
-    }
-  }))
+      if (
+        editResult.status === 'failed' &&
+        isMissingDiscordMessageError(editResult.error)
+      ) {
+        await clearUpdatesLogReferences([row.id])
+      }
+    }),
+  )
 }

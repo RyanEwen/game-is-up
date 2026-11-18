@@ -68,10 +68,7 @@
     {
       "label": "Database: reset and seed",
       "dependsOrder": "sequence",
-      "dependsOn": [
-        "Database: push schema (reset)",
-        "Database: seed"
-      ],
+      "dependsOn": ["Database: push schema (reset)", "Database: seed"],
       "problemMatcher": []
     },
     {

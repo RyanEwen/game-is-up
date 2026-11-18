@@ -43,40 +43,40 @@ Nested `AGENTS.md` files hold area rules. List them with `git ls-files '*AGENTS.
 
 The development stack is devkit-managed Docker Compose; setup is in [docs/development.md](docs/development.md).
 
-| Command | Proves | Does not prove |
-| --- | --- | --- |
-| `npm run validate` | Lint, typecheck of every workspace, all unit tests, and a valid Prisma schema. Run it before finishing a task; CI runs the same script. | That the app builds for production or runs |
-| `npm test` | Every unit test (`*.test.ts` under `apps/`, `packages/` and `scripts/`) passes | The database tests, which are `test:integration` |
-| `npm run test:integration` | The `*.integration.test.ts` database tests pass against `DATABASE_URL`, which must name a disposable `*_test` database; CI runs them on every push and pull request | Anything without a database: with none they fail, they never skip |
-| `npm run typecheck --workspace @game-is-up/<shared, api or web>` | One workspace typechecks; the quick check while working in it | Anything about the other workspaces (`shared` must be built for `api` and `web` to see changes) |
-| `npm run db:validate` | The Prisma schema is valid | That migrations apply |
-| `npm run build` | The production build of all three workspaces succeeds | Runtime behaviour |
-| `npm run dev` | The full stack starts locally | Production configuration |
+| Command                                                          | Proves                                                                                                                                                              | Does not prove                                                                                  |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `npm run validate`                                               | Lint, typecheck of every workspace, all unit tests, and a valid Prisma schema. Run it before finishing a task; CI runs the same script.                             | That the app builds for production or runs                                                      |
+| `npm test`                                                       | Every unit test (`*.test.ts` under `apps/`, `packages/` and `scripts/`) passes                                                                                      | The database tests, which are `test:integration`                                                |
+| `npm run test:integration`                                       | The `*.integration.test.ts` database tests pass against `DATABASE_URL`, which must name a disposable `*_test` database; CI runs them on every push and pull request | Anything without a database: with none they fail, they never skip                               |
+| `npm run typecheck --workspace @game-is-up/<shared, api or web>` | One workspace typechecks; the quick check while working in it                                                                                                       | Anything about the other workspaces (`shared` must be built for `api` and `web` to see changes) |
+| `npm run db:validate`                                            | The Prisma schema is valid                                                                                                                                          | That migrations apply                                                                           |
+| `npm run build`                                                  | The production build of all three workspaces succeeds                                                                                                               | Runtime behaviour                                                                               |
+| `npm run dev`                                                    | The full stack starts locally                                                                                                                                       | Production configuration                                                                        |
 
 Deployment goes through the `deploy` skill only; it runs `npm run deploy:prod`, which deploys only a clean, pushed `main`.
 
 ## Guidance map
 
-| Guide, doc, or skill | Read or use when | Governs |
-| --- | --- | --- |
-| [ARCHITECTURE.md](ARCHITECTURE.md) | Changing structure, data flow, or Discord DM behaviour | Whole repo |
-| [.agents/guides/ui-conventions.md](.agents/guides/ui-conventions.md) | Building or changing any UI | `apps/web/src/**` |
-| [docs/development.md](docs/development.md) | Setting up, running, testing, or adding a script or environment variable | Developer workflow |
-| [docs/deployment.md](docs/deployment.md) | Changing the production stack, the deploy script, or what data is stored | Production, data handling |
-| [docs/behaviour.md](docs/behaviour.md) | Changing user-visible behaviour | Product behaviour |
-| `commit` skill | Asked to commit | Commits |
-| `deploy` skill | Asked to deploy | Commit, push and production deploy |
-| `audit-docs` skill | Asked to check or sync documentation | All docs and agent files |
+| Guide, doc, or skill                                                 | Read or use when                                                         | Governs                            |
+| -------------------------------------------------------------------- | ------------------------------------------------------------------------ | ---------------------------------- |
+| [ARCHITECTURE.md](ARCHITECTURE.md)                                   | Changing structure, data flow, or Discord DM behaviour                   | Whole repo                         |
+| [.agents/guides/ui-conventions.md](.agents/guides/ui-conventions.md) | Building or changing any UI                                              | `apps/web/src/**`                  |
+| [docs/development.md](docs/development.md)                           | Setting up, running, testing, or adding a script or environment variable | Developer workflow                 |
+| [docs/deployment.md](docs/deployment.md)                             | Changing the production stack, the deploy script, or what data is stored | Production, data handling          |
+| [docs/behaviour.md](docs/behaviour.md)                               | Changing user-visible behaviour                                          | Product behaviour                  |
+| `commit` skill                                                       | Asked to commit                                                          | Commits                            |
+| `deploy` skill                                                       | Asked to deploy                                                          | Commit, push and production deploy |
+| `audit-docs` skill                                                   | Asked to check or sync documentation                                     | All docs and agent files           |
 
 ## Keeping docs current
 
-| What changed | Update |
-| --- | --- |
-| Structure, data flow, Discord DM lifecycle | `ARCHITECTURE.md` |
-| Setup, scripts, environment variables | `docs/development.md` and the env examples |
-| Production stack, deploy script, stored data or retention | `docs/deployment.md` |
-| User-visible behaviour | `docs/behaviour.md`, and the README's Features if it is a headline feature |
-| A UI pattern or shared web component | `.agents/guides/ui-conventions.md` |
-| Area rules for the web app or the API (Prisma included) | That workspace's `AGENTS.md` |
-| A shared helper added or replaced | The owning workspace's `AGENTS.md` ("Shared helpers" above for `packages/shared`) |
-| A workflow an agent repeats | `.agents/skills/` |
+| What changed                                              | Update                                                                            |
+| --------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| Structure, data flow, Discord DM lifecycle                | `ARCHITECTURE.md`                                                                 |
+| Setup, scripts, environment variables                     | `docs/development.md` and the env examples                                        |
+| Production stack, deploy script, stored data or retention | `docs/deployment.md`                                                              |
+| User-visible behaviour                                    | `docs/behaviour.md`, and the README's Features if it is a headline feature        |
+| A UI pattern or shared web component                      | `.agents/guides/ui-conventions.md`                                                |
+| Area rules for the web app or the API (Prisma included)   | That workspace's `AGENTS.md`                                                      |
+| A shared helper added or replaced                         | The owning workspace's `AGENTS.md` ("Shared helpers" above for `packages/shared`) |
+| A workflow an agent repeats                               | `.agents/skills/`                                                                 |

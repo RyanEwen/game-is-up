@@ -4,11 +4,11 @@ import { Box, DialogActions } from '@mui/joy'
 export function DashboardModalActionBar({
   primaryAction,
   secondaryAction,
-  cancelAction
+  cancelAction,
 }: {
-  primaryAction?: ReactNode;
-  secondaryAction?: ReactNode;
-  cancelAction?: ReactNode;
+  primaryAction?: ReactNode
+  secondaryAction?: ReactNode
+  cancelAction?: ReactNode
 }) {
   return (
     <DialogActions
@@ -19,7 +19,7 @@ export function DashboardModalActionBar({
         gap: 1,
         flexDirection: 'row',
         alignItems: 'stretch',
-        width: '100%'
+        width: '100%',
       }}
     >
       {secondaryAction}
@@ -31,8 +31,8 @@ export function DashboardModalActionBar({
             display: 'flex',
             alignSelf: 'stretch',
             '& > *': {
-              height: '100%'
-            }
+              height: '100%',
+            },
           }}
         >
           {cancelAction}

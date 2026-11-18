@@ -4,38 +4,102 @@ import type { ButtonInteraction } from 'discord.js'
 import { randomUUID } from 'node:crypto'
 import test, { mock } from 'node:test'
 import { NotificationResponseChoice, NotificationType } from '@prisma/client'
-import { playIntentFriendInviteRequestSchema, upsertPlayIntentRequestSchema } from '@game-is-up/shared'
+import {
+  playIntentFriendInviteRequestSchema,
+  upsertPlayIntentRequestSchema,
+} from '@game-is-up/shared'
 import { buildPlayIntentFriendInvitePicker } from './play-intent-friend-invite-picker.js'
-import { buildRuntimeNotificationDirectMessagePreview, buildPlayIntentNotificationComponents } from './play-intent-notification-responses.js'
+import {
+  buildRuntimeNotificationDirectMessagePreview,
+  buildPlayIntentNotificationComponents,
+} from './play-intent-notification-responses.js'
 import { handlePlayIntentFriendInviteInteraction } from './discord-play-intent-friend-invites.js'
 
 test('invitation contract accepts one friend and rejects bulk or extra targets', () => {
-  assert.equal(playIntentFriendInviteRequestSchema.safeParse({ friendUserId: randomUUID() }).success, true)
-  assert.equal(playIntentFriendInviteRequestSchema.safeParse({ friendUserIds: [randomUUID(), randomUUID()] }).success, false)
-  assert.equal(playIntentFriendInviteRequestSchema.safeParse({ friendUserId: randomUUID(), targetUserIds: [randomUUID()] }).success, false)
+  assert.equal(
+    playIntentFriendInviteRequestSchema.safeParse({
+      friendUserId: randomUUID(),
+    }).success,
+    true,
+  )
+  assert.equal(
+    playIntentFriendInviteRequestSchema.safeParse({
+      friendUserIds: [randomUUID(), randomUUID()],
+    }).success,
+    false,
+  )
+  assert.equal(
+    playIntentFriendInviteRequestSchema.safeParse({
+      friendUserId: randomUUID(),
+      targetUserIds: [randomUUID()],
+    }).success,
+    false,
+  )
 })
 
 test('request preserves omitted permission and an explicit opt-out', () => {
-  const request = { selectionMode: 'subset', notifyScope: 'friends-only', gameIds: [randomUUID()], durationMinutes: 60 }
-  assert.equal(upsertPlayIntentRequestSchema.parse(request).allowParticipantInvites, undefined)
-  assert.equal(upsertPlayIntentRequestSchema.parse({ ...request, allowParticipantInvites: false }).allowParticipantInvites, false)
+  const request = {
+    selectionMode: 'subset',
+    notifyScope: 'friends-only',
+    gameIds: [randomUUID()],
+    durationMinutes: 60,
+  }
+  assert.equal(
+    upsertPlayIntentRequestSchema.parse(request).allowParticipantInvites,
+    undefined,
+  )
+  assert.equal(
+    upsertPlayIntentRequestSchema.parse({
+      ...request,
+      allowParticipantInvites: false,
+    }).allowParticipantInvites,
+    false,
+  )
 })
 
 test('DM picker pages friends and limits every selection to one', () => {
-  const friends = Array.from({ length: 27 }, (_, index) => ({ id: randomUUID(), displayName: `Friend ${index}`, handle: `friend${index}` }))
-  const first = buildPlayIntentFriendInvitePicker(randomUUID(), friends).components[0]!.toJSON().components[0]!
+  const friends = Array.from({ length: 27 }, (_, index) => ({
+    id: randomUUID(),
+    displayName: `Friend ${index}`,
+    handle: `friend${index}`,
+  }))
+  const first = buildPlayIntentFriendInvitePicker(
+    randomUUID(),
+    friends,
+  ).components[0]!.toJSON().components[0]!
   assert.equal('options' in first && first.options.length, 25)
   assert.equal('max_values' in first && first.max_values, 1)
-  const last = buildPlayIntentFriendInvitePicker(randomUUID(), friends, 999).components[0]!.toJSON().components[0]!
+  const last = buildPlayIntentFriendInvitePicker(
+    randomUUID(),
+    friends,
+    999,
+  ).components[0]!.toJSON().components[0]!
   assert.equal('options' in last && last.options.length, 2)
-  assert.equal(buildPlayIntentFriendInvitePicker(randomUUID(), []).components.length, 0)
+  assert.equal(
+    buildPlayIntentFriendInvitePicker(randomUUID(), []).components.length,
+    0,
+  )
 })
 
 test('only accepted recipients with organizer permission see the DM invite action', () => {
-  function hasInvite(choice: NotificationResponseChoice | null, allowParticipantInvites: boolean) {
-    return JSON.stringify(buildPlayIntentNotificationComponents(randomUUID(), undefined, undefined, choice, NotificationType.FRIEND_PLAYING, {
-      forceInteractive: true, playIntentId: randomUUID(), allowParticipantInvites
-    })).includes('Invite a friend')
+  function hasInvite(
+    choice: NotificationResponseChoice | null,
+    allowParticipantInvites: boolean,
+  ) {
+    return JSON.stringify(
+      buildPlayIntentNotificationComponents(
+        randomUUID(),
+        undefined,
+        undefined,
+        choice,
+        NotificationType.FRIEND_PLAYING,
+        {
+          forceInteractive: true,
+          playIntentId: randomUUID(),
+          allowParticipantInvites,
+        },
+      ),
+    ).includes('Invite a friend')
   }
   assert.equal(hasInvite(NotificationResponseChoice.JOIN, true), true)
   assert.equal(hasInvite(NotificationResponseChoice.JOIN, false), false)
@@ -44,12 +108,31 @@ test('only accepted recipients with organizer permission see the DM invite actio
 })
 
 test('runtime reconciliation keeps REST fallbacks and scheduled informational messages', () => {
-  const options = { notificationId: randomUUID(), playIntentId: randomUUID(), title: 'Call', body: 'Call',
-    responseChoice: NotificationResponseChoice.JOIN, playIntentIsActive: true, allowParticipantInvites: true }
-  const invitation = buildRuntimeNotificationDirectMessagePreview({ ...options, notificationType: NotificationType.FRIEND_PLAYING })
+  const options = {
+    notificationId: randomUUID(),
+    playIntentId: randomUUID(),
+    title: 'Call',
+    body: 'Call',
+    responseChoice: NotificationResponseChoice.JOIN,
+    playIntentIsActive: true,
+    allowParticipantInvites: true,
+  }
+  const invitation = buildRuntimeNotificationDirectMessagePreview({
+    ...options,
+    notificationType: NotificationType.FRIEND_PLAYING,
+  })
   assert.ok(!JSON.stringify(invitation.components).includes('custom_id'))
-  for (const notificationType of [NotificationType.SCHEDULED_PLAY_INTENT_REMINDER, NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED]) {
-    assert.equal(buildRuntimeNotificationDirectMessagePreview({ ...options, notificationType }).components.length, 0)
+  for (const notificationType of [
+    NotificationType.SCHEDULED_PLAY_INTENT_REMINDER,
+    NotificationType.SCHEDULED_PLAY_INTENT_CONFIRMED,
+  ]) {
+    assert.equal(
+      buildRuntimeNotificationDirectMessagePreview({
+        ...options,
+        notificationType,
+      }).components.length,
+      0,
+    )
   }
 })
 
@@ -58,7 +141,9 @@ test('failed Discord acknowledgement is contained before any invitation work', a
   try {
     await handlePlayIntentFriendInviteInteraction({
       customId: `ctp-friend-invite:${randomUUID()}:open`,
-      deferReply: async () => { throw new Error('Acknowledgement unavailable') }
+      deferReply: async () => {
+        throw new Error('Acknowledgement unavailable')
+      },
     } as unknown as ButtonInteraction)
     assert.equal(failure.mock.callCount(), 1)
   } finally {

@@ -1,5 +1,8 @@
 /** Owns simulated response transitions and snapshots; unchanged delay estimates stay quiet. */
-import { formatRunningLateLabel, runningLateMinutesSchema } from './running-late.js'
+import {
+  formatRunningLateLabel,
+  runningLateMinutesSchema,
+} from './running-late.js'
 import type { PlayIntentUpdatedField } from './play-intent-update-effects.js'
 import {
   buildInitialAutoPlayPromptHistory,
@@ -12,12 +15,12 @@ import {
   type SimulatedAutoPlayPromptState,
   type SimulatedLifecycleEntry,
   type SimulatedLifecycleState,
-  type SimulatedScenarioDraft
+  type SimulatedScenarioDraft,
 } from './debug-dm-simulator.js'
 import {
   buildPlayIntentUpdatedFieldsSummary,
   resolvePlayIntentUpdatedFields,
-  shouldInvalidatePlayIntentAudienceResponse
+  shouldInvalidatePlayIntentAudienceResponse,
 } from './play-intent-update-effects.js'
 
 export type SimulatedLifecycleAction =
@@ -50,38 +53,55 @@ export type SimulatedAutoPlayAction =
 
 export type SimulatedScenarioKind = 'call-to-play' | 'auto-play-prompt'
 
-export type SimulatedLifecycleSnapshot = Omit<SimulatedLifecycleState, 'history' | 'nextEntryId'>
-export type SimulatedAutoPlayPromptSnapshot = Omit<SimulatedAutoPlayPromptState, 'history' | 'nextEntryId'>
+export type SimulatedLifecycleSnapshot = Omit<
+  SimulatedLifecycleState,
+  'history' | 'nextEntryId'
+>
+export type SimulatedAutoPlayPromptSnapshot = Omit<
+  SimulatedAutoPlayPromptState,
+  'history' | 'nextEntryId'
+>
 
 export type SimulatedLifecycleEntryWithAction = SimulatedLifecycleEntry & {
-  scenarioKind: 'call-to-play';
-  action: SimulatedLifecycleAction;
-  draftSnapshot: SimulatedScenarioDraft;
-  stateSnapshot: SimulatedLifecycleSnapshot;
+  scenarioKind: 'call-to-play'
+  action: SimulatedLifecycleAction
+  draftSnapshot: SimulatedScenarioDraft
+  stateSnapshot: SimulatedLifecycleSnapshot
 }
 
-export type SimulatedLifecycleStateWithActions = Omit<SimulatedLifecycleState, 'history'> & {
-  history: SimulatedLifecycleEntryWithAction[];
+export type SimulatedLifecycleStateWithActions = Omit<
+  SimulatedLifecycleState,
+  'history'
+> & {
+  history: SimulatedLifecycleEntryWithAction[]
 }
 
 export type SimulatedAutoPlayEntryWithAction = SimulatedLifecycleEntry & {
-  scenarioKind: 'auto-play-prompt';
-  action: SimulatedAutoPlayAction;
-  draftSnapshot: SimulatedAutoPlayPromptDraft;
-  stateSnapshot: SimulatedAutoPlayPromptSnapshot;
+  scenarioKind: 'auto-play-prompt'
+  action: SimulatedAutoPlayAction
+  draftSnapshot: SimulatedAutoPlayPromptDraft
+  stateSnapshot: SimulatedAutoPlayPromptSnapshot
 }
 
-export type SimulatedAutoPlayStateWithActions = Omit<SimulatedAutoPlayPromptState, 'history'> & {
-  history: SimulatedAutoPlayEntryWithAction[];
+export type SimulatedAutoPlayStateWithActions = Omit<
+  SimulatedAutoPlayPromptState,
+  'history'
+> & {
+  history: SimulatedAutoPlayEntryWithAction[]
 }
 
-export type SimulatedScenarioHistoryEntry = SimulatedLifecycleEntryWithAction | SimulatedAutoPlayEntryWithAction
+export type SimulatedScenarioHistoryEntry =
+  SimulatedLifecycleEntryWithAction | SimulatedAutoPlayEntryWithAction
 export type SimulatedSimulatorStartMode = 'scheduled' | 'live'
 
 type SimulatedAutoPlayResolvedAction =
   | { action: 'auto-play-composer-opened' }
   | { action: 'auto-play-duration-selected'; durationMinutes: number }
-  | { action: 'auto-play-audience-confirmed'; durationMinutes: number; notifyScope: 'friends-only' | 'network' }
+  | {
+      action: 'auto-play-audience-confirmed'
+      durationMinutes: number
+      notifyScope: 'friends-only' | 'network'
+    }
   | { action: 'auto-play-declined' }
   | { action: 'auto-play-archived' }
   | { action: 'creator-end' }
@@ -100,16 +120,18 @@ const simulatedLifecycleActionByCustomId = {
   [simulatedDmActionIds.creatorStartNow]: 'creator-start-now',
   [simulatedDmActionIds.creatorEnd]: 'creator-end',
   [simulatedDmActionIds.creatorCleanup]: 'creator-archived',
-  [simulatedDmActionIds.audienceCleanup]: 'audience-archived'
+  [simulatedDmActionIds.audienceCleanup]: 'audience-archived',
 } as const satisfies Record<string, SimulatedPreviewLifecycleAction>
 
 function normalizeSimulatorText(value: string) {
   return value.trim()
 }
 
-export function cloneSimulatorDraft<T extends SimulatedScenarioDraft | SimulatedAutoPlayPromptDraft>(draft: T): T {
+export function cloneSimulatorDraft<
+  T extends SimulatedScenarioDraft | SimulatedAutoPlayPromptDraft,
+>(draft: T): T {
   return {
-    ...draft
+    ...draft,
   }
 }
 
@@ -122,7 +144,9 @@ export function normalizeSimulatorRecipientCount(value: number) {
 }
 
 function snapshotSimulatorLifecycleState(
-  state: SimulatedLifecycleState | Omit<SimulatedLifecycleStateWithActions, 'history'>
+  state:
+    | SimulatedLifecycleState
+    | Omit<SimulatedLifecycleStateWithActions, 'history'>,
 ): SimulatedLifecycleSnapshot {
   return {
     stage: state.stage,
@@ -133,68 +157,94 @@ function snapshotSimulatorLifecycleState(
     hasGoTimeBroadcast: state.hasGoTimeBroadcast,
     hasVoiceChannelActivity: state.hasVoiceChannelActivity,
     hasGameLaunchActivity: state.hasGameLaunchActivity,
-    latestAudienceUpdateFields: state.latestAudienceUpdateFields ? [...state.latestAudienceUpdateFields] : null,
-    latestAudienceUpdateRequiresFreshResponse: state.latestAudienceUpdateRequiresFreshResponse,
+    latestAudienceUpdateFields: state.latestAudienceUpdateFields
+      ? [...state.latestAudienceUpdateFields]
+      : null,
+    latestAudienceUpdateRequiresFreshResponse:
+      state.latestAudienceUpdateRequiresFreshResponse,
     creatorThreadArchived: state.creatorThreadArchived,
-    audienceThreadArchived: state.audienceThreadArchived
+    audienceThreadArchived: state.audienceThreadArchived,
   }
 }
 
 function snapshotAutoPlayPromptState(
-  state: SimulatedAutoPlayPromptState | Omit<SimulatedAutoPlayStateWithActions, 'history'>
+  state:
+    | SimulatedAutoPlayPromptState
+    | Omit<SimulatedAutoPlayStateWithActions, 'history'>,
 ): SimulatedAutoPlayPromptSnapshot {
   return {
     status: state.status,
     durationMinutes: state.durationMinutes,
     notifyScope: state.notifyScope,
-    closedReason: state.closedReason
+    closedReason: state.closedReason,
   }
 }
 
-export function areSimulatorDraftsEqual(left: SimulatedScenarioDraft, right: SimulatedScenarioDraft) {
-  return normalizeSimulatorText(left.creatorName) === normalizeSimulatorText(right.creatorName)
-    && normalizeSimulatorText(left.audienceName) === normalizeSimulatorText(right.audienceName)
-    && normalizeSimulatorText(left.gameTitle) === normalizeSimulatorText(right.gameTitle)
-    && normalizeSimulatorText(left.scheduledForLabel) === normalizeSimulatorText(right.scheduledForLabel)
-    && normalizeSimulatorText(left.note) === normalizeSimulatorText(right.note)
+export function areSimulatorDraftsEqual(
+  left: SimulatedScenarioDraft,
+  right: SimulatedScenarioDraft,
+) {
+  return (
+    normalizeSimulatorText(left.creatorName) ===
+      normalizeSimulatorText(right.creatorName) &&
+    normalizeSimulatorText(left.audienceName) ===
+      normalizeSimulatorText(right.audienceName) &&
+    normalizeSimulatorText(left.gameTitle) ===
+      normalizeSimulatorText(right.gameTitle) &&
+    normalizeSimulatorText(left.scheduledForLabel) ===
+      normalizeSimulatorText(right.scheduledForLabel) &&
+    normalizeSimulatorText(left.note) === normalizeSimulatorText(right.note)
+  )
 }
 
-export function areAutoPlayDraftsEqual(left: SimulatedAutoPlayPromptDraft, right: SimulatedAutoPlayPromptDraft) {
-  return normalizeSimulatorText(left.creatorName) === normalizeSimulatorText(right.creatorName)
-    && normalizeSimulatorText(left.gameTitle) === normalizeSimulatorText(right.gameTitle)
-    && normalizeSimulatorRecipientCount(left.friendRecipientCount) === normalizeSimulatorRecipientCount(right.friendRecipientCount)
-    && normalizeSimulatorRecipientCount(left.networkRecipientCount) === normalizeSimulatorRecipientCount(right.networkRecipientCount)
+export function areAutoPlayDraftsEqual(
+  left: SimulatedAutoPlayPromptDraft,
+  right: SimulatedAutoPlayPromptDraft,
+) {
+  return (
+    normalizeSimulatorText(left.creatorName) ===
+      normalizeSimulatorText(right.creatorName) &&
+    normalizeSimulatorText(left.gameTitle) ===
+      normalizeSimulatorText(right.gameTitle) &&
+    normalizeSimulatorRecipientCount(left.friendRecipientCount) ===
+      normalizeSimulatorRecipientCount(right.friendRecipientCount) &&
+    normalizeSimulatorRecipientCount(left.networkRecipientCount) ===
+      normalizeSimulatorRecipientCount(right.networkRecipientCount)
+  )
 }
 
 export function resolveSimulatorUpdatedFields(
   previousDraft: SimulatedScenarioDraft,
-  nextDraft: SimulatedScenarioDraft
+  nextDraft: SimulatedScenarioDraft,
 ): PlayIntentUpdatedField[] {
   return resolvePlayIntentUpdatedFields(
     {
       timeKey: previousDraft.scheduledForLabel,
       gameSelectionKey: [previousDraft.gameTitle],
       note: previousDraft.note,
-      audienceKey: [previousDraft.audienceName]
+      audienceKey: [previousDraft.audienceName],
     },
     {
       timeKey: nextDraft.scheduledForLabel,
       gameSelectionKey: [nextDraft.gameTitle],
       note: nextDraft.note,
-      audienceKey: [nextDraft.audienceName]
-    }
-  ).filter((field): field is PlayIntentUpdatedField => field !== 'temporary Discord channel')
+      audienceKey: [nextDraft.audienceName],
+    },
+  ).filter(
+    (field): field is PlayIntentUpdatedField =>
+      field !== 'temporary Discord channel',
+  )
 }
 
 export function buildInitialSimulatorDialogState(options: {
-  now?: Date;
-  mode?: SimulatedSimulatorStartMode;
-  draft: SimulatedScenarioDraft;
+  now?: Date
+  mode?: SimulatedSimulatorStartMode
+  draft: SimulatedScenarioDraft
 }): SimulatedLifecycleStateWithActions {
   const draft = cloneSimulatorDraft(options.draft)
   const initialState = buildInitialSimulatorHistory({
     now: options.now,
-    stage: options.mode === 'live' ? 'confirmed' : 'scheduled'
+    stage: options.mode === 'live' ? 'confirmed' : 'scheduled',
   })
 
   return {
@@ -204,18 +254,18 @@ export function buildInitialSimulatorDialogState(options: {
       scenarioKind: 'call-to-play' as const,
       action: 'session-created' as const,
       draftSnapshot: draft,
-      stateSnapshot: snapshotSimulatorLifecycleState(initialState)
-    }))
+      stateSnapshot: snapshotSimulatorLifecycleState(initialState),
+    })),
   }
 }
 
 export function buildInitialAutoPlayDialogState(options: {
-  now?: Date;
-  draft: SimulatedAutoPlayPromptDraft;
+  now?: Date
+  draft: SimulatedAutoPlayPromptDraft
 }): SimulatedAutoPlayStateWithActions {
   const draft = cloneSimulatorDraft(options.draft)
   const initialState = buildInitialAutoPlayPromptHistory({
-    now: options.now
+    now: options.now,
   })
 
   return {
@@ -225,8 +275,8 @@ export function buildInitialAutoPlayDialogState(options: {
       scenarioKind: 'auto-play-prompt' as const,
       action: 'session-created' as const,
       draftSnapshot: draft,
-      stateSnapshot: snapshotAutoPlayPromptState(initialState)
-    }))
+      stateSnapshot: snapshotAutoPlayPromptState(initialState),
+    })),
   }
 }
 
@@ -235,24 +285,24 @@ function appendHistoryEntry<
   Draft,
   Snapshot,
   HistoryEntry extends SimulatedLifecycleEntry & {
-    scenarioKind: SimulatedScenarioKind;
-    action: string;
-    draftSnapshot: Draft;
-    stateSnapshot: Snapshot;
-  }
+    scenarioKind: SimulatedScenarioKind
+    action: string
+    draftSnapshot: Draft
+    stateSnapshot: Snapshot
+  },
 >(
   currentState: State,
   options: {
-    scenarioKind: HistoryEntry['scenarioKind'];
-    action: HistoryEntry['action'];
-    actor: SimulatedLifecycleEntry['actor'];
-    summary: string;
-    nextState: Omit<State, 'history'>;
-    draftSnapshot: Draft;
-    occurredAt: string;
-    cloneDraft: (draft: Draft) => Draft;
-    snapshotState: (state: Omit<State, 'history'>) => Snapshot;
-  }
+    scenarioKind: HistoryEntry['scenarioKind']
+    action: HistoryEntry['action']
+    actor: SimulatedLifecycleEntry['actor']
+    summary: string
+    nextState: Omit<State, 'history'>
+    draftSnapshot: Draft
+    occurredAt: string
+    cloneDraft: (draft: Draft) => Draft
+    snapshotState: (state: Omit<State, 'history'>) => Snapshot
+  },
 ): State {
   return {
     ...options.nextState,
@@ -265,19 +315,27 @@ function appendHistoryEntry<
         summary: options.summary,
         occurredAt: options.occurredAt,
         draftSnapshot: options.cloneDraft(options.draftSnapshot),
-        stateSnapshot: options.snapshotState(options.nextState)
+        stateSnapshot: options.snapshotState(options.nextState),
       } as HistoryEntry,
-      ...currentState.history
+      ...currentState.history,
     ],
-    nextEntryId: currentState.nextEntryId + 1
+    nextEntryId: currentState.nextEntryId + 1,
   } as State
 }
 
-function mapSimulatorCustomIdToAction(customId: string): SimulatedPreviewLifecycleAction | null {
-  return simulatedLifecycleActionByCustomId[customId as keyof typeof simulatedLifecycleActionByCustomId] ?? null
+function mapSimulatorCustomIdToAction(
+  customId: string,
+): SimulatedPreviewLifecycleAction | null {
+  return (
+    simulatedLifecycleActionByCustomId[
+      customId as keyof typeof simulatedLifecycleActionByCustomId
+    ] ?? null
+  )
 }
 
-function mapSimulatorCustomIdToAutoPlayAction(customId: string): SimulatedAutoPlayResolvedAction | null {
+function mapSimulatorCustomIdToAutoPlayAction(
+  customId: string,
+): SimulatedAutoPlayResolvedAction | null {
   if (customId === simulatedDmActionIds.creatorEnd) {
     return { action: 'creator-end' }
   }
@@ -299,24 +357,28 @@ function mapSimulatorCustomIdToAutoPlayAction(customId: string): SimulatedAutoPl
   if (durationMatch) {
     return {
       action: 'auto-play-duration-selected',
-      durationMinutes: Number(durationMatch[1])
+      durationMinutes: Number(durationMatch[1]),
     }
   }
 
-  const confirmMatch = /^auto-play:[^:]+:confirm:(friends-only|network):(\d+)$/.exec(customId)
+  const confirmMatch =
+    /^auto-play:[^:]+:confirm:(friends-only|network):(\d+)$/.exec(customId)
 
   if (confirmMatch) {
     const notifyScope = confirmMatch[1]
     const durationMinutes = Number(confirmMatch[2])
 
-    if ((notifyScope !== 'friends-only' && notifyScope !== 'network') || Number.isNaN(durationMinutes)) {
+    if (
+      (notifyScope !== 'friends-only' && notifyScope !== 'network') ||
+      Number.isNaN(durationMinutes)
+    ) {
       return null
     }
 
     return {
       action: 'auto-play-audience-confirmed',
       notifyScope,
-      durationMinutes
+      durationMinutes,
     }
   }
 
@@ -327,15 +389,17 @@ function resolveSimulatorLifecycleTransition(
   currentState: SimulatedLifecycleState,
   action: Exclude<SimulatedLifecycleAction, 'session-created'>,
   draft: SimulatedScenarioDraft,
-  runningLateMinutes: number | null
+  runningLateMinutes: number | null,
 ): {
-  nextState: SimulatedLifecycleState;
-  summary: string;
-  actor: SimulatedLifecycleEntry['actor'];
+  nextState: SimulatedLifecycleState
+  summary: string
+  actor: SimulatedLifecycleEntry['actor']
 } | null {
   let nextState: SimulatedLifecycleState = {
     ...currentState,
-    latestAudienceUpdateFields: currentState.latestAudienceUpdateFields ? [...currentState.latestAudienceUpdateFields] : null
+    latestAudienceUpdateFields: currentState.latestAudienceUpdateFields
+      ? [...currentState.latestAudienceUpdateFields]
+      : null,
   }
   let summary: string | null = null
   let actor: SimulatedLifecycleEntry['actor'] = 'system'
@@ -351,12 +415,13 @@ function resolveSimulatorLifecycleTransition(
         audienceRunningLate: false,
         audienceRunningLateMinutes: null,
         latestAudienceUpdateFields: null,
-        latestAudienceUpdateRequiresFreshResponse: false
+        latestAudienceUpdateRequiresFreshResponse: false,
       }
       actor = 'audience'
-      summary = currentState.stage === 'confirmed'
-        ? `${draft.audienceName} is in after go-time.`
-        : `${draft.audienceName} is showing interest.`
+      summary =
+        currentState.stage === 'confirmed'
+          ? `${draft.audienceName} is in after go-time.`
+          : `${draft.audienceName} is showing interest.`
       break
     case 'audience-pass':
       nextState = {
@@ -365,23 +430,30 @@ function resolveSimulatorLifecycleTransition(
         audienceRunningLate: false,
         audienceRunningLateMinutes: null,
         latestAudienceUpdateFields: null,
-        latestAudienceUpdateRequiresFreshResponse: false
+        latestAudienceUpdateRequiresFreshResponse: false,
       }
       actor = 'audience'
-      summary = currentState.stage === 'confirmed'
-        ? `${draft.audienceName} could not make it after the creator confirmed the session.`
-        : `${draft.audienceName} can't make it.`
+      summary =
+        currentState.stage === 'confirmed'
+          ? `${draft.audienceName} could not make it after the creator confirmed the session.`
+          : `${draft.audienceName} can't make it.`
       break
     case 'audience-running-late':
-      if (currentState.stage === 'ended' || currentState.audienceResponse !== 'interested'
-        || (currentState.audienceRunningLate && (currentState.audienceRunningLateMinutes ?? null) === runningLateMinutes)) {
+      if (
+        currentState.stage === 'ended' ||
+        currentState.audienceResponse !== 'interested' ||
+        (currentState.audienceRunningLate &&
+          (currentState.audienceRunningLateMinutes ?? null) ===
+            runningLateMinutes)
+      ) {
         return null
       }
 
       nextState = {
         ...nextState,
         audienceRunningLate: true,
-        audienceRunningLateMinutes: runningLateMinutesSchema.parse(runningLateMinutes)
+        audienceRunningLateMinutes:
+          runningLateMinutesSchema.parse(runningLateMinutes),
       }
       actor = 'audience'
       summary = `${draft.audienceName} is interested but ${formatRunningLateLabel(runningLateMinutes).toLowerCase()}.`
@@ -391,55 +463,74 @@ function resolveSimulatorLifecycleTransition(
       summary = `${draft.audienceName} muted ${draft.creatorName} in the simulator.`
       break
     case 'creator-joined-voice':
-      if (currentState.stage !== 'confirmed' || currentState.audienceResponse !== 'interested' || currentState.hasVoiceChannelActivity) {
+      if (
+        currentState.stage !== 'confirmed' ||
+        currentState.audienceResponse !== 'interested' ||
+        currentState.hasVoiceChannelActivity
+      ) {
         return null
       }
 
       nextState = {
         ...nextState,
-        hasVoiceChannelActivity: true
+        hasVoiceChannelActivity: true,
       }
       actor = 'creator'
       summary = `${draft.creatorName} joined the voice channel.`
       break
     case 'audience-joined-voice':
-      if (currentState.stage !== 'confirmed' || currentState.audienceResponse !== 'interested' || currentState.hasVoiceChannelActivity) {
+      if (
+        currentState.stage !== 'confirmed' ||
+        currentState.audienceResponse !== 'interested' ||
+        currentState.hasVoiceChannelActivity
+      ) {
         return null
       }
 
       nextState = {
         ...nextState,
-        hasVoiceChannelActivity: true
+        hasVoiceChannelActivity: true,
       }
       actor = 'audience'
       summary = `${draft.audienceName} joined the voice channel.`
       break
     case 'creator-launched-game':
-      if (currentState.stage !== 'confirmed' || currentState.audienceResponse !== 'interested' || currentState.hasGameLaunchActivity) {
+      if (
+        currentState.stage !== 'confirmed' ||
+        currentState.audienceResponse !== 'interested' ||
+        currentState.hasGameLaunchActivity
+      ) {
         return null
       }
 
       nextState = {
         ...nextState,
-        hasGameLaunchActivity: true
+        hasGameLaunchActivity: true,
       }
       actor = 'creator'
       summary = `${draft.creatorName} launched ${draft.gameTitle}.`
       break
     case 'audience-launched-game':
-      if (currentState.stage !== 'confirmed' || currentState.audienceResponse !== 'interested' || currentState.hasGameLaunchActivity) {
+      if (
+        currentState.stage !== 'confirmed' ||
+        currentState.audienceResponse !== 'interested' ||
+        currentState.hasGameLaunchActivity
+      ) {
         return null
       }
 
       nextState = {
         ...nextState,
-        hasGameLaunchActivity: true
+        hasGameLaunchActivity: true,
       }
       actor = 'audience'
       summary = `${draft.audienceName} launched ${draft.gameTitle}.`
       break
     case 'creator-check-in-confirmed':
-      if (currentState.stage !== 'check-in' || currentState.creatorCheckInState !== 'pending') {
+      if (
+        currentState.stage !== 'check-in' ||
+        currentState.creatorCheckInState !== 'pending'
+      ) {
         return null
       }
 
@@ -448,10 +539,11 @@ function resolveSimulatorLifecycleTransition(
         stage: 'confirmed',
         creatorCheckInState: 'confirmed',
         hasGoTimeBroadcast: true,
-        latestAudienceUpdateFields: currentState.audienceResponse === 'pass'
-          ? currentState.latestAudienceUpdateFields
-          : null,
-        latestAudienceUpdateRequiresFreshResponse: false
+        latestAudienceUpdateFields:
+          currentState.audienceResponse === 'pass'
+            ? currentState.latestAudienceUpdateFields
+            : null,
+        latestAudienceUpdateRequiresFreshResponse: false,
       }
       actor = 'creator'
       summary = `${draft.creatorName} confirmed the session is still on.`
@@ -466,10 +558,11 @@ function resolveSimulatorLifecycleTransition(
         stage: 'confirmed',
         creatorCheckInState: null,
         hasGoTimeBroadcast: true,
-        latestAudienceUpdateFields: currentState.audienceResponse === 'pass'
-          ? currentState.latestAudienceUpdateFields
-          : null,
-        latestAudienceUpdateRequiresFreshResponse: false
+        latestAudienceUpdateFields:
+          currentState.audienceResponse === 'pass'
+            ? currentState.latestAudienceUpdateFields
+            : null,
+        latestAudienceUpdateRequiresFreshResponse: false,
       }
       actor = 'creator'
       summary = `${draft.creatorName} started the session now.`
@@ -478,17 +571,21 @@ function resolveSimulatorLifecycleTransition(
       nextState = {
         ...nextState,
         stage: 'ended',
-        creatorCheckInState: currentState.creatorCheckInState === 'pending'
-          ? 'canceled'
-          : currentState.creatorCheckInState,
+        creatorCheckInState:
+          currentState.creatorCheckInState === 'pending'
+            ? 'canceled'
+            : currentState.creatorCheckInState,
         latestAudienceUpdateFields: null,
-        latestAudienceUpdateRequiresFreshResponse: false
+        latestAudienceUpdateRequiresFreshResponse: false,
       }
       actor = 'creator'
       summary = `${draft.creatorName} ended the session.`
       break
     case 'creator-archived':
-      if (currentState.stage !== 'ended' || currentState.creatorThreadArchived) {
+      if (
+        currentState.stage !== 'ended' ||
+        currentState.creatorThreadArchived
+      ) {
         return null
       }
 
@@ -496,13 +593,16 @@ function resolveSimulatorLifecycleTransition(
         ...nextState,
         creatorThreadArchived: true,
         latestAudienceUpdateFields: null,
-        latestAudienceUpdateRequiresFreshResponse: false
+        latestAudienceUpdateRequiresFreshResponse: false,
       }
       actor = 'creator'
       summary = `${draft.creatorName} archived the creator summary thread.`
       break
     case 'audience-archived':
-      if (currentState.stage !== 'ended' || currentState.audienceThreadArchived) {
+      if (
+        currentState.stage !== 'ended' ||
+        currentState.audienceThreadArchived
+      ) {
         return null
       }
 
@@ -510,7 +610,7 @@ function resolveSimulatorLifecycleTransition(
         ...nextState,
         audienceThreadArchived: true,
         latestAudienceUpdateFields: null,
-        latestAudienceUpdateRequiresFreshResponse: false
+        latestAudienceUpdateRequiresFreshResponse: false,
       }
       actor = 'audience'
       summary = `${draft.audienceName} archived the audience invite thread.`
@@ -524,18 +624,18 @@ function resolveSimulatorLifecycleTransition(
   return {
     nextState,
     summary,
-    actor
+    actor,
   }
 }
 
 function resolveAutoPlayPromptResolvedAction(
   currentState: SimulatedAutoPlayPromptState,
   resolvedAction: SimulatedAutoPlayResolvedAction,
-  draft: SimulatedAutoPlayPromptDraft
+  draft: SimulatedAutoPlayPromptDraft,
 ): {
-  nextState: SimulatedAutoPlayPromptState;
-  summary: string;
-  actor: SimulatedLifecycleEntry['actor'];
+  nextState: SimulatedAutoPlayPromptState
+  summary: string
+  actor: SimulatedLifecycleEntry['actor']
 } | null {
   switch (resolvedAction.action) {
     case 'auto-play-composer-opened':
@@ -543,9 +643,15 @@ function resolveAutoPlayPromptResolvedAction(
         return null
       }
       return {
-        nextState: { ...currentState, status: 'composing', durationMinutes: 60, notifyScope: 'friends-only', closedReason: null },
+        nextState: {
+          ...currentState,
+          status: 'composing',
+          durationMinutes: 60,
+          notifyScope: 'friends-only',
+          closedReason: null,
+        },
         summary: `${draft.creatorName} opened the full detected-game composer.`,
-        actor: 'creator'
+        actor: 'creator',
       }
     case 'auto-play-duration-selected':
       if (currentState.status !== 'initial') {
@@ -558,13 +664,17 @@ function resolveAutoPlayPromptResolvedAction(
           status: 'audience',
           durationMinutes: resolvedAction.durationMinutes,
           notifyScope: null,
-          closedReason: null
+          closedReason: null,
         },
         summary: `${draft.creatorName} picked a ${formatSimulatorDurationLabel(resolvedAction.durationMinutes)} auto-play window.`,
-        actor: 'creator'
+        actor: 'creator',
       }
     case 'auto-play-audience-confirmed':
-      if ((currentState.status !== 'audience' && currentState.status !== 'composing') || currentState.durationMinutes !== resolvedAction.durationMinutes) {
+      if (
+        (currentState.status !== 'audience' &&
+          currentState.status !== 'composing') ||
+        currentState.durationMinutes !== resolvedAction.durationMinutes
+      ) {
         return null
       }
 
@@ -573,15 +683,20 @@ function resolveAutoPlayPromptResolvedAction(
           ...currentState,
           status: 'created',
           notifyScope: resolvedAction.notifyScope,
-          closedReason: null
+          closedReason: null,
         },
-        summary: resolvedAction.notifyScope === 'friends-only'
-          ? `${draft.creatorName} created a friends-only call from the auto-play prompt.`
-          : `${draft.creatorName} created a network call from the auto-play prompt.`,
-        actor: 'creator'
+        summary:
+          resolvedAction.notifyScope === 'friends-only'
+            ? `${draft.creatorName} created a friends-only call from the auto-play prompt.`
+            : `${draft.creatorName} created a network call from the auto-play prompt.`,
+        actor: 'creator',
       }
     case 'auto-play-declined':
-      if (currentState.status !== 'initial' && currentState.status !== 'audience' && currentState.status !== 'composing') {
+      if (
+        currentState.status !== 'initial' &&
+        currentState.status !== 'audience' &&
+        currentState.status !== 'composing'
+      ) {
         return null
       }
 
@@ -589,23 +704,26 @@ function resolveAutoPlayPromptResolvedAction(
         nextState: {
           ...currentState,
           status: 'declined',
-          closedReason: 'The user declined the prompt from Discord.'
+          closedReason: 'The user declined the prompt from Discord.',
         },
         summary: `${draft.creatorName} declined the auto-play prompt.`,
-        actor: 'creator'
+        actor: 'creator',
       }
     case 'auto-play-archived':
-      if (currentState.status !== 'declined' && currentState.status !== 'expired') {
+      if (
+        currentState.status !== 'declined' &&
+        currentState.status !== 'expired'
+      ) {
         return null
       }
 
       return {
         nextState: {
           ...currentState,
-          status: 'archived'
+          status: 'archived',
         },
         summary: `${draft.creatorName} archived the closed auto-play prompt.`,
-        actor: 'creator'
+        actor: 'creator',
       }
     case 'creator-end':
       if (currentState.status !== 'created') {
@@ -615,10 +733,10 @@ function resolveAutoPlayPromptResolvedAction(
       return {
         nextState: {
           ...currentState,
-          status: 'created-ended'
+          status: 'created-ended',
         },
         summary: `${draft.creatorName} ended the call created from the auto-play prompt.`,
-        actor: 'creator'
+        actor: 'creator',
       }
   }
 }
@@ -627,23 +745,30 @@ export function applySimulatorScenarioChanges(
   currentState: SimulatedLifecycleStateWithActions,
   previousDraft: SimulatedScenarioDraft,
   nextDraft: SimulatedScenarioDraft,
-  now = new Date()
+  now = new Date(),
 ) {
   if (areSimulatorDraftsEqual(previousDraft, nextDraft)) {
     return currentState
   }
 
   const updatedFields = resolveSimulatorUpdatedFields(previousDraft, nextDraft)
-  const shouldSendAudienceUpdateReply = updatedFields.length > 0 && currentState.stage !== 'ended' && !currentState.audienceThreadArchived
-  const shouldResetAudienceResponse = shouldSendAudienceUpdateReply
-    && shouldInvalidatePlayIntentAudienceResponse(updatedFields)
+  const shouldSendAudienceUpdateReply =
+    updatedFields.length > 0 &&
+    currentState.stage !== 'ended' &&
+    !currentState.audienceThreadArchived
+  const shouldResetAudienceResponse =
+    shouldSendAudienceUpdateReply &&
+    shouldInvalidatePlayIntentAudienceResponse(updatedFields)
   const nextState: SimulatedLifecycleState = {
     ...currentState,
-    audienceResponse: shouldResetAudienceResponse ? null : currentState.audienceResponse,
-    latestAudienceUpdateRequiresFreshResponse: shouldResetAudienceResponse && currentState.audienceResponse != null,
+    audienceResponse: shouldResetAudienceResponse
+      ? null
+      : currentState.audienceResponse,
+    latestAudienceUpdateRequiresFreshResponse:
+      shouldResetAudienceResponse && currentState.audienceResponse != null,
     latestAudienceUpdateFields: shouldSendAudienceUpdateReply
       ? updatedFields
-      : currentState.latestAudienceUpdateFields
+      : currentState.latestAudienceUpdateFields,
   }
 
   return appendHistoryEntry(currentState, {
@@ -655,14 +780,14 @@ export function applySimulatorScenarioChanges(
     draftSnapshot: nextDraft,
     occurredAt: now.toISOString(),
     cloneDraft: cloneSimulatorDraft,
-    snapshotState: snapshotSimulatorLifecycleState
+    snapshotState: snapshotSimulatorLifecycleState,
   })
 }
 
 export function applyScheduledStartReached(
   currentState: SimulatedLifecycleStateWithActions,
   draft: SimulatedScenarioDraft,
-  now = new Date()
+  now = new Date(),
 ) {
   if (currentState.stage !== 'scheduled') {
     return currentState
@@ -676,12 +801,12 @@ export function applyScheduledStartReached(
     nextState: {
       ...currentState,
       stage: 'check-in',
-      creatorCheckInState: 'pending'
+      creatorCheckInState: 'pending',
     },
     draftSnapshot: draft,
     occurredAt: now.toISOString(),
     cloneDraft: cloneSimulatorDraft,
-    snapshotState: snapshotSimulatorLifecycleState
+    snapshotState: snapshotSimulatorLifecycleState,
   })
 }
 
@@ -689,9 +814,12 @@ export function applySimulatorPreviewAction(
   currentState: SimulatedLifecycleStateWithActions,
   customId: string,
   draft: SimulatedScenarioDraft,
-  now = new Date()
+  now = new Date(),
 ) {
-  if (currentState.creatorThreadArchived && currentState.audienceThreadArchived) {
+  if (
+    currentState.creatorThreadArchived &&
+    currentState.audienceThreadArchived
+  ) {
     return currentState
   }
 
@@ -709,9 +837,14 @@ export function applySimulatorLifecycleAction(
   action: SimulatedPreviewLifecycleAction,
   draft: SimulatedScenarioDraft,
   now = new Date(),
-  runningLateMinutes: number | null = null
+  runningLateMinutes: number | null = null,
 ) {
-  const transition = resolveSimulatorLifecycleTransition(currentState, action, draft, runningLateMinutes)
+  const transition = resolveSimulatorLifecycleTransition(
+    currentState,
+    action,
+    draft,
+    runningLateMinutes,
+  )
 
   if (!transition) {
     return currentState
@@ -726,16 +859,20 @@ export function applySimulatorLifecycleAction(
     draftSnapshot: draft,
     occurredAt: now.toISOString(),
     cloneDraft: cloneSimulatorDraft,
-    snapshotState: snapshotSimulatorLifecycleState
+    snapshotState: snapshotSimulatorLifecycleState,
   })
 }
 
 export function applyAutoPlayObservationEnded(
   currentState: SimulatedAutoPlayStateWithActions,
   draft: SimulatedAutoPlayPromptDraft,
-  now = new Date()
+  now = new Date(),
 ) {
-  if (currentState.status !== 'initial' && currentState.status !== 'audience' && currentState.status !== 'composing') {
+  if (
+    currentState.status !== 'initial' &&
+    currentState.status !== 'audience' &&
+    currentState.status !== 'composing'
+  ) {
     return currentState
   }
 
@@ -747,12 +884,12 @@ export function applyAutoPlayObservationEnded(
     nextState: {
       ...currentState,
       status: 'expired',
-      closedReason: buildSimulatorAutoPlayClosedReason(draft.gameTitle)
+      closedReason: buildSimulatorAutoPlayClosedReason(draft.gameTitle),
     },
     draftSnapshot: draft,
     occurredAt: now.toISOString(),
     cloneDraft: cloneSimulatorDraft,
-    snapshotState: snapshotAutoPlayPromptState
+    snapshotState: snapshotAutoPlayPromptState,
   })
 }
 
@@ -760,7 +897,7 @@ export function applyAutoPlayPreviewAction(
   currentState: SimulatedAutoPlayStateWithActions,
   customId: string,
   draft: SimulatedAutoPlayPromptDraft,
-  now = new Date()
+  now = new Date(),
 ) {
   const action = mapSimulatorCustomIdToAutoPlayAction(customId)
 
@@ -768,7 +905,11 @@ export function applyAutoPlayPreviewAction(
     return currentState
   }
 
-  const transition = resolveAutoPlayPromptResolvedAction(currentState, action, draft)
+  const transition = resolveAutoPlayPromptResolvedAction(
+    currentState,
+    action,
+    draft,
+  )
 
   if (!transition) {
     return currentState
@@ -783,6 +924,6 @@ export function applyAutoPlayPreviewAction(
     draftSnapshot: draft,
     occurredAt: now.toISOString(),
     cloneDraft: cloneSimulatorDraft,
-    snapshotState: snapshotAutoPlayPromptState
+    snapshotState: snapshotAutoPlayPromptState,
   })
 }

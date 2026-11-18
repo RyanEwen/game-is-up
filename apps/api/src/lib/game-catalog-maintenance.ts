@@ -17,54 +17,63 @@ const gameIntentPriority: Record<GameIntentType, number> = {
   COMPLETED: 0,
   WISHLIST: 1,
   INTERESTED: 2,
-  PLAYING_NOW: 3
+  PLAYING_NOW: 3,
 }
 
 function gameTitleDecorationPenalty(title: string) {
-  return (title.match(/[™®©]/g) ?? []).length * 10
-    + (title.match(/[^\w\s]/g) ?? []).length
+  return (
+    (title.match(/[™®©]/g) ?? []).length * 10 +
+    (title.match(/[^\w\s]/g) ?? []).length
+  )
 }
 
 function choosePreferredIntent(left: GameIntentType, right: GameIntentType) {
   return gameIntentPriority[left] >= gameIntentPriority[right] ? left : right
 }
 
-function choosePreferredAvailability(left: string | null, right: string | null) {
+function choosePreferredAvailability(
+  left: string | null,
+  right: string | null,
+) {
   return left?.trim() ? left : right?.trim() ? right : null
 }
 
 function choosePreferredTitleGame(
   left: {
-    id: string;
-    title: string;
-    createdAt: Date;
-    sources: Array<{ canonical: boolean }>;
+    id: string
+    title: string
+    createdAt: Date
+    sources: Array<{ canonical: boolean }>
     _count: {
-      interests: number;
-      playIntentGames: number;
-      notifications: number;
-      discordActivityObservations: number;
-      observedOnDiscord: number;
-      autoPlayPrompts: number;
-    };
+      interests: number
+      playIntentGames: number
+      notifications: number
+      discordActivityObservations: number
+      observedOnDiscord: number
+      autoPlayPrompts: number
+    }
   },
   right: {
-    id: string;
-    title: string;
-    createdAt: Date;
-    sources: Array<{ canonical: boolean }>;
+    id: string
+    title: string
+    createdAt: Date
+    sources: Array<{ canonical: boolean }>
     _count: {
-      interests: number;
-      playIntentGames: number;
-      notifications: number;
-      discordActivityObservations: number;
-      observedOnDiscord: number;
-      autoPlayPrompts: number;
-    };
-  }
+      interests: number
+      playIntentGames: number
+      notifications: number
+      discordActivityObservations: number
+      observedOnDiscord: number
+      autoPlayPrompts: number
+    }
+  },
 ) {
-  const leftCanonicalSources = left.sources.filter((source) => source.canonical).length
-  const rightCanonicalSources = right.sources.filter((source) => source.canonical).length
+  const leftCanonicalSources = left.sources.filter(
+    (source) => source.canonical,
+  ).length
+  const rightCanonicalSources = right.sources.filter(
+    (source) => source.canonical,
+  ).length
 
   if (leftCanonicalSources !== rightCanonicalSources) {
     return leftCanonicalSources > rightCanonicalSources ? left : right
@@ -81,18 +90,20 @@ function choosePreferredTitleGame(
     return leftDecorationPenalty < rightDecorationPenalty ? left : right
   }
 
-  const leftReferenceCount = left._count.interests
-    + left._count.playIntentGames
-    + left._count.notifications
-    + left._count.discordActivityObservations
-    + left._count.observedOnDiscord
-    + left._count.autoPlayPrompts
-  const rightReferenceCount = right._count.interests
-    + right._count.playIntentGames
-    + right._count.notifications
-    + right._count.discordActivityObservations
-    + right._count.observedOnDiscord
-    + right._count.autoPlayPrompts
+  const leftReferenceCount =
+    left._count.interests +
+    left._count.playIntentGames +
+    left._count.notifications +
+    left._count.discordActivityObservations +
+    left._count.observedOnDiscord +
+    left._count.autoPlayPrompts
+  const rightReferenceCount =
+    right._count.interests +
+    right._count.playIntentGames +
+    right._count.notifications +
+    right._count.discordActivityObservations +
+    right._count.observedOnDiscord +
+    right._count.autoPlayPrompts
 
   if (leftReferenceCount !== rightReferenceCount) {
     return leftReferenceCount > rightReferenceCount ? left : right
@@ -101,101 +112,124 @@ function choosePreferredTitleGame(
   return left.createdAt <= right.createdAt ? left : right
 }
 
-async function mergeUserGameInterests(preferredGameId: string, duplicateGameId: string) {
+async function mergeUserGameInterests(
+  preferredGameId: string,
+  duplicateGameId: string,
+) {
   const duplicateInterests = await prisma.userGameInterest.findMany({
     where: {
-      gameId: duplicateGameId
+      gameId: duplicateGameId,
     },
     include: {
       platforms: {
         select: {
-          platformLabel: true
-        }
-      }
-    }
+          platformLabel: true,
+        },
+      },
+    },
   })
 
   const preferredInterestsByUserId = new Map(
-    (await prisma.userGameInterest.findMany({
-      where: {
-        gameId: preferredGameId,
-        userId: {
-          in: duplicateInterests.map((interest) => interest.userId)
-        }
-      },
-      include: {
-        platforms: {
-          select: {
-            platformLabel: true
-          }
-        }
-      }
-    })).map((interest) => [interest.userId, interest])
+    (
+      await prisma.userGameInterest.findMany({
+        where: {
+          gameId: preferredGameId,
+          userId: {
+            in: duplicateInterests.map((interest) => interest.userId),
+          },
+        },
+        include: {
+          platforms: {
+            select: {
+              platformLabel: true,
+            },
+          },
+        },
+      })
+    ).map((interest) => [interest.userId, interest]),
   )
 
   for (const duplicateInterest of duplicateInterests) {
-    const preferredInterest = preferredInterestsByUserId.get(duplicateInterest.userId)
+    const preferredInterest = preferredInterestsByUserId.get(
+      duplicateInterest.userId,
+    )
 
     if (!preferredInterest) {
       await prisma.userGameInterest.update({
         where: {
-          id: duplicateInterest.id
+          id: duplicateInterest.id,
         },
         data: {
-          gameId: preferredGameId
-        }
+          gameId: preferredGameId,
+        },
       })
       continue
     }
 
     await prisma.userGameInterest.update({
       where: {
-        id: preferredInterest.id
+        id: preferredInterest.id,
       },
       data: {
-        intentType: choosePreferredIntent(preferredInterest.intentType, duplicateInterest.intentType),
-        availability: choosePreferredAvailability(preferredInterest.availability, duplicateInterest.availability)
-      }
+        intentType: choosePreferredIntent(
+          preferredInterest.intentType,
+          duplicateInterest.intentType,
+        ),
+        availability: choosePreferredAvailability(
+          preferredInterest.availability,
+          duplicateInterest.availability,
+        ),
+      },
     })
 
     const missingPlatformLabels = duplicateInterest.platforms
       .map((platform) => platform.platformLabel)
-      .filter((platformLabel) => !preferredInterest.platforms.some((platform) => platform.platformLabel === platformLabel))
+      .filter(
+        (platformLabel) =>
+          !preferredInterest.platforms.some(
+            (platform) => platform.platformLabel === platformLabel,
+          ),
+      )
 
     if (missingPlatformLabels.length > 0) {
       await prisma.userGameInterestPlatform.createMany({
         data: missingPlatformLabels.map((platformLabel) => ({
           userGameInterestId: preferredInterest.id,
-          platformLabel
+          platformLabel,
         })),
-        skipDuplicates: true
+        skipDuplicates: true,
       })
     }
 
     await prisma.userGameInterest.delete({
       where: {
-        id: duplicateInterest.id
-      }
+        id: duplicateInterest.id,
+      },
     })
   }
 }
 
-async function mergeUserGameAliases(preferredGameId: string, duplicateGameId: string) {
+async function mergeUserGameAliases(
+  preferredGameId: string,
+  duplicateGameId: string,
+) {
   const duplicateAliases = await prisma.userGameAlias.findMany({
     where: {
-      gameId: duplicateGameId
-    }
+      gameId: duplicateGameId,
+    },
   })
 
   const preferredAliasesByUserId = new Map(
-    (await prisma.userGameAlias.findMany({
-      where: {
-        gameId: preferredGameId,
-        userId: {
-          in: duplicateAliases.map((alias) => alias.userId)
-        }
-      }
-    })).map((alias) => [alias.userId, alias])
+    (
+      await prisma.userGameAlias.findMany({
+        where: {
+          gameId: preferredGameId,
+          userId: {
+            in: duplicateAliases.map((alias) => alias.userId),
+          },
+        },
+      })
+    ).map((alias) => [alias.userId, alias]),
   )
 
   for (const duplicateAlias of duplicateAliases) {
@@ -204,11 +238,11 @@ async function mergeUserGameAliases(preferredGameId: string, duplicateGameId: st
     if (!preferredAlias) {
       await prisma.userGameAlias.update({
         where: {
-          id: duplicateAlias.id
+          id: duplicateAlias.id,
         },
         data: {
-          gameId: preferredGameId
-        }
+          gameId: preferredGameId,
+        },
       })
       continue
     }
@@ -216,166 +250,209 @@ async function mergeUserGameAliases(preferredGameId: string, duplicateGameId: st
     if (!preferredAlias.aliasValue.trim() && duplicateAlias.aliasValue.trim()) {
       await prisma.userGameAlias.update({
         where: {
-          id: preferredAlias.id
+          id: preferredAlias.id,
         },
         data: {
-          aliasValue: duplicateAlias.aliasValue
-        }
+          aliasValue: duplicateAlias.aliasValue,
+        },
       })
     }
 
     await prisma.userGameAlias.delete({
       where: {
-        id: duplicateAlias.id
-      }
+        id: duplicateAlias.id,
+      },
     })
   }
 }
 
-async function mergePlayIntentGames(preferredGameId: string, duplicateGameId: string) {
+async function mergePlayIntentGames(
+  preferredGameId: string,
+  duplicateGameId: string,
+) {
   const duplicatePlayIntentGames = await prisma.playIntentGame.findMany({
     where: {
-      gameId: duplicateGameId
-    }
+      gameId: duplicateGameId,
+    },
   })
 
-  const playIntentIds = duplicatePlayIntentGames.map((entry) => entry.playIntentId)
-  const preferredPlayIntentIds = new Set((await prisma.playIntentGame.findMany({
-    where: {
-      gameId: preferredGameId,
-      playIntentId: {
-        in: playIntentIds
-      }
-    },
-    select: {
-      playIntentId: true
-    }
-  })).map((entry) => entry.playIntentId))
+  const playIntentIds = duplicatePlayIntentGames.map(
+    (entry) => entry.playIntentId,
+  )
+  const preferredPlayIntentIds = new Set(
+    (
+      await prisma.playIntentGame.findMany({
+        where: {
+          gameId: preferredGameId,
+          playIntentId: {
+            in: playIntentIds,
+          },
+        },
+        select: {
+          playIntentId: true,
+        },
+      })
+    ).map((entry) => entry.playIntentId),
+  )
 
   for (const duplicatePlayIntentGame of duplicatePlayIntentGames) {
     if (preferredPlayIntentIds.has(duplicatePlayIntentGame.playIntentId)) {
       await prisma.playIntentGame.delete({
         where: {
-          id: duplicatePlayIntentGame.id
-        }
+          id: duplicatePlayIntentGame.id,
+        },
       })
       continue
     }
 
     await prisma.playIntentGame.update({
       where: {
-        id: duplicatePlayIntentGame.id
+        id: duplicatePlayIntentGame.id,
       },
       data: {
-        gameId: preferredGameId
-      }
+        gameId: preferredGameId,
+      },
     })
   }
 }
 
-async function mergeObservedDiscordGames(preferredGameId: string, duplicateGameId: string) {
+async function mergeObservedDiscordGames(
+  preferredGameId: string,
+  duplicateGameId: string,
+) {
   const duplicateObservedGames = await prisma.discordObservedGame.findMany({
     where: {
-      gameId: duplicateGameId
-    }
+      gameId: duplicateGameId,
+    },
   })
 
   const preferredObservedGamesByDiscordUserId = new Map(
-    (await prisma.discordObservedGame.findMany({
-      where: {
-        gameId: preferredGameId,
-        discordUserId: {
-          in: duplicateObservedGames.map((entry) => entry.discordUserId)
-        }
-      }
-    })).map((entry) => [entry.discordUserId, entry])
+    (
+      await prisma.discordObservedGame.findMany({
+        where: {
+          gameId: preferredGameId,
+          discordUserId: {
+            in: duplicateObservedGames.map((entry) => entry.discordUserId),
+          },
+        },
+      })
+    ).map((entry) => [entry.discordUserId, entry]),
   )
 
   for (const duplicateObservedGame of duplicateObservedGames) {
-    const preferredObservedGame = preferredObservedGamesByDiscordUserId.get(duplicateObservedGame.discordUserId)
+    const preferredObservedGame = preferredObservedGamesByDiscordUserId.get(
+      duplicateObservedGame.discordUserId,
+    )
 
     if (!preferredObservedGame) {
       await prisma.discordObservedGame.update({
         where: {
-          id: duplicateObservedGame.id
+          id: duplicateObservedGame.id,
         },
         data: {
-          gameId: preferredGameId
-        }
+          gameId: preferredGameId,
+        },
       })
       continue
     }
 
-    const duplicateIsMoreRecent = duplicateObservedGame.lastObservedAt > preferredObservedGame.lastObservedAt
+    const duplicateIsMoreRecent =
+      duplicateObservedGame.lastObservedAt >
+      preferredObservedGame.lastObservedAt
 
     await prisma.discordObservedGame.update({
       where: {
-        id: preferredObservedGame.id
+        id: preferredObservedGame.id,
       },
       data: {
-        activityName: duplicateIsMoreRecent ? duplicateObservedGame.activityName : preferredObservedGame.activityName,
-        applicationId: duplicateIsMoreRecent ? duplicateObservedGame.applicationId : preferredObservedGame.applicationId,
-        activityType: duplicateIsMoreRecent ? duplicateObservedGame.activityType : preferredObservedGame.activityType,
-        sourceServerId: duplicateIsMoreRecent ? duplicateObservedGame.sourceServerId : preferredObservedGame.sourceServerId,
-        firstObservedAt: duplicateObservedGame.firstObservedAt < preferredObservedGame.firstObservedAt
-          ? duplicateObservedGame.firstObservedAt
-          : preferredObservedGame.firstObservedAt,
-        lastObservedAt: duplicateIsMoreRecent ? duplicateObservedGame.lastObservedAt : preferredObservedGame.lastObservedAt
-      }
+        activityName: duplicateIsMoreRecent
+          ? duplicateObservedGame.activityName
+          : preferredObservedGame.activityName,
+        applicationId: duplicateIsMoreRecent
+          ? duplicateObservedGame.applicationId
+          : preferredObservedGame.applicationId,
+        activityType: duplicateIsMoreRecent
+          ? duplicateObservedGame.activityType
+          : preferredObservedGame.activityType,
+        sourceServerId: duplicateIsMoreRecent
+          ? duplicateObservedGame.sourceServerId
+          : preferredObservedGame.sourceServerId,
+        firstObservedAt:
+          duplicateObservedGame.firstObservedAt <
+          preferredObservedGame.firstObservedAt
+            ? duplicateObservedGame.firstObservedAt
+            : preferredObservedGame.firstObservedAt,
+        lastObservedAt: duplicateIsMoreRecent
+          ? duplicateObservedGame.lastObservedAt
+          : preferredObservedGame.lastObservedAt,
+      },
     })
 
     await prisma.discordObservedGame.delete({
       where: {
-        id: duplicateObservedGame.id
-      }
+        id: duplicateObservedGame.id,
+      },
     })
   }
 }
 
-async function mergeGameIntoPreferred(preferredGameId: string, duplicateGameId: string) {
+async function mergeGameIntoPreferred(
+  preferredGameId: string,
+  duplicateGameId: string,
+) {
   const [preferredGame, duplicateGame] = await Promise.all([
     prisma.game.findUnique({
       where: {
-        id: preferredGameId
-      }
+        id: preferredGameId,
+      },
     }),
     prisma.game.findUnique({
       where: {
-        id: duplicateGameId
+        id: duplicateGameId,
       },
       include: {
         aliases: {
           select: {
-            alias: true
-          }
+            alias: true,
+          },
         },
         platforms: {
           select: {
-            platformLabel: true
-          }
-        }
-      }
-    })
+            platformLabel: true,
+          },
+        },
+      },
+    }),
   ])
 
-  if (!preferredGame || !duplicateGame || preferredGame.id === duplicateGame.id) {
+  if (
+    !preferredGame ||
+    !duplicateGame ||
+    preferredGame.id === duplicateGame.id
+  ) {
     return false
   }
 
-  const aliasesToCreate = [...new Set([
-    duplicateGame.title,
-    ...duplicateGame.aliases.map((alias) => alias.alias)
-  ])]
+  const aliasesToCreate = [
+    ...new Set([
+      duplicateGame.title,
+      ...duplicateGame.aliases.map((alias) => alias.alias),
+    ]),
+  ]
     .map((alias) => alias.trim())
-    .filter((alias) => alias.length > 0 && alias.toLowerCase() !== preferredGame.title.trim().toLowerCase())
+    .filter(
+      (alias) =>
+        alias.length > 0 &&
+        alias.toLowerCase() !== preferredGame.title.trim().toLowerCase(),
+    )
 
   if (aliasesToCreate.length > 0) {
     await prisma.gameAlias.createMany({
       data: aliasesToCreate.map((alias) => ({
         gameId: preferredGameId,
-        alias
+        alias,
       })),
-      skipDuplicates: true
+      skipDuplicates: true,
     })
   }
 
@@ -383,21 +460,24 @@ async function mergeGameIntoPreferred(preferredGameId: string, duplicateGameId: 
     await prisma.gamePlatform.createMany({
       data: duplicateGame.platforms.map((platform) => ({
         gameId: preferredGameId,
-        platformLabel: platform.platformLabel
+        platformLabel: platform.platformLabel,
       })),
-      skipDuplicates: true
+      skipDuplicates: true,
     })
   }
 
-  if ((!preferredGame.coverUrl && duplicateGame.coverUrl) || (!preferredGame.description && duplicateGame.description)) {
+  if (
+    (!preferredGame.coverUrl && duplicateGame.coverUrl) ||
+    (!preferredGame.description && duplicateGame.description)
+  ) {
     await prisma.game.update({
       where: {
-        id: preferredGameId
+        id: preferredGameId,
       },
       data: {
         coverUrl: preferredGame.coverUrl ?? duplicateGame.coverUrl,
-        description: preferredGame.description ?? duplicateGame.description
-      }
+        description: preferredGame.description ?? duplicateGame.description,
+      },
     })
   }
 
@@ -408,44 +488,44 @@ async function mergeGameIntoPreferred(preferredGameId: string, duplicateGameId: 
 
   await prisma.gameSource.updateMany({
     where: {
-      gameId: duplicateGameId
+      gameId: duplicateGameId,
     },
     data: {
-      gameId: preferredGameId
-    }
+      gameId: preferredGameId,
+    },
   })
 
   await prisma.notification.updateMany({
     where: {
-      gameId: duplicateGameId
+      gameId: duplicateGameId,
     },
     data: {
-      gameId: preferredGameId
-    }
+      gameId: preferredGameId,
+    },
   })
 
   await prisma.discordActivityObservation.updateMany({
     where: {
-      gameId: duplicateGameId
+      gameId: duplicateGameId,
     },
     data: {
-      gameId: preferredGameId
-    }
+      gameId: preferredGameId,
+    },
   })
 
   await prisma.discordAutoPlayPrompt.updateMany({
     where: {
-      gameId: duplicateGameId
+      gameId: duplicateGameId,
     },
     data: {
-      gameId: preferredGameId
-    }
+      gameId: preferredGameId,
+    },
   })
 
   await prisma.game.delete({
     where: {
-      id: duplicateGameId
-    }
+      id: duplicateGameId,
+    },
   })
 
   return true
@@ -459,8 +539,8 @@ export async function repairNormalizedDuplicateGames() {
       createdAt: true,
       sources: {
         select: {
-          canonical: true
-        }
+          canonical: true,
+        },
       },
       _count: {
         select: {
@@ -469,10 +549,10 @@ export async function repairNormalizedDuplicateGames() {
           notifications: true,
           discordActivityObservations: true,
           observedOnDiscord: true,
-          autoPlayPrompts: true
-        }
-      }
-    }
+          autoPlayPrompts: true,
+        },
+      },
+    },
   })
 
   const gamesByNormalizedTitle = new Map<string, typeof games>()
@@ -497,7 +577,9 @@ export async function repairNormalizedDuplicateGames() {
       continue
     }
 
-    const preferredGame = duplicateGroup.reduce((preferred, candidate) => choosePreferredTitleGame(preferred, candidate))
+    const preferredGame = duplicateGroup.reduce((preferred, candidate) =>
+      choosePreferredTitleGame(preferred, candidate),
+    )
     let groupChanged = false
 
     for (const duplicateGame of duplicateGroup) {
@@ -518,6 +600,6 @@ export async function repairNormalizedDuplicateGames() {
 
   return {
     mergedGameCount,
-    mergedGroupCount
+    mergedGroupCount,
   }
 }

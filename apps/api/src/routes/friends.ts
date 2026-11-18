@@ -9,11 +9,15 @@
 
 import { Router } from 'express'
 import { z } from 'zod'
-import { addFriend, removeFriend, FriendValidationError } from '../lib/friends.js'
+import {
+  addFriend,
+  removeFriend,
+  FriendValidationError,
+} from '../lib/friends.js'
 import { requireSignedInUserId } from '../lib/route-auth.js'
 
 const friendParamsSchema = z.object({
-  userId: z.string().uuid()
+  userId: z.string().uuid(),
 })
 
 export const friendsRouter = Router()

@@ -11,7 +11,7 @@ test('scheduled selected-game notification titles include the localized start ti
     120,
     new Date('2026-04-01T20:30:00.000Z'),
     new Date('2026-04-01T19:00:00.000Z'),
-    'Etc/UTC'
+    'Etc/UTC',
   )
 
   assert.equal(copy.title, 'Ryan scheduled Helldivers 2 at 8:30pm')
@@ -25,7 +25,7 @@ test('right-now selected-game notification titles call out immediate timing', ()
     120,
     new Date('2026-04-01T20:00:00.000Z'),
     new Date('2026-04-01T20:00:00.000Z'),
-    'Etc/UTC'
+    'Etc/UTC',
   )
 
   assert.equal(copy.title, 'Ryan wants to play Helldivers 2 (right now!)')

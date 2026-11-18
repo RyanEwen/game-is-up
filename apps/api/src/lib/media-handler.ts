@@ -2,7 +2,7 @@ import type { Request, RequestHandler, Response } from 'express'
 import { z } from 'zod'
 
 const mediaTokenParamsSchema = z.object({
-  token: z.string().min(1).max(4096)
+  token: z.string().min(1).max(4096),
 })
 
 export type MediaPayload = {
@@ -25,7 +25,11 @@ export type MediaHandlerOptions = {
  * token. Centralizes the shared parse/fetch/etag/cache-headers/304 flow so
  * each media route only needs to declare its data source and caching policy.
  */
-export function createMediaHandler({ fetcher, cacheControl, notFoundMessage }: MediaHandlerOptions): RequestHandler {
+export function createMediaHandler({
+  fetcher,
+  cacheControl,
+  notFoundMessage,
+}: MediaHandlerOptions): RequestHandler {
   return async (request: Request, response: Response, next) => {
     try {
       const { token } = mediaTokenParamsSchema.parse(request.params)
