@@ -11,7 +11,7 @@ Create one coherent, verified commit from the changes the user placed in scope.
 
 1. Review staged and unstaged changes. Do not include secrets, build output, or unrelated generated files.
 2. Review relevant documentation before committing:
-   - `README.md` for setup, workflow, or user-visible behavior
+   - `README.md` for headline features, and `docs/` (development, deployment, behaviour) for setup, workflow, or user-visible behavior
    - `ARCHITECTURE.md` for structural or data-flow changes
    - Root and nested `AGENTS.md` files for guidance affected by the change
    - `.agents/skills/` and `.agents/guides/` when their workflows or conventions changed

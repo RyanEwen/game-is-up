@@ -41,7 +41,7 @@ Nested `AGENTS.md` files hold area rules. List them with `git ls-files '*AGENTS.
 
 ## Commands
 
-The development stack is devkit-managed Docker Compose; setup is in [README.md](README.md).
+The development stack is devkit-managed Docker Compose; setup is in [docs/development.md](docs/development.md).
 
 | Command | Proves | Does not prove |
 | --- | --- | --- |
@@ -60,7 +60,9 @@ Deployment goes through the `deploy` skill only.
 | --- | --- | --- |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Changing structure, data flow, or Discord DM behaviour | Whole repo |
 | [.agents/guides/ui-conventions.md](.agents/guides/ui-conventions.md) | Building or changing any UI | `apps/web/src/**` |
-| [README.md](README.md) | Setup, environment, deployment | Developer workflow |
+| [docs/development.md](docs/development.md) | Setting up, running, testing, or adding a script or environment variable | Developer workflow |
+| [docs/deployment.md](docs/deployment.md) | Changing the production stack, the deploy script, or what data is stored | Production, data handling |
+| [docs/behaviour.md](docs/behaviour.md) | Changing user-visible behaviour | Product behaviour |
 | `commit` skill | Asked to commit | Commits |
 | `deploy` skill | Asked to deploy | Commit, push and production deploy |
 | `audit-docs` skill | Asked to check or sync documentation | All docs and agent files |
@@ -70,7 +72,9 @@ Deployment goes through the `deploy` skill only.
 | What changed | Update |
 | --- | --- |
 | Structure, data flow, Discord DM lifecycle | `ARCHITECTURE.md` |
-| Setup, scripts, environment variables, deployment | `README.md` and the env examples |
+| Setup, scripts, environment variables | `docs/development.md` and the env examples |
+| Production stack, deploy script, stored data or retention | `docs/deployment.md` |
+| User-visible behaviour | `docs/behaviour.md`, and the README's Features if it is a headline feature |
 | A UI pattern or shared web component | `.agents/guides/ui-conventions.md` |
 | Area rules for the web app or the API (Prisma included) | That workspace's `AGENTS.md` |
 | A shared helper added or replaced | The owning workspace's `AGENTS.md` ("Shared helpers" above for `packages/shared`) |

@@ -11,7 +11,7 @@ Bring repository documentation back in sync with verified source behavior. Prefe
 
 Review the parts relevant to the change:
 
-- `README.md` for setup, workflows, and user-visible behavior
+- `README.md` for the product summary and features, and `docs/` for setup, deployment, data handling, and user-visible behavior
 - `ARCHITECTURE.md` for structure, runtime behavior, contracts, and data flow
 - Root and nested `AGENTS.md` files for repository and area-specific guidance
 - `.agents/skills/` when reusable workflows changed

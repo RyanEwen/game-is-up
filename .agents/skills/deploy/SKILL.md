@@ -10,7 +10,7 @@ Invoking this skill is the request for its own commit, push, and production depl
 ## Workflow
 
 1. Review staged and unstaged changes and exclude secrets, build output, and unrelated generated files.
-2. Review affected documentation, including `README.md`, `ARCHITECTURE.md`, root and nested `AGENTS.md` files, `.agents/skills/`, `.agents/guides/`, and shared contract guidance.
+2. Review affected documentation, including `README.md`, `docs/`, `ARCHITECTURE.md`, root and nested `AGENTS.md` files, `.agents/skills/`, `.agents/guides/`, and shared contract guidance.
 3. Run validation proportional to the change. Use `npm run validate` for broad or cross-cutting changes. The deploy script also validates unless passed `--skip-validate`.
 4. Stage explicit intended paths and create one coherent commit. Use `git add -A` only when every worktree change is in scope. Use an imperative subject.
 5. Push with `git push origin HEAD` unless the branch or remote requires a different explicit target.

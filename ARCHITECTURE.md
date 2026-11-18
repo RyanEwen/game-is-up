@@ -1,5 +1,7 @@
 # Game's Up: Architecture
 
+How the product behaves for users, feature by feature, is in [docs/behaviour.md](docs/behaviour.md); this document covers the structure and data flow behind it.
+
 ## High-level flow
 
 `apps/web` is the primary product surface: a Vite-built PWA with a Joy UI interface and shared TypeScript contracts from `packages/shared`. `apps/api` exposes the typed HTTP surface for auth, discovery, and play-intent orchestration.

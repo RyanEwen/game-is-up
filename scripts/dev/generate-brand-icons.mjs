@@ -6,6 +6,9 @@
  *   icon-up-bang(.svg|-64.png)                               small-size favicon cut ("UP!" only)
  *   icon-gold-ping-bot(.svg|-1024/-512.png)                  Discord bot avatar
  *
+ * It also writes the cross-surface exports of the app icon to assets/generated/
+ * (icon-256.png for the README header, icon-512.png for the website and promo catalog).
+ *
  * The wordmark is set in Archivo Black (vendored under scripts/dev/assets, OFL licensed)
  * and converted to path outlines, so the emitted SVGs have no font dependency and any
  * SVG rasterizer produces identical output. PNGs are rendered with @resvg/resvg-js.
@@ -25,6 +28,7 @@ import { Resvg } from '@resvg/resvg-js'
 const scriptDir = path.dirname(fileURLToPath(import.meta.url))
 const repoRoot = path.resolve(scriptDir, '../..')
 const publicDir = path.join(repoRoot, 'apps', 'web', 'public')
+const generatedDir = path.join(repoRoot, 'assets', 'generated')
 const fontPath = path.join(scriptDir, 'assets', 'ArchivoBlack-Regular.ttf')
 
 const INK = '#17181D'
@@ -117,4 +121,12 @@ for (const [svgName, svg, pngSizes] of outputs) {
     fs.writeFileSync(path.join(publicDir, pngName), renderPng(svg, px))
     process.stdout.write(`  Wrote ${pngName}\n`)
   }
+}
+
+// Cross-surface exports of the app icon (README header, website, promo catalog).
+fs.mkdirSync(generatedDir, { recursive: true })
+for (const px of [256, 512]) {
+  const pngName = `icon-${px}.png`
+  fs.writeFileSync(path.join(generatedDir, pngName), renderPng(appSvg, px))
+  process.stdout.write(`Wrote assets/generated/${pngName}\n`)
 }
