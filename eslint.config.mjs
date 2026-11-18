@@ -25,9 +25,6 @@ export default tseslint.config(
         ...globals.node,
       },
     },
-    rules: {
-      semi: ['error', 'never'],
-    },
   },
   {
     files: ['apps/web/**/*.{ts,tsx}'],

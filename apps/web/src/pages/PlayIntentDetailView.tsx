@@ -695,9 +695,9 @@ export function PlayIntentDetailView() {
                       }
                       onClick={() => {
                         // The last native confirm; it is replaced with a confirm dialog on DashboardModal.
-                        // eslint-disable-next-line no-alert
                         if (
                           typeof window !== 'undefined' &&
+                          // eslint-disable-next-line no-alert
                           !window.confirm(
                             'Delete this call to play and remove its tracked Discord DMs?',
                           )
