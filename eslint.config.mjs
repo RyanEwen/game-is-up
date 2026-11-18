@@ -32,7 +32,9 @@ export default tseslint.config(
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
-      'react-refresh/only-export-components': ['warn', { allowConstantExport: true }]
+      'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
+      // Native alert, confirm and prompt dialogs break the app's Back-aware modal convention.
+      'no-alert': 'error'
     }
   }
 )

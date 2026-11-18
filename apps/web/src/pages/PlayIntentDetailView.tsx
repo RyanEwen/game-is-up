@@ -533,6 +533,8 @@ export function PlayIntentDetailView() {
                       sx={{ width: { xs: '100%', sm: 'auto' } }}
                       disabled={playViewProps.playIntentDeletePendingIntentId === intent.id}
                       onClick={() => {
+                        // The last native confirm; it is replaced with a confirm dialog on DashboardModal.
+                        // eslint-disable-next-line no-alert
                         if (typeof window !== 'undefined' && !window.confirm('Delete this call to play and remove its tracked Discord DMs?')) {
                           return
                         }

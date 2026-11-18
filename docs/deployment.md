@@ -18,23 +18,21 @@ Production runs from `compose.example.yml`, copied to an untracked `compose.yml`
 
 6. Open the app on `http://localhost:8080` by default. If you need a different host port, set `PORT`, for example `PORT=9090 docker compose up --build -d`.
 
-For a minimal SSH-driven deployment from your local workspace, the repo includes:
+Deploy from your local workspace with:
 
 ```bash
-npm run deploy:prod:ssh -- --push
+npm run deploy:prod
 ```
 
-That script:
+It deploys the current commit, and refuses before reaching the server when:
 
-- runs `npm run validate` locally by default
-- optionally pushes local `HEAD` to the target branch when you pass `--push`
-- SSHes into the production host
-- refuses to deploy if the remote repo has tracked uncommitted changes
-- runs `docker compose -f compose.yml -f compose.prod.yml up --build -d` in the remote checkout when a server-only `compose.prod.yml` exists there
+- `DEPLOY_SSH_HOST` or `DEPLOY_REPO_PATH` is not set (in `.env`, which the script loads, or with `--host` and `--repo-path`);
+- the local tree has uncommitted changes;
+- `HEAD` is not exactly `origin/main`, so push to `main` first.
 
-The SSH host and the server checkout path are required and have no defaults: set `DEPLOY_SSH_HOST` and `DEPLOY_REPO_PATH`, or pass `--host` and `--repo-path`. The port defaults to `22` and the branch to `main`.
+Then it runs `npm run validate` (skip it with `--skip-validate`), and on the server refuses a checkout with tracked changes, fast-forwards it to `origin/main`, and runs `docker compose -f compose.yml up --build -d`, adding `-f compose.prod.yml` when that server-only file exists. `--dry-run` runs the local checks and prints the plan without validating or deploying.
 
-Set them with flags such as `--host`, `--port`, `--repo-path`, `--branch`, and `--compose-file`, or with the env vars `DEPLOY_SSH_HOST`, `DEPLOY_SSH_PORT`, `DEPLOY_REPO_PATH`, `DEPLOY_GIT_BRANCH`, and `DEPLOY_COMPOSE_FILES`. Pass `--compose-file` multiple times when you need an exact Compose stack, for example `--compose-file compose.yml --compose-file compose.prod.yml`.
+The port defaults to `22` (`DEPLOY_SSH_PORT` or `--port`). `DEPLOY_COMPOSE_FILES` (comma separated) or a repeated `--compose-file` sets an exact Compose stack instead, for example `--compose-file compose.yml --compose-file compose.prod.yml`.
 
 The deploy helper runs on the host, so it uses your normal SSH config and host aliases directly. With a host alias, any configured user, key selection, and host-specific settings come from your SSH config rather than deploy-script flags.
 

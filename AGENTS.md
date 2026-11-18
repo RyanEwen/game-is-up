@@ -45,14 +45,15 @@ The development stack is devkit-managed Docker Compose; setup is in [docs/develo
 
 | Command | Proves | Does not prove |
 | --- | --- | --- |
-| `npm run validate` | Lint, typecheck of every workspace, all unit tests, and a valid Prisma schema. Run it before finishing a task. | That the app builds for production or runs |
-| `npm test` | Every `*.test.ts` under `apps/`, `packages/` and `scripts/` passes | The database tests, which skip unless `RUN_ACCOUNT_HUB_DATABASE_TESTS=1` and `RUN_INVITE_DATABASE_TESTS=1` point them at a database |
+| `npm run validate` | Lint, typecheck of every workspace, all unit tests, and a valid Prisma schema. Run it before finishing a task; CI runs the same script. | That the app builds for production or runs |
+| `npm test` | Every unit test (`*.test.ts` under `apps/`, `packages/` and `scripts/`) passes | The database tests, which are `test:integration` |
+| `npm run test:integration` | The `*.integration.test.ts` database tests pass against `DATABASE_URL`, which must name a disposable `*_test` database; CI runs them on every push and pull request | Anything without a database: with none they fail, they never skip |
 | `npm run typecheck --workspace @game-is-up/<shared, api or web>` | One workspace typechecks; the quick check while working in it | Anything about the other workspaces (`shared` must be built for `api` and `web` to see changes) |
 | `npm run db:validate` | The Prisma schema is valid | That migrations apply |
 | `npm run build` | The production build of all three workspaces succeeds | Runtime behaviour |
 | `npm run dev` | The full stack starts locally | Production configuration |
 
-Deployment goes through the `deploy` skill only.
+Deployment goes through the `deploy` skill only; it runs `npm run deploy:prod`, which deploys only a clean, pushed `main`.
 
 ## Guidance map
 

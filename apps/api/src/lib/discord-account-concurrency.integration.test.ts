@@ -1,4 +1,7 @@
-/** Real PostgreSQL regressions run only with explicit opt-in against the disposable hub_review database. */
+/**
+ * Real PostgreSQL regressions for library, friends-list and follow revisions.
+ * Run by `npm run test:integration` against a disposable `*_test` database; they fail, never skip, without one.
+ */
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import test, { mock } from 'node:test'
@@ -8,11 +11,15 @@ import { createFriendsList, updateFriendsList, deleteFriendsList } from './frien
 import { addFriend, removeFriend, removeOwnedFriend } from './friends.js'
 import { RecordChangedError } from './mutation-conflict.js'
 
-const enabled = process.env.RUN_ACCOUNT_HUB_DATABASE_TESTS === '1'
+/** Refuse to touch any database that is not an obviously disposable `*_test` database. */
+function assertDisposableDatabase() {
+  const databaseName = new URL(process.env.DATABASE_URL ?? 'postgresql://unset/unset').pathname.slice(1)
+  assert.ok(databaseName.endsWith('_test'), `Refusing database tests outside a disposable *_test database (got "${databaseName}")`)
+}
 
 /** Create unrelated test identities and always remove their rows, including after a failed assertion. */
 async function withFixture(run: (fixture: { owner: string; first: string; second: string; gameId: string }) => Promise<void>) {
-  assert.equal(new URL(process.env.DATABASE_URL!).pathname, '/hub_review', 'Refusing database tests outside the disposable hub_review database')
+  assertDisposableDatabase()
   const prefix = randomUUID()
   const users = await Promise.all(['owner', 'first', 'second'].map((name) => prisma.user.create({
     data: { handle: `${prefix}-${name}`, displayName: name }
@@ -28,7 +35,7 @@ async function withFixture(run: (fixture: { owner: string; first: string; second
 
 const input = { title: 'Hub review game', platformLabels: ['PC'], intent: 'interested' as const, availability: '' }
 
-test('private library revisions serialize concurrent edits and cannot recreate a removed record', { skip: !enabled }, async () => {
+test('private library revisions serialize concurrent edits and cannot recreate a removed record', async () => {
   await withFixture(async ({ owner, gameId }) => {
     await writeLibraryGame(owner, gameId, input)
     const original = await prisma.userGameInterest.findUniqueOrThrow({ where: { userId_gameId: { userId: owner, gameId } } })
@@ -57,7 +64,7 @@ test('private library revisions serialize concurrent edits and cannot recreate a
   })
 })
 
-test('HTTP and Steam-style writes consume private revisions under a frozen clock and preserve current platforms in place', { skip: !enabled }, async () => {
+test('HTTP and Steam-style writes consume private revisions under a frozen clock and preserve current platforms in place', async () => {
   await withFixture(async ({ owner, gameId }) => {
     await writeLibraryGame(owner, gameId, input)
     const original = await prisma.userGameInterest.update({
@@ -88,7 +95,7 @@ test('HTTP and Steam-style writes consume private revisions under a frozen clock
   })
 })
 
-test('stale list rename, membership and removal cannot overwrite newer web changes or each other', { skip: !enabled }, async () => {
+test('stale list rename, membership and removal cannot overwrite newer web changes or each other', async () => {
   await withFixture(async ({ owner, first, second }) => {
     await addFriend(owner, first)
     await addFriend(owner, second)
@@ -118,7 +125,7 @@ test('stale list rename, membership and removal cannot overwrite newer web chang
   })
 })
 
-test('an old unfollow confirmation cannot remove a later refollow or someone else\'s follow', { skip: !enabled }, async () => {
+test('an old unfollow confirmation cannot remove a later refollow or someone else\'s follow', async () => {
   await withFixture(async ({ owner, first, second }) => {
     await addFriend(owner, first)
     const original = await prisma.friend.findUniqueOrThrow({ where: { userId_friendedUserId: { userId: owner, friendedUserId: first } } })

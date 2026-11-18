@@ -123,7 +123,7 @@ npm run validate
 
 That runs ESLint, the TypeScript checks of every workspace, every unit test (`npm test`), and `prisma validate`.
 
-`npm test` discovers every `*.test.ts` under `apps/`, `packages/` and `scripts/`. The database integration tests skip unless `RUN_ACCOUNT_HUB_DATABASE_TESTS=1` and `RUN_INVITE_DATABASE_TESTS=1` are set against a disposable database.
+`npm test` discovers every `*.test.ts` under `apps/`, `packages/` and `scripts/`, except the database tests. Those are named `*.integration.test.ts` and run with `npm run test:integration`, which needs `DATABASE_URL` to point at a disposable database whose name ends in `_test`, with the migrations applied (`npm run db:migrate:deploy`). Without one they fail; they never skip. Both test scripts blank `DISCORD_BOT_TOKEN`, `STEAM_WEB_API_KEY` and `RAWG_API_KEY`, and unit tests also get an unreachable `DATABASE_URL`, so no test reaches a real service even when `.env` holds real credentials. CI (`.github/workflows/ci.yml`) runs `validate` and the integration tests against a Postgres service on every push to `main` and every pull request.
 
 ## Brand icons
 
