@@ -16,9 +16,9 @@ These are Game's Up's own UI conventions. The conventions shared across the app 
 
 ## Dialogs
 
-- Every dialog is a `DashboardModal` (`components/dashboard/DashboardModal.tsx`). It registers the dialog in browser history so Back closes the top dialog first; do not open a raw Joy `Modal`.
+- Every dialog is a `DashboardModal` (`components/dashboard/DashboardModal.tsx`), built on `BackAwareModal` (`components/BackAwareModal.tsx`): Back and Escape close the top dialog first, a click on the scrim does not close it, and an open dialog holds off update reloads. Do not open a raw Joy `Modal`; a test fails the build if one appears.
 - Dialog buttons go in `DashboardModalActionBar`, which fixes the order: secondary action, then primary action, then cancel pushed to the far right. Pass the buttons to its slots rather than laying out a footer by hand.
-- Do not use `window.confirm` or `window.alert`. A destructive action gets a confirm dialog built on `DashboardModal`. (One `window.confirm` remains in `PlayIntentDetailView.tsx` and is scheduled for replacement.)
+- Do not use the browser's `alert`, `confirm` or `prompt` (lint enforces it). A destructive action asks first with `ConfirmActionDialog` (`components/dashboard/ConfirmActionDialog.tsx`), whose confirm button names the action and is never the default.
 
 ## Empty states, notices and actions
 

@@ -40,6 +40,7 @@ import { formatMonthDayTime } from '../lib/dateTime'
 import { formatRunningLateLabel } from '@game-is-up/shared'
 import { InvitePlayIntentFriendDialog } from '../components/dashboard/InvitePlayIntentFriendDialog'
 import { RunningLateDialog } from '../components/dashboard/RunningLateDialog'
+import { ConfirmActionDialog } from '../components/dashboard/ConfirmActionDialog'
 
 function formatDateTimeLabel(value: string) {
   return formatMonthDayTime(value)
@@ -227,6 +228,7 @@ export function PlayIntentDetailView() {
   const [invalidationVersion, setInvalidationVersion] = useState(0)
   const [inviteFriendDialogOpen, setInviteFriendDialogOpen] = useState(false)
   const [runningLateDialogOpen, setRunningLateDialogOpen] = useState(false)
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
 
   const discoveryPeopleById = useMemo(
     () =>
@@ -693,27 +695,7 @@ export function PlayIntentDetailView() {
                         playViewProps.playIntentDeletePendingIntentId ===
                         intent.id
                       }
-                      onClick={() => {
-                        // The last native confirm; it is replaced with a confirm dialog on DashboardModal.
-                        if (
-                          typeof window !== 'undefined' &&
-                          // eslint-disable-next-line no-alert
-                          !window.confirm(
-                            'Delete this call to play and remove its tracked Discord DMs?',
-                          )
-                        ) {
-                          return
-                        }
-
-                        void (async () => {
-                          const deleted =
-                            await playViewProps.onDeletePlayIntent(intent.id)
-
-                          if (deleted) {
-                            navigate('/play')
-                          }
-                        })()
-                      }}
+                      onClick={() => setDeleteConfirmOpen(true)}
                     >
                       {playViewProps.playIntentDeletePendingIntentId ===
                       intent.id
@@ -1314,6 +1296,24 @@ export function PlayIntentDetailView() {
         playIntentId={intent.id}
         open={inviteFriendDialogOpen}
         onClose={() => setInviteFriendDialogOpen(false)}
+      />
+      <ConfirmActionDialog
+        open={deleteConfirmOpen}
+        title="Delete this call to play?"
+        description="This removes the call to play and its tracked Discord DMs. It cannot be undone."
+        confirmLabel="Delete call to play"
+        pending={playViewProps.playIntentDeletePendingIntentId === intent.id}
+        onClose={() => setDeleteConfirmOpen(false)}
+        onConfirm={() => {
+          void (async () => {
+            const deleted = await playViewProps.onDeletePlayIntent(intent.id)
+            setDeleteConfirmOpen(false)
+
+            if (deleted) {
+              navigate('/play')
+            }
+          })()
+        }}
       />
       <RunningLateDialog
         open={runningLateDialogOpen}
