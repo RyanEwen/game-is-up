@@ -41,17 +41,17 @@
     "web:icons:export": "node scripts/dev/generate-brand-icons.mjs"
   },
   "devDependencies": {
-    "@eslint/js": "^9.24.0",
+    "@eslint/js": "^10.0.1",
     "@resvg/resvg-js": "^2.6.2",
-    "@ryanewen/devkit": "github:RyanEwen/devkit#v0.16.2",
+    "@ryanewen/devkit": "github:RyanEwen/devkit#v0.17.1",
     "@typescript/native": "npm:typescript@^7.0.2",
-    "concurrently": "^9.1.2",
-    "eslint": "^9.24.0",
-    "eslint-plugin-react-hooks": "^5.2.0",
-    "eslint-plugin-react-refresh": "^0.4.19",
-    "globals": "^16.0.0",
+    "concurrently": "^10.0.7",
+    "eslint": "^10.15.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.8",
+    "globals": "^17.14.0",
     "opentype.js": "^2.0.0",
     "typescript": "npm:@typescript/typescript6@^6.0.2",
-    "typescript-eslint": "^8.63.0"
+    "typescript-eslint": "^8.72.2"
   }
 }
