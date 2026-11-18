@@ -28,6 +28,8 @@
     "dev:fresh": "devkit run node scripts/dev/run-dev.mjs --fresh",
     "dev:host": "devkit",
     "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "test": "node scripts/dev/run-tests.mjs",
     "test:integration": "npm run test:integration --workspace @game-is-up/api",
     "typecheck": "npm run typecheck --workspace @game-is-up/shared && npm run build --workspace @game-is-up/shared && npm run typecheck --workspace @game-is-up/api && npm run typecheck --workspace @game-is-up/web",
@@ -42,9 +44,9 @@
     "web:icons:export": "node scripts/dev/generate-brand-icons.mjs"
   },
   "devDependencies": {
+    "@dynamic-solutions-canada/devkit": "github:Dynamic-Solutions-Canada/devkit#v0.18.0",
     "@eslint/js": "^9.24.0",
     "@resvg/resvg-js": "^2.6.2",
-    "@dynamic-solutions-canada/devkit": "github:Dynamic-Solutions-Canada/devkit#v0.18.0",
     "@typescript/native": "npm:typescript@^7.0.2",
     "concurrently": "^9.1.2",
     "eslint": "^9.24.0",
@@ -52,6 +54,7 @@
     "eslint-plugin-react-refresh": "^0.4.19",
     "globals": "^16.0.0",
     "opentype.js": "^2.0.0",
+    "prettier": "3.10.1",
     "typescript": "npm:@typescript/typescript6@^6.0.2",
     "typescript-eslint": "^8.63.0"
   }

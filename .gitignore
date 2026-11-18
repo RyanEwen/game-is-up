@@ -7,8 +7,6 @@ dist/
 .vite/
 # Log files written by local runs
 *.log
-# Old development runner logs; nothing writes here any more, kept out of git until deleted
-/.enjoy-logs/
 # The server's real compose file, copied from compose.example.yml and never committed
 /compose.yml
 # Personal Claude Code settings; the tracked project settings are .claude/settings.json

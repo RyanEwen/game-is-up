@@ -1,0 +1,6 @@
+# Dependencies, build output and caches
+node_modules/
+**/dist/
+**/.vite/
+# Written by npm
+package-lock.json

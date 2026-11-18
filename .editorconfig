@@ -12,7 +12,7 @@ indent_style = space
 indent_size = 4
 
 # Two-space languages.
-[*.{ts,tsx,js,mjs,cjs,json,jsonc,yml,yaml,css,scss,md}]
+[*.{ts,tsx,js,mjs,cjs,json,jsonc,yml,yaml,css,scss,md,html}]
 indent_size = 2
 
 # Formats that require CRLF.
