@@ -7,6 +7,7 @@ import {
 } from 'react'
 import { Modal } from '@mui/joy'
 import React from 'react'
+import { setAppBusy } from '../lib/appBusy'
 import { backGestureCloseEvent } from './dialogBackGesture'
 import {
   isDialogPopupEvent,
@@ -114,6 +115,20 @@ function replaceCurrentDialogHistoryWithActiveStack() {
   )
 }
 
+/**
+ * Mirror "is any dialog open" into the app-busy registry.
+ *
+ * An open dialog is treated as work in progress: it is almost always a half-filled form
+ * or a decision the user is partway through, none of which survives a reload. So it holds
+ * off an automatic update reload (`lib/webUpdate.ts`).
+ *
+ * Hung off this stack rather than off each dialog because this is where every dialog
+ * already announces itself, so a new one is covered without remembering to opt in.
+ */
+function syncDialogBusyState() {
+  setAppBusy('dialog-open', activeDialogEntries.length > 0)
+}
+
 function registerActiveDialog(token: string, requestClose: () => void) {
   const existingEntry = activeDialogEntries.find(
     (entry) => entry.token === token,
@@ -123,6 +138,7 @@ function registerActiveDialog(token: string, requestClose: () => void) {
     return false
   }
   activeDialogEntries.push({ token, requestClose })
+  syncDialogBusyState()
   return true
 }
 
@@ -133,6 +149,7 @@ function unregisterActiveDialog(token: string) {
   if (entryIndex === -1) return false
   activeDialogEntries.splice(entryIndex, 1)
   disableDialogManualScrollRestoration()
+  syncDialogBusyState()
   return true
 }
 
@@ -211,8 +228,8 @@ function restoreWindowScrollPosition(position: ScrollPosition | undefined) {
  * Copied from printstream (which adapted it from this app's original `DashboardModal`) until
  * web-app-kit ships it as a package (UI-9, KIT-10). Each open dialog appends a token to a
  * history-backed stack, and browser Back closes the top dialog instead of navigating away.
- * printstream's app-busy hook (which holds automatic reloads while a dialog is open) is left out
- * because nothing in this app reads it yet.
+ * An open dialog also marks the app busy (`lib/appBusy.ts`), so an automatic update never
+ * reloads the page from under it.
  *
  * The entry is spent when the dialog CLOSES (`syncClosedDialog`), never when one is
  * requested: `onClose` is a question the consumer may answer with "no", and popping

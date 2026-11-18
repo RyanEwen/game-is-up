@@ -11,6 +11,7 @@ let render: typeof import('@testing-library/react').render
 let cleanup: typeof import('@testing-library/react').cleanup
 let BackAwareModal: typeof import('./BackAwareModal').BackAwareModal
 let isBackGestureClose: typeof import('./dialogBackGesture').isBackGestureClose
+let appBusy: typeof import('../lib/appBusy')
 
 before(async () => {
   // jsdom before Joy: its popup machinery does SSR detection at import time, and a
@@ -23,6 +24,7 @@ before(async () => {
   const backAwareModal = await import('./BackAwareModal')
   BackAwareModal = backAwareModal.BackAwareModal
   isBackGestureClose = (await import('./dialogBackGesture')).isBackGestureClose
+  appBusy = await import('../lib/appBusy')
 })
 
 after(() => {
@@ -43,6 +45,32 @@ after(() => {
 function waitForHistoryTraversal() {
   return new Promise((resolve) => setTimeout(resolve, 50))
 }
+
+/**
+ * The behaviour the structural guard below exists to protect: an open dialog is work in
+ * progress, so it holds off an automatic reload onto a new build (`lib/webUpdate.ts`).
+ */
+test('an open dialog marks the app busy until it closes', () => {
+  appBusy.resetAppBusyForTests()
+  assert.equal(appBusy.isAppBusy(), false)
+
+  // Children go in the props object: Joy's `Modal` types `children` as required, which
+  // the third-argument form of `createElement` does not satisfy.
+  render(
+    createElement(BackAwareModal, {
+      open: true,
+      children: createElement('div', null, 'dialog body'),
+    }),
+  )
+  assert.equal(
+    appBusy.isAppBusy(),
+    true,
+    'an open dialog must block an auto-reload',
+  )
+
+  cleanup()
+  assert.equal(appBusy.isAppBusy(), false, 'closing it must release the hold')
+})
 
 /**
  * WHY a dialog can trust `reason`: the history hop must not launder it.
@@ -397,8 +425,10 @@ const OWNER = path.join('components', 'BackAwareModal.tsx')
 /**
  * A REGRESSION guard: dialogs mount `BackAwareModal`, never Joy's `Modal` directly.
  *
- * `BackAwareModal` is the single place every dialog announces itself, and browser Back
- * closing the top dialog instead of navigating away hangs off that stack.
+ * `BackAwareModal` is the single place every dialog announces itself, and two behaviours
+ * hang off that stack. Browser Back closes the top dialog instead of navigating away, and
+ * an open dialog marks the app busy so an automatic update cannot reload the page out
+ * from under it (`lib/appBusy.ts`, `lib/webUpdate.ts`).
  *
  * A dialog that reaches for Joy's `Modal` gets neither, and nothing about it looks wrong:
  * it renders identically, and the loss only shows up as Back leaving the page, or as

@@ -9,6 +9,8 @@ function fixture() {
   let reloads = 0
   let blockedStorage = false
   let offline = false
+  let busy = false
+  const busyListeners = new Set<() => void>()
   const values = new Map<string, string>()
   const storage = {
     getItem: (key: string) => values.get(key) ?? null,
@@ -32,6 +34,13 @@ function fixture() {
     reload: () => {
       reloads += 1
     },
+    isBusy: () => busy,
+    onBusyChange: (listener: () => void) => {
+      busyListeners.add(listener)
+      return () => {
+        busyListeners.delete(listener)
+      }
+    },
   }
   return {
     check: createWebUpdateChecker(environment),
@@ -48,6 +57,11 @@ function fixture() {
     goOffline: () => {
       offline = true
     },
+    setBusy: (value: boolean) => {
+      busy = value
+      for (const listener of [...busyListeners]) listener()
+    },
+    waitingForIdle: () => busyListeners.size,
     reloads: () => reloads,
   }
 }
@@ -92,4 +106,20 @@ test('offline, unknown identities and blocked storage never force a refresh', as
     await app.check()
     assert.equal(app.reloads(), 0, scenario)
   }
+})
+
+test('a busy app waits for idle before reloading onto a new build', async () => {
+  const app = fixture()
+  app.setTarget('new')
+  app.setBusy(true)
+  await app.check()
+  await app.check()
+  assert.equal(app.reloads(), 0)
+  assert.equal(app.waitingForIdle(), 1)
+
+  app.setBusy(false)
+  // The idle transition starts a fresh check; let its promise settle.
+  await new Promise((resolve) => setTimeout(resolve, 0))
+  assert.equal(app.reloads(), 1)
+  assert.equal(app.waitingForIdle(), 0)
 })
