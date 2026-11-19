@@ -12,6 +12,7 @@ import {
   getPlayIntentInvitableFriends,
   inviteFriendToPlayIntent,
 } from '../lib/play-intent-friend-invites.js'
+import { sendError } from '../lib/http-error.js'
 
 export const playIntentFriendInviteRouter = Router()
 const playIntentParamSchema = z.object({ playIntentId: z.string().uuid() })
@@ -25,9 +26,11 @@ function handleInviteError(
   if (error instanceof PlayIntentNotificationResponseError) {
     response.status(error.statusCode).json({ error: error.message })
   } else if (error instanceof z.ZodError) {
-    response
-      .status(400)
-      .json({ error: 'Invalid invitation request. Choose exactly one friend.' })
+    sendError(
+      response,
+      400,
+      'Invalid invitation request. Choose exactly one friend.',
+    )
   } else {
     next(error)
   }

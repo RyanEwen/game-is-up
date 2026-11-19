@@ -16,6 +16,7 @@ import { publishDashboardInvalidation } from '../lib/dashboard-events.js'
 import { prisma } from '../lib/prisma.js'
 import { requireSignedInUserId } from '../lib/route-auth.js'
 import { normalizeTimezoneId } from '../lib/timezone-label.js'
+import { sendError } from '../lib/http-error.js'
 
 export const profileRouter = Router()
 
@@ -37,9 +38,11 @@ profileRouter.put('/me', async (request, response, next) => {
         : normalizeTimezoneId(payload.timezoneId)
 
     if (payload.timezoneId != null && !timezoneId) {
-      response.status(400).json({
-        error: 'Use a valid IANA time zone like America/New_York.',
-      })
+      sendError(
+        response,
+        400,
+        'Use a valid IANA time zone like America/New_York.',
+      )
       return
     }
 

@@ -23,6 +23,7 @@ import {
   updateFriendsList,
 } from '../lib/friends-lists.js'
 import { requireSignedInUserId } from '../lib/route-auth.js'
+import { sendError } from '../lib/http-error.js'
 
 export const friendsListsRouter = Router()
 
@@ -33,14 +34,16 @@ function handleValidationError(
   response: import('express').Response,
 ): boolean {
   if (error instanceof z.ZodError) {
-    response.status(400).json({
-      error: error.issues[0]?.message ?? 'Invalid friends list payload.',
-    })
+    sendError(
+      response,
+      400,
+      error.issues[0]?.message ?? 'Invalid friends list payload.',
+    )
     return true
   }
 
   if (error instanceof FriendsListValidationError) {
-    response.status(400).json({ error: error.message })
+    sendError(response, 400, error.message)
     return true
   }
 

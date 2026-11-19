@@ -58,6 +58,7 @@ import { playIntentFriendInviteRouter } from './play-intent-friend-invites.js'
 import { prisma } from '../lib/prisma.js'
 import { getAuthSession } from '../lib/session.js'
 import { getUserAdminStatus, requireSignedInUserId } from '../lib/route-auth.js'
+import { sendError } from '../lib/http-error.js'
 
 export const playIntentRouter = Router()
 
@@ -125,10 +126,11 @@ playIntentRouter.put('/me', async (request, response, next) => {
     })
 
     if (payload.includeSelf && !requestUser?.isAdmin) {
-      response.status(403).json({
-        error:
-          'Admin access is required to target yourself with a test call to play.',
-      })
+      sendError(
+        response,
+        403,
+        'Admin access is required to target yourself with a test call to play.',
+      )
       return
     }
 
@@ -137,16 +139,16 @@ playIntentRouter.put('/me', async (request, response, next) => {
     response.json(upsertPlayIntentResponseSchema.parse(result))
   } catch (error) {
     if (error instanceof z.ZodError) {
-      response.status(400).json({
-        error: error.issues[0]?.message ?? 'Invalid call-to-play payload.',
-      })
+      sendError(
+        response,
+        400,
+        error.issues[0]?.message ?? 'Invalid call-to-play payload.',
+      )
       return
     }
 
     if (error instanceof PlayIntentValidationError) {
-      response.status(400).json({
-        error: error.message,
-      })
+      sendError(response, 400, error.message)
       return
     }
 
@@ -180,7 +182,7 @@ playIntentRouter.delete('/:playIntentId', async (request, response, next) => {
   const paramsParse = playIntentParamSchema.safeParse(request.params)
 
   if (!paramsParse.success) {
-    response.status(400).json({ error: 'Invalid play intent ID.' })
+    sendError(response, 400, 'Invalid play intent ID.')
     return
   }
 
@@ -205,7 +207,7 @@ playIntentRouter.post(
     const paramsParse = playIntentParamSchema.safeParse(request.params)
 
     if (!paramsParse.success) {
-      response.status(400).json({ error: 'Invalid play intent ID.' })
+      sendError(response, 400, 'Invalid play intent ID.')
       return
     }
 
@@ -215,9 +217,7 @@ playIntentRouter.post(
       response.status(204).send()
     } catch (error) {
       if (error instanceof ScheduledPlayIntentStartError) {
-        response.status(400).json({
-          error: error.message,
-        })
+        sendError(response, 400, error.message)
         return
       }
 
@@ -238,16 +238,14 @@ playIntentRouter.delete(
     const paramsParse = playIntentParamSchema.safeParse(request.params)
 
     if (!paramsParse.success) {
-      response.status(400).json({ error: 'Invalid play intent ID.' })
+      sendError(response, 400, 'Invalid play intent ID.')
       return
     }
 
     const requestUser = await getUserAdminStatus(userId)
 
     if (!requestUser?.isAdmin) {
-      response.status(403).json({
-        error: 'Admin access required.',
-      })
+      sendError(response, 403, 'Admin access required.')
       return
     }
 
@@ -257,9 +255,7 @@ playIntentRouter.delete(
       response.status(204).send()
     } catch (error) {
       if (error instanceof PlayIntentValidationError) {
-        response.status(404).json({
-          error: error.message,
-        })
+        sendError(response, 404, error.message)
         return
       }
 
@@ -318,16 +314,14 @@ playIntentRouter.put(
     const paramsParse = muteTargetParamSchema.safeParse(request.params)
 
     if (!paramsParse.success) {
-      response.status(400).json({ error: 'Invalid user ID.' })
+      sendError(response, 400, 'Invalid user ID.')
       return
     }
 
     const { targetUserId } = paramsParse.data
 
     if (targetUserId === userId) {
-      response
-        .status(400)
-        .json({ error: 'Cannot mute your own calls to play.' })
+      sendError(response, 400, 'Cannot mute your own calls to play.')
       return
     }
 
@@ -359,7 +353,7 @@ playIntentRouter.delete(
     const paramsParse = muteTargetParamSchema.safeParse(request.params)
 
     if (!paramsParse.success) {
-      response.status(400).json({ error: 'Invalid user ID.' })
+      sendError(response, 400, 'Invalid user ID.')
       return
     }
 
@@ -389,7 +383,7 @@ playIntentRouter.get('/:playIntentId', async (request, response, next) => {
   const paramsParse = playIntentParamSchema.safeParse(request.params)
 
   if (!paramsParse.success) {
-    response.status(400).json({ error: 'Invalid play intent ID.' })
+    sendError(response, 400, 'Invalid play intent ID.')
     return
   }
 
@@ -400,7 +394,7 @@ playIntentRouter.get('/:playIntentId', async (request, response, next) => {
     )
 
     if (!intent) {
-      response.status(404).json({ error: 'Call to play not found.' })
+      sendError(response, 404, 'Call to play not found.')
       return
     }
 
@@ -422,7 +416,7 @@ playIntentRouter.post(
     const paramsParse = playIntentParamSchema.safeParse(request.params)
 
     if (!paramsParse.success) {
-      response.status(400).json({ error: 'Invalid play intent ID.' })
+      sendError(response, 400, 'Invalid play intent ID.')
       return
     }
 
@@ -470,7 +464,7 @@ playIntentRouter.post(
     const paramsParse = playIntentParamSchema.safeParse(request.params)
 
     if (!paramsParse.success) {
-      response.status(400).json({ error: 'Invalid play intent ID.' })
+      sendError(response, 400, 'Invalid play intent ID.')
       return
     }
 
@@ -492,31 +486,36 @@ playIntentRouter.post(
       })
 
       if (!playIntent) {
-        response.status(404).json({ error: 'Call to play not found.' })
+        sendError(response, 404, 'Call to play not found.')
         return
       }
 
       if (!playIntent.discordSpace) {
-        response.status(404).json({
-          error:
-            'No temporary Discord channel was found for this call to play.',
-        })
+        sendError(
+          response,
+          404,
+          'No temporary Discord channel was found for this call to play.',
+        )
         return
       }
 
       if (
         playIntent.discordSpace.status === PlayIntentDiscordSpaceStatus.DELETED
       ) {
-        response.status(409).json({
-          error: 'This temporary Discord channel has already been deleted.',
-        })
+        sendError(
+          response,
+          409,
+          'This temporary Discord channel has already been deleted.',
+        )
         return
       }
 
       if (!playIntent.discordSpace.lastSyncError) {
-        response.status(409).json({
-          error: 'There is no Discord access error to retry right now.',
-        })
+        sendError(
+          response,
+          409,
+          'There is no Discord access error to retry right now.',
+        )
         return
       }
 
@@ -536,17 +535,20 @@ playIntentRouter.post(
       }
 
       if (result.status === 'failed') {
-        response.status(502).json({
-          error:
-            'Unable to retry the temporary Discord channel access right now.',
-        })
+        sendError(
+          response,
+          502,
+          'Unable to retry the temporary Discord channel access right now.',
+        )
         return
       }
 
       if (result.status === 'skipped') {
-        response.status(409).json({
-          error: 'This temporary Discord channel can no longer be retried.',
-        })
+        sendError(
+          response,
+          409,
+          'This temporary Discord channel can no longer be retried.',
+        )
         return
       }
 
@@ -574,7 +576,7 @@ playIntentRouter.delete(
     const paramsParse = playIntentParamSchema.safeParse(request.params)
 
     if (!paramsParse.success) {
-      response.status(400).json({ error: 'Invalid play intent ID.' })
+      sendError(response, 400, 'Invalid play intent ID.')
       return
     }
 
@@ -596,14 +598,12 @@ playIntentRouter.delete(
       })
 
       if (!playIntent) {
-        response.status(404).json({ error: 'Call to play not found.' })
+        sendError(response, 404, 'Call to play not found.')
         return
       }
 
       if (playIntent.expiresAt > new Date()) {
-        response
-          .status(409)
-          .json({ error: 'This call to play is still active.' })
+        sendError(response, 409, 'This call to play is still active.')
         return
       }
 
@@ -615,9 +615,11 @@ playIntentRouter.delete(
           PlayIntentDiscordSpaceStatus.PROVISIONING ||
         playIntent.discordSpace.status === PlayIntentDiscordSpaceStatus.DELETED
       ) {
-        response.status(409).json({
-          error: 'No temporary Discord channel is available to delete.',
-        })
+        sendError(
+          response,
+          409,
+          'No temporary Discord channel is available to delete.',
+        )
         return
       }
 
@@ -626,9 +628,11 @@ playIntentRouter.delete(
       )
 
       if (result.status === 'failed') {
-        response.status(502).json({
-          error: 'Unable to delete the temporary Discord channel right now.',
-        })
+        sendError(
+          response,
+          502,
+          'Unable to delete the temporary Discord channel right now.',
+        )
         return
       }
 

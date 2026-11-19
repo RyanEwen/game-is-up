@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express'
 import { prisma } from './prisma.js'
 import { getAuthSession } from './session.js'
+import { sendError } from './http-error.js'
 
 /**
  * Resolve the current user's id from the signed session cookie, or send a 401
@@ -14,7 +15,7 @@ export function requireSignedInUserId(
   const session = getAuthSession(request)
 
   if (!session) {
-    response.status(401).json({ error: 'Authentication required.' })
+    sendError(response, 401, 'Authentication required.')
     return null
   }
 

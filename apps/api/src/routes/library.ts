@@ -40,6 +40,7 @@ import {
   removeLibraryEntry,
 } from '../lib/library.js'
 import { requireSignedInUserId } from '../lib/route-auth.js'
+import { sendError } from '../lib/http-error.js'
 
 const libraryEntryParamsSchema = z.object({
   entryId: z.string().uuid(),
@@ -270,9 +271,7 @@ libraryRouter.get('/imports/steam', async (request, response, next) => {
   }
 
   if (!isSteamImportConfigured()) {
-    response.status(503).json({
-      error: 'Steam import is not configured.',
-    })
+    sendError(response, 503, 'Steam import is not configured.')
     return
   }
 
@@ -310,9 +309,7 @@ libraryRouter.post('/imports/steam', async (request, response, next) => {
   }
 
   if (!isSteamImportConfigured()) {
-    response.status(503).json({
-      error: 'Steam import is not configured.',
-    })
+    sendError(response, 503, 'Steam import is not configured.')
     return
   }
 
@@ -344,7 +341,7 @@ libraryRouter.delete('/me/:entryId', async (request, response, next) => {
   try {
     const { entryId } = libraryEntryParamsSchema.parse(request.params)
     if (!(await removeLibraryEntry(userId, entryId))) {
-      response.status(404).json({ error: 'Library entry not found.' })
+      sendError(response, 404, 'Library entry not found.')
       return
     }
 

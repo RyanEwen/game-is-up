@@ -1,0 +1,38 @@
+/**
+ * The Express error handler (PLAT-15, LOG-6): logs a failed request once, then answers it in the
+ * one error shape from `http-error.ts`.
+ *
+ * Only the path is logged, without its query string, which can carry OAuth codes. Anything the
+ * server got wrong is an error, logged with its cause. A client mistake is a warning with only its
+ * code, because a JSON parse error's message can quote the request body.
+ *
+ * When the response has already started (a stream or the event stream failing partway), no second
+ * set of headers can be written, so the error is handed to Express's default handler, which closes
+ * the connection.
+ */
+import type { NextFunction, Request, Response } from 'express'
+import { describeRequestFailure, sendError } from './http-error.js'
+import { logger } from './logger.js'
+
+export function handleRequestError(
+  error: unknown,
+  request: Request,
+  response: Response,
+  next: NextFunction,
+): void {
+  const failure = describeRequestFailure(error)
+  const where = { method: request.method, path: request.path }
+
+  if (failure.statusCode >= 500) {
+    logger.error('Request failed', { ...where, error })
+  } else {
+    logger.warn('Request rejected', { ...where, code: failure.code })
+  }
+
+  if (response.headersSent) {
+    next(error)
+    return
+  }
+
+  sendError(response, failure.statusCode, failure.message, failure.code)
+}

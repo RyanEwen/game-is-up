@@ -101,7 +101,10 @@ test('returns 404 with the configured message when the fetcher returns null', as
   await handler(buildFakeRequest('missing'), response, () => {})
 
   assert.equal(captured.statusCode, 404)
-  assert.deepEqual(captured.jsonBody, { error: 'Game cover not found.' })
+  assert.deepEqual(captured.jsonBody, {
+    error: 'Game cover not found.',
+    code: 'not_found',
+  })
   assert.equal(captured.sent, undefined)
 })
 

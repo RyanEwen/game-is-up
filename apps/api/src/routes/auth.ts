@@ -66,6 +66,7 @@ import {
 import { publishDashboardInvalidation } from '../lib/dashboard-events.js'
 import { toClientAvatarUrl } from '../lib/game-media.js'
 import { logger } from '../lib/logger.js'
+import { sendError } from '../lib/http-error.js'
 
 export const authRouter = Router()
 
@@ -306,9 +307,7 @@ authRouter.get('/me', async (request, response) => {
 
 authRouter.get('/discord/login', (request, response) => {
   if (!isDiscordAuthConfigured()) {
-    response.status(503).json({
-      error: 'Discord OAuth is not configured.',
-    })
+    sendError(response, 503, 'Discord OAuth is not configured.')
     return
   }
 
@@ -382,16 +381,12 @@ authRouter.post('/steam/link-intent', (request, response) => {
   const session = getAuthSession(request)
 
   if (!session) {
-    response.status(401).json({
-      error: 'Authentication required.',
-    })
+    sendError(response, 401, 'Authentication required.')
     return
   }
 
   if (!isSteamImportConfigured()) {
-    response.status(503).json({
-      error: 'Steam import is not configured.',
-    })
+    sendError(response, 503, 'Steam import is not configured.')
     return
   }
 
@@ -454,9 +449,7 @@ authRouter.delete('/steam/link', async (request, response, next) => {
   const session = getAuthSession(request)
 
   if (!session) {
-    response.status(401).json({
-      error: 'Authentication required.',
-    })
+    sendError(response, 401, 'Authentication required.')
     return
   }
 

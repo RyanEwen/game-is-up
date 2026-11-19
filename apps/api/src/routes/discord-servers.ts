@@ -28,6 +28,7 @@ import {
   updateDiscordServerPreference,
 } from '../lib/discord-servers.js'
 import { publishDashboardInvalidation } from '../lib/dashboard-events.js'
+import { sendError } from '../lib/http-error.js'
 
 const serverParamsSchema = z.object({
   serverId: z.string().min(1),
@@ -64,25 +65,25 @@ discordServersRouter.post('/me/refresh', async (request, response, next) => {
     const result = await refreshDiscordServerPreferences(userId)
 
     if (result.status === 'not-linked') {
-      response.status(404).json({
-        error: 'Discord identity not found for this user.',
-      })
+      sendError(response, 404, 'Discord identity not found for this user.')
       return
     }
 
     if (result.status === 'missing-scope') {
-      response.status(403).json({
-        error:
-          'Reconnect Discord with server access enabled before refreshing your server list.',
-      })
+      sendError(
+        response,
+        403,
+        'Reconnect Discord with server access enabled before refreshing your server list.',
+      )
       return
     }
 
     if (result.status === 'reauth-required') {
-      response.status(409).json({
-        error:
-          'Discord server refresh needs you to reconnect your Discord account.',
-      })
+      sendError(
+        response,
+        409,
+        'Discord server refresh needs you to reconnect your Discord account.',
+      )
       return
     }
 
@@ -131,24 +132,21 @@ discordServersRouter.get(
       const result = await buildDiscordServerMembers(userId, serverId)
 
       if (result.status === 'not-found') {
-        response.status(404).json({
-          error: 'Discord server not found for this user.',
-        })
+        sendError(response, 404, 'Discord server not found for this user.')
         return
       }
 
       if (result.status === 'not-selected') {
-        response.status(403).json({
-          error:
-            'Turn this server on for player finding before browsing members.',
-        })
+        sendError(
+          response,
+          403,
+          'Turn this server on for player finding before browsing members.',
+        )
         return
       }
 
       if (result.status === 'unavailable') {
-        response.status(503).json({
-          error: result.reason,
-        })
+        sendError(response, 503, result.reason)
         return
       }
 
@@ -179,23 +177,21 @@ discordServersRouter.post(
       })
 
       if (result.status === 'not-found') {
-        response.status(404).json({
-          error: 'Discord server not found for this user.',
-        })
+        sendError(response, 404, 'Discord server not found for this user.')
         return
       }
 
       if (result.status === 'not-selected') {
-        response.status(403).json({
-          error: 'Only selected bot-enabled servers can send bot invites.',
-        })
+        sendError(
+          response,
+          403,
+          'Only selected bot-enabled servers can send bot invites.',
+        )
         return
       }
 
       if (result.status === 'unavailable') {
-        response.status(503).json({
-          error: result.reason,
-        })
+        sendError(response, 503, result.reason)
         return
       }
 
@@ -227,17 +223,16 @@ discordServersRouter.put('/me/:serverId', async (request, response, next) => {
     )
 
     if (updated === 'not-found') {
-      response.status(404).json({
-        error: 'Discord server not found for this user.',
-      })
+      sendError(response, 404, 'Discord server not found for this user.')
       return
     }
 
     if (updated === 'bot-required') {
-      response.status(403).json({
-        error:
-          'Only servers with the bot installed can be used for discovery and invites.',
-      })
+      sendError(
+        response,
+        403,
+        'Only servers with the bot installed can be used for discovery and invites.',
+      )
       return
     }
 

@@ -20,6 +20,7 @@ import {
 } from '@game-is-up/shared'
 import { prisma } from '../lib/prisma.js'
 import { requireSignedInUserId } from '../lib/route-auth.js'
+import { sendError } from '../lib/http-error.js'
 
 export const aliasesRouter = Router()
 
@@ -79,9 +80,11 @@ aliasesRouter.put('/platforms/:platform', async (request, response, next) => {
   const platformParse = platformParamSchema.safeParse(request.params.platform)
 
   if (!platformParse.success) {
-    response.status(400).json({
-      error: platformParse.error.errors[0]?.message ?? 'Invalid platform.',
-    })
+    sendError(
+      response,
+      400,
+      platformParse.error.errors[0]?.message ?? 'Invalid platform.',
+    )
     return
   }
 
@@ -116,9 +119,11 @@ aliasesRouter.delete(
     const platformParse = platformParamSchema.safeParse(request.params.platform)
 
     if (!platformParse.success) {
-      response.status(400).json({
-        error: platformParse.error.errors[0]?.message ?? 'Invalid platform.',
-      })
+      sendError(
+        response,
+        400,
+        platformParse.error.errors[0]?.message ?? 'Invalid platform.',
+      )
       return
     }
 
@@ -182,7 +187,7 @@ aliasesRouter.put('/games/:gameId', async (request, response, next) => {
   const paramsParse = gameIdParamSchema.safeParse(request.params)
 
   if (!paramsParse.success) {
-    response.status(400).json({ error: 'Invalid game ID.' })
+    sendError(response, 400, 'Invalid game ID.')
     return
   }
 
@@ -195,7 +200,7 @@ aliasesRouter.put('/games/:gameId', async (request, response, next) => {
     })
 
     if (!game) {
-      response.status(404).json({ error: 'Game not found.' })
+      sendError(response, 404, 'Game not found.')
       return
     }
 
@@ -236,7 +241,7 @@ aliasesRouter.delete('/games/:gameId', async (request, response, next) => {
   const paramsParse = gameIdParamSchema.safeParse(request.params)
 
   if (!paramsParse.success) {
-    response.status(400).json({ error: 'Invalid game ID.' })
+    sendError(response, 400, 'Invalid game ID.')
     return
   }
 

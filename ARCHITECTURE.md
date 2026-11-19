@@ -17,6 +17,14 @@ Most client data still loads through normal HTTP requests, but signed-in dashboa
 | `packages/shared` | Zod schemas, DTOs, SSE event contracts, and shared runtime validation used by both the web app and API.                                           |
 | `apps/api/prisma` | Core relational model for users, friends, game interests, play intents, moderation, and notifications.                                            |
 
+## API skeleton
+
+Every request gets a correlation id from the first middleware: it is returned as `X-Request-Id`, added to every log line written while handling the request, and included in error bodies, so a failure a user reports can be found in the logs. The API logs only through `apps/api/src/lib/logger.ts`, which reduces errors to their name, message, code, stack and cause so library errors cannot leak URLs, tokens or request bodies.
+
+Every failed request answers with one shape, `{ error, code, requestId }` (`apiErrorResponseSchema` in the shared package): `error` is copy safe to show the user, and `code` is stable for clients. Unknown `/api` paths answer 404 in that shape, and a malformed JSON body is a 400, not a 500.
+
+`GET /api/health` is liveness: it answers whenever the process is serving, and the container health check uses it, so a database outage never restarts the API. `GET /api/health/ready` is readiness: it pings the database with a two-second limit and answers 503 when that fails. The optional Discord bot does not count towards readiness.
+
 ## Dashboard refresh flow
 
 The web app does not use client-facing WebSockets. Instead, signed-in dashboard tabs subscribe to a single authenticated SSE endpoint that publishes invalidation events for broad domains such as auth, profile, library, network, discovery, and play intents.

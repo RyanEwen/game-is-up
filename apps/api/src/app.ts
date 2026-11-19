@@ -1,6 +1,5 @@
 import cors from 'cors'
 import express from 'express'
-import type { NextFunction, Request, Response } from 'express'
 import helmet from 'helmet'
 import { clientBootstrapSchema } from '@game-is-up/shared'
 import {
@@ -20,8 +19,8 @@ import {
   profileRouter,
 } from './routes/index.js'
 import { getAllowedClientOrigins, getApiOrigin } from './lib/origin.js'
-import { HttpError } from './lib/http-error.js'
-import { logger } from './lib/logger.js'
+import { sendError } from './lib/http-error.js'
+import { handleRequestError } from './lib/request-error-handler.js'
 import { requestContext } from './lib/request-context.js'
 
 export const app = express()
@@ -79,30 +78,9 @@ app.use('/api/media', mediaRouter)
 app.use('/api/play-intents', playIntentRouter)
 app.use('/api/profile', profileRouter)
 
-app.use(
-  (
-    error: unknown,
-    request: Request,
-    response: Response,
-    _next: NextFunction,
-  ) => {
-    void _next
-    // The path without its query string, which can carry OAuth codes (LOG-6).
-    logger.error('Request failed', {
-      method: request.method,
-      path: request.path,
-      error,
-    })
+// An /api path no router answered: the error shape, not Express's HTML page.
+app.use('/api', (_request, response) => {
+  sendError(response, 404, 'There is nothing at this address.')
+})
 
-    if (error instanceof HttpError) {
-      response.status(error.statusCode).json({
-        error: error.message,
-      })
-      return
-    }
-
-    response.status(500).json({
-      error: 'Internal server error',
-    })
-  },
-)
+app.use(handleRequestError)

@@ -19,6 +19,7 @@ Scope: applies when working in the Express API, route modules, service logic, au
 
 ## Shared Helpers
 
+- Failed requests answer with the one error shape, `{ error, code, requestId }`: call `sendError(response, status, message, code?)` or throw `HttpError` from `src/lib/http-error.ts`. Never write `response.status(4xx).json(...)` by hand. The code defaults from the status; name one only when clients need to tell cases apart.
 - Log through `logger` in `src/lib/logger.ts`, never `console.*` (lint enforces it). Pass a short message and a fields object, with errors as `{ error }`; the logger reduces errors to safe parts and adds the request id from `src/lib/request-context.ts`. Log identifiers, never message text, tokens, request bodies or other user content (LOG-6).
 - Authentication on Express routes goes through `requireSignedInUserId` and `getUserAdminStatus` in `apps/api/src/lib/route-auth.ts`. Routes should not re-derive session lookups inline.
 - Media proxy endpoints (game covers, avatars, anything cached and token-wrapped) should use the `createMediaHandler` factory in `apps/api/src/lib/media-handler.ts` rather than open-coding cache, token decoding, or content-type wiring.

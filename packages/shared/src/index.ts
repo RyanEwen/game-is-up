@@ -803,6 +803,13 @@ export const healthResponseSchema = z.object({
   version: z.string(),
 })
 
+/** `GET /api/health/ready`: the API can serve requests (its database answers). */
+export const readinessResponseSchema = z.object({
+  status: z.literal('ready'),
+  checks: z.object({ database: z.literal('ok') }),
+  timestamp: z.string().datetime(),
+})
+
 export const authProvidersResponseSchema = z.object({
   providers: z.array(
     z.object({
@@ -1366,6 +1373,7 @@ export type DeleteFriendsListResponse = z.infer<
   typeof deleteFriendsListResponseSchema
 >
 export type HealthResponse = z.infer<typeof healthResponseSchema>
+export type ReadinessResponse = z.infer<typeof readinessResponseSchema>
 export type AuthProvidersResponse = z.infer<typeof authProvidersResponseSchema>
 export type DiscordGraphCapabilities = z.infer<
   typeof discordGraphCapabilitiesSchema

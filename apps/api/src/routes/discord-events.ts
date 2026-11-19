@@ -18,6 +18,7 @@ import { createPublicKey, verify as verifyEd25519 } from 'node:crypto'
 import { Router, raw } from 'express'
 import type { KeyObject } from 'node:crypto'
 import { env } from '../lib/env.js'
+import { sendError } from '../lib/http-error.js'
 import { logger } from '../lib/logger.js'
 
 // Discord webhook payload `type` values.
@@ -90,7 +91,7 @@ discordEventsRouter.post('/', raw({ type: '*/*' }), (request, response) => {
     logger.error(
       'Discord event webhook received but DISCORD_PUBLIC_KEY is not configured.',
     )
-    response.status(401).send('invalid request signature')
+    sendError(response, 401, 'Invalid request signature.')
     return
   }
 
@@ -103,7 +104,7 @@ discordEventsRouter.post('/', raw({ type: '*/*' }), (request, response) => {
     !timestamp ||
     !isValidSignature(rawBody, signature, timestamp)
   ) {
-    response.status(401).send('invalid request signature')
+    sendError(response, 401, 'Invalid request signature.')
     return
   }
 
@@ -111,7 +112,7 @@ discordEventsRouter.post('/', raw({ type: '*/*' }), (request, response) => {
   try {
     payload = JSON.parse(rawBody.toString('utf8'))
   } catch {
-    response.status(400).send('invalid payload')
+    sendError(response, 400, 'Invalid payload.')
     return
   }
 

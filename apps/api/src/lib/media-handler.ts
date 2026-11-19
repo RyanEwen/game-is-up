@@ -1,5 +1,6 @@
 import type { Request, RequestHandler, Response } from 'express'
 import { z } from 'zod'
+import { sendError } from './http-error.js'
 
 const mediaTokenParamsSchema = z.object({
   token: z.string().min(1).max(4096),
@@ -36,7 +37,7 @@ export function createMediaHandler({
       const media = await fetcher(token)
 
       if (!media) {
-        response.status(404).json({ error: notFoundMessage })
+        sendError(response, 404, notFoundMessage)
         return
       }
 

@@ -11,6 +11,7 @@ import { Router } from 'express'
 import { buildDebugAdminSnapshot } from '../lib/debug-admin.js'
 import { getAuthSession } from '../lib/session.js'
 import { getUserAdminStatus } from '../lib/route-auth.js'
+import { sendError } from '../lib/http-error.js'
 
 export const debugRouter = Router()
 
@@ -18,18 +19,14 @@ debugRouter.get('/admin', async (request, response, next) => {
   const session = getAuthSession(request)
 
   if (!session) {
-    response.status(401).json({
-      error: 'Authentication required.',
-    })
+    sendError(response, 401, 'Authentication required.')
     return
   }
 
   const user = await getUserAdminStatus(session.userId)
 
   if (!user?.isAdmin) {
-    response.status(403).json({
-      error: 'Admin access required.',
-    })
+    sendError(response, 403, 'Admin access required.')
     return
   }
 
