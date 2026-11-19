@@ -1,4 +1,5 @@
-const configuredApiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim()
+// `import.meta.env` exists only under Vite; Node's test runner imports this module without it.
+const configuredApiBaseUrl = import.meta.env?.VITE_API_BASE_URL?.trim()
 const apiBaseUrl =
   configuredApiBaseUrl != null ? configuredApiBaseUrl.replace(/\/$/, '') : ''
 

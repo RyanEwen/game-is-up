@@ -2,18 +2,17 @@
  * Whether this tab is in the middle of something a reload would destroy.
  *
  * One caller reads it: `webUpdate.ts`, which reloads the tab onto a new build and must wait
- * while the user has a dialog open. A scripted reload fires no `beforeunload` prompt, so
+ * while the user has a dialog open or a write in flight. A scripted reload fires no `beforeunload` prompt, so
  * nothing else would catch a badly timed one. Copied from store-sign-controller, whose shape
  * and names follow printstream's `lib/appBusy.ts`.
- *
- * Writes in flight are not a source yet: this app has no central mutation layer to mirror.
- * When one arrives (TanStack Query, UI-7), add a `mutations` source as the sibling apps do.
  *
  * The source list is a closed union so a new kind of losable work has to name itself here.
  */
 export type AppBusySource =
   /** Any dialog is open (`components/BackAwareModal.tsx`): nearly always a decision in progress. */
-  'dialog-open'
+  | 'dialog-open'
+  /** Any TanStack Query mutation in flight (`lib/appBusyMutations.ts`). */
+  | 'mutations'
 
 /** How many holders each source has; holds can overlap. */
 const holders = new Map<AppBusySource, number>()
