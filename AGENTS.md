@@ -67,6 +67,7 @@ Deployment goes through the `deploy` skill only; it runs `npm run deploy:prod`, 
 | `commit` skill (shared, user level)                                  | Asked to commit                                                          | Commits                            |
 | `deploy` skill                                                       | Asked to deploy                                                          | Commit, push and production deploy |
 | `audit-docs` skill                                                   | Asked to check or sync documentation                                     | All docs and agent files           |
+| [scripts/hooks/README.md](scripts/hooks/README.md)                   | An agent hook blocks an edit                                             | `.claude/settings.json` hooks      |
 
 ## Keeping docs current
 
@@ -80,3 +81,4 @@ Deployment goes through the `deploy` skill only; it runs `npm run deploy:prod`, 
 | Area rules for the web app or the API (Prisma included)   | That workspace's `AGENTS.md`                                                      |
 | A shared helper added or replaced                         | The owning workspace's `AGENTS.md` ("Shared helpers" above for `packages/shared`) |
 | A workflow an agent repeats                               | `.agents/skills/`                                                                 |
+| A devkit version bump                                     | Run `npm exec devkit-init` and commit what it regenerates                         |

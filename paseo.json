@@ -24,6 +24,9 @@
     },
     "build": {
       "command": "node node_modules/@dynamic-solutions-canada/devkit/bin/devkit.mjs run npm run build"
+    },
+    "test": {
+      "command": "node node_modules/@dynamic-solutions-canada/devkit/bin/devkit.mjs run npm test"
     }
   }
 }
