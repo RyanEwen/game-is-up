@@ -87,7 +87,7 @@ export const DashboardLayout = ({
   toastNotices: DashboardToast[]
   onboarding?: ReactNode
   showDebugLink: boolean
-  tabsAnchorRef: RefObject<HTMLDivElement>
+  tabsAnchorRef: RefObject<HTMLDivElement | null>
   children: ReactNode
 }) => {
   const stickyTabsRef = useRef<HTMLDivElement | null>(null)

@@ -133,9 +133,10 @@ That runs the Prettier check (`npm run format:check`; fix with `npm run format`)
 
 ### Dependency overrides
 
-`package.json` cannot hold comments, so its `overrides` and the root `zod` pin are explained here.
+`package.json` cannot hold comments, so its `overrides` and the root `zod` and React pins are explained here.
 
 - The root `devDependencies` declare `zod` at the same exact version as the API and the shared package. Two third-party packages want zod 3, and without the root declaration npm would hoist zod 3 and give each workspace its own zod 4 copy. With it, one zod 4 sits at the root and zod 3 nests under `@discord/embedded-app-sdk`, the only package that still needs it. Keep the three versions equal when bumping zod.
+- The root `devDependencies` also declare `react`, `react-dom`, `@types/react` and `@types/react-dom` at the web app's exact versions. Prisma 7's CLI brings `@prisma/studio-core`, which accepts React 18 or 19; without the root declaration npm hoisted React 18 and nested 19 under `apps/web`, so MUI and the other hoisted UI packages would have bundled a second React. Keep these equal to `apps/web` when bumping React.
 - `eslint-plugin-jsx-a11y` resolves its `eslint` peer to the project's eslint 10 (`"eslint": "$eslint"`). Its latest release, 6.10.2, still declares only eslint 9 or earlier, although its rules work on eslint 10; upstream tracks support in [jsx-eslint/eslint-plugin-jsx-a11y#1075](https://github.com/jsx-eslint/eslint-plugin-jsx-a11y/issues/1075). Remove the override once a jsx-a11y release accepts eslint 10.
 
 ## Brand icons

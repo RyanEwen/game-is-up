@@ -203,7 +203,7 @@ function RouteSuspense({ children }: { children: ReactNode }) {
 function ScrollReset({
   tabsAnchorRef,
 }: {
-  tabsAnchorRef: RefObject<HTMLDivElement>
+  tabsAnchorRef: RefObject<HTMLDivElement | null>
 }) {
   const { pathname } = useLocation()
   const previousPathnameRef = useRef(pathname)
