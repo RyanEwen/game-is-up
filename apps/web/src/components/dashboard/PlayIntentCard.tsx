@@ -9,6 +9,7 @@ import {
   topLevelCardSx,
 } from './dashboardUtils'
 import type { DashboardLibraryQuickAddGame } from './types'
+import { useNow } from '../../hooks/useNow'
 
 const selectedGameGridSx = {
   display: 'grid',
@@ -109,12 +110,12 @@ export function PlayIntentCard({
   isDeletingDiscordSpace?: boolean
   onDeleteDiscordSpace?: (playIntentId: string) => Promise<void>
 }) {
+  const now = useNow()
   const isLibraryWide = intent.selectionMode === 'library'
   const isEnded = intent.status === 'ended'
   const isScheduled =
     !isEnded &&
-    new Date(intent.availabilityWindow.startsAt).getTime() >
-      Date.now() + 60 * 1000
+    new Date(intent.availabilityWindow.startsAt).getTime() > now + 60 * 1000
   const viewerResponseChoice = intent.viewerResponseChoice
   const timingSummary = formatPlayIntentTimingSummary(
     intent.availabilityWindow.startsAt,

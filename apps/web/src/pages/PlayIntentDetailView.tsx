@@ -42,6 +42,7 @@ import { InvitePlayIntentFriendDialog } from '../components/dashboard/InvitePlay
 import { RunningLateDialog } from '../components/dashboard/RunningLateDialog'
 import { ConfirmActionDialog } from '../components/dashboard/ConfirmActionDialog'
 import { useResetOnChange } from '../hooks/useResetOnChange'
+import { useNow } from '../hooks/useNow'
 
 function formatDateTimeLabel(value: string) {
   return formatMonthDayTime(value)
@@ -244,6 +245,7 @@ function describeDetailFailure(
 
 export function PlayIntentDetailView() {
   const { playIntentId } = useParams<{ playIntentId: string }>()
+  const now = useNow()
   const navigate = useNavigate()
   const { overviewViewProps, playViewProps } = useDashboardContext()
   const [showNonOverlappingGames, setShowNonOverlappingGames] = useState(false)
@@ -416,8 +418,7 @@ export function PlayIntentDetailView() {
   const isEditingCurrentIntent = isOwnIntent && intent.status === 'active'
   const isScheduledIntent =
     intent.status === 'active' &&
-    new Date(intent.availabilityWindow.startsAt).getTime() >
-      Date.now() + 60 * 1000
+    new Date(intent.availabilityWindow.startsAt).getTime() > now + 60 * 1000
   const libraryWideScope =
     intent.selectionMode === 'library' ? intent.expandedGameScope : null
   const libraryWideScopeHeading =

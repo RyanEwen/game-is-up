@@ -43,6 +43,7 @@ import type {
   PlayIntentTimingMode,
   PlayIntentVoiceMode,
 } from '../components/dashboard/types'
+import { useNow } from '../hooks/useNow'
 
 type PlayIntentAudienceFilter = 'applicable' | 'all'
 type EndedPlayIntentWindowFilter = '1d' | '1w' | '1m'
@@ -335,6 +336,7 @@ function PlayViewContent({
   onToggleDiscordAutoPromptPlayIntent: (nextEnabled: boolean) => Promise<void>
   openPlayIntentDetails: (playIntentId: string) => void
 }) {
+  const now = useNow()
   const [activeAudienceFilter, setActiveAudienceFilter] =
     useState<PlayIntentAudienceFilter>('applicable')
   const [endedAudienceFilter, setEndedAudienceFilter] =
@@ -367,7 +369,7 @@ function PlayViewContent({
     'ended',
   )
   const endedWindowCutoff =
-    Date.now() - endedPlayIntentWindowDurationsMs[endedWindowFilter]
+    now - endedPlayIntentWindowDurationsMs[endedWindowFilter]
   const windowedEndedPlayIntentPreviews = endedPlayIntentPreviews.filter(
     (intent) =>
       new Date(intent.availabilityWindow.endsAt).getTime() >= endedWindowCutoff,

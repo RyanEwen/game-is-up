@@ -54,6 +54,7 @@ import {
   getInstallSupport,
   getIsInstalledBrowserApp,
 } from '../lib/browserEnv'
+import { useNow } from './useNow'
 
 const emptyLibraryEntries: LibraryResponse['entries'] = []
 const inviteAttributionOnboardingWindowMs = 14 * 24 * 60 * 60 * 1000
@@ -76,6 +77,7 @@ export function useDashboardApp() {
   )
   const [authNotice, setAuthNotice] = useState<Notice | null>(null)
   const [actionNotice, setActionNotice] = useState<Notice | null>(null)
+  const now = useNow()
   const [profileNotice, setProfileNotice] = useState<Notice | null>(null)
   const [playIntentNotice, setPlayIntentNotice] = useState<Notice | null>(null)
   const [
@@ -224,7 +226,7 @@ export function useDashboardApp() {
   const hasRecentInviteAttribution =
     latestInviteAttribution != null &&
     Number.isFinite(latestInviteAcceptedAt) &&
-    Date.now() - latestInviteAcceptedAt <= inviteAttributionOnboardingWindowMs
+    now - latestInviteAcceptedAt <= inviteAttributionOnboardingWindowMs
   const inviterAlreadyFriend =
     latestInviteAttribution?.inviterUserId != null
       ? friendPeople.some(

@@ -59,6 +59,7 @@ import type {
   PlayIntentTimingMode,
   PlayIntentVoiceMode,
 } from '../components/dashboard/types'
+import { useNow } from './useNow'
 import { useResetOnChange } from './useResetOnChange'
 
 const emptyVoiceChannels: DiscordVoiceChannelsResponse['channels'] = []
@@ -636,7 +637,7 @@ export function useDashboardPlay({
                         networkRecipientsForCurrentSelection.length > 0
                       ? 'None of your friends are a match right now for the selected games. Choose different games, friends, or widen the audience.'
                       : `No one in ${currentAudienceLabel} has matching games right now. Choose different games, friends, or widen the audience.`
-  const now = Date.now()
+  const now = useNow()
   const parsedPlayIntentStartAt = parseLocalDateTimeInput(
     playIntentStartAtInput,
   )
@@ -854,6 +855,20 @@ export function useDashboardPlay({
       setPlayIntentNotice({
         tone: 'danger',
         message: playIntentStartValidationMessage,
+      })
+      return
+    }
+
+    // The form's own check uses the shared clock, which can be up to a tick behind; a scheduled
+    // start must also be in the future at the moment of saving.
+    if (
+      playIntentStartMode === 'scheduled' &&
+      parsedPlayIntentStartAt != null &&
+      parsedPlayIntentStartAt.getTime() <= Date.now()
+    ) {
+      setPlayIntentNotice({
+        tone: 'danger',
+        message: 'Choose a future start time or switch back to starting now.',
       })
       return
     }

@@ -54,6 +54,7 @@ import type {
 } from './types'
 import dayjs, { type Dayjs } from 'dayjs'
 import { useResetOnChange } from '../../hooks/useResetOnChange'
+import { useNow } from '../../hooks/useNow'
 
 const localDateTimeFormat = 'YYYY-MM-DDTHH:mm'
 
@@ -337,10 +338,10 @@ export function PlayIntentComposerCard({
   onCancel: () => void
   onClearPlayIntent: () => Promise<void>
 }) {
+  const now = useNow()
   const [activeStep, setActiveStep] = useState<ComposerStepId>('basics')
   const isScheduledIntent = composerPlayIntent
-    ? new Date(composerPlayIntent.windowStartsAt).getTime() >
-      Date.now() + 60 * 1000
+    ? new Date(composerPlayIntent.windowStartsAt).getTime() > now + 60 * 1000
     : false
   const composerTitle = composerPlayIntent
     ? isScheduledIntent
