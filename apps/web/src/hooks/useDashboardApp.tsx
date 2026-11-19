@@ -12,42 +12,26 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type {
-  ActivePlayIntent,
   AuthProvidersResponse,
-  AuthSessionResponse,
-  DebugAdminResponse,
   DiscordServerPreferencesResponse,
-  DiscoveryFeed,
   DiscoveryGame,
   GameDetails,
   GameDetailsResponse,
   DiscoveryPerson,
   DiscoveryPersonGame,
-  FriendsList,
-  HealthResponse,
   LibraryEntry,
   LibraryResponse,
-  PlayIntentCurrentResponse,
-  PlayIntentFeed,
   SteamLinkIntentResponse,
   UserProfileResponse,
 } from '@game-is-up/shared'
 import { buildApiIssueMessage } from '../components/dashboard/apiIssue'
 import {
-  authProvidersResponseSchema,
-  authSessionResponseSchema,
-  debugAdminResponseSchema,
   deleteFriendsListResponseSchema,
   discordServerPreferencesResponseSchema,
-  discoveryFeedSchema,
   extractErrorMessage,
   friendsListResponseSchema,
-  friendsListsResponseSchema,
   gameDetailsResponseSchema,
-  healthResponseSchema,
   libraryResponseSchema,
-  playIntentCurrentResponseSchema,
-  playIntentFeedSchema,
   steamLinkIntentResponseSchema,
   userProfileResponseSchema,
 } from '@game-is-up/shared'
@@ -63,6 +47,7 @@ import type {
 import { useDashboardInvites } from './useDashboardInvites'
 import { useDashboardLibrary } from './useDashboardLibrary'
 import { useDashboardPlay } from './useDashboardPlay'
+import { useDashboardData } from './useDashboardData'
 import { useDashboardSseInvalidation } from './useDashboardSseInvalidation'
 import { useTimedNotice } from './useTimedNotice'
 import { checkForAppUpdate } from '../lib/appUpdate'
@@ -74,40 +59,14 @@ import {
   getIsInstalledBrowserApp,
 } from '../lib/browserEnv'
 
-const apiReconnectPollMs = 5000
 const emptyLibraryEntries: LibraryResponse['entries'] = []
 const inviteAttributionOnboardingWindowMs = 14 * 24 * 60 * 60 * 1000
 
-type LoadState = {
-  activePlayIntent: ActivePlayIntent | null
-  session: AuthSessionResponse | null
-  auth: AuthProvidersResponse | null
-  debugAdmin: DebugAdminResponse | null
-  discordServers: DiscordServerPreferencesResponse | null
-  discovery: DiscoveryFeed | null
-  friendsLists: FriendsList[]
-  health: HealthResponse | null
-  library: LibraryResponse | null
-  playIntents: PlayIntentFeed | null
-  error: string | null
-}
-
-const initialState: LoadState = {
-  activePlayIntent: null,
-  session: null,
-  auth: null,
-  debugAdmin: null,
-  discordServers: null,
-  discovery: null,
-  friendsLists: [],
-  health: null,
-  library: null,
-  playIntents: null,
-  error: null,
-}
-
 export function useDashboardApp() {
-  const [state, setState] = useState<LoadState>(initialState)
+  const { state, refreshDashboard, invalidateDomains, applyProfileToCache } =
+    useDashboardData()
+  // Kept under its old name for the sub-hooks: refetch every dashboard resource.
+  const loadDashboard = refreshDashboard
   const [authNotice, setAuthNotice] = useState<Notice | null>(null)
   const [actionNotice, setActionNotice] = useState<Notice | null>(null)
   const [profileNotice, setProfileNotice] = useState<Notice | null>(null)
@@ -145,6 +104,7 @@ export function useDashboardApp() {
   const timezoneSyncPendingIdRef = useRef<string | null>(null)
   const sseRefreshTimeoutIdRef = useRef<number | null>(null)
   const sseDeferredRefreshRef = useRef(false)
+  const ssePendingDomainsRef = useRef(new Set<string>())
   const showDebugView = Boolean(state.session?.user?.isAdmin)
   const browserTimeZoneId = getBrowserTimeZoneId()
   const isInstalledBrowserApp = getIsInstalledBrowserApp()
@@ -407,178 +367,47 @@ export function useDashboardApp() {
     }
   }, [])
 
-  const loadDashboard = useCallback(async () => {
-    const requestInit = {
-      credentials: 'include' as const,
-    }
-
-    async function readOptionalJson<TParsed>(
-      response: Response | null,
-      parser: (json: unknown) => TParsed,
-      label: string,
-    ): Promise<TParsed | null> {
-      if (!response) {
-        return null
+  /**
+   * Refresh what a server event changed, a quarter-second later so a burst of events becomes
+   * one refresh. While the tab is hidden or offline, the domains are collected and refreshed
+   * when it comes back. Called with no domains, it only flushes what is already pending.
+   */
+  const scheduleDashboardRefreshFromInvalidation = useCallback(
+    (domains: readonly string[] = []) => {
+      if (typeof window === 'undefined') {
+        return
       }
 
-      if (!response.ok) {
-        console.error(
-          `${label} request failed`,
-          response.status,
-          response.statusText,
-        )
-        return null
+      for (const domain of domains) {
+        ssePendingDomainsRef.current.add(domain)
       }
 
-      return parser(await response.json())
-    }
-
-    try {
-      const [healthResponse, authResponse, sessionResponse] = await Promise.all(
-        [
-          fetch(buildApiUrl('/api/health'), requestInit),
-          fetch(buildApiUrl('/api/auth/providers'), requestInit),
-          fetch(buildApiUrl('/api/auth/me'), requestInit),
-        ],
-      )
-
-      const [healthJson, authJson, sessionJson] = await Promise.all([
-        healthResponse.json(),
-        authResponse.json(),
-        sessionResponse.json(),
-      ])
-
-      const parsedSession = authSessionResponseSchema.parse(sessionJson)
-
-      const [
-        discoveryResponse,
-        playIntentsResponse,
-        libraryResponse,
-        currentPlayIntentResponse,
-        friendsListsResponse,
-        debugResponse,
-      ] = await Promise.all([
-        fetch(buildApiUrl('/api/discovery/feed'), requestInit),
-        fetch(buildApiUrl('/api/play-intents/feed'), requestInit),
-        parsedSession.authenticated
-          ? fetch(buildApiUrl('/api/library/me'), requestInit)
-          : Promise.resolve(null),
-        parsedSession.authenticated
-          ? fetch(buildApiUrl('/api/play-intents/me'), requestInit)
-          : Promise.resolve(null),
-        parsedSession.authenticated
-          ? fetch(buildApiUrl('/api/friends-lists'), requestInit)
-          : Promise.resolve(null),
-        parsedSession.authenticated && parsedSession.user?.isAdmin
-          ? fetch(buildApiUrl('/api/debug/admin'), requestInit)
-          : Promise.resolve(null),
-      ])
-
-      const [discoveryJson, playIntentsJson] = await Promise.all([
-        discoveryResponse.json(),
-        playIntentsResponse.json(),
-      ])
-
-      const discordServersResponse = parsedSession.authenticated
-        ? await fetch(buildApiUrl('/api/discord-servers/me'), requestInit)
-        : null
-
-      let library: LibraryResponse | null = null
-      let activePlayIntentState: ActivePlayIntent | null = null
-      let debugAdmin: DebugAdminResponse | null = null
-      let discordServers: DiscordServerPreferencesResponse | null = null
-
-      library = await readOptionalJson(
-        libraryResponse,
-        (libraryJson) => libraryResponseSchema.parse(libraryJson),
-        'Library',
-      )
-
-      const currentPlayIntentState = await readOptionalJson(
-        currentPlayIntentResponse,
-        (currentPlayIntentJson) =>
-          playIntentCurrentResponseSchema.parse(
-            currentPlayIntentJson as PlayIntentCurrentResponse,
-          ),
-        'Current play intent',
-      )
-      activePlayIntentState = currentPlayIntentState?.activeIntent ?? null
-
-      discordServers = await readOptionalJson(
-        discordServersResponse,
-        (discordServersJson) =>
-          discordServerPreferencesResponseSchema.parse(discordServersJson),
-        'Discord servers',
-      )
-
-      const friendsListsState = await readOptionalJson(
-        friendsListsResponse,
-        (friendsListsJson) =>
-          friendsListsResponseSchema.parse(friendsListsJson),
-        'Friends lists',
-      )
-
-      if (debugResponse) {
-        if (debugResponse.ok) {
-          try {
-            const debugJson = await debugResponse.json()
-            debugAdmin = debugAdminResponseSchema.parse(debugJson)
-          } catch (error) {
-            console.error('Debug admin payload parse failed', error)
-          }
-        } else {
-          console.error(
-            'Debug admin request failed',
-            debugResponse.status,
-            debugResponse.statusText,
-          )
-        }
+      if (ssePendingDomainsRef.current.size === 0) {
+        return
       }
 
-      setState({
-        activePlayIntent: activePlayIntentState,
-        session: parsedSession,
-        health: healthResponseSchema.parse(healthJson),
-        auth: authProvidersResponseSchema.parse(authJson),
-        debugAdmin,
-        discordServers,
-        discovery: discoveryFeedSchema.parse(discoveryJson),
-        friendsLists: friendsListsState?.lists ?? [],
-        playIntents: playIntentFeedSchema.parse(playIntentsJson),
-        library,
-        error: null,
-      })
-    } catch (error) {
-      setState((current) => ({
-        ...current,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      }))
-    }
-  }, [])
+      if (
+        window.navigator.onLine === false ||
+        document.visibilityState !== 'visible'
+      ) {
+        sseDeferredRefreshRef.current = true
+        return
+      }
 
-  const scheduleDashboardRefreshFromInvalidation = useCallback(() => {
-    if (typeof window === 'undefined') {
-      return
-    }
+      if (sseRefreshTimeoutIdRef.current != null) {
+        return
+      }
 
-    if (
-      window.navigator.onLine === false ||
-      document.visibilityState !== 'visible'
-    ) {
-      sseDeferredRefreshRef.current = true
-      return
-    }
-
-    if (sseRefreshTimeoutIdRef.current != null) {
-      return
-    }
-
-    sseRefreshTimeoutIdRef.current = window.setTimeout(() => {
-      sseRefreshTimeoutIdRef.current = null
-      sseDeferredRefreshRef.current = false
-      void loadDashboard()
-    }, 250)
-  }, [loadDashboard])
+      sseRefreshTimeoutIdRef.current = window.setTimeout(() => {
+        sseRefreshTimeoutIdRef.current = null
+        sseDeferredRefreshRef.current = false
+        const pending = [...ssePendingDomainsRef.current]
+        ssePendingDomainsRef.current.clear()
+        void invalidateDomains(pending)
+      }, 250)
+    },
+    [invalidateDomains],
+  )
 
   const updateProfile = useCallback(
     async (profilePatch: {
@@ -615,30 +444,9 @@ export function useDashboardApp() {
   const applyProfileUpdate = useCallback(
     (parsedProfile: UserProfileResponse) => {
       timezoneSyncPendingIdRef.current = parsedProfile.timezoneId
-      setState((current) => ({
-        ...current,
-        session:
-          current.session?.authenticated && current.session.user
-            ? {
-                ...current.session,
-                user: {
-                  ...current.session.user,
-                  timezoneId: parsedProfile.timezoneId,
-                  usualAvailability: parsedProfile.usualAvailability,
-                  discordAutoPromptPlayIntent:
-                    parsedProfile.discordAutoPromptPlayIntent,
-                },
-              }
-            : current.session,
-        library: current.library
-          ? {
-              ...current.library,
-              usualAvailability: parsedProfile.usualAvailability,
-            }
-          : current.library,
-      }))
+      applyProfileToCache(parsedProfile)
     },
-    [],
+    [applyProfileToCache],
   )
 
   const handleDiscordAutoPromptPlayIntentChange = useCallback(
@@ -1007,56 +815,6 @@ export function useDashboardApp() {
   useEffect(() => {
     void handleAuthRedirect(window.location.href, { clearBrowserUrl: true })
   }, [handleAuthRedirect])
-
-  useEffect(() => {
-    if (!state.error) {
-      return
-    }
-
-    let cancelled = false
-    let pollInFlight = false
-    const requestInit = {
-      credentials: 'include' as const,
-    }
-
-    const pollApiHealth = async () => {
-      if (pollInFlight) {
-        return
-      }
-
-      pollInFlight = true
-
-      try {
-        const response = await fetch(buildApiUrl('/api/health'), requestInit)
-
-        if (!response.ok) {
-          return
-        }
-
-        const healthJson = await response.json()
-        healthResponseSchema.parse(healthJson)
-
-        if (!cancelled) {
-          await loadDashboard()
-        }
-      } catch {
-        return
-      } finally {
-        pollInFlight = false
-      }
-    }
-
-    const intervalId = window.setInterval(() => {
-      void pollApiHealth()
-    }, apiReconnectPollMs)
-
-    void pollApiHealth()
-
-    return () => {
-      cancelled = true
-      window.clearInterval(intervalId)
-    }
-  }, [loadDashboard, state.error])
 
   const handleLogout = useCallback(async () => {
     await fetch(buildApiUrl('/api/auth/logout'), {
@@ -1471,10 +1229,6 @@ export function useDashboardApp() {
       setDiscordServerRefreshPending(false)
     }
   }, [discordServerRefreshPending, loadDashboard])
-
-  useEffect(() => {
-    void loadDashboard()
-  }, [loadDashboard])
 
   const inviteAttributionOnboarding =
     showInviteAttributionOnboarding && latestInviteAttribution ? (

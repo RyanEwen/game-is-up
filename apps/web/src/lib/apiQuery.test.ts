@@ -1,7 +1,7 @@
 /** Unit tests for the shared API request helper behind every query and mutation. */
 import assert from 'node:assert/strict'
 import test, { afterEach, mock } from 'node:test'
-import { apiRequest } from './apiQuery'
+import { apiRequest, noResponseBody } from './apiQuery'
 
 const numberBody = {
   parse: (value: unknown) => {
@@ -55,10 +55,30 @@ test('an error response throws the server message, or the fallback without one',
   )
 })
 
-test('a body that does not match the schema fails loudly', async () => {
+test('a body that does not match the schema fails loudly, keeping the schema error', async () => {
   stubFetch(200, { n: 'three' })
   await assert.rejects(
     apiRequest('/api/x', numberBody, 'fallback'),
-    /bad shape/,
+    (error: Error) => {
+      assert.match(error.message, /Could not parse the API response/)
+      assert.match(String((error.cause as Error).message), /bad shape/)
+      return true
+    },
+  )
+})
+
+test('a success that is not JSON is an invalid response, but a no-body endpoint is fine', async () => {
+  mock.method(
+    globalThis,
+    'fetch',
+    async () => new Response('<!doctype html>', { status: 200 }),
+  )
+  await assert.rejects(
+    apiRequest('/api/x', numberBody, 'fallback'),
+    /Could not parse the API response as JSON/,
+  )
+  assert.equal(
+    await apiRequest('/api/x', noResponseBody, 'fallback'),
+    undefined,
   )
 })
