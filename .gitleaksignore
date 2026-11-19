@@ -1,0 +1,11 @@
+# gitleaks false positives: its discord-client-secret rule matches a TypeScript type annotation
+# on the dashboard's Discord server preferences, not a secret.
+f418d73cad70c6963cdcec7b6fc9ce68f8a0ec7e:apps/web/src/hooks/useDashboardData.ts:discord-client-secret:62
+25fee3328bc749dc71d5b875126314951bf0c544:apps/web/src/hooks/useDashboardApp.tsx:discord-client-secret:85
+6ce78327e96d309f1f749d660495a9ef467d7cea:apps/web/src/hooks/useDashboardApp.tsx:discord-client-secret:44
+6ce78327e96d309f1f749d660495a9ef467d7cea:apps/web/src/hooks/useDashboardApp.tsx:discord-client-secret:204
+ff6920b4174248b45beef91a4eed272a012659d7:apps/web/src/App.tsx:discord-client-secret:66
+ff6920b4174248b45beef91a4eed272a012659d7:apps/web/src/App.tsx:discord-client-secret:875
+# A real Discord user id in a debug DM template (2026-04-18 to 04-22), not a credential; the owner
+# chose to keep it in history rather than rewrite it (2026-11-19).
+f8d50cf4a987a3851cf7e5e6da4e60477c4af40d:apps/api/src/lib/debug-admin.ts:discord-client-id:95
