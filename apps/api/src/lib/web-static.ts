@@ -6,7 +6,10 @@
  * - hashed files under `/assets/` never change, so they are cached for a year as immutable;
  * - the app shell and the files update checks read (`index.html`, `sw.js`, `registerSW.js`,
  *   `manifest.webmanifest`, `build-id.json`) are `no-store`, so a new build is seen at once;
- * - any other GET that matches no file is a client-side route and gets `index.html`, `no-store`.
+ * - any other GET that matches no file is a client-side route and gets `index.html`, `no-store`,
+ *   unless its last path segment has a file extension (`/old-icon.png`): that is a missing file,
+ *   so it is a `no-store` 404 rather than HTML under an image or script URL. No app route has a
+ *   dot in its last segment (play-intent ids are UUIDs); keep it that way.
  *
  * Mounted after the `/api` 404, so an unknown API path never falls back to the app shell.
  */
@@ -23,6 +26,18 @@ const alwaysFreshFiles = new Set([
 
 const noStore = 'no-store, no-cache, must-revalidate, proxy-revalidate'
 const immutableYear = 'public, max-age=31536000, immutable'
+
+/** A last path segment ending in a file extension, such as `icon.png`; `uuid.` does not count. */
+const fileExtension = /\.[A-Za-z0-9]+$/
+
+/**
+ * True when a path that matched no file names a file rather than a client-side route: its last
+ * segment has a file extension.
+ */
+export function looksLikeFilePath(urlPath: string): boolean {
+  const lastSegment = urlPath.split('/').at(-1) ?? ''
+  return fileExtension.test(lastSegment)
+}
 
 /** The Cache-Control header for a served file, by its URL path. */
 export function cacheControlFor(urlPath: string): string | null {
@@ -68,8 +83,15 @@ export function serveWebApp(app: Express, distDir: string): void {
     response.status(404).end()
   })
 
-  app.get('/{*path}', (_request, response) => {
+  app.get('/{*path}', (request, response) => {
     setNoStore(response)
+
+    // A missing file is a 404, not the app shell; `no-store` keeps a CDN from caching the miss.
+    if (looksLikeFilePath(request.path)) {
+      response.status(404).end()
+      return
+    }
+
     response.sendFile('index.html', { root: distDir })
   })
 }
