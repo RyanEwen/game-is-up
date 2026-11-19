@@ -1,6 +1,7 @@
 import { fileURLToPath } from 'node:url'
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
+import { devkitViteServer } from '@dynamic-solutions-canada/devkit/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 import { webBuildIdPlugin } from './webBuildIdPlugin'
 import { navigationCaching } from './serviceWorkerConfig'
@@ -97,13 +98,8 @@ export default defineConfig(({ mode }) => {
       }),
     ],
     server: {
-      port: Number(env.VITE_DEV_PORT ?? 5173),
-      host: env.VITE_DEV_HOST || true,
-      allowedHosts: env.VITE_DEV_ALLOWED_HOSTS
-        ? env.VITE_DEV_ALLOWED_HOSTS.split(',')
-            .map((host) => host.trim())
-            .filter(Boolean)
-        : undefined,
+      // Port, bind address, routed hostnames and the .worktrees/ watch exclusion come from devkit.
+      ...devkitViteServer(env),
       proxy: {
         '/api': {
           target: `http://localhost:${apiPort}`,
