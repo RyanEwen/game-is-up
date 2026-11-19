@@ -375,14 +375,11 @@ export function BackAwareModal({
   )
   useDialogPopupAccessibility(modalRoot, open)
 
+  // Joy's own focus handling stays on: focus moves into the dialog when it opens, so Escape
+  // reaches it, and returns to the control that opened it on close (UI-14). printstream's copy
+  // turns both off, which leaves Escape dead in any dialog that has no autofocused field.
+
   return (
-    <Modal
-      ref={setModalRoot}
-      open={open}
-      onClose={handleClose}
-      disableAutoFocus
-      disableRestoreFocus
-      {...props}
-    />
+    <Modal ref={setModalRoot} open={open} onClose={handleClose} {...props} />
   )
 }
