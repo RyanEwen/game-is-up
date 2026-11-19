@@ -63,8 +63,8 @@ import { notificationLimit } from '../lib/rate-limits.js'
 
 export const playIntentRouter = Router()
 
-const muteTargetParamSchema = z.object({ targetUserId: z.string().uuid() })
-const playIntentParamSchema = z.object({ playIntentId: z.string().uuid() })
+const muteTargetParamSchema = z.object({ targetUserId: z.uuid() })
+const playIntentParamSchema = z.object({ playIntentId: z.uuid() })
 
 async function handleFeed(
   request: Request,

@@ -133,8 +133,9 @@ That runs the Prettier check (`npm run format:check`; fix with `npm run format`)
 
 ### Dependency overrides
 
-`package.json` cannot hold comments, so its `overrides` are explained here.
+`package.json` cannot hold comments, so its `overrides` and the root `zod` pin are explained here.
 
+- The root `devDependencies` declare `zod` at the same exact version as the API and the shared package. Two third-party packages want zod 3, and without the root declaration npm would hoist zod 3 and give each workspace its own zod 4 copy. With it, one zod 4 sits at the root and zod 3 nests under `@discord/embedded-app-sdk`, the only package that still needs it. Keep the three versions equal when bumping zod.
 - `eslint-plugin-jsx-a11y` resolves its `eslint` peer to the project's eslint 10 (`"eslint": "$eslint"`). Its latest release, 6.10.2, still declares only eslint 9 or earlier, although its rules work on eslint 10; upstream tracks support in [jsx-eslint/eslint-plugin-jsx-a11y#1075](https://github.com/jsx-eslint/eslint-plugin-jsx-a11y/issues/1075). Remove the override once a jsx-a11y release accepts eslint 10.
 
 ## Brand icons

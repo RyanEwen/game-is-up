@@ -16,8 +16,8 @@ import { env } from './env.js'
 const rawgGameSchema = z.object({
   id: z.number().int().positive(),
   name: z.string().min(1),
-  background_image: z.string().url().nullable().optional(),
-  background_image_additional: z.string().url().nullable().optional(),
+  background_image: z.url().nullable().optional(),
+  background_image_additional: z.url().nullable().optional(),
   description_raw: z.string().nullable().optional(),
   description: z.string().nullable().optional(),
   website: z.string().trim().nullable().optional(),
@@ -69,7 +69,7 @@ const rawgSearchResponseSchema = z.object({
 
 const rawgScreenshotSchema = z.object({
   id: z.number().int().nonnegative(),
-  image: z.string().url(),
+  image: z.url(),
 })
 
 const rawgScreenshotsResponseSchema = z.object({
@@ -79,11 +79,11 @@ const rawgScreenshotsResponseSchema = z.object({
 const rawgMovieSchema = z.object({
   id: z.number().int().nonnegative(),
   name: z.string().min(1),
-  preview: z.string().url().nullable().optional(),
+  preview: z.url().nullable().optional(),
   data: z
     .object({
-      max: z.string().url().nullable().optional(),
-      480: z.string().url().nullable().optional(),
+      max: z.url().nullable().optional(),
+      480: z.url().nullable().optional(),
     })
     .partial()
     .nullable()

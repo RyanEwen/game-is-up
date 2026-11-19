@@ -46,7 +46,7 @@ const platformParamSchema = z
     'Platform identifier must be lowercase alphanumeric with hyphens or underscores.',
   )
 
-const gameIdParamSchema = z.object({ gameId: z.string().uuid() })
+const gameIdParamSchema = z.object({ gameId: z.uuid() })
 
 // GET /api/aliases/platforms
 aliasesRouter.get('/platforms', async (request, response, next) => {
@@ -83,7 +83,7 @@ aliasesRouter.put('/platforms/:platform', async (request, response, next) => {
     sendError(
       response,
       400,
-      platformParse.error.errors[0]?.message ?? 'Invalid platform.',
+      platformParse.error.issues[0]?.message ?? 'Invalid platform.',
     )
     return
   }
@@ -122,7 +122,7 @@ aliasesRouter.delete(
       sendError(
         response,
         400,
-        platformParse.error.errors[0]?.message ?? 'Invalid platform.',
+        platformParse.error.issues[0]?.message ?? 'Invalid platform.',
       )
       return
     }

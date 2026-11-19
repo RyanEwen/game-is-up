@@ -16,7 +16,7 @@ import { sendError } from '../lib/http-error.js'
 import { notificationLimit } from '../lib/rate-limits.js'
 
 export const playIntentFriendInviteRouter = Router()
-const playIntentParamSchema = z.object({ playIntentId: z.string().uuid() })
+const playIntentParamSchema = z.object({ playIntentId: z.uuid() })
 
 /** Maps expected permission, eligibility, and malformed-request failures to HTTP responses. */
 function handleInviteError(

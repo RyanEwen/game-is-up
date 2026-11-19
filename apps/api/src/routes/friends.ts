@@ -17,7 +17,7 @@ import {
 import { requireSignedInUserId } from '../lib/route-auth.js'
 
 const friendParamsSchema = z.object({
-  userId: z.string().uuid(),
+  userId: z.uuid(),
 })
 
 export const friendsRouter = Router()

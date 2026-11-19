@@ -121,7 +121,7 @@ async function searchGames(actor: string, query: string) {
 }
 
 async function loadOwnedEntry(userId: string, entryId: string) {
-  z.string().uuid().parse(entryId)
+  z.uuid().parse(entryId)
   return prisma.userGameInterest.findFirst({
     where: { id: entryId, userId },
     include: { game: true, platforms: true },
@@ -252,7 +252,7 @@ export async function handleGamesPanel(
       action === 'game-edit'
         ? await loadOwnedEntry(userId, target)
         : await prisma.userGameInterest.findFirst({
-            where: { userId, gameId: z.string().uuid().parse(target) },
+            where: { userId, gameId: z.uuid().parse(target) },
             include: { game: true, platforms: true },
           })
     if (action === 'game-edit' && !entry) {
@@ -262,7 +262,7 @@ export async function handleGamesPanel(
       })
     }
     const game = await prisma.game.findUnique({
-      where: { id: entry?.gameId ?? z.string().uuid().parse(target) },
+      where: { id: entry?.gameId ?? z.uuid().parse(target) },
       include: { platforms: true },
     })
     if (!game) {
@@ -334,7 +334,7 @@ export async function handleGamesPanel(
       })
     }
     const game = await prisma.game.findUnique({
-      where: { id: entry?.gameId ?? z.string().uuid().parse(target) },
+      where: { id: entry?.gameId ?? z.uuid().parse(target) },
     })
     if (!game) {
       return renderGamesPanel(userId, actor, 0, {
@@ -404,7 +404,7 @@ export async function handleGamesPanel(
     )
   }
   if (action === 'game-remove-confirm' && target) {
-    z.string().uuid().parse(target)
+    z.uuid().parse(target)
     const removed = await removeLibraryEntry(
       userId,
       target,

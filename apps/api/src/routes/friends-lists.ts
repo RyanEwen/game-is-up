@@ -27,7 +27,7 @@ import { sendError } from '../lib/http-error.js'
 
 export const friendsListsRouter = Router()
 
-const friendsListParamSchema = z.object({ listId: z.string().uuid() })
+const friendsListParamSchema = z.object({ listId: z.uuid() })
 
 function handleValidationError(
   error: unknown,

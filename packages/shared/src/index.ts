@@ -15,6 +15,8 @@
  * block so the contract surface stays scannable.
  */
 
+// First: configures zod before any schema below (or in the modules they import) is created.
+import './validation-config.js'
 import { z } from 'zod'
 import { runningLateMinutesSchema } from './running-late.js'
 export {
@@ -39,8 +41,8 @@ export const timezoneIdSchema = z.string().trim().min(1).max(64)
 
 export const availabilityWindowSchema = z.object({
   label: z.string(),
-  startsAt: z.string().datetime(),
-  endsAt: z.string().datetime(),
+  startsAt: z.iso.datetime(),
+  endsAt: z.iso.datetime(),
 })
 
 export const libraryEntryIntentSchema = z.enum([
@@ -57,16 +59,16 @@ export const catalogGameMatchSchema = z.object({
   source: catalogProviderSchema,
   sourceId: z.string().trim().min(1).max(96),
   title: z.string().trim().min(1).max(120),
-  coverUrl: z.string().url().nullable().optional(),
+  coverUrl: z.url().nullable().optional(),
   description: z.string().trim().max(2000).nullable().optional(),
   platformLabels: z.array(platformLabelSchema).default([]),
 })
 
 export const libraryEntrySchema = z.object({
-  id: z.string().uuid(),
-  gameId: z.string().uuid(),
+  id: z.uuid(),
+  gameId: z.uuid(),
   title: z.string().min(1),
-  coverUrl: z.string().url().nullable(),
+  coverUrl: z.url().nullable(),
   platformLabels: z.array(platformLabelSchema).min(1),
   intent: libraryEntryIntentSchema,
   availability: z.string().nullable(),
@@ -74,18 +76,18 @@ export const libraryEntrySchema = z.object({
 })
 
 export const librarySuggestedGameSchema = z.object({
-  gameId: z.string().uuid(),
+  gameId: z.uuid(),
   title: z.string().min(1),
-  coverUrl: z.string().url().nullable(),
+  coverUrl: z.url().nullable(),
   platformLabels: z.array(platformLabelSchema).min(1),
-  lastObservedAt: z.string().datetime(),
+  lastObservedAt: z.iso.datetime(),
   sourceServerName: z.string().min(1).nullable(),
 })
 
 export const libraryTrendingGameSchema = z.object({
-  gameId: z.string().uuid(),
+  gameId: z.uuid(),
   title: z.string().min(1),
-  coverUrl: z.string().url().nullable(),
+  coverUrl: z.url().nullable(),
   platformLabels: z.array(platformLabelSchema).min(1),
   recentPlayerCount: z.number().int().positive(),
   alreadyInLibrary: z.boolean(),
@@ -111,7 +113,7 @@ export const steamLibraryImportStatusSchema = z.enum([
 export const steamLibraryImportGameSchema = z.object({
   sourceId: z.string().trim().min(1).max(96),
   title: z.string().min(1),
-  coverUrl: z.string().url().nullable(),
+  coverUrl: z.url().nullable(),
   platformLabels: z.array(platformLabelSchema).min(1),
   minutesPlayedTotal: z.number().int().nonnegative(),
   minutesPlayedRecent: z.number().int().nonnegative(),
@@ -124,8 +126,8 @@ export const steamLibraryImportGameSchema = z.object({
 export const steamLibraryImportAccountSchema = z.object({
   steamId: z.string().trim().min(1).max(32),
   displayName: z.string().trim().min(1).max(120),
-  avatarUrl: z.string().url().nullable(),
-  profileUrl: z.string().url().nullable(),
+  avatarUrl: z.url().nullable(),
+  profileUrl: z.url().nullable(),
 })
 
 export * from './play-intent-update-effects.js'
@@ -141,7 +143,7 @@ export const steamLibraryImportPreviewResponseSchema = z.object({
 })
 
 export const steamLinkIntentResponseSchema = z.object({
-  authorizationUrl: z.string().url(),
+  authorizationUrl: z.url(),
 })
 
 export const steamLibraryImportSelectionSchema = z.object({
@@ -160,7 +162,7 @@ export const gameSearchResultSchema = z.object({
   source: catalogProviderSchema,
   sourceId: z.string().trim().min(1).max(96),
   title: z.string().min(1),
-  coverUrl: z.string().url().nullable(),
+  coverUrl: z.url().nullable(),
   platformLabels: z.array(platformLabelSchema),
   gameplayClassification: z
     .enum(['singleplayer-only', 'multiplayer', 'unknown'])
@@ -187,14 +189,14 @@ export const gameDetailsGameplaySchema = z.object({
 
 export const gameDetailsMediaItemSchema = z.object({
   kind: z.enum(['image', 'video']),
-  url: z.string().url(),
-  thumbnailUrl: z.string().url().nullable(),
+  url: z.url(),
+  thumbnailUrl: z.url().nullable(),
   label: z.string().trim().min(1).max(120).nullable(),
 })
 
 export const gameDetailsStoreLinkSchema = z.object({
   label: z.string().trim().min(1).max(80),
-  url: z.string().url(),
+  url: z.url(),
 })
 
 export const gameDetailsSchema = z.object({
@@ -202,11 +204,11 @@ export const gameDetailsSchema = z.object({
   source: catalogProviderSchema,
   sourceId: z.string().trim().min(1).max(96),
   title: z.string().min(1),
-  coverUrl: z.string().url().nullable(),
-  heroImageUrl: z.string().url().nullable(),
+  coverUrl: z.url().nullable(),
+  heroImageUrl: z.url().nullable(),
   description: z.string().trim().max(12000).nullable(),
   shortDescription: z.string().trim().max(1200).nullable(),
-  websiteUrl: z.string().url().nullable(),
+  websiteUrl: z.url().nullable(),
   releasedAt: z.string().date().nullable(),
   developers: z.array(z.string().trim().min(1).max(120)).default([]),
   publishers: z.array(z.string().trim().min(1).max(120)).default([]),
@@ -228,7 +230,7 @@ export const gameDetailsResponseSchema = z.object({
 export const discordServerPreferenceSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
-  iconUrl: z.string().url().nullable(),
+  iconUrl: z.url().nullable(),
   botPresent: z.boolean(),
   selected: z.boolean(),
   knownUserCount: z.number().int().nonnegative(),
@@ -243,9 +245,9 @@ export const discordServerMemberSchema = z.object({
   username: z.string().min(1),
   displayName: z.string().min(1),
   profileDisplayName: z.string().min(1),
-  avatarUrl: z.string().url().nullable(),
+  avatarUrl: z.url().nullable(),
   isAppUser: z.boolean(),
-  appUserId: z.string().uuid().nullable(),
+  appUserId: z.uuid().nullable(),
   appDisplayName: z.string().min(1).nullable(),
   appHandle: z.string().min(1).nullable(),
 })
@@ -261,7 +263,7 @@ export const discordVoiceChannelSchema = z.object({
   name: z.string().min(1),
   serverId: z.string().min(1),
   serverName: z.string().min(1),
-  serverIconUrl: z.string().url().nullable(),
+  serverIconUrl: z.url().nullable(),
 })
 
 export const discordVoiceChannelsResponseSchema = z.object({
@@ -271,11 +273,11 @@ export const discordVoiceChannelsResponseSchema = z.object({
 export const playIntentTargetDiscordServerSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
-  iconUrl: z.string().url().nullable(),
+  iconUrl: z.url().nullable(),
 })
 
 export const sendDiscordServerInvitesRequestSchema = z.object({
-  inviteUrl: z.string().url(),
+  inviteUrl: z.url(),
   memberIds: z.array(z.string().min(1)).min(1).max(25),
 })
 
@@ -336,26 +338,26 @@ export const playIntentDiscordSpaceSchema = z.object({
   serverId: z.string().min(1),
   categoryChannelName: z.string().min(1).nullable(),
   textChannelName: z.string().min(1).nullable(),
-  textChannelUrl: z.string().url().nullable(),
+  textChannelUrl: z.url().nullable(),
   voiceChannelName: z.string().min(1).nullable(),
-  voiceChannelUrl: z.string().url().nullable(),
-  inviteUrl: z.string().url().nullable(),
-  deleteAfter: z.string().datetime().nullable(),
+  voiceChannelUrl: z.url().nullable(),
+  inviteUrl: z.url().nullable(),
+  deleteAfter: z.iso.datetime().nullable(),
   lastSyncError: z.string().min(1).nullable().default(null),
 })
 
 export const playIntentGameSchema = z.object({
-  id: z.string().uuid(),
+  id: z.uuid(),
   title: z.string().min(1),
   platform: z.string().min(1),
-  coverUrl: z.string().url().nullable(),
+  coverUrl: z.url().nullable(),
 })
 
 export const playIntentPreviewUserSchema = z.object({
-  id: z.string().uuid(),
+  id: z.uuid(),
   handle: z.string().min(2).max(32),
   displayName: z.string().min(2).max(60),
-  avatarUrl: z.string().url().nullable(),
+  avatarUrl: z.url().nullable(),
 })
 
 /**
@@ -371,7 +373,7 @@ export const playIntentInterestedUserSchema =
 
 export const playIntentPreviewSchema = z.object({
   allowParticipantInvites: z.boolean().default(true),
-  id: z.string().uuid(),
+  id: z.uuid(),
   title: z.string().min(1),
   status: z.enum(['active', 'ended']),
   appliesToViewer: z.boolean(),
@@ -395,9 +397,9 @@ export const playIntentPreviewSchema = z.object({
 })
 
 export const playIntentExpandedGameSchema = z.object({
-  id: z.string().uuid(),
+  id: z.uuid(),
   title: z.string().min(1),
-  coverUrl: z.string().url().nullable(),
+  coverUrl: z.url().nullable(),
   platformLabels: z.array(platformLabelSchema).min(1),
 })
 
@@ -411,25 +413,23 @@ export const playIntentExpandedGameScopeSchema = z.object({
 })
 
 export const playIntentDetailSchema = playIntentPreviewSchema.extend({
-  createdAt: z.string().datetime(),
+  createdAt: z.iso.datetime(),
   audienceSummary: z.string().min(1),
   passedUsers: z.array(playIntentPreviewUserSchema).default([]),
   targetedFriends: z.array(playIntentPreviewUserSchema).default([]),
-  targetFriendsListId: z.string().uuid().nullable().default(null),
+  targetFriendsListId: z.uuid().nullable().default(null),
   expandedGameScope: playIntentExpandedGameScopeSchema.nullable().default(null),
 })
 
 export const playIntentFeedSchema = z.object({
-  generatedAt: z.string().datetime(),
+  generatedAt: z.iso.datetime(),
   intents: z.array(playIntentPreviewSchema),
 })
 
 /** A participant invitation always targets exactly one existing friend. */
-export const playIntentFriendInviteRequestSchema = z
-  .object({
-    friendUserId: z.string().uuid(),
-  })
-  .strict()
+export const playIntentFriendInviteRequestSchema = z.strictObject({
+  friendUserId: z.uuid(),
+})
 
 export const playIntentInvitableFriendsResponseSchema = z.object({
   friends: z.array(playIntentPreviewUserSchema),
@@ -446,22 +446,22 @@ export const playIntentDetailResponseSchema = z.object({
 
 export const activePlayIntentSchema = z.object({
   allowParticipantInvites: z.boolean().default(true),
-  id: z.string().uuid(),
+  id: z.uuid(),
   title: z.string().min(1),
   selectionMode: playIntentSelectionModeSchema,
   notifyScope: playIntentNotifyScopeSchema,
   targetServers: z.array(playIntentTargetDiscordServerSchema).default([]),
   targetedFriends: z.array(playIntentPreviewUserSchema),
-  targetFriendsListId: z.string().uuid().nullable().default(null),
+  targetFriendsListId: z.uuid().nullable().default(null),
   platforms: z.array(platformLabelSchema).min(1),
   games: z.array(playIntentGameSchema),
   note: z.string().max(140),
   voiceChannelId: z.string().min(1).nullable(),
   voiceChannelName: z.string().min(1).nullable(),
   discordSpace: playIntentDiscordSpaceSchema.nullable().default(null),
-  windowStartsAt: z.string().datetime(),
-  windowEndsAt: z.string().datetime(),
-  expiresAt: z.string().datetime(),
+  windowStartsAt: z.iso.datetime(),
+  windowEndsAt: z.iso.datetime(),
+  expiresAt: z.iso.datetime(),
   interestedUsers: z.array(playIntentInterestedUserSchema).default([]),
   interestedCount: z.number().int().min(0),
 })
@@ -546,7 +546,7 @@ export const playIntentDiscordSpaceRetryResponseSchema = z.object({
  */
 export const upsertPlayIntentRequestSchema = z
   .object({
-    playIntentId: z.string().uuid().optional(),
+    playIntentId: z.uuid().optional(),
     title: z.string().trim().max(80).optional(),
     selectionMode: z.literal('subset'),
     notifyScope: playIntentNotifyScopeSchema,
@@ -556,15 +556,12 @@ export const upsertPlayIntentRequestSchema = z
     note: z.string().trim().max(140).optional(),
     voiceChannelId: z.string().trim().min(1).max(32).optional(),
     voiceChannelName: z.string().trim().min(1).max(100).optional(),
-    startAt: z.string().datetime().optional(),
+    startAt: z.iso.datetime().optional(),
     durationMinutes: z.number().int().min(15).max(1440).optional(),
-    endAt: z.string().datetime().optional(),
-    gameIds: z
-      .array(z.string().uuid())
-      .min(1)
-      .max(maximumPlayIntentGameSelectionCount),
-    targetUserIds: z.array(z.string().uuid()).max(25).default([]),
-    targetFriendsListId: z.string().uuid().optional(),
+    endAt: z.iso.datetime().optional(),
+    gameIds: z.array(z.uuid()).min(1).max(maximumPlayIntentGameSelectionCount),
+    targetUserIds: z.array(z.uuid()).max(25).default([]),
+    targetFriendsListId: z.uuid().optional(),
     targetDiscordServerIds: z
       .array(z.string().trim().min(1).max(64))
       .max(25)
@@ -684,12 +681,12 @@ export const upsertPlayIntentResponseSchema = z.object({
 export const maximumFriendsListMemberCount = 100
 
 export const friendsListSchema = z.object({
-  id: z.string().uuid(),
+  id: z.uuid(),
   name: z.string().min(1).max(60),
   memberCount: z.number().int().nonnegative(),
   members: z.array(playIntentPreviewUserSchema).default([]),
-  createdAt: z.string().datetime(),
-  updatedAt: z.string().datetime(),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
 })
 
 export const friendsListsResponseSchema = z.object({
@@ -702,10 +699,7 @@ export const friendsListResponseSchema = z.object({
 
 export const upsertFriendsListRequestSchema = z.object({
   name: z.string().trim().min(1).max(60),
-  friendUserIds: z
-    .array(z.string().uuid())
-    .min(1)
-    .max(maximumFriendsListMemberCount),
+  friendUserIds: z.array(z.uuid()).min(1).max(maximumFriendsListMemberCount),
 })
 
 export const deleteFriendsListResponseSchema = z.object({
@@ -718,9 +712,9 @@ export const deleteFriendsListResponseSchema = z.object({
 // ---------------------------------------------------------------------------
 
 export const discoveryPersonGameSchema = z.object({
-  id: z.string().uuid(),
+  id: z.uuid(),
   title: z.string().min(1),
-  coverUrl: z.string().url().nullable(),
+  coverUrl: z.url().nullable(),
   platformLabels: z.array(platformLabelSchema).min(1),
   intent: z.enum(['wishlist', 'interested', 'playing-now']),
   availability: z.string().nullable(),
@@ -728,10 +722,10 @@ export const discoveryPersonGameSchema = z.object({
 })
 
 export const discoveryPersonSchema = z.object({
-  id: z.string().uuid(),
+  id: z.uuid(),
   handle: z.string().min(2).max(32),
   displayName: z.string().min(2).max(60),
-  avatarUrl: z.string().url().nullable(),
+  avatarUrl: z.url().nullable(),
   discordUserId: z.string().min(1).nullable(),
   bio: z.string().max(280),
   timezoneId: timezoneIdSchema,
@@ -748,9 +742,9 @@ export const discoveryPersonSchema = z.object({
       isActive: z.boolean(),
       details: z.string().nullable(),
       state: z.string().nullable(),
-      startedAt: z.string().datetime().nullable(),
-      firstObservedAt: z.string().datetime(),
-      lastObservedAt: z.string().datetime(),
+      startedAt: z.iso.datetime().nullable(),
+      firstObservedAt: z.iso.datetime(),
+      lastObservedAt: z.iso.datetime(),
       sourceServerName: z.string().nullable(),
     })
     .nullable(),
@@ -761,10 +755,10 @@ export const discoveryPersonSchema = z.object({
 })
 
 export const discoveryGamePlayerSchema = z.object({
-  id: z.string().uuid(),
+  id: z.uuid(),
   handle: z.string().min(2).max(32),
   displayName: z.string().min(2).max(60),
-  avatarUrl: z.string().url().nullable(),
+  avatarUrl: z.url().nullable(),
   discordUserId: z.string().min(1).nullable(),
   platformLabels: z.array(platformLabelSchema).min(1),
   intent: z.enum(['wishlist', 'interested', 'playing-now']),
@@ -777,9 +771,9 @@ export const discoveryGamePlayerSchema = z.object({
 })
 
 export const discoveryGameSchema = z.object({
-  id: z.string().uuid(),
+  id: z.uuid(),
   title: z.string().min(1),
-  coverUrl: z.string().url().nullable(),
+  coverUrl: z.url().nullable(),
   platformLabels: z.array(platformLabelSchema).min(1),
   sharedWithViewer: z.boolean(),
   playerCount: z.number().int().positive(),
@@ -787,7 +781,7 @@ export const discoveryGameSchema = z.object({
 })
 
 export const discoveryFeedSchema = z.object({
-  generatedAt: z.string().datetime(),
+  generatedAt: z.iso.datetime(),
   games: z.array(discoveryGameSchema),
   people: z.array(discoveryPersonSchema),
 })
@@ -799,7 +793,7 @@ export const discoveryFeedSchema = z.object({
 export const healthResponseSchema = z.object({
   status: z.literal('ok'),
   service: z.string(),
-  timestamp: z.string().datetime(),
+  timestamp: z.iso.datetime(),
   version: z.string(),
 })
 
@@ -807,7 +801,7 @@ export const healthResponseSchema = z.object({
 export const readinessResponseSchema = z.object({
   status: z.literal('ready'),
   checks: z.object({ database: z.literal('ok') }),
-  timestamp: z.string().datetime(),
+  timestamp: z.iso.datetime(),
 })
 
 export const authProvidersResponseSchema = z.object({
@@ -819,8 +813,8 @@ export const authProvidersResponseSchema = z.object({
       primary: z.boolean(),
       clientId: z.string().min(1).nullable().optional(),
       requestedScopes: z.array(z.string().min(1)),
-      installUrl: z.string().url().nullable().optional(),
-      serverInstallUrl: z.string().url().nullable().optional(),
+      installUrl: z.url().nullable().optional(),
+      serverInstallUrl: z.url().nullable().optional(),
     }),
   ),
 })
@@ -831,7 +825,7 @@ export const discordGraphCapabilitiesSchema = z.object({
   fallbackSources: z.array(z.enum(['mutual-servers', 'app-friends'])),
   guildSync: z.object({
     active: z.boolean(),
-    lastSyncedAt: z.string().datetime().nullable(),
+    lastSyncedAt: z.iso.datetime().nullable(),
   }),
   activityTracking: z.object({
     mode: z.literal('bot-presence-lossy'),
@@ -839,7 +833,7 @@ export const discordGraphCapabilitiesSchema = z.object({
     botConnected: z.boolean(),
     botGuildCount: z.number().int().nonnegative(),
     sharesServerWithBot: z.boolean(),
-    lastObservedAt: z.string().datetime().nullable(),
+    lastObservedAt: z.iso.datetime().nullable(),
     currentActivity: z
       .object({
         title: z.string().min(1),
@@ -847,9 +841,9 @@ export const discordGraphCapabilitiesSchema = z.object({
         activityType: z.enum(['playing', 'competing']),
         details: z.string().nullable(),
         state: z.string().nullable(),
-        startedAt: z.string().datetime().nullable(),
-        firstObservedAt: z.string().datetime(),
-        lastObservedAt: z.string().datetime(),
+        startedAt: z.iso.datetime().nullable(),
+        firstObservedAt: z.iso.datetime(),
+        lastObservedAt: z.iso.datetime(),
         sourceServerName: z.string().nullable(),
       })
       .nullable(),
@@ -858,11 +852,11 @@ export const discordGraphCapabilitiesSchema = z.object({
 })
 
 export const authenticatedUserSchema = z.object({
-  id: z.string().uuid(),
+  id: z.uuid(),
   handle: z.string().min(2).max(32),
   displayName: z.string().min(2).max(60),
-  avatarUrl: z.string().url().nullable(),
-  email: z.string().email().nullable(),
+  avatarUrl: z.url().nullable(),
+  email: z.email().nullable(),
   timezoneId: timezoneIdSchema,
   usualAvailability: z.string().nullable(),
   discordAutoPromptPlayIntent: z.boolean(),
@@ -873,7 +867,7 @@ export const authenticatedUserSchema = z.object({
 export const inviteAttributionKindSchema = z.enum(['direct', 'server'])
 
 export const authSessionInviteAttributionSchema = z.object({
-  inviterUserId: z.string().uuid().nullable(),
+  inviterUserId: z.uuid().nullable(),
   inviterDiscordUserId: z.string().min(1).nullable(),
   inviterLabel: z.string().min(1).nullable(),
   inviterDisplayName: z.string().min(1).nullable(),
@@ -882,7 +876,7 @@ export const authSessionInviteAttributionSchema = z.object({
   serverName: z.string().min(1).nullable(),
   memberCount: z.number().int().nonnegative().nullable(),
   kind: inviteAttributionKindSchema,
-  acceptedAt: z.string().datetime(),
+  acceptedAt: z.iso.datetime(),
 })
 
 export const userProfileSchema = z.object({
@@ -918,7 +912,7 @@ export const debugDiscordBotStateSchema = z.object({
   guildIds: z.array(z.string().min(1)),
   guildCount: z.number().int().nonnegative(),
   userTag: z.string().nullable(),
-  lastReadyAt: z.string().datetime().nullable(),
+  lastReadyAt: z.iso.datetime().nullable(),
   lastError: z.string().nullable(),
 })
 
@@ -987,10 +981,10 @@ export const debugDmPreviewSchema = z.object({
 })
 
 export const debugAutoPlayPromptSchema = z.object({
-  id: z.string().uuid(),
-  createdAt: z.string().datetime(),
-  deliveredAt: z.string().datetime().nullable(),
-  respondedAt: z.string().datetime().nullable(),
+  id: z.uuid(),
+  createdAt: z.iso.datetime(),
+  deliveredAt: z.iso.datetime().nullable(),
+  respondedAt: z.iso.datetime().nullable(),
   status: debugAutoPlayPromptStatusSchema,
   statusDetail: z.string().nullable(),
   dmError: z.string().nullable(),
@@ -999,36 +993,36 @@ export const debugAutoPlayPromptSchema = z.object({
   friendRecipientCount: z.number().int().nonnegative(),
   networkRecipientCount: z.number().int().nonnegative(),
   sourceServerName: z.string().nullable(),
-  observationStartedAt: z.string().datetime().nullable(),
-  createdPlayIntentId: z.string().uuid().nullable(),
+  observationStartedAt: z.iso.datetime().nullable(),
+  createdPlayIntentId: z.uuid().nullable(),
   user: z.object({
-    id: z.string().uuid(),
+    id: z.uuid(),
     handle: z.string().min(2).max(32),
     displayName: z.string().min(2).max(60),
     discordAutoPromptPlayIntent: z.boolean(),
   }),
   game: z.object({
-    id: z.string().uuid(),
+    id: z.uuid(),
     title: z.string().min(1),
   }),
   dmPreview: debugDmPreviewSchema.nullable(),
 })
 
 export const debugNotificationDeliverySchema = z.object({
-  id: z.string().uuid(),
-  createdAt: z.string().datetime(),
-  deliveredAt: z.string().datetime().nullable(),
+  id: z.uuid(),
+  createdAt: z.iso.datetime(),
+  deliveredAt: z.iso.datetime().nullable(),
   title: z.string().min(1),
   body: z.string().min(1),
   gameTitle: z.string().nullable(),
   recipient: z.object({
-    id: z.string().uuid(),
+    id: z.uuid(),
     handle: z.string().min(2).max(32),
     displayName: z.string().min(2).max(60),
   }),
   triggeredBy: z
     .object({
-      id: z.string().uuid(),
+      id: z.uuid(),
       handle: z.string().min(2).max(32),
       displayName: z.string().min(2).max(60),
     })
@@ -1038,20 +1032,20 @@ export const debugNotificationDeliverySchema = z.object({
 })
 
 export const debugInviteAttributionSchema = z.object({
-  id: z.string().uuid(),
-  acceptedAt: z.string().datetime(),
+  id: z.uuid(),
+  acceptedAt: z.iso.datetime(),
   kind: inviteAttributionKindSchema,
   serverId: z.string().min(1).nullable(),
   serverName: z.string().min(1).nullable(),
   memberCount: z.number().int().nonnegative().nullable(),
   acceptedUser: z.object({
-    id: z.string().uuid(),
+    id: z.uuid(),
     handle: z.string().min(2).max(32),
     displayName: z.string().min(2).max(60),
   }),
   inviterUser: z
     .object({
-      id: z.string().uuid(),
+      id: z.uuid(),
       handle: z.string().min(2).max(32),
       displayName: z.string().min(2).max(60),
     })
@@ -1063,11 +1057,11 @@ export const debugInviteAttributionSchema = z.object({
 export const debugPlayIntentStatusSchema = z.enum(['active', 'ended'])
 
 export const debugPlayIntentSummarySchema = z.object({
-  id: z.string().uuid(),
-  createdAt: z.string().datetime(),
-  windowStartsAt: z.string().datetime(),
-  windowEndsAt: z.string().datetime(),
-  expiresAt: z.string().datetime(),
+  id: z.uuid(),
+  createdAt: z.iso.datetime(),
+  windowStartsAt: z.iso.datetime(),
+  windowEndsAt: z.iso.datetime(),
+  expiresAt: z.iso.datetime(),
   status: debugPlayIntentStatusSchema,
   headline: z.string().min(1),
   note: z.string(),
@@ -1081,7 +1075,7 @@ export const debugPlayIntentSummarySchema = z.object({
   respondedNotificationCount: z.number().int().nonnegative(),
   errorCount: z.number().int().nonnegative(),
   creator: z.object({
-    id: z.string().uuid(),
+    id: z.uuid(),
     handle: z.string().min(2).max(32),
     displayName: z.string().min(2).max(60),
     timezoneId: timezoneIdSchema,
@@ -1097,32 +1091,32 @@ export const debugPlayIntentLifecycleEventSourceSchema = z.enum([
 
 export const debugPlayIntentLifecycleEventSchema = z.object({
   id: z.string().min(1),
-  playIntentId: z.string().uuid(),
-  occurredAt: z.string().datetime(),
+  playIntentId: z.uuid(),
+  occurredAt: z.iso.datetime(),
   source: debugPlayIntentLifecycleEventSourceSchema,
   eventType: z.string().min(1),
   summary: z.string().min(1),
   details: z.string().nullable(),
   isError: z.boolean(),
-  notificationId: z.string().uuid().nullable(),
-  promptId: z.string().uuid().nullable(),
+  notificationId: z.uuid().nullable(),
+  promptId: z.uuid().nullable(),
   actorDisplayName: z.string().min(1).nullable(),
   recipientDisplayName: z.string().min(1).nullable(),
 })
 
 export const debugErrorLogSchema = z.object({
   id: z.string().min(1),
-  occurredAt: z.string().datetime(),
+  occurredAt: z.iso.datetime(),
   source: debugPlayIntentLifecycleEventSourceSchema,
   message: z.string().min(1),
   detail: z.string().nullable(),
-  playIntentId: z.string().uuid().nullable(),
-  notificationId: z.string().uuid().nullable(),
-  promptId: z.string().uuid().nullable(),
+  playIntentId: z.uuid().nullable(),
+  notificationId: z.uuid().nullable(),
+  promptId: z.uuid().nullable(),
 })
 
 export const debugAdminResponseSchema = z.object({
-  generatedAt: z.string().datetime(),
+  generatedAt: z.iso.datetime(),
   bot: debugDiscordBotStateSchema,
   recentAutoPlayPrompts: z.array(debugAutoPlayPromptSchema),
   recentInviteAttributions: z.array(debugInviteAttributionSchema),
@@ -1138,7 +1132,7 @@ export const debugAdminResponseSchema = z.object({
 // ---------------------------------------------------------------------------
 
 export const userPlatformAliasSchema = z.object({
-  id: z.string().uuid(),
+  id: z.uuid(),
   platform: z.string().min(1).max(32),
   aliasValue: z.string().min(1).max(80),
 })
@@ -1152,8 +1146,8 @@ export const upsertUserPlatformAliasRequestSchema = z.object({
 })
 
 export const userGameAliasSchema = z.object({
-  id: z.string().uuid(),
-  gameId: z.string().uuid(),
+  id: z.uuid(),
+  gameId: z.uuid(),
   gameTitle: z.string().min(1),
   aliasValue: z.string().min(1).max(80),
 })
@@ -1167,10 +1161,10 @@ export const upsertUserGameAliasRequestSchema = z.object({
 })
 
 export const playIntentMuteSchema = z.object({
-  mutedUserId: z.string().uuid(),
+  mutedUserId: z.uuid(),
   mutedUserDisplayName: z.string().min(1),
   mutedUserHandle: z.string().min(1),
-  mutedUserAvatarUrl: z.string().url().nullable(),
+  mutedUserAvatarUrl: z.url().nullable(),
 })
 
 export const playIntentMutesResponseSchema = z.object({
@@ -1183,7 +1177,7 @@ export const playIntentMutesResponseSchema = z.object({
 
 export const clientBootstrapSchema = z.object({
   appName: z.string(),
-  apiBaseUrl: z.string().url(),
+  apiBaseUrl: z.url(),
   features: z.object({
     pushNotifications: z.boolean(),
     multiGamePlayIntent: z.boolean(),
@@ -1201,7 +1195,7 @@ export const dashboardInvalidationDomainSchema = z.enum([
 
 export const dashboardInvalidationEventSchema = z.object({
   id: z.string().min(1),
-  occurredAt: z.string().datetime(),
+  occurredAt: z.iso.datetime(),
   domains: z.array(dashboardInvalidationDomainSchema).min(1),
 })
 
@@ -1211,12 +1205,12 @@ export const serverEnvSchema = z.object({
     .default('development'),
   DATABASE_URL: z.string().min(1),
   API_PORT: z.coerce.number().int().positive().default(4000),
-  CLIENT_ORIGIN: z.string().url(),
+  CLIENT_ORIGIN: z.url(),
   SESSION_SECRET: z.string().min(16),
   DISCORD_CLIENT_ID: z.string().optional(),
   DISCORD_CLIENT_SECRET: z.string().optional(),
   DISCORD_PUBLIC_KEY: z.string().optional(),
-  DISCORD_CALLBACK_URL: z.string().url().optional(),
+  DISCORD_CALLBACK_URL: z.url().optional(),
   DISCORD_BOT_TOKEN: z.string().optional(),
   DISCORD_BOT_MODE: discordBotModeSchema.optional(),
   DISCORD_SERVER_ID: z.string().optional(),
@@ -1224,7 +1218,7 @@ export const serverEnvSchema = z.object({
     .enum(['true', 'false'])
     .optional()
     .transform((value) => value === 'true'),
-  STEAM_CALLBACK_URL: z.string().url().optional(),
+  STEAM_CALLBACK_URL: z.url().optional(),
   STEAM_WEB_API_KEY: z.string().optional(),
   RAWG_API_KEY: z.string().optional(),
   ADMIN_HANDLES: z.string().optional(),

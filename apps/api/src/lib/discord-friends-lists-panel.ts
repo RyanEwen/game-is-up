@@ -65,7 +65,7 @@ export async function renderFriendsListsPanel(
 }
 
 async function loadOwnedList(userId: string, listId: string) {
-  z.string().uuid().parse(listId)
+  z.uuid().parse(listId)
   return (await getFriendsListsForUser(userId)).find(
     (list) => list.id === listId,
   )
@@ -239,7 +239,7 @@ export async function handleFriendsListsPanel(
     const list = await createFriendsList(
       userId,
       interaction.fields.getTextInputValue('name'),
-      [z.string().uuid().parse(target)],
+      [z.uuid().parse(target)],
     )
     return renderList(userId, actor, list.id, 0, {
       severity: 'success',
@@ -337,7 +337,7 @@ export async function handleFriendsListsPanel(
     )
   }
   if (action === 'list-remove-confirm' && target) {
-    z.string().uuid().parse(target)
+    z.uuid().parse(target)
     const deleted = await deleteFriendsList(
       userId,
       target,

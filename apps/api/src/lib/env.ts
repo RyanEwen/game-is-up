@@ -1,6 +1,7 @@
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { config as loadEnv } from 'dotenv'
+import { z } from 'zod'
 import { serverEnvSchema } from '@game-is-up/shared'
 import { logger } from './logger.js'
 
@@ -14,7 +15,7 @@ const parsed = serverEnvSchema.safeParse(process.env)
 
 if (!parsed.success) {
   logger.error('Invalid server environment', {
-    fieldErrors: parsed.error.flatten().fieldErrors,
+    fieldErrors: z.flattenError(parsed.error).fieldErrors,
   })
   process.exit(1)
 }

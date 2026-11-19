@@ -144,7 +144,7 @@ async function renderDiscovery(
 
 /** Check current eligibility again at mutation time rather than trusting the old picker. */
 export async function addEligiblePanelFriend(userId: string, targetId: string) {
-  z.string().uuid().parse(targetId)
+  z.uuid().parse(targetId)
   const eligible = await getEligiblePanelPeople(userId)
   if (!eligible.some((person) => person.id === targetId)) {
     return false
@@ -210,7 +210,7 @@ export async function handleFriendsPanel(
     })
   }
   if (action === 'friend' && target) {
-    z.string().uuid().parse(target)
+    z.uuid().parse(target)
     const friend = (await getPanelFriends(userId)).find(
       (person) => person.id === target,
     )
@@ -238,7 +238,7 @@ export async function handleFriendsPanel(
     )
   }
   if (action === 'friend-remove-confirm' && target) {
-    z.string().uuid().parse(target)
+    z.uuid().parse(target)
     await removeOwnedFriend(userId, target)
     return renderFriendsPanel(userId, actor, 0, {
       severity: 'success',

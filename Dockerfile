@@ -28,7 +28,8 @@ COPY apps/web apps/web
 COPY scripts/dev/generate-third-party-notices.mjs scripts/dev/
 RUN npm run db:generate && npm run build
 # Migrations run at start, so the Prisma CLI is a production dependency and survives the prune.
-RUN npm prune --omit=dev --ignore-scripts --no-audit --no-fund
+RUN npm prune --omit=dev --ignore-scripts --no-audit --no-fund \
+	&& mkdir -p packages/shared/node_modules apps/api/node_modules
 
 # Same pin as the build stage above (.nvmrc).
 FROM node:24.22.3-bookworm-slim AS runtime
@@ -45,6 +46,10 @@ ENV NODE_ENV=production API_PORT=4000 WEB_DIST_DIR=/app/apps/web/dist
 # Built output and production dependencies only, never sources or tests.
 COPY --from=build --chown=node:node /app/package.json /app/package-lock.json ./
 COPY --from=build --chown=node:node /app/node_modules ./node_modules
+# A workspace keeps its own copy of a dependency when the root holds another major of it for a
+# third-party package; the image would then silently run the root's major. Ship these too.
+COPY --from=build --chown=node:node /app/packages/shared/node_modules ./packages/shared/node_modules
+COPY --from=build --chown=node:node /app/apps/api/node_modules ./apps/api/node_modules
 COPY --from=build --chown=node:node /app/packages/shared/package.json ./packages/shared/package.json
 COPY --from=build --chown=node:node /app/packages/shared/dist ./packages/shared/dist
 COPY --from=build --chown=node:node /app/apps/web/package.json ./apps/web/package.json

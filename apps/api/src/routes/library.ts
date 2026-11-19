@@ -43,7 +43,7 @@ import { requireSignedInUserId } from '../lib/route-auth.js'
 import { sendError } from '../lib/http-error.js'
 
 const libraryEntryParamsSchema = z.object({
-  entryId: z.string().uuid(),
+  entryId: z.uuid(),
 })
 
 const libraryCatalogQuerySchema = z.object({
