@@ -113,6 +113,10 @@ Paseo reads `paseo.json` to prepare new worktrees automatically and stop their c
 
 Devkit itself (runtime selection, worktree cleanup, remote hosts and secondary domains) is documented in [devkit's README](https://github.com/Dynamic-Solutions-Canada/devkit#readme).
 
+## Git hooks
+
+`lefthook.yml` runs devkit's `devkit-precommit` before every commit. It refuses staged signing material and keys, `.env` files other than `*.example`, anything under `.secrets/`, text containing a private key, and files over 5 MB. `npm run dev:prepare-worktree` installs the hooks; in a fresh clone run `npx lefthook install` once. A clone that still has husky's old `core.hooksPath` setting needs `git config --unset core.hooksPath` first, or the hooks install where git never runs them.
+
 ## Validation
 
 Run the full validation suite with:

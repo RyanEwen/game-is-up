@@ -1,0 +1,9 @@
+# Git hooks (HYG-10): what must never be committed is refused here, for every tool and person.
+# Installed by `npm run dev:prepare-worktree` (through dev:postprepare); in a fresh clone run
+# `npx lefthook install` once. Hooks check staged files only; tests belong to validate and CI.
+pre-commit:
+  commands:
+    # Signing material and keys, .env files other than *.example, anything in .secrets/,
+    # pasted private keys, and files over 5 MB (devkit-precommit). No exceptions in this repo.
+    forbidden-files:
+      run: npx devkit-precommit --max-size 5MB
