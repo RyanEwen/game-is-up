@@ -37,13 +37,13 @@ export default tseslint.config(
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
-      // React Compiler rules new in eslint-plugin-react-hooks 7. They flag deliberate patterns in
-      // working code (a latest-callback ref, drafts synced from props, the clock read in render),
-      // so they warn rather than fail; each site is fixed on its own merits, not in a lint change.
-      // Same setting as store-sign-controller.
-      'react-hooks/refs': 'warn',
-      'react-hooks/set-state-in-effect': 'warn',
-      'react-hooks/purity': 'warn',
+      // React Compiler rules from eslint-plugin-react-hooks 7, all errors here. State that follows a
+      // prop resets during render (useResetOnChange), a stale choice is derived rather than
+      // overwritten, render reads the time from useNow, and a latest-callback ref is stored after
+      // commit. A genuine sync with something outside React keeps its effect with a line waiver.
+      'react-hooks/refs': 'error',
+      'react-hooks/set-state-in-effect': 'error',
+      'react-hooks/purity': 'error',
       'react-refresh/only-export-components': [
         'warn',
         { allowConstantExport: true },

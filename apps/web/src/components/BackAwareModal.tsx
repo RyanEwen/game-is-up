@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type ComponentProps,
@@ -250,7 +251,11 @@ export function BackAwareModal({
   const onCloseRef = useRef(onClose)
   const dialogTokenRef = useRef<string | null>(null)
 
-  onCloseRef.current = onClose
+  // The latest onClose, for the history listener and Joy's close handler. It is stored after
+  // commit (not during render, which the React Compiler forbids); both callers run after commit.
+  useLayoutEffect(() => {
+    onCloseRef.current = onClose
+  })
 
   /**
    * A real Back press (or a Back that popped past this dialog). It reports `closeClick`, the
