@@ -17,7 +17,7 @@
   "scripts": {
     "build": "npm run build --workspace @game-is-up/shared && npm run build --workspace @game-is-up/api && npm run build --workspace @game-is-up/web",
     "deploy:prod": "node --env-file-if-exists=.env scripts/deploy/deploy-over-ssh.mjs",
-    "db:wait": "node scripts/dev/wait-for-db.mjs",
+    "db:wait": "devkit-wait-for-db",
     "dev": "devkit run node scripts/dev/run-dev.mjs",
     "dev:cleanup": "devkit cleanup --yes",
     "dev:background": "npm run dev -- --background",

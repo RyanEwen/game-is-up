@@ -146,7 +146,7 @@ The same script also writes `assets/generated/icon-256.png` (the README header) 
 
 ## Database helpers
 
-- `npm run db:wait` waits for the configured PostgreSQL host and port before starting app processes.
+- `npm run db:wait` (devkit's `devkit-wait-for-db`) waits for the PostgreSQL server in `DATABASE_URL` to accept connections before starting app processes.
 - `npm run db:migrate` creates and applies a new development migration after Prisma schema changes.
 - `npm run db:migrate:deploy` applies the checked-in migrations to the target database.
 - `npm run db:migrate:bootstrap` baselines an existing non-managed database at the checked-in baseline and then applies pending migrations.
