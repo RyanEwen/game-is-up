@@ -37,7 +37,11 @@ export function AboutDialog({
       <Stack spacing={2}>
         <DialogTitle>About</DialogTitle>
         <Stack spacing={0.5}>
-          <Typography level="title-lg">Game&apos;s Up</Typography>
+          <Typography level="title-lg">
+            <Link href={productLinks.app} target="_blank" rel="noreferrer">
+              Game&apos;s Up
+            </Link>
+          </Typography>
           <Typography level="body-sm" sx={{ color: 'neutral.400' }}>
             {describeVersion()}
           </Typography>

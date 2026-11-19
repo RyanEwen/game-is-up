@@ -8,6 +8,10 @@
   See which friends play the same games, and get a game going with them through Discord.
 </p>
 
+<p align="center">
+  <a href="https://gamesup.app"><strong>Open Game's Up at gamesup.app</strong></a>
+</p>
+
 Game's Up is for groups of friends who play together and organise it on Discord. Instead of asking around in a channel to find out who owns what and who is free, you keep a library of the games you play, see where it overlaps with your friends, and send a call to play: the people who share the game get a Discord message they can answer with one tap, and everyone sees who is in.
 
 ## Features
@@ -23,9 +27,9 @@ Game's Up is for groups of friends who play together and organise it on Discord.
 
 ## Get it
 
-Game's Up is a web app: sign in with Discord in a current desktop or mobile browser, and install it from the browser if you want it on your home screen or desktop.
+Game's Up is a web app at **[gamesup.app](https://gamesup.app)**: sign in with Discord in a current desktop or mobile browser, and install it from the browser if you want it on your home screen or desktop.
 
-<!-- The public app address and the privacy page link are added here once they are published. -->
+<!-- The privacy page link is added here once it is published. -->
 
 ## Developers
 

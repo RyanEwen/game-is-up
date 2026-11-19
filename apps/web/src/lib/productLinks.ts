@@ -6,6 +6,8 @@
 const repositoryUrl = 'https://github.com/RyanEwen/game-is-up'
 
 export const productLinks = {
+  /** The public address of the app. */
+  app: 'https://gamesup.app',
   sourceCode: repositoryUrl,
   /** GitHub issues, which open with the bug report template (D-086, HYG-9). */
   support: `${repositoryUrl}/issues`,
