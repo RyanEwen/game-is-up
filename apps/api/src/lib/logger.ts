@@ -10,7 +10,8 @@
  * message, stack, code and cause. Library errors (discord.js, Prisma) carry request URLs, bodies
  * and query metadata on other properties, and interaction URLs embed Discord tokens, so those
  * properties are dropped. Prisma's validation error repeats the failed query, values included, in
- * its message and stack, so for it only a fixed message and the stack frames are kept. Callers
+ * its message and stack, so for it (and any Prisma error quoting an invocation) only a fixed
+ * message and the stack frames are kept. Callers
  * log identifiers, never message text or other user content.
  *
  * This module imports nothing from `env.ts`, so the environment check can log through it.
@@ -25,13 +26,23 @@ const maxCauseDepth = 3
 
 /**
  * Whether the error's message repeats a failed database query, argument values included.
- * Prisma's validation error does; it is matched by class name so this module imports nothing.
+ * Prisma's validation error does, and any Prisma error whose message opens with its
+ * "Invalid `prisma.<model>.<action>()` invocation" block may quote the call. Both are matched
+ * by name and text so this module imports nothing.
  */
 function messageCarriesQuery(error: Error): boolean {
   return (
     error.name === 'PrismaClientValidationError' ||
-    error.constructor?.name === 'PrismaClientValidationError'
+    error.constructor?.name === 'PrismaClientValidationError' ||
+    error.message.includes('Invalid `prisma.')
   )
+}
+
+/** The fixed message logged in place of one that quotes a query; the code says the rest. */
+function withheldMessage(error: Error): string {
+  return error.name === 'PrismaClientValidationError'
+    ? 'invalid query arguments'
+    : 'database error (query details withheld)'
 }
 
 /** The `at ...` lines of a stack, without the message lines before them. */
@@ -51,7 +62,7 @@ function serializeError(error: Error, depth = 0): Record<string, unknown> {
   const hidesMessage = messageCarriesQuery(error)
   const serialized: Record<string, unknown> = {
     name: error.name,
-    message: hidesMessage ? 'invalid query arguments' : error.message,
+    message: hidesMessage ? withheldMessage(error) : error.message,
   }
 
   if (typeof code === 'string' || typeof code === 'number') {

@@ -126,3 +126,24 @@ test('a Prisma validation error logs a fixed message and no query values', (cont
   assert.match(logged.stack, /^\s*at /)
   assert.doesNotMatch(lines[0]!.line, /private value|prisma\.user/)
 })
+
+test('any Prisma error quoting an invocation logs a fixed message', (context) => {
+  const lines = captureConsole(context)
+  class PrismaClientKnownRequestError extends Error {
+    override name = 'PrismaClientKnownRequestError'
+    code = 'P2002'
+  }
+  const error = new PrismaClientKnownRequestError(
+    '\nInvalid `prisma.user.create()` invocation:\n  username: "private value"\nUnique constraint failed',
+  )
+
+  logger.error('Save failed', { error })
+
+  const logged = JSON.parse(
+    lines[0]!.line.replace(/^\[error\] [^{]+/, ''),
+  ).error
+  assert.equal(logged.name, 'PrismaClientKnownRequestError')
+  assert.equal(logged.code, 'P2002')
+  assert.equal(logged.message, 'database error (query details withheld)')
+  assert.doesNotMatch(lines[0]!.line, /private value|prisma\.user/)
+})

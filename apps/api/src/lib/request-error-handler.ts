@@ -7,8 +7,9 @@
  * code, because a JSON parse error's message can quote the request body.
  *
  * When the response has already started (a stream or the event stream failing partway), no second
- * set of headers can be written, so the error is handed to Express's default handler, which closes
- * the connection.
+ * set of headers can be written, so the connection is closed here. The error is not handed on:
+ * Express's default handler would print its raw stack to standard error, bypassing the logger's
+ * redaction, and a Prisma validation error's stack quotes the query's values.
  */
 import type { NextFunction, Request, Response } from 'express'
 import { describeRequestFailure, sendError } from './http-error.js'
@@ -18,7 +19,9 @@ export function handleRequestError(
   error: unknown,
   request: Request,
   response: Response,
-  next: NextFunction,
+  // Express recognises an error handler by its four parameters, so this one stays though unused.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _next: NextFunction,
 ): void {
   const failure = describeRequestFailure(error)
   const where = { method: request.method, path: request.path }
@@ -30,7 +33,7 @@ export function handleRequestError(
   }
 
   if (response.headersSent) {
-    next(error)
+    response.destroy()
     return
   }
 
