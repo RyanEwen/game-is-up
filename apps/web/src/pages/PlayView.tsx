@@ -21,7 +21,10 @@ import type {
   PlayIntentPreview,
 } from '@game-is-up/shared'
 import { DashboardApiIssueCard } from '../components/dashboard/DashboardApiIssueCard'
-import { EmptyStateCard } from '../components/dashboard/EmptyStateCard'
+import CampaignRoundedIcon from '@mui/icons-material/CampaignRounded'
+import HistoryRoundedIcon from '@mui/icons-material/HistoryRounded'
+import { EmptyState } from '../components/EmptyState'
+import { SignedOutEmptyState } from '../components/dashboard/SignedOutEmptyState'
 import { DashboardModal } from '../components/dashboard/DashboardModal'
 import { PlayIntentCard } from '../components/dashboard/PlayIntentCard'
 import { PlayIntentComposerCard } from '../components/dashboard/PlayIntentComposerCard'
@@ -345,10 +348,9 @@ function PlayViewContent({
 
   if (!isSignedIn) {
     return (
-      <EmptyStateCard
+      <SignedOutEmptyState
         title="Sign in to plan calls to play"
-        body="Play becomes personalized after Discord sign-in. Once you are signed in, you can create your own calls to play, see which visible calls apply to you by default, and respond to other players."
-        showSignInCard
+        description="Play becomes personalized after Discord sign-in. Once you are signed in, you can create your own calls to play, see which visible calls apply to you by default, and respond to other players."
       />
     )
   }
@@ -550,7 +552,8 @@ function PlayViewContent({
               ))}
             </Stack>
           ) : (
-            <EmptyStateCard
+            <EmptyState
+              icon={<CampaignRoundedIcon />}
               title={
                 isSignedIn
                   ? activeAudienceFilter === 'all'
@@ -560,7 +563,7 @@ function PlayViewContent({
                       : 'No calls to play match your library yet'
                   : 'Calls to play will appear here'
               }
-              body={
+              description={
                 isSignedIn
                   ? activeAudienceFilter === 'all'
                     ? 'When someone in your network posts a call to play, it will show up here even when it does not match your library yet.'
@@ -628,7 +631,8 @@ function PlayViewContent({
             ))}
           </Stack>
         ) : (
-          <EmptyStateCard
+          <EmptyState
+            icon={<HistoryRoundedIcon />}
             title={
               isSignedIn
                 ? endedAudienceFilter === 'all'
@@ -636,7 +640,7 @@ function PlayViewContent({
                   : `No ended matching calls to play from the last ${endedPlayIntentWindowLabels[endedWindowFilter].toLowerCase()}`
                 : 'Ended calls to play will appear here'
             }
-            body={
+            description={
               isSignedIn
                 ? endedAudienceFilter === 'all'
                   ? `Ended calls from the last ${endedPlayIntentWindowLabels[endedWindowFilter].toLowerCase()} from people in your network will show up here.`

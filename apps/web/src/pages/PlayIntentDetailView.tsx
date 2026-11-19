@@ -21,10 +21,10 @@ import {
   type PlayIntentDetail,
 } from '@game-is-up/shared'
 import { useNavigate, useParams } from 'react-router-dom'
-import {
-  DiscordSignInCard,
-  EmptyStateCard,
-} from '../components/dashboard/EmptyStateCard'
+import { DiscordSignInCard } from '../components/dashboard/DiscordSignInCard'
+import EventBusyRoundedIcon from '@mui/icons-material/EventBusyRounded'
+import SportsEsportsRoundedIcon from '@mui/icons-material/SportsEsportsRounded'
+import { EmptyState } from '../components/EmptyState'
 import { PlayIntentResponseUserList } from '../components/dashboard/InterestedPlayerList'
 import { CompactPersonGameCard } from '../components/dashboard/PersonCard'
 import { PlayIntentGameList } from '../components/dashboard/PlayIntentCard'
@@ -373,9 +373,10 @@ export function PlayIntentDetailView() {
 
   if (!playIntentId) {
     return (
-      <EmptyStateCard
+      <EmptyState
+        icon={<EventBusyRoundedIcon />}
         title="Call to play unavailable"
-        body="This link does not include a valid call to play id."
+        description="This link does not include a valid call to play id."
       />
     )
   }
@@ -971,13 +972,14 @@ export function PlayIntentDetailView() {
                     ) : null}
                   </Stack>
                 ) : (
-                  <EmptyStateCard
+                  <EmptyState
+                    icon={<SportsEsportsRoundedIcon />}
                     title={
                       libraryWideScope.kind === 'creator-library'
                         ? 'No active library titles yet'
                         : 'No shared games yet'
                     }
-                    body={libraryWideScopeDescription}
+                    description={libraryWideScopeDescription}
                   />
                 )}
 

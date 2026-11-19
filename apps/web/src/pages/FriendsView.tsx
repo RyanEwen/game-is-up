@@ -24,7 +24,11 @@ import { maximumFriendsListMemberCount } from '@game-is-up/shared'
 import { DashboardModal } from '../components/dashboard/DashboardModal'
 import { DashboardApiIssueCard } from '../components/dashboard/DashboardApiIssueCard'
 import { DiscordServerPicker } from '../components/dashboard/DiscordServerPicker'
-import { EmptyStateCard } from '../components/dashboard/EmptyStateCard'
+import GroupRoundedIcon from '@mui/icons-material/GroupRounded'
+import ListAltRoundedIcon from '@mui/icons-material/ListAltRounded'
+import PersonSearchRoundedIcon from '@mui/icons-material/PersonSearchRounded'
+import { EmptyState } from '../components/EmptyState'
+import { SignedOutEmptyState } from '../components/dashboard/SignedOutEmptyState'
 import { LibraryEditorCard } from '../components/dashboard/LibraryEditorCard'
 import { PersonCard } from '../components/dashboard/PersonCard'
 import { SectionNav } from '../components/dashboard/SectionNav'
@@ -233,10 +237,9 @@ function FriendsViewContent({
 
   if (!isSignedIn) {
     return (
-      <EmptyStateCard
+      <SignedOutEmptyState
         title="Sign in to manage your friends"
-        body="Friend management becomes available after Discord sign-in. Once you are signed in, you can add people from your network, compare libraries, and keep track of what your friends are playing."
-        showSignInCard
+        description="Friend management becomes available after Discord sign-in. Once you are signed in, you can add people from your network, compare libraries, and keep track of what your friends are playing."
       />
     )
   }
@@ -383,11 +386,12 @@ function FriendsViewContent({
             ))}
           </Stack>
         ) : (
-          <EmptyStateCard
+          <EmptyState
+            icon={<GroupRoundedIcon />}
             title={
               isSignedIn ? 'No friends added yet' : 'Friends will appear here'
             }
-            body={
+            description={
               noDiscoveryServersSelected
                 ? 'Select at least one Discord server to form your network so you can discover people and add friends.'
                 : isSignedIn
@@ -512,9 +516,10 @@ function FriendsViewContent({
                 ))}
               </Stack>
             ) : (
-              <EmptyStateCard
+              <EmptyState
+                icon={<ListAltRoundedIcon />}
                 title="No friends lists yet"
-                body={
+                description={
                   hasFriends
                     ? 'Create a list to quickly target the same group of friends when posting a call to play.'
                     : 'Add friends first, then group them into reusable lists.'
@@ -627,9 +632,10 @@ function FriendsViewContent({
                 ))}
               </Stack>
             ) : (
-              <EmptyStateCard
+              <EmptyState
+                icon={<PersonSearchRoundedIcon />}
                 title="No one new to add right now"
-                body={
+                description={
                   noDiscoveryServersSelected
                     ? 'Select at least one Discord server to form your network first so people appear here.'
                     : activeAddFriendsServer

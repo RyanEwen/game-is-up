@@ -52,7 +52,8 @@ import {
   userProfileResponseSchema,
 } from '@game-is-up/shared'
 import { Button, Card, Chip, Stack, Typography } from '@mui/joy'
-import { EmptyStateCard } from '../components/dashboard/EmptyStateCard'
+import SportsEsportsRoundedIcon from '@mui/icons-material/SportsEsportsRounded'
+import { EmptyState } from '../components/EmptyState'
 import type {
   DashboardGameDetailsTarget,
   DashboardLibraryQuickAddGame,
@@ -1560,9 +1561,10 @@ export function useDashboardApp() {
           <Stack spacing={2}>
             {inviteAttributionOnboarding}
             {showSignedInOnboarding ? (
-              <EmptyStateCard
+              <EmptyState
+                icon={<SportsEsportsRoundedIcon />}
                 title="Your account is live, but it does not have any game data yet"
-                body="The discovery and play sections are driven by matching games between your library and the libraries of your friends and others in your network. Since your freshly created account has not added games, friends, or availability yet, those sections will be empty until you start filling out your profile."
+                description="The discovery and play sections are driven by matching games between your library and the libraries of your friends and others in your network. Since your freshly created account has not added games, friends, or availability yet, those sections will be empty until you start filling out your profile."
               />
             ) : null}
           </Stack>

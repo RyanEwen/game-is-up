@@ -1,5 +1,6 @@
 import { buildApiIssueMessage } from './apiIssue'
-import { EmptyStateCard } from './EmptyStateCard'
+import CloudOffRoundedIcon from '@mui/icons-material/CloudOffRounded'
+import { EmptyState } from '../EmptyState'
 
 export function DashboardApiIssueCard({
   error,
@@ -8,5 +9,11 @@ export function DashboardApiIssueCard({
   error: string
   title?: string
 }) {
-  return <EmptyStateCard title={title} body={buildApiIssueMessage(error)} />
+  return (
+    <EmptyState
+      icon={<CloudOffRoundedIcon />}
+      title={title}
+      description={buildApiIssueMessage(error)}
+    />
+  )
 }

@@ -22,7 +22,7 @@ These are Game's Up's own UI conventions. The conventions shared across the app 
 
 ## Empty states, notices and actions
 
-- An empty list or a signed-out section uses `EmptyStateCard` (`components/dashboard/EmptyStateCard.tsx`): a title, one line of body text, optional chips, and the Discord sign-in card when the viewer is signed out. Do not render bare grey text for an empty state.
+- An empty list or page uses `EmptyState` (`components/EmptyState.tsx`): an icon that names the missing thing, a short title, one line on why or what to do, and an optional action. A signed-out page uses `SignedOutEmptyState`, which adds the Discord sign-in card. Do not render bare grey text for an empty state.
 - Auto-dismissing notices and banners in dashboard hooks go through `useTimedNotice`.
 - Per-item actions on a person or a game open from that item through `FriendActionPopover` or `GameActionPopover`.
 

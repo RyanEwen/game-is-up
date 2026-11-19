@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Card, Stack, Typography } from '@mui/joy'
 import { DashboardApiIssueCard } from '../components/dashboard/DashboardApiIssueCard'
 import { DashboardModal } from '../components/dashboard/DashboardModal'
-import { DiscordSignInCard } from '../components/dashboard/EmptyStateCard'
+import { DiscordSignInCard } from '../components/dashboard/DiscordSignInCard'
 import { useDashboardContext } from '../contexts/useDashboardContext'
 import { DiscoveryServersSection, InviteUsersCard } from './OverviewView'
 

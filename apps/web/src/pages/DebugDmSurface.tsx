@@ -61,7 +61,10 @@ import remarkBreaks from 'remark-breaks'
 import remarkGfm from 'remark-gfm'
 import { DashboardModal } from '../components/dashboard/DashboardModal'
 import { RunningLateDialog } from '../components/dashboard/RunningLateDialog'
-import { EmptyStateCard } from '../components/dashboard/EmptyStateCard'
+import ChatBubbleOutlineRoundedIcon from '@mui/icons-material/ChatBubbleOutlineRounded'
+import ForumRoundedIcon from '@mui/icons-material/ForumRounded'
+import PlayCircleOutlineRoundedIcon from '@mui/icons-material/PlayCircleOutlineRounded'
+import { EmptyState } from '../components/EmptyState'
 
 const defaultSimulatorDraft: SimulatedScenarioDraft = {
   creatorName: 'Ryan',
@@ -617,9 +620,10 @@ export function DmPreviewDialog({
         {preview ? (
           <DmPreviewCard preview={preview} />
         ) : (
-          <EmptyStateCard
+          <EmptyState
+            icon={<ChatBubbleOutlineRoundedIcon />}
             title="No DM preview available"
-            body="This row did not produce a Discord DM message body that can be previewed from the current snapshot."
+            description="This row did not produce a Discord DM message body that can be previewed from the current snapshot."
           />
         )}
       </DialogContent>
@@ -1584,9 +1588,10 @@ export function DmLifecycleSimulatorDialog({
                     ))}
                   </Stack>
                 ) : (
-                  <EmptyStateCard
+                  <EmptyState
+                    icon={<PlayCircleOutlineRoundedIcon />}
                     title="No scenario running"
-                    body="Start a scheduled or live call from the scenario card to populate the local action log."
+                    description="Start a scheduled or live call from the scenario card to populate the local action log."
                   />
                 )}
               </Stack>
@@ -1659,9 +1664,10 @@ export function DmLifecycleSimulatorDialog({
                       </Box>
                     ))
                   ) : (
-                    <EmptyStateCard
+                    <EmptyState
+                      icon={<ForumRoundedIcon />}
                       title={primaryThread.emptyTitle}
-                      body={primaryThread.emptyBody}
+                      description={primaryThread.emptyBody}
                     />
                   )}
                 </Stack>
@@ -1729,9 +1735,10 @@ export function DmLifecycleSimulatorDialog({
                       </Box>
                     ))
                   ) : (
-                    <EmptyStateCard
+                    <EmptyState
+                      icon={<ForumRoundedIcon />}
                       title={secondaryThread.emptyTitle}
-                      body={secondaryThread.emptyBody}
+                      description={secondaryThread.emptyBody}
                     />
                   )}
                 </Stack>

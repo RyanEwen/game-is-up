@@ -22,7 +22,9 @@ import { Link } from 'react-router-dom'
 import { DashboardApiIssueCard } from '../components/dashboard/DashboardApiIssueCard'
 import { DiscordServerPicker } from '../components/dashboard/DiscordServerPicker'
 import { DashboardModalActionBar } from '../components/dashboard/DashboardModalActionBar'
-import { EmptyStateCard } from '../components/dashboard/EmptyStateCard'
+import DnsRoundedIcon from '@mui/icons-material/DnsRounded'
+import SmartToyRoundedIcon from '@mui/icons-material/SmartToyRounded'
+import { EmptyState } from '../components/EmptyState'
 import { SectionNav } from '../components/dashboard/SectionNav'
 import { sectionScrollMarginTop } from '../components/dashboard/SectionNav.constants'
 import {
@@ -539,14 +541,16 @@ export function DiscoveryServersSection({
           })}
         </Stack>
       ) : hasSyncedServers ? (
-        <EmptyStateCard
+        <EmptyState
+          icon={<SmartToyRoundedIcon />}
           title="No servers with the Game's Up bot available"
-          body="You have selected Discord servers to form your network, but the bot is not running or is not installed on any of them."
+          description="You have selected Discord servers to form your network, but the bot is not running or is not installed on any of them."
         />
       ) : (
-        <EmptyStateCard
+        <EmptyState
+          icon={<DnsRoundedIcon />}
           title="No Discord servers selected yet"
-          body="You have not selected any Discord servers to form your network yet."
+          description="You have not selected any Discord servers to form your network yet."
         />
       )}
       {discordBotInstallUrl ? (

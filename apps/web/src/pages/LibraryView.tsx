@@ -36,7 +36,9 @@ import { AliasManagementCard } from '../components/dashboard/AliasManagementCard
 import { DashboardApiIssueCard } from '../components/dashboard/DashboardApiIssueCard'
 import { DashboardModalActionBar } from '../components/dashboard/DashboardModalActionBar'
 import { DashboardDeferredImage } from '../components/dashboard/DashboardDeferredImage'
-import { EmptyStateCard } from '../components/dashboard/EmptyStateCard'
+import SportsEsportsRoundedIcon from '@mui/icons-material/SportsEsportsRounded'
+import { EmptyState } from '../components/EmptyState'
+import { SignedOutEmptyState } from '../components/dashboard/SignedOutEmptyState'
 import { LibraryEditorCard } from '../components/dashboard/LibraryEditorCard'
 import { LibraryEntryCard } from '../components/dashboard/LibraryEntryCard'
 import { LibrarySuggestionsRow } from '../components/dashboard/LibrarySuggestionsRow'
@@ -1480,10 +1482,9 @@ function LibraryViewContent({
 
   if (!isSignedIn) {
     return (
-      <EmptyStateCard
+      <SignedOutEmptyState
         title="Sign in to build your library"
-        body="Library management becomes available after Discord sign-in. Once you are signed in, this tab is where you add games manually, import from Steam, and manage schedule defaults."
-        showSignInCard
+        description="Library management becomes available after Discord sign-in. Once you are signed in, this tab is where you add games manually, import from Steam, and manage schedule defaults."
       />
     )
   }
@@ -1647,9 +1648,10 @@ function LibraryViewContent({
               ))}
             </Box>
           ) : (
-            <EmptyStateCard
+            <EmptyState
+              icon={<SportsEsportsRoundedIcon />}
               title="Your library is still empty"
-              body="Add or import the games you care about."
+              description="Add or import the games you care about."
             />
           )}
         </Stack>

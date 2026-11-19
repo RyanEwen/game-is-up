@@ -9,7 +9,10 @@ import type {
 import { DashboardApiIssueCard } from '../components/dashboard/DashboardApiIssueCard'
 import { DiscordServerPicker } from '../components/dashboard/DiscordServerPicker'
 import { DashboardModal } from '../components/dashboard/DashboardModal'
-import { EmptyStateCard } from '../components/dashboard/EmptyStateCard'
+import GroupsRoundedIcon from '@mui/icons-material/GroupsRounded'
+import SportsEsportsRoundedIcon from '@mui/icons-material/SportsEsportsRounded'
+import { EmptyState } from '../components/EmptyState'
+import { SignedOutEmptyState } from '../components/dashboard/SignedOutEmptyState'
 import { GameCard, GameCardSkeleton } from '../components/dashboard/GameCard'
 import { LibraryEditorCard } from '../components/dashboard/LibraryEditorCard'
 import { LibraryTrendingRow } from '../components/dashboard/LibraryTrendingRow'
@@ -166,10 +169,9 @@ function DiscoveryViewContent({
 
   if (!isSignedIn) {
     return (
-      <EmptyStateCard
+      <SignedOutEmptyState
         title="Sign in to discover your network"
-        body="Discovery becomes personalized after Discord sign-in. Once you are signed in, you can compare your library with friends and other people in your network."
-        showSignInCard
+        description="Discovery becomes personalized after Discord sign-in. Once you are signed in, you can compare your library with friends and other people in your network."
       />
     )
   }
@@ -358,13 +360,14 @@ function DiscoveryViewContent({
             ))}
           </Box>
         ) : (
-          <EmptyStateCard
+          <EmptyState
+            icon={<SportsEsportsRoundedIcon />}
             title={
               isSignedIn
                 ? 'No matching games yet'
                 : 'Matching games will appear here'
             }
-            body={
+            description={
               noDiscoveryServersSelected
                 ? 'You do not have any Discord servers in your network, so the app has no network members to compare against.'
                 : isSignedIn
@@ -417,9 +420,10 @@ function DiscoveryViewContent({
             ))}
           </Box>
         ) : (
-          <EmptyStateCard
+          <EmptyState
+            icon={<SportsEsportsRoundedIcon />}
             title={isSignedIn ? 'No other games yet' : 'No other games yet'}
-            body={
+            description={
               noDiscoveryServersSelected
                 ? 'Select at least one Discord server to form your network so that you can browse other games played by network members.'
                 : isSignedIn
@@ -468,13 +472,14 @@ function DiscoveryViewContent({
             ))}
           </Stack>
         ) : (
-          <EmptyStateCard
+          <EmptyState
+            icon={<GroupsRoundedIcon />}
             title={
               isSignedIn
                 ? 'No network members to show yet'
                 : 'Network members will appear here'
             }
-            body={
+            description={
               noDiscoveryServersSelected
                 ? 'You do not have any Discord servers in your network to find others on.'
                 : activeMemberServerFilter

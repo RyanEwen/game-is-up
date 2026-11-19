@@ -24,7 +24,12 @@ import type {
   DebugPlayIntentSummary,
 } from '@game-is-up/shared'
 import { DashboardModal } from '../components/dashboard/DashboardModal'
-import { EmptyStateCard } from '../components/dashboard/EmptyStateCard'
+import BugReportRoundedIcon from '@mui/icons-material/BugReportRounded'
+import CheckCircleOutlineRoundedIcon from '@mui/icons-material/CheckCircleOutlineRounded'
+import FilterListOffRoundedIcon from '@mui/icons-material/FilterListOffRounded'
+import TimelineRoundedIcon from '@mui/icons-material/TimelineRounded'
+import { EmptyState } from '../components/EmptyState'
+import { SignedOutEmptyState } from '../components/dashboard/SignedOutEmptyState'
 import { SectionNav } from '../components/dashboard/SectionNav'
 import { sectionScrollMarginTop } from '../components/dashboard/SectionNav.constants'
 import { useDashboardContext } from '../contexts/useDashboardContext'
@@ -414,9 +419,10 @@ function CtpTableSection({
             </Stack>
           </>
         ) : (
-          <EmptyStateCard
+          <EmptyState
+            icon={<FilterListOffRoundedIcon />}
             title="No CTP rows match these filters"
-            body="Try clearing filters or create a new call to play to populate this table."
+            description="Try clearing filters or create a new call to play to populate this table."
           />
         )}
       </Stack>
@@ -517,9 +523,10 @@ function CtpLifecycleDialog({
             ))}
           </Stack>
         ) : (
-          <EmptyStateCard
+          <EmptyState
+            icon={<TimelineRoundedIcon />}
             title="No lifecycle events found"
-            body="No additional rows were recorded for this call-to-play timeline yet."
+            description="No additional rows were recorded for this call-to-play timeline yet."
           />
         )}
       </DialogContent>
@@ -755,9 +762,10 @@ function ErrorTableSection({
             </Stack>
           </>
         ) : (
-          <EmptyStateCard
+          <EmptyState
+            icon={<CheckCircleOutlineRoundedIcon />}
             title="No error logs in this snapshot"
-            body="When prompt, bot, or notification-path errors are captured, they will appear here."
+            description="When prompt, bot, or notification-path errors are captured, they will appear here."
           />
         )}
       </Stack>
@@ -1142,9 +1150,10 @@ function InviteAttributionLogCard({
             </Stack>
           </>
         ) : (
-          <EmptyStateCard
+          <EmptyState
+            icon={<FilterListOffRoundedIcon />}
             title="No invite attributions match these filters"
-            body="Try clearing filters or accept a Discord invite flow on a fresh account to create an attribution row."
+            description="Try clearing filters or accept a Discord invite flow on a fresh account to create an attribution row."
           />
         )}
       </Stack>
@@ -1501,9 +1510,10 @@ function PromptLogCard({
             </Stack>
           </>
         ) : (
-          <EmptyStateCard
+          <EmptyState
+            icon={<FilterListOffRoundedIcon />}
             title="No prompt rows match these filters"
-            body="Try clearing filters or wait for the bot to observe Discord activity."
+            description="Try clearing filters or wait for the bot to observe Discord activity."
           />
         )}
       </Stack>
@@ -1836,9 +1846,10 @@ function NotificationLogCard({
             </Stack>
           </>
         ) : (
-          <EmptyStateCard
+          <EmptyState
+            icon={<FilterListOffRoundedIcon />}
             title="No notification rows match these filters"
-            body="Try clearing filters or wait for a call to play to match someone and create a notification row."
+            description="Try clearing filters or wait for a call to play to match someone and create a notification row."
           />
         )}
       </Stack>
@@ -1876,10 +1887,9 @@ function DebugViewContent({
 
   if (!isSignedIn) {
     return (
-      <EmptyStateCard
+      <SignedOutEmptyState
         title="Sign in to inspect debug data"
-        body="The debug view is only populated for authenticated sessions so it can reuse the same backend access checks as the rest of the dashboard."
-        showSignInCard
+        description="The debug view is only populated for authenticated sessions so it can reuse the same backend access checks as the rest of the dashboard."
       />
     )
   }
@@ -2048,11 +2058,12 @@ function DebugViewContent({
             </Box>
           </>
         ) : (
-          <EmptyStateCard
+          <EmptyState
+            icon={<BugReportRoundedIcon />}
             title={
               debugLoading ? 'Loading debug data' : 'Debug data unavailable'
             }
-            body={
+            description={
               debugLoading
                 ? 'Fetching the latest bot, prompt, notification, and lifecycle state from the API.'
                 : 'No debug snapshot has been loaded yet.'
