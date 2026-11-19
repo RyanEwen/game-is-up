@@ -4,7 +4,7 @@ How Game's Up runs in production: the Docker Compose stack, the SSH deploy scrip
 
 ## Production Docker
 
-Production runs `compose.server.yml` (tracked) in a checkout on the server, with secrets and the public origin in an untracked `.env` beside it. A value that only one host needs goes in an untracked `compose.override.yml`, which the deploy adds when it exists. The public site is served by the server's shared nginx container, which reaches the API and web containers by name over the external `nginx_default` network; no port is published. Its site file is the tracked `nginx.server.conf`, installed as `gamesup.conf`. Cloudflare terminates HTTPS in front of it: the site restores the visitor's address from `CF-Connecting-IP` for Cloudflare's published ranges and sends `X-Forwarded-Proto https`, and the API's rate limits rely on that address. When Cloudflare changes its ranges (https://www.cloudflare.com/ips/), update the `set_real_ip_from` list.
+Production runs `compose.server.yml` (tracked) in a checkout on the server, with secrets and the public origin in an untracked `.env` beside it. A value that only one host needs goes in an untracked `compose.override.yml`, which the deploy adds when it exists. The public site is served by the server's shared nginx container, which reaches the app container (`game-is-up-api`) by name over the external `nginx_default` network; no port is published. Its site file is the tracked `nginx.server.conf`, installed as `gamesup.conf`. Cloudflare terminates HTTPS in front of it: the site restores the visitor's address from `CF-Connecting-IP` for Cloudflare's published ranges and sends `X-Forwarded-Proto https`, and the API's rate limits rely on that address. When Cloudflare changes its ranges (https://www.cloudflare.com/ips/), update the `set_real_ip_from` list.
 
 To set up a server checkout:
 
@@ -28,9 +28,11 @@ It refuses before reaching the server unless the local tree is clean and `HEAD` 
 
 `--dry-run` runs the local checks and prints the server script without running anything.
 
-The API container bootstraps Prisma Migrate on startup: fresh databases get `prisma migrate deploy`, and existing pre-migrate databases are first baselined at the checked-in baseline migration and then migrated forward. Use `db:migrate` to create migrations during development; production applies them through the deploy.
+Production runs one image, built from the root `Dockerfile` (DIST-12): the API, which also serves the built web app, as the unprivileged `node` user. Its start command, `npm run start:prod`, applies pending migrations with `prisma migrate deploy` and then starts the API. Use `db:migrate` to create migrations during development; production applies them on the next start after a deploy.
 
-The web container runs unprivileged nginx on internal port `8080` and proxies `/api/*` to the API container, so browser clients stay same-origin. When the web app is built with `VITE_API_BASE_URL=` empty, client auth flows still construct absolute OAuth entry URLs so redirects stay stable behind the reverse proxy.
+The API serves the web app on the same origin, so `VITE_API_BASE_URL` stays empty. Hashed files under `/assets/` are cached for a year as immutable; the app shell and the files update checks read (`index.html`, `sw.js`, `registerSW.js`, `manifest.webmanifest`, `build-id.json`) are sent `no-store`, and any other path gets the app shell, so installed PWAs see a new build at once. When the web app is built with `VITE_API_BASE_URL=` empty, client auth flows still construct absolute OAuth entry URLs so redirects stay stable behind the reverse proxy.
+
+Both services set `no-new-privileges` and memory and process limits (CTR-7). The defaults in `compose.server.yml` (512 MB each; 128 processes for the app, 256 for the database) sit well above measured use and can be changed with `API_MEM_LIMIT`, `API_PIDS_LIMIT`, `DB_MEM_LIMIT` and `DB_PIDS_LIMIT` in `.env`.
 
 For Cloudflare-backed deployments, no cache purge is needed: nginx serves the app-shell URLs (`/`, `/index.html`, `/sw.js`, `/registerSW.js`, `/manifest.webmanifest`) with `Cache-Control: no-store`, so the edge never caches them (`cf-cache-status: BYPASS`/`DYNAMIC`) and installed PWAs pick up new builds on their next service-worker check. Hashed assets stay long-lived and immutable. If a Cloudflare-level cache rule (for example "Cache Everything") is ever added, it must exclude those shell URLs or app updates will stall for installed clients.
 

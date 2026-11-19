@@ -1228,6 +1228,8 @@ export const serverEnvSchema = z.object({
   STEAM_WEB_API_KEY: z.string().optional(),
   RAWG_API_KEY: z.string().optional(),
   ADMIN_HANDLES: z.string().optional(),
+  /** The built web app's folder; when set (the production image), the API serves the app too. */
+  WEB_DIST_DIR: z.string().min(1).optional(),
 })
 
 // ---------------------------------------------------------------------------

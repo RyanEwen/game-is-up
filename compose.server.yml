@@ -2,8 +2,9 @@
 # public origin come from the untracked .env beside it (see .env.server.example). A value that
 # only one host needs goes in an untracked compose.override.yml, which the deploy adds.
 #
-# nginx (a separate container on the shared nginx_default network) reaches the API and the web
-# container by their container names (see nginx.server.conf), so no port is published here.
+# One image (DIST-12, root Dockerfile): the api service runs the API, which also serves the built
+# web app. nginx (a separate container on the shared nginx_default network) reaches it by its
+# container name (see nginx.server.conf), so no port is published here.
 
 # Caps each container's log at 50 MB (5 files of 10 MB), so a noisy or crash-looping
 # container cannot fill the server's disk. Every service references this anchor.
@@ -13,12 +14,21 @@ x-logging: &default-logging
     max-size: '10m'
     max-file: '5'
 
+# Hardening every service shares (CTR-7).
+x-hardening: &hardening
+  security_opt: ['no-new-privileges:true']
+
 services:
   db:
+    <<: *hardening
     container_name: game-is-up-db
     logging: *default-logging
     image: postgres:16-bookworm
     restart: unless-stopped
+    # Measured about 35 MiB and 7 processes; limits leave headroom and come from the env file.
+    mem_limit: ${DB_MEM_LIMIT:-512m}
+    memswap_limit: ${DB_MEM_LIMIT:-512m}
+    pids_limit: ${DB_PIDS_LIMIT:-256}
     environment:
       POSTGRES_DB: game_is_up
       POSTGRES_USER: postgres
@@ -32,16 +42,25 @@ services:
       retries: 10
 
   api:
+    <<: *hardening
     container_name: game-is-up-api
     logging: *default-logging
     build:
       context: .
-      dockerfile: apps/api/Dockerfile
-      # The commit and version the deploy validated, for the image's OCI labels (CTR-1).
       args:
+        # The web app's build-time settings; empty VITE_API_BASE_URL keeps it on the same origin.
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-}
+        VITE_PUBLIC_APP_URL: ${VITE_PUBLIC_APP_URL:-}
+        # The commit and version the deploy validated, for the image's OCI labels (CTR-1).
         REVISION: ${DEPLOY_REVISION:-unknown}
         VERSION: ${DEPLOY_VERSION:-unknown}
     restart: unless-stopped
+    # Measured about 58 MiB and 29 processes; limits leave headroom and come from the env file.
+    mem_limit: ${API_MEM_LIMIT:-512m}
+    memswap_limit: ${API_MEM_LIMIT:-512m}
+    pids_limit: ${API_PIDS_LIMIT:-128}
+    # Forwards stop signals to the API and reaps child processes.
+    init: true
     depends_on:
       db:
         condition: service_healthy
@@ -73,25 +92,8 @@ services:
       interval: 15s
       timeout: 5s
       retries: 10
-    networks:
-      - default
-      - nginx_default
-
-  web:
-    container_name: game-is-up-web
-    logging: *default-logging
-    build:
-      context: .
-      dockerfile: apps/web/Dockerfile
-      args:
-        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-}
-        VITE_PUBLIC_APP_URL: ${VITE_PUBLIC_APP_URL:-}
-        REVISION: ${DEPLOY_REVISION:-unknown}
-        VERSION: ${DEPLOY_VERSION:-unknown}
-    restart: unless-stopped
-    depends_on:
-      api:
-        condition: service_healthy
+      # Migrations run before the API listens.
+      start_period: 60s
     networks:
       - default
       - nginx_default

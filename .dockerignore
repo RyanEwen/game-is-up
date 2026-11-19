@@ -1,13 +1,29 @@
+# Build context for the root Dockerfile (DIST-12). Secrets are excluded at every depth (SEC-7):
+# Docker matches a bare pattern only at the context root.
 .git
 .github
 .tools
 .vscode
-node_modules
-apps/*/node_modules
-packages/*/node_modules
-apps/web/dist
-apps/api/dist
-packages/shared/dist
+.worktrees
+**/node_modules
+**/dist
 coverage
-*.log
-.env
+**/*.log
+
+# Secrets and local state, at every depth.
+**/.env
+**/.env.*
+!**/.env*.example
+**/.secrets/
+**/.aws/
+**/*.pfx
+**/*.cer
+**/*.der
+**/*.keystore
+**/*.pem
+**/*.key
+.windows-build/
+tmp/
+.backups/
+.artifacts/
+site-backups/

@@ -68,8 +68,8 @@ jobs:
       - name: Integration tests
         run: npm run test:integration
 
-  # Production images are built only at deploy time otherwise, so a Dockerfile break would
-  # surface on the server. Build both here (no push) to catch it on every change.
+  # The production image is built only at deploy time otherwise, so a Dockerfile break would
+  # surface on the server. Build it here (no push) to catch it on every change.
   images:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -77,8 +77,5 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
 
-      - name: Build the API image
-        run: docker build --file apps/api/Dockerfile --tag game-is-up-api:ci .
-
-      - name: Build the web image
-        run: docker build --file apps/web/Dockerfile --tag game-is-up-web:ci .
+      - name: Build the production image
+        run: docker build --tag game-is-up:ci .

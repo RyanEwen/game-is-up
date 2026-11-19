@@ -21,6 +21,8 @@ import {
 import { getAllowedClientOrigins, getApiOrigin } from './lib/origin.js'
 import { sendError } from './lib/http-error.js'
 import { handleRequestError } from './lib/request-error-handler.js'
+import { env } from './lib/env.js'
+import { serveWebApp } from './lib/web-static.js'
 import { requestContext } from './lib/request-context.js'
 
 export const app = express()
@@ -88,5 +90,10 @@ app.use('/api/profile', profileRouter)
 app.use('/api', (_request, response) => {
   sendError(response, 404, 'There is nothing at this address.')
 })
+
+// The production image also serves the built web app (DIST-12); development uses Vite instead.
+if (env.WEB_DIST_DIR) {
+  serveWebApp(app, env.WEB_DIST_DIR)
+}
 
 app.use(handleRequestError)

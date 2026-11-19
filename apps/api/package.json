@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.build.json",
     "dev": "tsx watch src/index.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "prisma:db:push": "DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@db:5432/game_is_up?schema=public} prisma db push --force-reset",
@@ -25,6 +25,7 @@
     "express-rate-limit": "8.7.4",
     "helmet": "^8.3.0",
     "pg": "^8.23.1",
+    "prisma": "^6.5.0",
     "zod": "^3.24.2"
   },
   "devDependencies": {
@@ -32,7 +33,6 @@
     "@types/express": "^5.0.1",
     "@types/node": "^22.20.5",
     "@types/pg": "^8.23.1",
-    "prisma": "^6.5.0",
     "tsx": "^4.23.15"
   }
 }
