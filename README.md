@@ -29,13 +29,13 @@ Game's Up is for groups of friends who play together and organise it on Discord.
 - **Discord server hub:** server admins can post a Game's Up hub where members join, start a call to play, and manage their games and friends without leaving Discord.
 - **Temporary voice and text space:** a call can open a private text and voice channel pair in the Game's Up Discord server, deleted automatically after the session.
 - **Installable web app:** works in any modern browser and installs as an app on desktop and phone.
-- **No tracking:** Game's Up collects no telemetry or crash reports.
+- **Private by design:** no ads and no tracking cookies. Page visits are counted with a self-hosted, cookieless analytics tool that never sees ids, invite links or call titles. See the [privacy policy](https://gamesup.app/privacy).
 
 ## Get it
 
 Game's Up is a web app at **[gamesup.app](https://gamesup.app)**: sign in with Discord in a current desktop or mobile browser, and install it from the browser if you want it on your home screen or desktop.
 
-<!-- The privacy page link is added here once it is published. -->
+Read the [privacy policy](https://gamesup.app/privacy).
 
 ## Developers
 

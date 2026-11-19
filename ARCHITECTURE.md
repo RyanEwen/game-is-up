@@ -27,6 +27,8 @@ Rate limits are per route, not global, because the media route serves many cover
 
 Production runs a single image (root `Dockerfile`): the API also serves the built web app from `WEB_DIST_DIR` (`apps/api/src/lib/web-static.ts`), with hashed assets cached as immutable and the app shell and update files sent `no-store`. Development leaves `WEB_DIST_DIR` unset and Vite serves the app.
 
+Analytics is optional: when `UMAMI_SCRIPT_URL` and `UMAMI_WEBSITE_ID` are set, `/api/bootstrap` gives the web app the tracker's settings and the Content Security Policy allows the tracker's origin (`apps/api/src/lib/analytics.ts`); the web app loads the cookieless Umami tracker and its before-send hook strips identifiers and user-written titles from every event (`apps/web/src/lib/analytics.ts`).
+
 `GET /api/health` is liveness: it answers whenever the process is serving, and the container health check uses it, so a database outage never restarts the API. `GET /api/health/ready` is readiness: it pings the database with a two-second limit and answers 503 when that fails. The optional Discord bot does not count towards readiness.
 
 ## Dashboard refresh flow

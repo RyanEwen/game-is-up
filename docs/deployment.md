@@ -56,7 +56,7 @@ The same order applies when moving an existing deployment off the old built-in d
 
 ## Data and privacy
 
-Game's Up collects no telemetry or crash reports, and it sends no usage data anywhere.
+Game's Up collects no crash reports. When `UMAMI_SCRIPT_URL` and `UMAMI_WEBSITE_ID` are set, the web app counts page views with the self-hosted, cookieless Umami (`apps/web/src/lib/analytics.ts`): it sends the page address with its query, hash and any identifying path segment removed, only the app's fixed page titles, the referrer without its query, and the screen size and language, and it honours Do Not Track. Nothing else leaves the server. The public privacy policy is `apps/web/src/pages/PrivacyPage.tsx`, at `/privacy`; keep it in step with this section.
 
 ### What is stored
 

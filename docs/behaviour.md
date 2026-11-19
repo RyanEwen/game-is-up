@@ -20,6 +20,10 @@ The Discord composer's title, note, and Friend invites actions share their step'
 
 Signed-in dashboard sessions also keep themselves fresh through a same-origin Server-Sent Events invalidation stream. When impactful shared state changes land on the API, open tabs can automatically reload discovery, play, library, network, and session data without a polling loop.
 
+The privacy policy is public at `/privacy`, linked from the footer and the About dialog, and loads without signing in.
+
+When analytics is configured, the web app counts page views with the self-hosted, cookieless Umami. Only page addresses without queries, hashes or ids, the app's fixed page titles, referrers without queries, screen size and language are sent, and only from the public host; a browser sending Do Not Track sends nothing.
+
 ## Play intent model
 
 Users are not limited to one active call to play. They can keep multiple active calls as long as those availability windows do not overlap. Each call can target:
