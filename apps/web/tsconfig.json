@@ -5,7 +5,11 @@
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "moduleResolution": "Bundler",
-    "types": ["vite/client"]
+    "types": ["vite/client"],
+    // vite.config.ts imports its helpers with .ts extensions, which Vite's native config loader
+    // needs; tsc only typechecks this workspace (Vite builds it), so nothing is emitted.
+    "noEmit": true,
+    "allowImportingTsExtensions": true
   },
   "include": ["src", "vite.config.ts"]
 }

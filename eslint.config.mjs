@@ -35,6 +35,13 @@ export default tseslint.config(
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
+      // React Compiler rules new in eslint-plugin-react-hooks 7. They flag deliberate patterns in
+      // working code (a latest-callback ref, drafts synced from props, the clock read in render),
+      // so they warn rather than fail; each site is fixed on its own merits, not in a lint change.
+      // Same setting as store-sign-controller.
+      'react-hooks/refs': 'warn',
+      'react-hooks/set-state-in-effect': 'warn',
+      'react-hooks/purity': 'warn',
       'react-refresh/only-export-components': [
         'warn',
         { allowConstantExport: true },

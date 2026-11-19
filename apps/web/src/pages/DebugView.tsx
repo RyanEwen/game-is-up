@@ -153,7 +153,7 @@ function CtpTableSection({
     })
 
     rows.sort((left, right) => {
-      let result = 0
+      let result: number
 
       switch (sortKey) {
         case 'creator':
@@ -600,7 +600,7 @@ function ErrorTableSection({
     })
 
     nextRows.sort((left, right) => {
-      let result = 0
+      let result: number
 
       switch (sortKey) {
         case 'source':
@@ -880,7 +880,7 @@ function InviteAttributionLogCard({
     })
 
     rows.sort((left, right) => {
-      let result = 0
+      let result: number
 
       switch (sortKey) {
         case 'acceptedUser':
@@ -1213,7 +1213,7 @@ function PromptLogCard({
     })
 
     rows.sort((left, right) => {
-      let result = 0
+      let result: number
 
       switch (sortKey) {
         case 'user':
@@ -1573,7 +1573,7 @@ function NotificationLogCard({
     })
 
     rows.sort((left, right) => {
-      let result = 0
+      let result: number
 
       switch (sortKey) {
         case 'recipient':

@@ -354,7 +354,7 @@ async function downloadAndCacheRawgMedia(
       throw error
     }
 
-    let refreshedSourceUrl: string | null = null
+    let refreshedSourceUrl: string | null
 
     try {
       refreshedSourceUrl = await refreshStoredRawgGameCoverUrl(sourceUrl)
