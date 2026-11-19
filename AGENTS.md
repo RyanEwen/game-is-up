@@ -33,6 +33,7 @@ Nested `AGENTS.md` files hold area rules. List them with `git ls-files '*AGENTS.
 - Root `typescript` is aliased to `@typescript/typescript6` (the TS 6 JS API that typescript-eslint and tsup's dts build need), while `@typescript/native` supplies the TypeScript 7 `tsc` that every build and typecheck script runs. Do not change `typescript` to a plain `^7` range until TS 7.1+ ships a programmatic API and the tooling supports it.
 - `.npmrc` sets `engine-strict`, so npm on a host with another Node version fails with `notsup`. Run npm through devkit's pinned toolchain: `npx devkit run npm <args>`.
 - A CLI dependency the development container needs goes in `docker/dev/Dockerfile`.
+- npm 11 runs a package's install scripts only when `allowScripts` in the root `package.json` approves that exact version. Prisma and esbuild need theirs (Prisma's fetch the engines migrations use), and lefthook's is denied because `dev:postprepare` installs the hooks. After bumping one of those packages, run `npx devkit run npm install-scripts ls` and approve the new version, or the image builds without its engines.
 
 ## Shared helpers (do not duplicate)
 

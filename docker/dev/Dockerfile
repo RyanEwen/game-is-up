@@ -1,4 +1,4 @@
-FROM node:22.23.4-bookworm-slim
+FROM node:24.22.3-bookworm-slim
 
 # Prisma requires OpenSSL at generation and runtime. Git supports application
 # workflows that inspect repository metadata from the source-mounted checkout.

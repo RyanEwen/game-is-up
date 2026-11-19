@@ -1,7 +1,7 @@
 # The production image (DIST-12): one image that runs the API, which also serves the built web
 # app. compose.server.yml builds it; `npm run deploy:prod` deploys it.
 # Keep this Node version equal to .nvmrc (PLAT-1).
-FROM node:22.23.4-bookworm-slim AS build
+FROM node:24.22.3-bookworm-slim AS build
 WORKDIR /app
 RUN apt-get update \
 	&& apt-get install -y --no-install-recommends openssl ca-certificates \
@@ -31,7 +31,7 @@ RUN npm run db:generate && npm run build
 RUN npm prune --omit=dev --ignore-scripts --no-audit --no-fund
 
 # Same pin as the build stage above (.nvmrc).
-FROM node:22.23.4-bookworm-slim AS runtime
+FROM node:24.22.3-bookworm-slim AS runtime
 WORKDIR /app
 # The commit and version the deploy validated (CTR-1); compose.server.yml passes them.
 ARG REVISION=unknown
