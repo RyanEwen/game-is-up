@@ -64,8 +64,10 @@ import { RunningLateDialog } from '../components/dashboard/RunningLateDialog'
 import ChatBubbleOutlineRoundedIcon from '@mui/icons-material/ChatBubbleOutlineRounded'
 import ForumRoundedIcon from '@mui/icons-material/ForumRounded'
 import PlayCircleOutlineRoundedIcon from '@mui/icons-material/PlayCircleOutlineRounded'
-import { EmptyState } from '../components/EmptyState'
-import { useResetOnChange } from '../hooks/useResetOnChange'
+import {
+  EmptyState,
+  useResetOnChange,
+} from '@dynamic-solutions-canada/web-app-kit'
 
 const defaultSimulatorDraft: SimulatedScenarioDraft = {
   creatorName: 'Ryan',

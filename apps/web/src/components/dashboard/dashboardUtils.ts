@@ -67,11 +67,6 @@ export const topLevelGridCardSx = {
   height: '100%',
 } as const
 
-export const dashedTopLevelCardSx = {
-  ...topLevelCardSx,
-  border: '1px dashed var(--joy-palette-neutral-700)',
-} as const
-
 export const nestedInsetSurfaceSx = {
   backgroundColor: 'var(--joy-palette-background-surface)',
   border: '1px solid var(--joy-palette-neutral-700)',

@@ -76,7 +76,8 @@
     "esbuild@0.27.7": true,
     "esbuild@0.28.2": true,
     "lefthook": false,
-    "prisma@7.10.1": true
+    "prisma@7.10.1": true,
+    "github:Dynamic-Solutions-Canada/web-app-kit": true
   },
   "overrides": {
     "eslint-plugin-jsx-a11y": {

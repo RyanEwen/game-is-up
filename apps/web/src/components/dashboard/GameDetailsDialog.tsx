@@ -17,7 +17,7 @@ import type { GameDetails } from '@game-is-up/shared'
 import type { DashboardGameDetailsTarget } from './types'
 import { DashboardDeferredImage } from './DashboardDeferredImage'
 import { DashboardModal } from './DashboardModal'
-import { useResetOnChange } from '../../hooks/useResetOnChange'
+import { useResetOnChange } from '@dynamic-solutions-canada/web-app-kit'
 
 function buildGameplayLabel(gameDetails: GameDetails | null): {
   label: string

@@ -38,7 +38,7 @@ import type {
   Notice,
 } from '../components/dashboard/types'
 import { useLocation } from 'react-router-dom'
-import { useResetOnChange } from './useResetOnChange'
+import { useResetOnChange } from '@dynamic-solutions-canada/web-app-kit'
 
 /** How long the catalog search waits after the last keystroke before it asks the server. */
 const catalogSearchDelayMs = 180

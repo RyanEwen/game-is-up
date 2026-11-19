@@ -24,7 +24,10 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { DiscordSignInCard } from '../components/dashboard/DiscordSignInCard'
 import EventBusyRoundedIcon from '@mui/icons-material/EventBusyRounded'
 import SportsEsportsRoundedIcon from '@mui/icons-material/SportsEsportsRounded'
-import { EmptyState } from '../components/EmptyState'
+import {
+  EmptyState,
+  useResetOnChange,
+} from '@dynamic-solutions-canada/web-app-kit'
 import { PlayIntentResponseUserList } from '../components/dashboard/InterestedPlayerList'
 import { CompactPersonGameCard } from '../components/dashboard/PersonCard'
 import { PlayIntentGameList } from '../components/dashboard/PlayIntentCard'
@@ -41,7 +44,6 @@ import { formatRunningLateLabel } from '@game-is-up/shared'
 import { InvitePlayIntentFriendDialog } from '../components/dashboard/InvitePlayIntentFriendDialog'
 import { RunningLateDialog } from '../components/dashboard/RunningLateDialog'
 import { ConfirmActionDialog } from '../components/dashboard/ConfirmActionDialog'
-import { useResetOnChange } from '../hooks/useResetOnChange'
 import { useNow } from '../hooks/useNow'
 
 function formatDateTimeLabel(value: string) {

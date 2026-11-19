@@ -1,4 +1,5 @@
 import js from '@eslint/js'
+import { backAwareModalLintConfig } from '@dynamic-solutions-canada/web-app-kit/eslint'
 import globals from 'globals'
 import jsxA11y from 'eslint-plugin-jsx-a11y'
 import reactHooks from 'eslint-plugin-react-hooks'
@@ -61,6 +62,11 @@ export default tseslint.config(
     rules: {
       'no-console': 'error',
     },
+  },
+  // Every dialog mounts web-app-kit's BackAwareModal, never Joy's Modal, so Back closes it (UI-9).
+  {
+    ...backAwareModalLintConfig,
+    files: ['apps/web/**/*.{ts,tsx}'],
   },
   // Accessibility baseline for the web app (UI-14): accessible names, valid ARIA, keyboard reach.
   {

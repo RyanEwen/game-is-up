@@ -11,7 +11,7 @@ import { DiscordServerPicker } from '../components/dashboard/DiscordServerPicker
 import { DashboardModal } from '../components/dashboard/DashboardModal'
 import GroupsRoundedIcon from '@mui/icons-material/GroupsRounded'
 import SportsEsportsRoundedIcon from '@mui/icons-material/SportsEsportsRounded'
-import { EmptyState } from '../components/EmptyState'
+import { EmptyState } from '@dynamic-solutions-canada/web-app-kit'
 import { SignedOutEmptyState } from '../components/dashboard/SignedOutEmptyState'
 import { GameCard, GameCardSkeleton } from '../components/dashboard/GameCard'
 import { LibraryEditorCard } from '../components/dashboard/LibraryEditorCard'

@@ -30,7 +30,7 @@ import {
 } from '@game-is-up/shared'
 import { Button, Card, Chip, Stack, Typography } from '@mui/joy'
 import SportsEsportsRoundedIcon from '@mui/icons-material/SportsEsportsRounded'
-import { EmptyState } from '../components/EmptyState'
+import { EmptyState } from '@dynamic-solutions-canada/web-app-kit'
 import type {
   DashboardGameDetailsTarget,
   DashboardLibraryQuickAddGame,

@@ -9,7 +9,7 @@
  * The source list is a closed union so a new kind of losable work has to name itself here.
  */
 export type AppBusySource =
-  /** Any dialog is open (`components/BackAwareModal.tsx`): nearly always a decision in progress. */
+  /** Any dialog is open (web-app-kit's dialog stack, `lib/appBusyDialogs.ts`): nearly always a decision in progress. */
   | 'dialog-open'
   /** Any TanStack Query mutation in flight (`lib/appBusyMutations.ts`). */
   | 'mutations'

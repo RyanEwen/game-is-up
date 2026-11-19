@@ -19,7 +19,7 @@ import { DashboardModal } from './DashboardModal'
 import { DashboardModalActionBar } from './DashboardModalActionBar'
 import { apiRequest } from '../../lib/apiQuery'
 import { queryKeys } from '../../lib/queryKeys'
-import { useResetOnChange } from '../../hooks/useResetOnChange'
+import { useResetOnChange } from '@dynamic-solutions-canada/web-app-kit'
 
 /** Keeps the chosen friend and any failure visible until an invitation succeeds. */
 export function InvitePlayIntentFriendDialog({

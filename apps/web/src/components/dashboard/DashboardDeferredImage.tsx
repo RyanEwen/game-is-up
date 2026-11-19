@@ -1,6 +1,6 @@
 import { Box, Skeleton } from '@mui/joy'
 import { useEffect, useRef, useState } from 'react'
-import { useResetOnChange } from '../../hooks/useResetOnChange'
+import { useResetOnChange } from '@dynamic-solutions-canada/web-app-kit'
 
 export function DashboardDeferredImage({
   src,

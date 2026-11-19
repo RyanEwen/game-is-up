@@ -60,7 +60,7 @@ import type {
   PlayIntentVoiceMode,
 } from '../components/dashboard/types'
 import { useNow } from './useNow'
-import { useResetOnChange } from './useResetOnChange'
+import { useResetOnChange } from '@dynamic-solutions-canada/web-app-kit'
 
 const emptyVoiceChannels: DiscordVoiceChannelsResponse['channels'] = []
 

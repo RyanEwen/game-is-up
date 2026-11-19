@@ -21,7 +21,7 @@ import { DashboardDeferredImage } from './DashboardDeferredImage'
 import { formatLibraryIntentLabel } from './dashboardUtils'
 import { DashboardModalActionBar } from './DashboardModalActionBar'
 import { useDashboardContext } from '../../contexts/useDashboardContext'
-import { useResetOnChange } from '../../hooks/useResetOnChange'
+import { useResetOnChange } from '@dynamic-solutions-canada/web-app-kit'
 
 export function LibraryEditorCard({
   editingLibraryEntry,

@@ -6,12 +6,14 @@ import App from './App'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import './index.css'
 import { registerAppServiceWorker } from './lib/appUpdate'
+import { trackDialogsAsAppBusy } from './lib/appBusyDialogs'
 import { trackMutationsAsAppBusy } from './lib/appBusyMutations'
 import { startAnalytics } from './lib/analytics'
 import { queryClient } from './lib/queryClient'
 
 registerAppServiceWorker()
 trackMutationsAsAppBusy(queryClient)
+trackDialogsAsAppBusy()
 void startAnalytics(queryClient)
 
 ReactDOM.createRoot(document.getElementById('root')!).render(

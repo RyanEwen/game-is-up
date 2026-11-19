@@ -16,13 +16,13 @@ These are Game's Up's own UI conventions. The conventions shared across the app 
 
 ## Dialogs
 
-- Every dialog is a `DashboardModal` (`components/dashboard/DashboardModal.tsx`), built on `BackAwareModal` (`components/BackAwareModal.tsx`): Back and Escape close the top dialog first, a click on the scrim does not close it, and an open dialog holds off update reloads. Do not open a raw Joy `Modal`; a test fails the build if one appears.
+- Every dialog is a `DashboardModal` (`components/dashboard/DashboardModal.tsx`), built on `BackAwareModal` from `@dynamic-solutions-canada/web-app-kit`: Back and Escape close the top dialog first, a click on the scrim does not close it, and an open dialog holds off update reloads (`lib/appBusyDialogs.ts`). A dialog that declines a close, for example to ask "Discard changes?", keeps its history entry, so the next Back still reaches it. Do not open a raw Joy `Modal`; the kit's lint rule fails the build if one appears, and `components/dialogConventions.test.ts` guards the scrim-click allow-list and `ModalClose` wiring.
 - Dialog buttons go in `DashboardModalActionBar`, which fixes the order: secondary action, then primary action, then cancel pushed to the far right. Pass the buttons to its slots rather than laying out a footer by hand.
 - Do not use the browser's `alert`, `confirm` or `prompt` (lint enforces it). A destructive action asks first with `ConfirmActionDialog` (`components/dashboard/ConfirmActionDialog.tsx`), whose confirm button names the action and is never the default.
 
 ## Empty states, notices and actions
 
-- An empty list or page uses `EmptyState` (`components/EmptyState.tsx`): an icon that names the missing thing, a short title, one line on why or what to do, and an optional action. A signed-out page uses `SignedOutEmptyState`, which adds the Discord sign-in card. Do not render bare grey text for an empty state.
+- An empty list or page uses `EmptyState` from `@dynamic-solutions-canada/web-app-kit`: an icon that names the missing thing, a short title, one line on why or what to do, and an optional action, centred in a dashed card. Restyle it, if ever needed, through the kit's `emptyStateClasses` in the theme, not with `sx` at each use. A signed-out page uses `SignedOutEmptyState`, which adds the Discord sign-in card. Do not render bare grey text for an empty state.
 - Auto-dismissing notices and banners in dashboard hooks go through `useTimedNotice`.
 - Per-item actions on a person or a game open from that item through `FriendActionPopover` or `GameActionPopover`.
 

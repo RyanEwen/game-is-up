@@ -27,7 +27,7 @@ import { DiscordServerPicker } from '../components/dashboard/DiscordServerPicker
 import GroupRoundedIcon from '@mui/icons-material/GroupRounded'
 import ListAltRoundedIcon from '@mui/icons-material/ListAltRounded'
 import PersonSearchRoundedIcon from '@mui/icons-material/PersonSearchRounded'
-import { EmptyState } from '../components/EmptyState'
+import { EmptyState } from '@dynamic-solutions-canada/web-app-kit'
 import { SignedOutEmptyState } from '../components/dashboard/SignedOutEmptyState'
 import { LibraryEditorCard } from '../components/dashboard/LibraryEditorCard'
 import { PersonCard } from '../components/dashboard/PersonCard'

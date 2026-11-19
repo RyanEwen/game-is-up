@@ -1,6 +1,6 @@
 import { buildApiIssueMessage } from './apiIssue'
 import CloudOffRoundedIcon from '@mui/icons-material/CloudOffRounded'
-import { EmptyState } from '../EmptyState'
+import { EmptyState } from '@dynamic-solutions-canada/web-app-kit'
 
 export function DashboardApiIssueCard({
   error,

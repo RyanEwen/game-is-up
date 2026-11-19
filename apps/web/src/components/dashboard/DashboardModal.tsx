@@ -9,7 +9,7 @@
 // React in scope: the root test runner compiles .tsx with the classic JSX transform.
 import React, { type ReactNode } from 'react'
 import { ModalClose, ModalDialog } from '@mui/joy'
-import { BackAwareModal } from '../BackAwareModal'
+import { BackAwareModal } from '@dynamic-solutions-canada/web-app-kit'
 
 export function DashboardModal({
   open,

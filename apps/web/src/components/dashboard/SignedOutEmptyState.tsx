@@ -4,7 +4,7 @@
  */
 import LoginRoundedIcon from '@mui/icons-material/LoginRounded'
 import { Stack } from '@mui/joy'
-import { EmptyState } from '../EmptyState'
+import { EmptyState } from '@dynamic-solutions-canada/web-app-kit'
 import { DiscordSignInCard } from './DiscordSignInCard'
 
 export function SignedOutEmptyState({

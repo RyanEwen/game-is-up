@@ -24,7 +24,7 @@ import { DiscordServerPicker } from '../components/dashboard/DiscordServerPicker
 import { DashboardModalActionBar } from '../components/dashboard/DashboardModalActionBar'
 import DnsRoundedIcon from '@mui/icons-material/DnsRounded'
 import SmartToyRoundedIcon from '@mui/icons-material/SmartToyRounded'
-import { EmptyState } from '../components/EmptyState'
+import { EmptyState } from '@dynamic-solutions-canada/web-app-kit'
 import { SectionNav } from '../components/dashboard/SectionNav'
 import { sectionScrollMarginTop } from '../components/dashboard/SectionNav.constants'
 import {

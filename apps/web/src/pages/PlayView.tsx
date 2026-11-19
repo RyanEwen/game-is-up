@@ -23,7 +23,7 @@ import type {
 import { DashboardApiIssueCard } from '../components/dashboard/DashboardApiIssueCard'
 import CampaignRoundedIcon from '@mui/icons-material/CampaignRounded'
 import HistoryRoundedIcon from '@mui/icons-material/HistoryRounded'
-import { EmptyState } from '../components/EmptyState'
+import { EmptyState } from '@dynamic-solutions-canada/web-app-kit'
 import { SignedOutEmptyState } from '../components/dashboard/SignedOutEmptyState'
 import { DashboardModal } from '../components/dashboard/DashboardModal'
 import { PlayIntentCard } from '../components/dashboard/PlayIntentCard'

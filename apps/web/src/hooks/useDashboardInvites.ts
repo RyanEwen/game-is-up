@@ -23,7 +23,7 @@ import {
 import type { Notice } from '../components/dashboard/types'
 import { apiRequest } from '../lib/apiQuery'
 import { queryKeys } from '../lib/queryKeys'
-import { useResetOnChange } from './useResetOnChange'
+import { useResetOnChange } from '@dynamic-solutions-canada/web-app-kit'
 
 // `import.meta.env` exists only under Vite; Node's test runner imports this module without it.
 const configuredPublicAppUrl = import.meta.env?.VITE_PUBLIC_APP_URL

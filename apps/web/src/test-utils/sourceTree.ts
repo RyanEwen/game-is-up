@@ -2,10 +2,10 @@
  * One cached read of the web source tree, for the convention guards that scan it.
  *
  * Owns the walk of `apps/web/src` and the CONTENTS of every `.ts`/`.tsx` file under it. Several
- * tests enforce a rule the type checker cannot express (no raw Joy `Modal`, no `fallback={null}`,
+ * tests enforce a rule the type checker cannot express (the scrim-click allow-list, no `fallback={null}`,
  * no `CssVarsProvider`, one owner per resolve route) by reading every source file and matching a
  * pattern, and each carried its own `async function* walk()` plus a `readFile` per hit.
- * `BackAwareModal.test.ts` alone drove three of them, which is ~3300 reads of ~1100 files in one
+ * The old dialog test alone drove three of them, which was ~3300 reads of ~1100 files in one
  * process.
  *
  * Contract: `readSourceTree()` answers with every source file exactly once, contents included, in
@@ -35,7 +35,7 @@ export interface SourceFile {
   absolutePath: string
   /**
    * Path relative to `WEB_SRC_ROOT`, in platform separators, which is the form the guards'
-   * allow-lists are written in (`path.join('components', 'BackAwareModal.tsx')`).
+   * allow-lists are written in (`path.join('components', 'dashboard', 'DashboardModal.tsx')`).
    */
   relativePath: string
   /** File contents, read once per process. */

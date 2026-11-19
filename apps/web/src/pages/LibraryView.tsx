@@ -37,7 +37,10 @@ import { DashboardApiIssueCard } from '../components/dashboard/DashboardApiIssue
 import { DashboardModalActionBar } from '../components/dashboard/DashboardModalActionBar'
 import { DashboardDeferredImage } from '../components/dashboard/DashboardDeferredImage'
 import SportsEsportsRoundedIcon from '@mui/icons-material/SportsEsportsRounded'
-import { EmptyState } from '../components/EmptyState'
+import {
+  EmptyState,
+  useResetOnChange,
+} from '@dynamic-solutions-canada/web-app-kit'
 import { SignedOutEmptyState } from '../components/dashboard/SignedOutEmptyState'
 import { LibraryEditorCard } from '../components/dashboard/LibraryEditorCard'
 import { LibraryEntryCard } from '../components/dashboard/LibraryEntryCard'
@@ -50,7 +53,6 @@ import {
 } from '../components/dashboard/dashboardUtils'
 import type { DashboardLibraryQuickAddGame } from '../components/dashboard/types'
 import { useDashboardContext } from '../contexts/useDashboardContext'
-import { useResetOnChange } from '../hooks/useResetOnChange'
 
 const steamImportPlatformOptions = [
   'PC',

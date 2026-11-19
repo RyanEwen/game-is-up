@@ -14,7 +14,7 @@ import {
 import { parseRunningLateMinutes } from '@game-is-up/shared'
 import { DashboardModal } from './DashboardModal'
 import { DashboardModalActionBar } from './DashboardModalActionBar'
-import { useResetOnChange } from '../../hooks/useResetOnChange'
+import { useResetOnChange } from '@dynamic-solutions-canada/web-app-kit'
 
 /** The text field's value for a saved estimate: empty when there is none. */
 function formatMinutesDraft(minutes: number | null | undefined): string {

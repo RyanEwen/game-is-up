@@ -53,7 +53,7 @@ import type {
   PlayIntentVoiceMode,
 } from './types'
 import dayjs, { type Dayjs } from 'dayjs'
-import { useResetOnChange } from '../../hooks/useResetOnChange'
+import { useResetOnChange } from '@dynamic-solutions-canada/web-app-kit'
 import { useNow } from '../../hooks/useNow'
 
 const localDateTimeFormat = 'YYYY-MM-DDTHH:mm'
