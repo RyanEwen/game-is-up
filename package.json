@@ -50,7 +50,7 @@
     "notices": "node scripts/dev/generate-third-party-notices.mjs"
   },
   "devDependencies": {
-    "@dynamic-solutions-canada/devkit": "github:Dynamic-Solutions-Canada/devkit#v0.20.3",
+    "@dynamic-solutions-canada/devkit": "github:Dynamic-Solutions-Canada/devkit#v0.21.0",
     "@eslint/js": "10.0.1",
     "@resvg/resvg-js": "2.6.2",
     "@types/react": "19.3.0",

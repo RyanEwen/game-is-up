@@ -80,11 +80,13 @@ Optional: set `VITE_PUBLIC_APP_URL` when you want in-app invites to point at a p
 
 Optional: set `VITE_API_BASE_URL` to an explicit origin if the web app should call an API on a different host. Leave it empty when the app is served behind a reverse proxy on the same origin.
 
-For a clean local reset plus startup in one command, run:
+For a clean database plus startup in one command, in a worktree, run:
 
 ```bash
 npm run dev:fresh
 ```
+
+devkit drops and recreates the worktree's database empty, then the dev container applies the checked-in migrations and seeds the sample data. It refuses the primary checkout, whose database is your real dev data; reset that one yourself, for example with `npx devkit run npx prisma migrate reset` from `apps/api`.
 
 ## Multi-checkout development (optional)
 
@@ -168,7 +170,7 @@ The same script also writes `assets/generated/icon-256.png` (the README header) 
 - `npm run db:seed` reloads the demo discovery dataset.
 - In local development, seeded sample discovery and call-to-play data are only rebound after an admin signs in. That admin account is linked to the seeded sample friends, and seeded server-scoped or targeted calls to play are retargeted onto the admin's real bot-visible Discord network when possible so discovery and play-intent flows can be tested without exposing sample data to signed-out or non-admin users.
 - `npm run db:generate` refreshes the Prisma client after schema changes. Prisma 7 generates it into `apps/api/src/generated/prisma` (git-ignored), and `npm run typecheck` (so `validate`) runs it first, so a fresh checkout typechecks. The API connects through the pg driver adapter; the database URL for the Prisma CLI comes from `apps/api/prisma.config.ts`, which falls back to a placeholder so `generate` and `validate` need no database.
-- Prisma 7 refuses destructive commands (`db push --force-reset`, used by `npm run dev:fresh`) when it detects an AI agent, until a person consents. Run `dev:fresh` yourself.
+- Prisma 7 refuses destructive commands (`db push --force-reset`, `migrate reset`) when it detects an AI agent, until a person consents. `npm run dev:fresh` uses neither, so an agent can run it in a worktree.
 - `npm run dev:fresh` waits for PostgreSQL, resets the schema, reseeds demo data, and starts the full stack.
 
 Postgres runs in Docker for both development and deployment, and the app reaches it through the Compose service hostname `db`. Development uses the local default `postgresql://postgres:postgres@db:5432/game_is_up?schema=public`; deployment builds the URL from the required `POSTGRES_PASSWORD`.
