@@ -6,7 +6,8 @@
  * Dismissal follows `BackAwareModal`: the X, Escape and Back close the dialog, and a click on
  * the scrim does not.
  */
-import type { ReactNode } from 'react'
+// React in scope: the root test runner compiles .tsx with the classic JSX transform.
+import React, { type ReactNode } from 'react'
 import { ModalClose, ModalDialog } from '@mui/joy'
 import { BackAwareModal } from '../BackAwareModal'
 
@@ -40,7 +41,8 @@ export function DashboardModal({
           boxShadow: 'none',
         }}
       >
-        <ModalClose sx={{ zIndex: 1 }} />
+        {/* Joy's close button is an icon only, so it needs its own accessible name (UI-14). */}
+        <ModalClose aria-label="Close dialog" sx={{ zIndex: 1 }} />
         {children}
       </ModalDialog>
     </BackAwareModal>
