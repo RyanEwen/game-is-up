@@ -14,6 +14,12 @@
 
 Game's Up is for groups of friends who play together and organise it on Discord. Instead of asking around in a channel to find out who owns what and who is free, you keep a library of the games you play, see where it overlaps with your friends, and send a call to play: the people who share the game get a Discord message they can answer with one tap, and everyone sees who is in.
 
+<p align="center">
+  <img src="store-assets/readme/00-discover-dark.png" alt="Discover tab in the dark theme: the trending row and matching game cards for Deep Rock Galactic, Sea of Thieves, Helldivers 2 and Monster Hunter Wilds, each with the sample players who share it." width="720">
+  <img src="store-assets/readme/01-play-dark.png" alt="Play tab in the dark theme: two scheduled calls to play from sample players, with their audience and how many people are interested." width="720">
+  <img src="store-assets/readme/02-library-dark.png" alt="Library tab in the dark theme: suggestions from activity and game cards for Deep Rock Galactic, Destiny 2, Helldivers 2 and Monster Hunter Wilds with interest and platform labels." width="720">
+</p>
+
 ## Features
 
 - **Shared libraries:** add the games you play, by search or by importing from Steam, and see which friends own and want to play the same ones.

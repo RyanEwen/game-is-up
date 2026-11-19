@@ -1,0 +1,25 @@
+{
+  "readme": [
+    {
+      "file": "readme/00-discover-dark.png",
+      "source": "raw/web/00-discover-dark.png",
+      "theme": "dark",
+      "caption": "See which games you share with your friends and network.",
+      "alt": "Discover tab in the dark theme: the trending row and matching game cards for Deep Rock Galactic, Sea of Thieves, Helldivers 2 and Monster Hunter Wilds, each with the sample players who share it."
+    },
+    {
+      "file": "readme/01-play-dark.png",
+      "source": "raw/web/01-play-dark.png",
+      "theme": "dark",
+      "caption": "Send a call to play and see who is in.",
+      "alt": "Play tab in the dark theme: two scheduled calls to play from sample players, with their audience and how many people are interested."
+    },
+    {
+      "file": "readme/02-library-dark.png",
+      "source": "raw/web/02-library-dark.png",
+      "theme": "dark",
+      "caption": "Keep a library of the games you play.",
+      "alt": "Library tab in the dark theme: suggestions from activity and game cards for Deep Rock Galactic, Destiny 2, Helldivers 2 and Monster Hunter Wilds with interest and platform labels."
+    }
+  ]
+}
