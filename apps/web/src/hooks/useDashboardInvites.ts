@@ -8,7 +8,7 @@
  */
 
 import type { Dispatch, SetStateAction } from 'react'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import type {
   AuthSessionResponse,
@@ -177,6 +177,8 @@ export function useDashboardInvites({
   const selectedDiscoveryServers = availableDiscoveryServers.filter(
     (server) => server.selected,
   )
+  // `inviteServerId` is the user's pick; the active server is derived, falling back to the first
+  // selected server while the pick is not (or no longer) selected, so the pick returns with it.
   const activeInviteServer =
     selectedDiscoveryServers.find((server) => server.id === inviteServerId) ??
     selectedDiscoveryServers[0] ??
@@ -271,25 +273,6 @@ export function useDashboardInvites({
     : null
   const canShareInvite =
     typeof navigator !== 'undefined' && typeof navigator.share === 'function'
-
-  useEffect(() => {
-    if (selectedDiscoveryServers.length === 0) {
-      if (inviteServerId !== null) {
-        setInviteServerId(null)
-      }
-      return
-    }
-
-    if (
-      !selectedDiscoveryServers.some((server) => server.id === inviteServerId)
-    ) {
-      const firstSelectedServer = selectedDiscoveryServers[0]
-
-      if (firstSelectedServer) {
-        setInviteServerId(firstSelectedServer.id)
-      }
-    }
-  }, [inviteServerId, selectedDiscoveryServers])
 
   // A different server (or signing out) starts a fresh selection.
   useResetOnChange([activeInviteServerId, isSignedIn], () => {

@@ -686,6 +686,11 @@ function SteamImportModalPicker({
     Math.ceil(sortedGames.length / steamImportPageSize),
   )
   const currentPage = Math.min(page, totalPages)
+  // When the list's length changes, the page is clamped for good, so a list that grows back does
+  // not jump to the old page; changing the search or a filter already starts at page 1.
+  useResetOnChange([totalPages], () =>
+    setPage((current) => Math.min(current, totalPages)),
+  )
   const pageStartIndex = (currentPage - 1) * steamImportPageSize
   const pageCandidateGames = sortedGames.slice(
     pageStartIndex,
@@ -738,12 +743,6 @@ function SteamImportModalPicker({
   )
   const selectedSourceIdSet = new Set(selectedSourceIds)
   const expandedSourceIdSet = new Set(expandedSourceIds)
-
-  useEffect(() => {
-    if (page !== currentPage) {
-      setPage(currentPage)
-    }
-  }, [currentPage, page])
 
   useEffect(() => {
     const selectedGames = selectedSourceIds
@@ -921,7 +920,7 @@ function SteamImportModalPicker({
               variant="outlined"
               color="neutral"
               disabled={currentPage <= 1}
-              onClick={() => setPage((current) => Math.max(1, current - 1))}
+              onClick={() => setPage(Math.max(1, currentPage - 1))}
             >
               Previous
             </Button>
@@ -936,9 +935,7 @@ function SteamImportModalPicker({
               variant="outlined"
               color="neutral"
               disabled={currentPage >= totalPages}
-              onClick={() =>
-                setPage((current) => Math.min(totalPages, current + 1))
-              }
+              onClick={() => setPage(Math.min(totalPages, currentPage + 1))}
             >
               Next
             </Button>

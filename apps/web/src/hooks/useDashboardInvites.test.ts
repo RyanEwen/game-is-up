@@ -196,3 +196,41 @@ test('a failed members load shows the server message, and a retry clears it', as
     null,
   )
 })
+
+test('a picked server that is deselected falls back to the first, and returns when reselected', async () => {
+  mock.method(globalThis, 'fetch', async () =>
+    json(200, { serverId: 'x', serverName: 'x', members: [] }),
+  )
+  const other = { ...server, id: 'server-2', name: 'Night Shift' }
+  const client = await createTestQueryClient()
+  const wrapper = ({ children }: { children: import('react').ReactNode }) =>
+    React.createElement(QueryClientProvider, { client }, children)
+  const view = renderHook(
+    ({ servers }: { servers: (typeof server)[] }) =>
+      useDashboardInvites({
+        session: null,
+        isSignedIn: true,
+        availableDiscoveryServers: servers,
+        setActionNotice: () => {},
+      }),
+    { wrapper, initialProps: { servers: [server, other] } },
+  )
+  const activeId = () =>
+    view.result.current.inviteOverviewProps.activeInviteServer?.id ?? null
+
+  assert.equal(activeId(), 'server-1', 'the first selected server by default')
+  act(() =>
+    view.result.current.inviteOverviewProps.onSelectInviteServer('server-2'),
+  )
+  assert.equal(activeId(), 'server-2')
+
+  view.rerender({ servers: [server, { ...other, selected: false }] })
+  assert.equal(
+    activeId(),
+    'server-1',
+    'falls back while the pick is not selected',
+  )
+
+  view.rerender({ servers: [server, other] })
+  assert.equal(activeId(), 'server-2', 'the pick returns when reselected')
+})

@@ -52,6 +52,34 @@ function buildGameplayLabel(gameDetails: GameDetails | null): {
   }
 }
 
+/**
+ * The image the viewer shows for the index the user picked: that image while it exists, the first
+ * image if the list no longer reaches it, and none when there are no images or none was picked.
+ */
+function resolveImageIndex(
+  requested: number | null,
+  count: number,
+): number | null {
+  if (requested == null || count === 0) {
+    return null
+  }
+
+  return requested < count ? requested : 0
+}
+
+/** The index `step` places from `index`, wrapping around the list; none stays none. */
+function stepImageIndex(
+  index: number | null,
+  step: number,
+  count: number,
+): number | null {
+  if (index == null || count === 0) {
+    return null
+  }
+
+  return (index + step + count) % count
+}
+
 export function GameDetailsDialog({
   open,
   target,
@@ -81,26 +109,24 @@ export function GameDetailsDialog({
       ),
     [gameDetails?.media],
   )
-  const [activeImageIndex, setActiveImageIndex] = useState<number | null>(null)
+  // The viewer keeps the image the user picked; what it shows is derived, so a media list that
+  // shrinks falls back to the first image without losing the choice if the image returns.
+  const [requestedImageIndex, setRequestedImageIndex] = useState<number | null>(
+    null,
+  )
+  const activeImageIndex = resolveImageIndex(
+    requestedImageIndex,
+    imageMedia.length,
+  )
   const activeImage =
     activeImageIndex == null ? null : (imageMedia[activeImageIndex] ?? null)
 
   // Closing the dialog closes the image viewer, so the next open starts on the details.
   useResetOnChange([open], () => {
     if (!open) {
-      setActiveImageIndex(null)
+      setRequestedImageIndex(null)
     }
   })
-
-  useEffect(() => {
-    if (activeImageIndex == null) {
-      return
-    }
-
-    if (!activeImage) {
-      setActiveImageIndex(imageMedia.length > 0 ? 0 : null)
-    }
-  }, [activeImage, activeImageIndex, imageMedia.length])
 
   useEffect(() => {
     if (
@@ -114,17 +140,15 @@ export function GameDetailsDialog({
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === 'ArrowLeft') {
         event.preventDefault()
-        setActiveImageIndex((current) =>
-          current == null
-            ? null
-            : (current - 1 + imageMedia.length) % imageMedia.length,
+        setRequestedImageIndex(
+          stepImageIndex(activeImageIndex, -1, imageMedia.length),
         )
       }
 
       if (event.key === 'ArrowRight') {
         event.preventDefault()
-        setActiveImageIndex((current) =>
-          current == null ? null : (current + 1) % imageMedia.length,
+        setRequestedImageIndex(
+          stepImageIndex(activeImageIndex, 1, imageMedia.length),
         )
       }
     }
@@ -135,20 +159,18 @@ export function GameDetailsDialog({
   }, [activeImageIndex, imageMedia.length])
 
   function openImageViewer(index: number) {
-    setActiveImageIndex(index)
+    setRequestedImageIndex(index)
   }
 
   function showPreviousImage() {
-    setActiveImageIndex((current) =>
-      current == null
-        ? null
-        : (current - 1 + imageMedia.length) % imageMedia.length,
+    setRequestedImageIndex(
+      stepImageIndex(activeImageIndex, -1, imageMedia.length),
     )
   }
 
   function showNextImage() {
-    setActiveImageIndex((current) =>
-      current == null ? null : (current + 1) % imageMedia.length,
+    setRequestedImageIndex(
+      stepImageIndex(activeImageIndex, 1, imageMedia.length),
     )
   }
 
@@ -475,7 +497,7 @@ export function GameDetailsDialog({
 
       <DashboardModal
         open={activeImage != null}
-        onClose={() => setActiveImageIndex(null)}
+        onClose={() => setRequestedImageIndex(null)}
         width="min(96vw, 1320px)"
       >
         <DialogTitle sx={{ pr: 6 }}>{activeImage?.label ?? title}</DialogTitle>

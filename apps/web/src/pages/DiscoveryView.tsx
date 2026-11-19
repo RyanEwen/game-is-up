@@ -1,5 +1,5 @@
 import { Box, Option, Select, Stack, Typography } from '@mui/joy'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import type {
   DiscordServerPreference,
   DiscoveryGame,
@@ -147,21 +147,14 @@ function DiscoveryViewContent({
   const networkPeople = discoveryPeople.filter((person) => !person.isFriend)
   const [gameSort, setGameSort] = useState<GameSort>('players')
   const [memberSort, setMemberSort] = useState<MemberSort>('games')
-  const [memberServerFilterId, setMemberServerFilterId] = useState('')
-
-  useEffect(() => {
-    if (!memberServerFilterId) {
-      return
-    }
-
-    if (
-      !selectedDiscoveryServers.some(
-        (server) => server.id === memberServerFilterId,
-      )
-    ) {
-      setMemberServerFilterId('')
-    }
-  }, [memberServerFilterId, selectedDiscoveryServers])
+  // The filter the user picked is kept; while its server is not selected the list is unfiltered,
+  // and the filter applies again if the server is selected again.
+  const [requestedMemberServerFilterId, setMemberServerFilterId] = useState('')
+  const memberServerFilterId = selectedDiscoveryServers.some(
+    (server) => server.id === requestedMemberServerFilterId,
+  )
+    ? requestedMemberServerFilterId
+    : ''
 
   if (error) {
     return <DashboardApiIssueCard error={error} />
