@@ -1,7 +1,7 @@
 /** Unit tests for the shared API request helper behind every query and mutation. */
 import assert from 'node:assert/strict'
 import test, { afterEach, mock } from 'node:test'
-import { apiRequest, noResponseBody } from './apiQuery'
+import { ApiError, apiRequest, noResponseBody } from './apiQuery'
 
 const numberBody = {
   parse: (value: unknown) => {
@@ -51,7 +51,15 @@ test('an error response throws the server message, or the fallback without one',
   stubFetch(500, 'not json at all')
   await assert.rejects(
     apiRequest('/api/x', numberBody, 'Unable to load.'),
-    /^Error: Unable to load\.$/,
+    /^ApiError: Unable to load\.$/,
+  )
+})
+
+test('an error response carries its HTTP status', async () => {
+  stubFetch(404, { error: 'Not found.' })
+  await assert.rejects(
+    apiRequest('/api/x', numberBody, 'fallback'),
+    (error: unknown) => error instanceof ApiError && error.status === 404,
   )
 })
 

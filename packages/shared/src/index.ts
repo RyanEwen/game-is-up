@@ -1428,6 +1428,9 @@ export type UpsertUserGameAliasRequest = z.infer<
   typeof upsertUserGameAliasRequestSchema
 >
 export type PlayIntentMute = z.infer<typeof playIntentMuteSchema>
+export type PlayIntentInvitableFriendsResponse = z.infer<
+  typeof playIntentInvitableFriendsResponseSchema
+>
 export type PlayIntentMutesResponse = z.infer<
   typeof playIntentMutesResponseSchema
 >

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo } from 'react'
 import {
   Box,
   Button,
@@ -14,7 +14,10 @@ import {
   authSessionResponseSchema,
   type AuthSessionResponse,
 } from '@game-is-up/shared'
+import { useQuery } from '@tanstack/react-query'
 import { useChromeCssVars } from '../hooks/useChromeCssVars'
+import { apiRequest } from '../lib/apiQuery'
+import { queryKeys } from '../lib/queryKeys'
 import { appThemeVariants, DEFAULT_APP_THEME } from '../theme/themes'
 
 type InviteLandingDetails = {
@@ -125,8 +128,18 @@ function buildDiscordLoginUrl(returnTo: string) {
 }
 
 export function InviteLandingView() {
-  const [session, setSession] = useState<AuthSessionResponse | null>(null)
-  const [sessionLoading, setSessionLoading] = useState(true)
+  // The same session query the dashboard uses, so signing in from here is seen there too.
+  const sessionQuery = useQuery({
+    queryKey: queryKeys.session(),
+    queryFn: () =>
+      apiRequest(
+        '/api/auth/me',
+        authSessionResponseSchema,
+        'Unable to check your sign-in right now.',
+      ),
+  })
+  const session: AuthSessionResponse | null = sessionQuery.data ?? null
+  const sessionLoading = sessionQuery.isPending
 
   const { cleanInviteUrl, details, authState } = useMemo(() => {
     const currentUrl = new URL(window.location.href)
@@ -152,37 +165,6 @@ export function InviteLandingView() {
         ? "Game's Up • Invite Accepted"
         : "Game's Up • Invite"
   }, [authState])
-
-  useEffect(() => {
-    let cancelled = false
-
-    void (async () => {
-      try {
-        const response = await fetch('/api/auth/me', {
-          credentials: 'include',
-        })
-        const responseJson = await response.json()
-
-        if (cancelled) {
-          return
-        }
-
-        setSession(authSessionResponseSchema.parse(responseJson))
-      } catch {
-        if (!cancelled) {
-          setSession(null)
-        }
-      } finally {
-        if (!cancelled) {
-          setSessionLoading(false)
-        }
-      }
-    })()
-
-    return () => {
-      cancelled = true
-    }
-  }, [])
 
   const isAuthenticated = Boolean(session?.authenticated)
 

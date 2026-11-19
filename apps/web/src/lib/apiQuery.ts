@@ -8,6 +8,17 @@
 import { extractErrorMessage } from '@game-is-up/shared'
 import { buildApiUrl } from './apiUrl'
 
+/** An error response from the API, with its HTTP status for callers that branch on it. */
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message)
+    this.name = 'ApiError'
+  }
+}
+
 /** Anything with a zod-style `parse`; the shared schemas all qualify. */
 export interface ResponseParser<T> {
   parse: (value: unknown) => T
@@ -51,7 +62,10 @@ export async function apiRequest<T>(
   }
 
   if (!response.ok) {
-    throw new Error(extractErrorMessage(body, fallbackError))
+    throw new ApiError(
+      extractErrorMessage(body, fallbackError),
+      response.status,
+    )
   }
 
   // A success that is not the expected JSON (for example an HTML page from a proxy) is an

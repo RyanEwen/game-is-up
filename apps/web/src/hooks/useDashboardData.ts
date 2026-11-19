@@ -51,6 +51,7 @@ import { apiRequest, type ResponseParser } from '../lib/apiQuery'
 import {
   dashboardResourceKeys,
   invalidationKeysForDomains,
+  invalidationPrefixesForDomains,
 } from '../lib/dashboardInvalidation'
 
 /** What the dashboard renders from; the same shape `loadDashboard()` used to fill. */
@@ -260,7 +261,12 @@ export function useDashboardData() {
   /** Refetch what a server-sent event's domains can have changed. */
   const invalidateDomains = useCallback(
     async (domains: readonly string[]) => {
-      await invalidateKeys(queryClient, invalidationKeysForDomains(domains))
+      await Promise.all([
+        invalidateKeys(queryClient, invalidationKeysForDomains(domains)),
+        ...invalidationPrefixesForDomains(domains).map((queryKey) =>
+          queryClient.invalidateQueries({ queryKey }),
+        ),
+      ])
     },
     [queryClient],
   )

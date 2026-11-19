@@ -10,6 +10,10 @@ export const queryKeys = {
   discoveryFeed: () => ['discovery', 'feed'] as const,
   playIntentFeed: () => ['play-intents', 'feed'] as const,
   currentPlayIntent: () => ['play-intents', 'current'] as const,
+  playIntentDetail: (playIntentId: string) =>
+    ['play-intents', 'detail', playIntentId] as const,
+  playIntentInvitableFriends: (playIntentId: string) =>
+    ['play-intents', 'detail', playIntentId, 'invitable-friends'] as const,
   playIntentMutes: () => ['play-intents', 'mutes'] as const,
   library: () => ['library', 'me'] as const,
   libraryCatalog: (term: string) => ['library', 'catalog', term] as const,

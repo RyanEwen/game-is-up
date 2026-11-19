@@ -4,6 +4,7 @@ import test from 'node:test'
 import {
   dashboardResourceKeys,
   invalidationKeysForDomains,
+  invalidationPrefixesForDomains,
 } from './dashboardInvalidation'
 
 const keyNames = (keys: readonly (readonly unknown[])[]) =>
@@ -47,4 +48,13 @@ test('overlapping domains list each key once', () => {
     invalidationKeysForDomains(['discovery', 'library', 'discovery']),
   )
   assert.equal(new Set(keys).size, keys.length)
+})
+
+test('call-to-play detail pages refresh on play-intent, auth and unknown domains only', () => {
+  const detail = [['play-intents', 'detail']]
+  assert.deepEqual(invalidationPrefixesForDomains(['play-intents']), detail)
+  assert.deepEqual(invalidationPrefixesForDomains(['auth']), detail)
+  assert.deepEqual(invalidationPrefixesForDomains(['something-new']), detail)
+  assert.deepEqual(invalidationPrefixesForDomains(['library']), [])
+  assert.deepEqual(invalidationPrefixesForDomains([]), [])
 })

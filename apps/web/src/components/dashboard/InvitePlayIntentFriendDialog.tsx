@@ -1,5 +1,6 @@
 /** One-friend invitation dialog, backed by server eligibility and permission checks. */
 import { useEffect, useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Alert,
   Button,
@@ -10,13 +11,14 @@ import {
   Typography,
 } from '@mui/joy'
 import {
-  extractErrorMessage,
   playIntentFriendInviteResponseSchema,
   playIntentInvitableFriendsResponseSchema,
+  type PlayIntentInvitableFriendsResponse,
 } from '@game-is-up/shared'
 import { DashboardModal } from './DashboardModal'
 import { DashboardModalActionBar } from './DashboardModalActionBar'
-import { buildApiUrl } from '../../lib/apiUrl'
+import { apiRequest } from '../../lib/apiQuery'
+import { queryKeys } from '../../lib/queryKeys'
 
 /** Keeps the chosen friend and any failure visible until an invitation succeeds. */
 export function InvitePlayIntentFriendDialog({
@@ -28,95 +30,77 @@ export function InvitePlayIntentFriendDialog({
   open: boolean
   onClose: () => void
 }) {
-  const [friends, setFriends] = useState<
-    { id: string; displayName: string; handle: string }[]
-  >([])
+  const queryClient = useQueryClient()
+  const friendsKey = queryKeys.playIntentInvitableFriends(playIntentId)
   const [friendId, setFriendId] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [pending, setPending] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [inviteError, setInviteError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
 
+  // Who can be invited, reloaded each time the dialog opens (it is never fresh for long).
+  const friendsQuery = useQuery({
+    queryKey: friendsKey,
+    queryFn: () =>
+      apiRequest(
+        `/api/play-intents/${playIntentId}/invitable-friends`,
+        playIntentInvitableFriendsResponseSchema,
+        'Unable to load friends.',
+      ),
+    enabled: open,
+    staleTime: 0,
+  })
+  const inviteMutation = useMutation({
+    mutationFn: (friendUserId: string) =>
+      apiRequest(
+        `/api/play-intents/${playIntentId}/friend-invites`,
+        playIntentFriendInviteResponseSchema,
+        'Unable to invite this friend.',
+        { method: 'POST', body: JSON.stringify({ friendUserId }) },
+      ),
+  })
+
+  const friends = friendsQuery.data?.friends ?? []
+  const loading = friendsQuery.isFetching
+  const pending = inviteMutation.isPending
+  const error =
+    inviteError ?? (friendsQuery.error ? friendsQuery.error.message : null)
+
+  // A fresh start each time the dialog opens.
   useEffect(() => {
-    if (!open) {
-      return
+    if (open) {
+      setFriendId(null)
+      setNotice(null)
+      setInviteError(null)
     }
-    let cancelled = false
-    setLoading(true)
-    setFriendId(null)
-    setNotice(null)
-    setError(null)
-    setFriends([])
-    async function loadFriends() {
-      try {
-        const response = await fetch(
-          buildApiUrl(`/api/play-intents/${playIntentId}/invitable-friends`),
-          { credentials: 'include' },
-        )
-        const body: unknown = await response.json()
-        if (!response.ok) {
-          throw new Error(extractErrorMessage(body, 'Unable to load friends.'))
-        }
-        const result = playIntentInvitableFriendsResponseSchema.parse(body)
-        if (!cancelled) {
-          setFriends(result.friends)
-        }
-      } catch (failure) {
-        if (!cancelled) {
-          setError(
-            failure instanceof Error
-              ? failure.message
-              : 'Unable to load friends.',
-          )
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false)
-        }
-      }
-    }
-    void loadFriends()
-    return () => {
-      cancelled = true
-    }
-  }, [open, playIntentId])
+  }, [open])
 
   async function inviteFriend() {
     if (!friendId || pending) {
       return
     }
-    setPending(true)
-    setError(null)
+    setInviteError(null)
     try {
-      const response = await fetch(
-        buildApiUrl(`/api/play-intents/${playIntentId}/friend-invites`),
-        {
-          method: 'POST',
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ friendUserId: friendId }),
-        },
-      )
-      const body: unknown = await response.json()
-      if (!response.ok) {
-        throw new Error(
-          extractErrorMessage(body, 'Unable to invite this friend.'),
-        )
-      }
-      const result = playIntentFriendInviteResponseSchema.parse(body)
+      const result = await inviteMutation.mutateAsync(friendId)
       setNotice(result.message)
-      setFriends((current) =>
-        current.filter((friend) => friend.id !== friendId),
+      // The invited friend is no longer invitable.
+      queryClient.setQueryData<PlayIntentInvitableFriendsResponse>(
+        friendsKey,
+        (current) =>
+          current
+            ? {
+                ...current,
+                friends: current.friends.filter(
+                  (friend) => friend.id !== friendId,
+                ),
+              }
+            : current,
       )
       setFriendId(null)
     } catch (failure) {
-      setError(
-        failure instanceof Error
+      setInviteError(
+        failure instanceof Error && failure.message
           ? failure.message
           : 'Unable to invite this friend.',
       )
-    } finally {
-      setPending(false)
     }
   }
 

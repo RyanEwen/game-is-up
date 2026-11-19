@@ -1,5 +1,6 @@
 /** Presents call details and recipient responses; delay changes are saved through the dashboard flow. */
-import { type ReactNode, useEffect, useMemo, useState } from 'react'
+import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import ChatBubbleRoundedIcon from '@mui/icons-material/ChatBubbleRounded'
 import HeadsetMicRoundedIcon from '@mui/icons-material/HeadsetMicRounded'
 import OpenInNewRoundedIcon from '@mui/icons-material/OpenInNewRounded'
@@ -16,7 +17,6 @@ import {
   Typography,
 } from '@mui/joy'
 import {
-  extractErrorMessage,
   playIntentDetailResponseSchema,
   type PlayIntentDetail,
 } from '@game-is-up/shared'
@@ -34,8 +34,8 @@ import {
   memberGameGridSx,
 } from '../components/dashboard/dashboardUtils'
 import { useDashboardContext } from '../contexts/useDashboardContext'
-import { buildApiUrl } from '../lib/apiUrl'
-import { useDashboardSseInvalidation } from '../hooks/useDashboardSseInvalidation'
+import { ApiError, apiRequest } from '../lib/apiQuery'
+import { queryKeys } from '../lib/queryKeys'
 import { formatMonthDayTime } from '../lib/dateTime'
 import { formatRunningLateLabel } from '@game-is-up/shared'
 import { InvitePlayIntentFriendDialog } from '../components/dashboard/InvitePlayIntentFriendDialog'
@@ -216,16 +216,36 @@ function CallDetailRow({ label, value }: { label: string; value: string }) {
   )
 }
 
+/**
+ * The message shown in place of the call to play, or null when there is none to show: a signed-out
+ * visitor (401) gets the sign-in prompt instead, and a successful load shows the call itself.
+ * @param playIntentId The id from the link; a link without one cannot load anything.
+ * @param error The detail query's error, if it failed.
+ */
+function describeDetailFailure(
+  playIntentId: string | undefined,
+  error: Error | null,
+): string | null {
+  if (!playIntentId) {
+    return 'This call to play link is missing its id.'
+  }
+  if (!error) {
+    return null
+  }
+  if (error instanceof ApiError && error.status === 401) {
+    return null
+  }
+  if (error instanceof ApiError && error.status === 404) {
+    return 'That call to play is no longer available.'
+  }
+  return error.message || 'Unable to load this call to play right now.'
+}
+
 export function PlayIntentDetailView() {
   const { playIntentId } = useParams<{ playIntentId: string }>()
   const navigate = useNavigate()
   const { overviewViewProps, playViewProps } = useDashboardContext()
-  const [intent, setIntent] = useState<PlayIntentDetail | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [requiresAuth, setRequiresAuth] = useState(false)
-  const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [showNonOverlappingGames, setShowNonOverlappingGames] = useState(false)
-  const [invalidationVersion, setInvalidationVersion] = useState(0)
   const [inviteFriendDialogOpen, setInviteFriendDialogOpen] = useState(false)
   const [runningLateDialogOpen, setRunningLateDialogOpen] = useState(false)
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
@@ -271,97 +291,36 @@ export function PlayIntentDetailView() {
     playViewProps.playIntentPreviews,
   ])
 
-  useDashboardSseInvalidation({
-    enabled: playViewProps.isSignedIn,
-    buildApiUrl,
-    onInvalidation: (domains) => {
-      if (domains.includes('play-intents')) {
-        setInvalidationVersion((current) => current + 1)
-      }
-    },
+  // The call to play itself. Server events about calls to play refresh it through the
+  // dashboard's event stream, and so does any change to its preview (`refreshToken`).
+  const detailQuery = useQuery({
+    queryKey: queryKeys.playIntentDetail(playIntentId ?? ''),
+    queryFn: () =>
+      apiRequest(
+        `/api/play-intents/${playIntentId}`,
+        playIntentDetailResponseSchema,
+        'Unable to load this call to play right now.',
+      ),
+    enabled: Boolean(playIntentId),
   })
-
+  const { refetch: refetchDetail } = detailQuery
+  const lastRefreshTokenRef = useRef(refreshToken)
   useEffect(() => {
-    if (!playIntentId) {
-      setIntent(null)
-      setLoading(false)
-      setRequiresAuth(false)
-      setErrorMessage('This call to play link is missing its id.')
+    if (lastRefreshTokenRef.current === refreshToken) {
       return
     }
+    lastRefreshTokenRef.current = refreshToken
+    void refetchDetail()
+  }, [refetchDetail, refreshToken])
 
-    let cancelled = false
-
-    void (async () => {
-      setLoading(true)
-      setRequiresAuth(false)
-      setErrorMessage(null)
-
-      try {
-        const response = await fetch(
-          buildApiUrl(`/api/play-intents/${playIntentId}`),
-          {
-            credentials: 'include',
-          },
-        )
-
-        if (response.status === 401) {
-          if (!cancelled) {
-            setIntent(null)
-            setRequiresAuth(true)
-          }
-          return
-        }
-
-        if (response.status === 404) {
-          if (!cancelled) {
-            setIntent(null)
-            setErrorMessage('That call to play is no longer available.')
-          }
-          return
-        }
-
-        const responseJson = await response.json()
-
-        if (!response.ok) {
-          const responseBody = extractErrorMessage(
-            responseJson,
-            'Unable to load this call to play right now.',
-          )
-
-          if (!cancelled) {
-            setIntent(null)
-            setErrorMessage(responseBody)
-          }
-          return
-        }
-
-        const parsedIntent =
-          playIntentDetailResponseSchema.parse(responseJson).intent
-
-        if (!cancelled) {
-          setIntent(parsedIntent)
-        }
-      } catch (error) {
-        if (!cancelled) {
-          setIntent(null)
-          setErrorMessage(
-            error instanceof Error
-              ? error.message
-              : 'Unable to load this call to play right now.',
-          )
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false)
-        }
-      }
-    })()
-
-    return () => {
-      cancelled = true
-    }
-  }, [invalidationVersion, playIntentId, refreshToken])
+  const detailError = detailQuery.error
+  const requiresAuth =
+    detailError instanceof ApiError && detailError.status === 401
+  const errorMessage = describeDetailFailure(playIntentId, detailError)
+  const intent: PlayIntentDetail | null = detailError
+    ? null
+    : (detailQuery.data?.intent ?? null)
+  const loading = Boolean(playIntentId) && detailQuery.isFetching
 
   useEffect(() => {
     document.title = intent ? `${intent.title} • Game's Up` : "Game's Up • Play"

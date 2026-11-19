@@ -74,3 +74,18 @@ export function invalidationKeysForDomains(
     .filter((resource) => resources.has(resource))
     .map((resource) => dashboardResourceKeys[resource])
 }
+
+/**
+ * Query families outside the dashboard set that a domain also makes stale, matched by prefix:
+ * an open call-to-play detail page (and its invite list) follows play-intent changes.
+ */
+export function invalidationPrefixesForDomains(
+  domains: readonly string[],
+): QueryKey[] {
+  const known = new Set(Object.keys(resourcesByDomain))
+  const refreshesPlayIntents = domains.some(
+    (domain) =>
+      domain === 'play-intents' || domain === 'auth' || !known.has(domain),
+  )
+  return refreshesPlayIntents ? [['play-intents', 'detail']] : []
+}

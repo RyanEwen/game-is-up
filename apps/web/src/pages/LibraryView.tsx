@@ -1,4 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
+import { useQueries } from '@tanstack/react-query'
+import { apiRequest } from '../lib/apiQuery'
+import { queryKeys } from '../lib/queryKeys'
 import {
   Box,
   Button,
@@ -27,10 +30,7 @@ import type {
   UserGameAlias,
   UserPlatformAlias,
 } from '@game-is-up/shared'
-import {
-  extractErrorMessage,
-  gameDetailsResponseSchema,
-} from '@game-is-up/shared'
+import { gameDetailsResponseSchema } from '@game-is-up/shared'
 import { DashboardModal } from '../components/dashboard/DashboardModal'
 import { AliasManagementCard } from '../components/dashboard/AliasManagementCard'
 import { DashboardApiIssueCard } from '../components/dashboard/DashboardApiIssueCard'
@@ -50,7 +50,6 @@ import {
 } from '../components/dashboard/dashboardUtils'
 import type { DashboardLibraryQuickAddGame } from '../components/dashboard/types'
 import { useDashboardContext } from '../contexts/useDashboardContext'
-import { buildApiUrl } from '../lib/apiUrl'
 
 const steamImportPlatformOptions = [
   'PC',
@@ -634,12 +633,6 @@ function SteamImportModalPicker({
     Record<string, SteamImportSelection>
   >({})
   const [expandedSourceIds, setExpandedSourceIds] = useState<string[]>([])
-  const [steamDetailsBySourceId, setSteamDetailsBySourceId] = useState<
-    Record<string, GameDetails | null>
-  >({})
-  const [steamDetailsLoadingIds, setSteamDetailsLoadingIds] = useState<
-    string[]
-  >([])
   const listScrollRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
@@ -662,8 +655,6 @@ function SteamImportModalPicker({
       ),
     )
     setExpandedSourceIds([])
-    setSteamDetailsBySourceId({})
-    setSteamDetailsLoadingIds([])
   }, [preview])
 
   const normalizedQuery = query.trim().toLowerCase()
@@ -698,6 +689,28 @@ function SteamImportModalPicker({
     pageStartIndex,
     pageStartIndex + steamImportPageSize,
   )
+  // Steam metadata for the games on this page, shared with the game details dialog's cache. A
+  // game whose metadata fails reads as unknown (null), as before.
+  const steamDetailQueries = useQueries({
+    queries: pageCandidateGames.map((game) => ({
+      queryKey: queryKeys.gameDetails('steam', game.sourceId),
+      queryFn: () =>
+        apiRequest(
+          `/api/library/catalog/steam/${encodeURIComponent(game.sourceId)}/details`,
+          gameDetailsResponseSchema,
+          'Unable to load Steam metadata right now.',
+        ),
+    })),
+  })
+  const steamDetailsBySourceId: Record<string, GameDetails | null> = {}
+  pageCandidateGames.forEach((game, index) => {
+    const query = steamDetailQueries[index]
+    if (query?.data) {
+      steamDetailsBySourceId[game.sourceId] = query.data.game
+    } else if (query?.error) {
+      steamDetailsBySourceId[game.sourceId] = null
+    }
+  })
   const pageGames =
     sortOption === 'recommended'
       ? [...pageCandidateGames].sort((left, right) => {
@@ -718,8 +731,8 @@ function SteamImportModalPicker({
           return compareSteamImportTitles(left, right)
         })
       : pageCandidateGames
-  const steamPageMetadataLoading = pageCandidateGames.some((game) =>
-    steamDetailsLoadingIds.includes(game.sourceId),
+  const steamPageMetadataLoading = steamDetailQueries.some(
+    (query) => query.isFetching,
   )
   const selectedSourceIdSet = new Set(selectedSourceIds)
   const expandedSourceIdSet = new Set(expandedSourceIds)
@@ -750,80 +763,6 @@ function SteamImportModalPicker({
     preview,
     sortOption,
   ])
-
-  useEffect(() => {
-    const sourceIdsToLoad = pageCandidateGames
-      .map((game) => game.sourceId)
-      .filter(
-        (sourceId) =>
-          !(sourceId in steamDetailsBySourceId) &&
-          !steamDetailsLoadingIds.includes(sourceId),
-      )
-
-    if (sourceIdsToLoad.length === 0) {
-      return
-    }
-
-    let cancelled = false
-    setSteamDetailsLoadingIds((current) => [
-      ...new Set([...current, ...sourceIdsToLoad]),
-    ])
-
-    void Promise.all(
-      sourceIdsToLoad.map(async (sourceId) => {
-        try {
-          const response = await fetch(
-            buildApiUrl(
-              `/api/library/catalog/steam/${encodeURIComponent(sourceId)}/details`,
-            ),
-            {
-              credentials: 'include',
-            },
-          )
-          const responseBody = await response.json()
-
-          if (!response.ok) {
-            throw new Error(
-              extractErrorMessage(
-                responseBody,
-                'Unable to load Steam metadata right now.',
-              ),
-            )
-          }
-
-          const parsed = gameDetailsResponseSchema.parse(responseBody)
-
-          if (cancelled) {
-            return
-          }
-
-          setSteamDetailsBySourceId((current) => ({
-            ...current,
-            [sourceId]: parsed.game,
-          }))
-        } catch {
-          if (cancelled) {
-            return
-          }
-
-          setSteamDetailsBySourceId((current) => ({
-            ...current,
-            [sourceId]: null,
-          }))
-        } finally {
-          if (!cancelled) {
-            setSteamDetailsLoadingIds((current) =>
-              current.filter((entry) => entry !== sourceId),
-            )
-          }
-        }
-      }),
-    )
-
-    return () => {
-      cancelled = true
-    }
-  }, [pageCandidateGames, steamDetailsBySourceId, steamDetailsLoadingIds])
 
   const updateSelectionOptions = (
     sourceId: string,
