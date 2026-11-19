@@ -10,6 +10,7 @@
 
 import type { Dispatch, SetStateAction } from 'react'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type {
   GameSearchResponse,
   GameSearchResult,
@@ -18,25 +19,31 @@ import type {
   LibraryEntryIntent,
   LibrarySuggestedGame,
   LibraryTrendingGame,
-  LibraryResponse,
   UserGameAlias,
   UserPlatformAlias,
   SteamLibraryImportPreviewResponse,
   UserProfileResponse,
 } from '@game-is-up/shared'
 import {
-  extractErrorMessage,
   gameSearchResponseSchema,
   libraryResponseSchema,
   steamLibraryImportPreviewResponseSchema,
   userGameAliasesResponseSchema,
   userPlatformAliasesResponseSchema,
 } from '@game-is-up/shared'
+import { apiRequest, noResponseBody } from '../lib/apiQuery'
+import { queryKeys } from '../lib/queryKeys'
 import type {
   DashboardLibraryQuickAddGame,
   Notice,
 } from '../components/dashboard/types'
 import { useLocation } from 'react-router-dom'
+
+/** How long the catalog search waits after the last keystroke before it asks the server. */
+const catalogSearchDelayMs = 180
+const emptyGameSuggestions: GameSearchResult[] = []
+const emptyPlatformAliases: UserPlatformAlias[] = []
+const emptyGameAliases: UserGameAlias[] = []
 
 const defaultPlatformOptions = [
   'PC',
@@ -118,7 +125,6 @@ export function useDashboardLibrary({
   steamImportEnabled,
   steamConnected,
   steamLinkPending,
-  buildApiUrl,
   libraryEntries,
   suggestedGames,
   trendingGames,
@@ -138,7 +144,6 @@ export function useDashboardLibrary({
   steamImportEnabled: boolean
   steamConnected: boolean
   steamLinkPending: boolean
-  buildApiUrl: (path: string) => string
   libraryEntries: LibraryEntry[]
   suggestedGames: LibrarySuggestedGame[]
   trendingGames: LibraryTrendingGame[]
@@ -168,32 +173,198 @@ export function useDashboardLibrary({
   const [usualAvailability, setUsualAvailability] = useState('')
   const [libraryIntent, setLibraryIntent] =
     useState<LibraryEntryIntent>('interested')
-  const [librarySaving, setLibrarySaving] = useState(false)
   const [profileSaving, setProfileSaving] = useState(false)
-  const [gameSuggestions, setGameSuggestions] = useState<
-    GameSearchResponse['results']
-  >([])
-  const [gameSuggestionsLoading, setGameSuggestionsLoading] = useState(false)
   const [selectedCatalogResult, setSelectedCatalogResult] =
     useState<GameSearchResult | null>(null)
   const [editingLibraryEntryId, setEditingLibraryEntryId] = useState<
     string | null
   >(null)
-  const [removingLibraryEntryId, setRemovingLibraryEntryId] = useState<
-    string | null
-  >(null)
   const [isLibraryEditorOpen, setIsLibraryEditorOpen] = useState(false)
-  const [steamImportPreview, setSteamImportPreview] =
-    useState<SteamLibraryImportPreviewResponse | null>(null)
-  const [steamPreviewLoading, setSteamPreviewLoading] = useState(false)
-  const [steamImporting, setSteamImporting] = useState(false)
-  const [steamDisconnectPending, setSteamDisconnectPending] = useState(false)
   const [isSteamImportModalOpen, setIsSteamImportModalOpen] = useState(false)
-  const [platformAliases, setPlatformAliases] = useState<UserPlatformAlias[]>(
-    [],
-  )
-  const [gameAliases, setGameAliases] = useState<UserGameAlias[]>([])
-  const [aliasSavingKey, setAliasSavingKey] = useState<string | null>(null)
+
+  const queryClient = useQueryClient()
+
+  // Catalog search: a query per debounced title, so typing does not fire a request per key.
+  const catalogTerm = editingLibraryEntryId ? '' : libraryTitle.trim()
+  const [debouncedCatalogTerm, setDebouncedCatalogTerm] = useState(catalogTerm)
+  useEffect(() => {
+    const timeoutId = window.setTimeout(
+      () => setDebouncedCatalogTerm(catalogTerm),
+      catalogSearchDelayMs,
+    )
+    return () => window.clearTimeout(timeoutId)
+  }, [catalogTerm])
+  const catalogSearchEnabled = debouncedCatalogTerm.length >= 2
+  const catalogQuery = useQuery({
+    queryKey: queryKeys.libraryCatalog(debouncedCatalogTerm),
+    queryFn: () =>
+      apiRequest(
+        `/api/library/catalog?query=${encodeURIComponent(debouncedCatalogTerm)}`,
+        gameSearchResponseSchema,
+        'Unable to search the game catalog right now.',
+      ),
+    enabled: catalogSearchEnabled,
+  })
+  const gameSuggestions =
+    catalogTerm.length >= 2 && catalogTerm === debouncedCatalogTerm
+      ? (catalogQuery.data?.results ?? emptyGameSuggestions)
+      : emptyGameSuggestions
+  // Loading from the first keystroke that qualifies, through the debounce and the request.
+  const gameSuggestionsLoading =
+    catalogTerm.length >= 2 &&
+    (catalogTerm !== debouncedCatalogTerm || catalogQuery.isFetching)
+
+  // The user's platform and game aliases, reloaded whenever the library changes.
+  const platformAliasesQuery = useQuery({
+    queryKey: queryKeys.platformAliases(),
+    queryFn: () =>
+      apiRequest(
+        '/api/aliases/platforms',
+        userPlatformAliasesResponseSchema,
+        'Unable to load your platform aliases right now.',
+      ),
+    enabled: isSignedIn,
+  })
+  const gameAliasesQuery = useQuery({
+    queryKey: queryKeys.gameAliases(),
+    queryFn: () =>
+      apiRequest(
+        '/api/aliases/games',
+        userGameAliasesResponseSchema,
+        'Unable to load your game aliases right now.',
+      ),
+    enabled: isSignedIn,
+  })
+  const platformAliases =
+    (isSignedIn ? platformAliasesQuery.data?.aliases : undefined) ??
+    emptyPlatformAliases
+  const gameAliases =
+    (isSignedIn ? gameAliasesQuery.data?.aliases : undefined) ??
+    emptyGameAliases
+  const isFirstLibraryRender = useRef(true)
+  useEffect(() => {
+    if (isFirstLibraryRender.current) {
+      isFirstLibraryRender.current = false
+      return
+    }
+    void queryClient.invalidateQueries({ queryKey: ['aliases'] })
+  }, [libraryEntries, queryClient])
+
+  // The Steam library preview, fetched on demand when the import dialog opens or refreshes.
+  const steamPreviewQuery = useQuery({
+    queryKey: queryKeys.steamImportPreview(),
+    queryFn: () =>
+      apiRequest(
+        '/api/library/imports/steam',
+        steamLibraryImportPreviewResponseSchema,
+        'Unable to load your Steam library right now.',
+      ),
+    enabled: false,
+  })
+  const steamImportPreview = steamPreviewQuery.data ?? null
+  const steamPreviewLoading = steamPreviewQuery.isFetching
+
+  const saveEntryMutation = useMutation({
+    mutationFn: (body: Record<string, unknown>) =>
+      apiRequest(
+        '/api/library/me',
+        libraryResponseSchema,
+        'Unable to add that game right now.',
+        { method: 'POST', body: JSON.stringify(body) },
+      ),
+  })
+  const removeEntryMutation = useMutation({
+    mutationFn: (entryId: string) =>
+      apiRequest(
+        `/api/library/me/${entryId}`,
+        noResponseBody,
+        'Unable to remove that game right now.',
+        { method: 'DELETE' },
+      ),
+  })
+  const steamImportMutation = useMutation({
+    mutationFn: (games: ImportSteamLibrarySelectionRequest['games']) =>
+      apiRequest(
+        '/api/library/imports/steam',
+        libraryResponseSchema,
+        'Unable to import those Steam games right now.',
+        { method: 'POST', body: JSON.stringify({ games }) },
+      ),
+  })
+  const steamDisconnectMutation = useMutation({
+    mutationFn: () =>
+      apiRequest(
+        '/api/auth/steam/link',
+        noResponseBody,
+        'Unable to disconnect Steam right now.',
+        { method: 'DELETE' },
+      ),
+  })
+  const savePlatformAliasMutation = useMutation({
+    mutationFn: (variables: { platform: string; aliasValue: string }) =>
+      apiRequest(
+        `/api/aliases/platforms/${encodeURIComponent(variables.platform)}`,
+        userPlatformAliasesResponseSchema,
+        'Unable to save that platform alias right now.',
+        {
+          method: 'PUT',
+          body: JSON.stringify({ aliasValue: variables.aliasValue }),
+        },
+      ),
+  })
+  const deletePlatformAliasMutation = useMutation({
+    mutationFn: (platform: string) =>
+      apiRequest(
+        `/api/aliases/platforms/${encodeURIComponent(platform)}`,
+        noResponseBody,
+        'Unable to remove that platform alias right now.',
+        { method: 'DELETE' },
+      ),
+  })
+  const saveGameAliasMutation = useMutation({
+    mutationFn: (variables: { gameId: string; aliasValue: string }) =>
+      apiRequest(
+        `/api/aliases/games/${variables.gameId}`,
+        userGameAliasesResponseSchema,
+        'Unable to save that game alias right now.',
+        {
+          method: 'PUT',
+          body: JSON.stringify({ aliasValue: variables.aliasValue }),
+        },
+      ),
+  })
+  const deleteGameAliasMutation = useMutation({
+    mutationFn: (gameId: string) =>
+      apiRequest(
+        `/api/aliases/games/${gameId}`,
+        noResponseBody,
+        'Unable to remove that game alias right now.',
+        { method: 'DELETE' },
+      ),
+  })
+
+  const librarySaving = saveEntryMutation.isPending
+  const removingLibraryEntryId = removeEntryMutation.isPending
+    ? (removeEntryMutation.variables ?? null)
+    : null
+  const steamImporting = steamImportMutation.isPending
+  const steamDisconnectPending = steamDisconnectMutation.isPending
+  // The alias row being saved or removed, as `platform:<name>` or `game:<id>`.
+  const aliasSavingKey = savePlatformAliasMutation.isPending
+    ? `platform:${savePlatformAliasMutation.variables?.platform}`
+    : deletePlatformAliasMutation.isPending
+      ? `platform:${deletePlatformAliasMutation.variables}`
+      : saveGameAliasMutation.isPending
+        ? `game:${saveGameAliasMutation.variables?.gameId}`
+        : deleteGameAliasMutation.isPending
+          ? `game:${deleteGameAliasMutation.variables}`
+          : null
+
+  /** The server's message for a failed request, or the caller's fallback. */
+  const errorNotice = (error: unknown, fallback: string): Notice => ({
+    tone: 'danger',
+    message: error instanceof Error && error.message ? error.message : fallback,
+  })
 
   const editingLibraryEntry =
     libraryEntries.find((entry) => entry.id === editingLibraryEntryId) ?? null
@@ -218,61 +389,6 @@ export function useDashboardLibrary({
       : 'No default schedule yet. Leave a game override blank to keep it unscheduled.'
 
   useEffect(() => {
-    if (editingLibraryEntryId) {
-      setGameSuggestions([])
-      setGameSuggestionsLoading(false)
-      return
-    }
-
-    const query = libraryTitle.trim()
-
-    if (query.length < 2) {
-      setGameSuggestions([])
-      setGameSuggestionsLoading(false)
-      return
-    }
-
-    let cancelled = false
-    setGameSuggestionsLoading(true)
-
-    const timeoutId = window.setTimeout(() => {
-      void (async () => {
-        try {
-          const response = await fetch(
-            buildApiUrl(
-              `/api/library/catalog?query=${encodeURIComponent(query)}`,
-            ),
-            {
-              credentials: 'include',
-            },
-          )
-          const responseJson = await response.json()
-
-          if (cancelled) {
-            return
-          }
-
-          const parsed = gameSearchResponseSchema.parse(responseJson)
-          setGameSuggestions(parsed.results)
-        } catch {
-          if (!cancelled) {
-            setGameSuggestions([])
-          }
-        } finally {
-          if (!cancelled) {
-            setGameSuggestionsLoading(false)
-          }
-        }
-      })()
-    }, 180)
-
-    return () => {
-      cancelled = true
-      window.clearTimeout(timeoutId)
-    }
-  }, [buildApiUrl, editingLibraryEntryId, libraryTitle])
-
-  useEffect(() => {
     setUsualAvailability(currentUsualAvailability ?? '')
   }, [currentUsualAvailability])
 
@@ -281,58 +397,9 @@ export function useDashboardLibrary({
       return
     }
 
-    setSteamImportPreview(null)
+    queryClient.removeQueries({ queryKey: queryKeys.steamImportPreview() })
     setIsSteamImportModalOpen(false)
-  }, [steamConnected])
-
-  useEffect(() => {
-    if (!isSignedIn) {
-      setPlatformAliases([])
-      setGameAliases([])
-      return
-    }
-
-    let cancelled = false
-
-    void (async () => {
-      try {
-        const [platformResponse, gameResponse] = await Promise.all([
-          fetch(buildApiUrl('/api/aliases/platforms'), {
-            credentials: 'include',
-          }),
-          fetch(buildApiUrl('/api/aliases/games'), { credentials: 'include' }),
-        ])
-
-        if (!platformResponse.ok || !gameResponse.ok) {
-          return
-        }
-
-        const [platformBody, gameBody] = await Promise.all([
-          platformResponse.json(),
-          gameResponse.json(),
-        ])
-
-        if (cancelled) {
-          return
-        }
-
-        const parsedPlatforms =
-          userPlatformAliasesResponseSchema.parse(platformBody)
-        const parsedGames = userGameAliasesResponseSchema.parse(gameBody)
-        setPlatformAliases(parsedPlatforms.aliases)
-        setGameAliases(parsedGames.aliases)
-      } catch {
-        if (!cancelled) {
-          setPlatformAliases([])
-          setGameAliases([])
-        }
-      }
-    })()
-
-    return () => {
-      cancelled = true
-    }
-  }, [buildApiUrl, isSignedIn, libraryEntries])
+  }, [queryClient, steamConnected])
 
   const handleLibraryTitleChange = useCallback(
     (nextTitle: string) => {
@@ -357,7 +424,6 @@ export function useDashboardLibrary({
     setSelectedCatalogResult(result)
     setLibraryTitle(result.title)
     setSelectedPlatformLabels([])
-    setGameSuggestions([])
   }, [])
 
   const resetLibraryForm = useCallback(() => {
@@ -366,7 +432,6 @@ export function useDashboardLibrary({
     setLibraryTitle('')
     setSelectedPlatformLabels([])
     setLibraryAvailability('')
-    setGameSuggestions([])
     setSelectedCatalogResult(null)
     setLibraryIntent('interested')
   }, [])
@@ -412,7 +477,6 @@ export function useDashboardLibrary({
       setLibraryTitle(title)
       setSelectedPlatformLabels(normalizedPlatformLabels)
       setLibraryAvailability('')
-      setGameSuggestions([])
       setSelectedCatalogResult({
         id: gameId,
         source: 'local',
@@ -439,7 +503,6 @@ export function useDashboardLibrary({
           ? (entry.availability ?? '')
           : '',
       )
-      setGameSuggestions([])
       setSelectedCatalogResult(null)
       setLibraryIntent(entry.intent)
       setActionNotice(null)
@@ -526,43 +589,20 @@ export function useDashboardLibrary({
       return null
     }
 
-    setSteamPreviewLoading(true)
+    const result = await steamPreviewQuery.refetch()
 
-    try {
-      const response = await fetch(buildApiUrl('/api/library/imports/steam'), {
-        credentials: 'include',
-      })
-      const responseBody = (await response.json()) as
-        SteamLibraryImportPreviewResponse | { error?: string }
-
-      if (!response.ok) {
-        setActionNotice({
-          tone: 'danger',
-          message: extractErrorMessage(
-            responseBody,
-            'Unable to load your Steam library right now.',
-          ),
-        })
-        return null
-      }
-
-      const parsed = steamLibraryImportPreviewResponseSchema.parse(responseBody)
-      setSteamImportPreview(parsed)
-
-      return parsed
-    } catch (error) {
-      setActionNotice({
-        tone: 'danger',
-        message:
-          error instanceof Error
-            ? error.message
-            : 'Unable to load your Steam library right now.',
-      })
+    if (result.error) {
+      setActionNotice(
+        errorNotice(
+          result.error,
+          'Unable to load your Steam library right now.',
+        ),
+      )
       return null
-    } finally {
-      setSteamPreviewLoading(false)
     }
-  }, [buildApiUrl, setActionNotice, steamConnected, steamImportEnabled])
+
+    return result.data ?? null
+  }, [setActionNotice, steamConnected, steamImportEnabled, steamPreviewQuery])
 
   const handleOpenSteamImport = useCallback(async () => {
     setActionNotice(null)
@@ -592,38 +632,10 @@ export function useDashboardLibrary({
         return
       }
 
-      setSteamImporting(true)
       setActionNotice(null)
 
       try {
-        const response = await fetch(
-          buildApiUrl('/api/library/imports/steam'),
-          {
-            method: 'POST',
-            credentials: 'include',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              games,
-            }),
-          },
-        )
-        const responseBody = (await response.json()) as
-          LibraryResponse | { error?: string }
-
-        if (!response.ok) {
-          setActionNotice({
-            tone: 'danger',
-            message: extractErrorMessage(
-              responseBody,
-              'Unable to import those Steam games right now.',
-            ),
-          })
-          return
-        }
-
-        libraryResponseSchema.parse(responseBody)
+        await steamImportMutation.mutateAsync(games)
         setIsSteamImportModalOpen(false)
         setActionNotice({
           tone: 'success',
@@ -642,52 +654,36 @@ export function useDashboardLibrary({
               ? error.message
               : 'Unable to import those Steam games right now.',
         })
-      } finally {
-        setSteamImporting(false)
       }
     },
-    [buildApiUrl, fetchSteamImportPreview, loadDashboard, setActionNotice],
+    [
+      fetchSteamImportPreview,
+      loadDashboard,
+      setActionNotice,
+      steamImportMutation,
+    ],
   )
 
   const handleDisconnectSteam = useCallback(async () => {
-    setSteamDisconnectPending(true)
     setActionNotice(null)
 
     try {
-      const response = await fetch(buildApiUrl('/api/auth/steam/link'), {
-        method: 'DELETE',
-        credentials: 'include',
-      })
-
-      if (!response.ok) {
-        const responseBody = (await response.json()) as { error?: string }
-        setActionNotice({
-          tone: 'danger',
-          message:
-            responseBody.error ?? 'Unable to disconnect Steam right now.',
-        })
-        return
-      }
-
-      setSteamImportPreview(null)
-      setIsSteamImportModalOpen(false)
-      setActionNotice({
-        tone: 'success',
-        message: 'Steam account disconnected.',
-      })
-      await loadDashboard()
+      await steamDisconnectMutation.mutateAsync()
     } catch (error) {
-      setActionNotice({
-        tone: 'danger',
-        message:
-          error instanceof Error
-            ? error.message
-            : 'Unable to disconnect Steam right now.',
-      })
-    } finally {
-      setSteamDisconnectPending(false)
+      setActionNotice(
+        errorNotice(error, 'Unable to disconnect Steam right now.'),
+      )
+      return
     }
-  }, [buildApiUrl, loadDashboard, setActionNotice])
+
+    queryClient.removeQueries({ queryKey: queryKeys.steamImportPreview() })
+    setIsSteamImportModalOpen(false)
+    setActionNotice({
+      tone: 'success',
+      message: 'Steam account disconnected.',
+    })
+    await loadDashboard()
+  }, [loadDashboard, queryClient, setActionNotice, steamDisconnectMutation])
 
   const handleAddLibraryEntry = useCallback(async () => {
     const title = libraryTitle.trim()
@@ -709,48 +705,24 @@ export function useDashboardLibrary({
       return
     }
 
-    setLibrarySaving(true)
     setActionNotice(null)
 
     try {
-      const response = await fetch(buildApiUrl('/api/library/me'), {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          title,
-          platformLabels,
-          intent: libraryIntent,
-          availability: libraryAvailability.trim() || undefined,
-          catalogMatch: selectedCatalogResult
-            ? {
-                source: selectedCatalogResult.source,
-                sourceId: selectedCatalogResult.sourceId,
-                title: selectedCatalogResult.title,
-                coverUrl: selectedCatalogResult.coverUrl,
-                platformLabels: selectedCatalogResult.platformLabels,
-              }
-            : undefined,
-        }),
+      await saveEntryMutation.mutateAsync({
+        title,
+        platformLabels,
+        intent: libraryIntent,
+        availability: libraryAvailability.trim() || undefined,
+        catalogMatch: selectedCatalogResult
+          ? {
+              source: selectedCatalogResult.source,
+              sourceId: selectedCatalogResult.sourceId,
+              title: selectedCatalogResult.title,
+              coverUrl: selectedCatalogResult.coverUrl,
+              platformLabels: selectedCatalogResult.platformLabels,
+            }
+          : undefined,
       })
-
-      const responseBody = (await response.json()) as
-        LibraryResponse | { error?: string }
-
-      if (!response.ok) {
-        setActionNotice({
-          tone: 'danger',
-          message: extractErrorMessage(
-            responseBody,
-            'Unable to add that game right now.',
-          ),
-        })
-        return
-      }
-
-      libraryResponseSchema.parse(responseBody)
       resetLibraryForm()
       if (isEditingLibraryEntry) {
         setActionNotice(null)
@@ -769,17 +741,15 @@ export function useDashboardLibrary({
             ? error.message
             : 'Unable to add that game right now.',
       })
-    } finally {
-      setLibrarySaving(false)
     }
   }, [
-    buildApiUrl,
     editingLibraryEntryId,
     libraryAvailability,
     libraryIntent,
     libraryTitle,
     loadDashboard,
     resetLibraryForm,
+    saveEntryMutation,
     selectedCatalogResult,
     selectedPlatformLabels,
     setActionNotice,
@@ -787,54 +757,32 @@ export function useDashboardLibrary({
 
   const handleRemoveLibraryEntry = useCallback(
     async (entryId: string) => {
-      setRemovingLibraryEntryId(entryId)
       setActionNotice(null)
 
       try {
-        const response = await fetch(
-          buildApiUrl(`/api/library/me/${entryId}`),
-          {
-            method: 'DELETE',
-            credentials: 'include',
-          },
-        )
-
-        if (!response.ok) {
-          const responseBody = (await response.json()) as { error?: string }
-          setActionNotice({
-            tone: 'danger',
-            message:
-              responseBody.error ?? 'Unable to remove that game right now.',
-          })
-          return
-        }
-
-        setActionNotice({
-          tone: 'success',
-          message: 'Removed that game from your library.',
-        })
-
-        if (entryId === editingLibraryEntryId) {
-          resetLibraryForm()
-        }
-
-        await loadDashboard()
+        await removeEntryMutation.mutateAsync(entryId)
       } catch (error) {
-        setActionNotice({
-          tone: 'danger',
-          message:
-            error instanceof Error
-              ? error.message
-              : 'Unable to remove that game right now.',
-        })
-      } finally {
-        setRemovingLibraryEntryId(null)
+        setActionNotice(
+          errorNotice(error, 'Unable to remove that game right now.'),
+        )
+        return
       }
+
+      setActionNotice({
+        tone: 'success',
+        message: 'Removed that game from your library.',
+      })
+
+      if (entryId === editingLibraryEntryId) {
+        resetLibraryForm()
+      }
+
+      await loadDashboard()
     },
     [
-      buildApiUrl,
       editingLibraryEntryId,
       loadDashboard,
+      removeEntryMutation,
       resetLibraryForm,
       setActionNotice,
     ],
@@ -867,100 +815,68 @@ export function useDashboardLibrary({
         return
       }
 
-      setAliasSavingKey(`platform:${platform}`)
-
       try {
-        const response = await fetch(
-          buildApiUrl(`/api/aliases/platforms/${encodeURIComponent(platform)}`),
-          {
-            method: 'PUT',
-            credentials: 'include',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ aliasValue: trimmedAlias }),
-          },
-        )
-
-        if (!response.ok) {
-          const body = (await response.json()) as { error?: string }
-          setActionNotice({
-            tone: 'danger',
-            message:
-              body.error ?? 'Unable to save that platform alias right now.',
-          })
-          return
-        }
-
-        const parsed = userPlatformAliasesResponseSchema.parse(
-          await response.json(),
-        )
+        const parsed = await savePlatformAliasMutation.mutateAsync({
+          platform,
+          aliasValue: trimmedAlias,
+        })
         const nextAlias = parsed.aliases[0]
 
         if (!nextAlias) {
           return
         }
 
-        setPlatformAliases((current) => {
-          const others = current.filter(
-            (entry) => entry.platform !== nextAlias.platform,
-          )
-          return [...others, nextAlias].sort((left, right) =>
-            left.platform.localeCompare(right.platform),
-          )
-        })
+        queryClient.setQueryData(
+          queryKeys.platformAliases(),
+          (current: { aliases: UserPlatformAlias[] } | undefined) => ({
+            aliases: [
+              ...(current?.aliases ?? []).filter(
+                (entry) => entry.platform !== nextAlias.platform,
+              ),
+              nextAlias,
+            ].sort((left, right) =>
+              left.platform.localeCompare(right.platform),
+            ),
+          }),
+        )
         setActionNotice({
           tone: 'success',
           message: `Saved alias for ${platform}.`,
         })
       } catch (error) {
-        setActionNotice({
-          tone: 'danger',
-          message:
-            error instanceof Error
-              ? error.message
-              : 'Unable to save that platform alias right now.',
-        })
-      } finally {
-        setAliasSavingKey(null)
+        setActionNotice(
+          errorNotice(error, 'Unable to save that platform alias right now.'),
+        )
       }
     },
-    [buildApiUrl, setActionNotice],
+    [savePlatformAliasMutation, queryClient, setActionNotice],
   )
 
   const handleDeletePlatformAlias = useCallback(
     async (platform: string) => {
-      setAliasSavingKey(`platform:${platform}`)
-
       try {
-        await fetch(
-          buildApiUrl(`/api/aliases/platforms/${encodeURIComponent(platform)}`),
-          {
-            method: 'DELETE',
-            credentials: 'include',
-          },
-        )
-
-        setPlatformAliases((current) =>
-          current.filter((entry) => entry.platform !== platform),
-        )
-        setActionNotice({
-          tone: 'success',
-          message: `Removed alias for ${platform}.`,
-        })
+        await deletePlatformAliasMutation.mutateAsync(platform)
       } catch (error) {
-        setActionNotice({
-          tone: 'danger',
-          message:
-            error instanceof Error
-              ? error.message
-              : 'Unable to remove that platform alias right now.',
-        })
-      } finally {
-        setAliasSavingKey(null)
+        setActionNotice(
+          errorNotice(error, 'Unable to remove that platform alias right now.'),
+        )
+        return
       }
+
+      queryClient.setQueryData(
+        queryKeys.platformAliases(),
+        (current: { aliases: UserPlatformAlias[] } | undefined) => ({
+          aliases: (current?.aliases ?? []).filter(
+            (entry) => entry.platform !== platform,
+          ),
+        }),
+      )
+      setActionNotice({
+        tone: 'success',
+        message: `Removed alias for ${platform}.`,
+      })
     },
-    [buildApiUrl, setActionNotice],
+    [deletePlatformAliasMutation, queryClient, setActionNotice],
   )
 
   const handleSaveGameAlias = useCallback(
@@ -971,93 +887,65 @@ export function useDashboardLibrary({
         return
       }
 
-      setAliasSavingKey(`game:${gameId}`)
-
       try {
-        const response = await fetch(
-          buildApiUrl(`/api/aliases/games/${gameId}`),
-          {
-            method: 'PUT',
-            credentials: 'include',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ aliasValue: trimmedAlias }),
-          },
-        )
-
-        if (!response.ok) {
-          const body = (await response.json()) as { error?: string }
-          setActionNotice({
-            tone: 'danger',
-            message: body.error ?? 'Unable to save that game alias right now.',
-          })
-          return
-        }
-
-        const parsed = userGameAliasesResponseSchema.parse(
-          await response.json(),
-        )
+        const parsed = await saveGameAliasMutation.mutateAsync({
+          gameId,
+          aliasValue: trimmedAlias,
+        })
         const nextAlias = parsed.aliases[0]
 
         if (!nextAlias) {
           return
         }
 
-        setGameAliases((current) => {
-          const others = current.filter(
-            (entry) => entry.gameId !== nextAlias.gameId,
-          )
-          return [...others, nextAlias].sort((left, right) =>
-            left.gameTitle.localeCompare(right.gameTitle),
-          )
-        })
+        queryClient.setQueryData(
+          queryKeys.gameAliases(),
+          (current: { aliases: UserGameAlias[] } | undefined) => ({
+            aliases: [
+              ...(current?.aliases ?? []).filter(
+                (entry) => entry.gameId !== nextAlias.gameId,
+              ),
+              nextAlias,
+            ].sort((left, right) =>
+              left.gameTitle.localeCompare(right.gameTitle),
+            ),
+          }),
+        )
         setActionNotice({
           tone: 'success',
           message: `Saved alias for ${nextAlias.gameTitle}.`,
         })
       } catch (error) {
-        setActionNotice({
-          tone: 'danger',
-          message:
-            error instanceof Error
-              ? error.message
-              : 'Unable to save that game alias right now.',
-        })
-      } finally {
-        setAliasSavingKey(null)
+        setActionNotice(
+          errorNotice(error, 'Unable to save that game alias right now.'),
+        )
       }
     },
-    [buildApiUrl, setActionNotice],
+    [saveGameAliasMutation, queryClient, setActionNotice],
   )
 
   const handleDeleteGameAlias = useCallback(
     async (gameId: string) => {
-      setAliasSavingKey(`game:${gameId}`)
-
       try {
-        await fetch(buildApiUrl(`/api/aliases/games/${gameId}`), {
-          method: 'DELETE',
-          credentials: 'include',
-        })
-
-        setGameAliases((current) =>
-          current.filter((entry) => entry.gameId !== gameId),
-        )
-        setActionNotice({ tone: 'success', message: 'Removed game alias.' })
+        await deleteGameAliasMutation.mutateAsync(gameId)
       } catch (error) {
-        setActionNotice({
-          tone: 'danger',
-          message:
-            error instanceof Error
-              ? error.message
-              : 'Unable to remove that game alias right now.',
-        })
-      } finally {
-        setAliasSavingKey(null)
+        setActionNotice(
+          errorNotice(error, 'Unable to remove that game alias right now.'),
+        )
+        return
       }
+
+      queryClient.setQueryData(
+        queryKeys.gameAliases(),
+        (current: { aliases: UserGameAlias[] } | undefined) => ({
+          aliases: (current?.aliases ?? []).filter(
+            (entry) => entry.gameId !== gameId,
+          ),
+        }),
+      )
+      setActionNotice({ tone: 'success', message: 'Removed game alias.' })
     },
-    [buildApiUrl, setActionNotice],
+    [deleteGameAliasMutation, queryClient, setActionNotice],
   )
 
   const libraryViewProps: DashboardLibraryViewProps = {

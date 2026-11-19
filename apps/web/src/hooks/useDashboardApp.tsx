@@ -843,7 +843,6 @@ export function useDashboardApp() {
       steamImportEnabled: Boolean(steamProvider?.enabled),
       steamConnected,
       steamLinkPending,
-      buildApiUrl,
       libraryEntries,
       suggestedGames: suggestedLibraryGames,
       trendingGames: trendingLibraryGames,
