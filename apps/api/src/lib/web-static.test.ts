@@ -23,6 +23,7 @@ test('cache rules: assets immutable, update files fresh, other files default', (
     assert.match(cacheControlFor(file) ?? '', /^no-store/, file)
   }
   assert.equal(cacheControlFor('/icon-up-bang-64.png'), null)
+  assert.equal(cacheControlFor('/icon-192.png'), null)
 })
 
 test('the built app is served with its cache headers and a shell fallback', async (context) => {

@@ -265,7 +265,7 @@ export const DashboardLayout = ({
                 >
                   <Box
                     component="img"
-                    src="/icon-wordmark-gold-bubble.svg"
+                    src="/icon.svg"
                     alt="Game's Up"
                     sx={{
                       width: '100%',

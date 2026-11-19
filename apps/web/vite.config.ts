@@ -6,7 +6,9 @@ import { VitePWA } from 'vite-plugin-pwa'
 import { webBuildIdPlugin } from './webBuildIdPlugin.ts'
 import { navigationCaching } from './serviceWorkerConfig.ts'
 
-const pwaIconVersion = '20260716'
+// Cache-busting version for the icon URLs. devkit-icons writes the PWA icons from assets/brand/
+// (`npm run icons`); bump this, and the matching `?v=` in index.html, whenever the icon art changes.
+const pwaIconVersion = '20261119'
 
 /** Return process-level Vite variables so runner overlays win over values loaded from `.env`. */
 function pickViteEnv(source: NodeJS.ProcessEnv): Record<string, string> {
@@ -67,28 +69,28 @@ export default defineConfig(({ mode }) => {
           start_url: '/',
           icons: [
             {
-              src: `/icon-wordmark-gold-bubble.svg?v=${pwaIconVersion}`,
+              src: `/icon.svg?v=${pwaIconVersion}`,
               sizes: 'any',
               type: 'image/svg+xml',
             },
             {
-              src: `/icon-wordmark-gold-bubble-192.png?v=${pwaIconVersion}`,
+              src: `/icon-192.png?v=${pwaIconVersion}`,
               sizes: '192x192',
               type: 'image/png',
             },
             {
-              src: `/icon-wordmark-gold-bubble-512.png?v=${pwaIconVersion}`,
+              src: `/icon-512.png?v=${pwaIconVersion}`,
               sizes: '512x512',
               type: 'image/png',
             },
             {
-              src: `/icon-wordmark-gold-bubble-maskable-192.png?v=${pwaIconVersion}`,
+              src: `/maskable-icon-192.png?v=${pwaIconVersion}`,
               sizes: '192x192',
               type: 'image/png',
               purpose: 'maskable',
             },
             {
-              src: `/icon-wordmark-gold-bubble-maskable-512.png?v=${pwaIconVersion}`,
+              src: `/maskable-icon-512.png?v=${pwaIconVersion}`,
               sizes: '512x512',
               type: 'image/png',
               purpose: 'maskable',

@@ -1,0 +1,6 @@
+{
+  "background": "#17181D",
+  "targets": {
+    "web": { "dir": "apps/web/public", "appleTouchMaster": "icon" }
+  }
+}
