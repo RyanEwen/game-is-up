@@ -69,6 +69,8 @@ export function RunningLateDialog({
         <FormControl error={!estimate.success}>
           <FormLabel>How many minutes late?</FormLabel>
           <Input
+            // The dialog's only field: moving focus to it on open is the expected dialog behaviour.
+            // eslint-disable-next-line jsx-a11y/no-autofocus
             autoFocus
             type="number"
             value={value}

@@ -1,5 +1,6 @@
 import js from '@eslint/js'
 import globals from 'globals'
+import jsxA11y from 'eslint-plugin-jsx-a11y'
 import reactHooks from 'eslint-plugin-react-hooks'
 import reactRefresh from 'eslint-plugin-react-refresh'
 import tseslint from 'typescript-eslint'
@@ -41,5 +42,10 @@ export default tseslint.config(
       // Native alert, confirm and prompt dialogs break the app's Back-aware modal convention.
       'no-alert': 'error',
     },
+  },
+  // Accessibility baseline for the web app (UI-14): accessible names, valid ARIA, keyboard reach.
+  {
+    ...jsxA11y.flatConfigs.recommended,
+    files: ['apps/web/**/*.tsx'],
   },
 )
