@@ -284,7 +284,7 @@ async function main() {
         slug: 'destiny-2',
         title: 'Destiny 2',
         coverUrl:
-          'https://media.rawg.io/media/games/2bf/2bf1d6e1b9b9f87dd50f2f3f5dba2d9f.jpg',
+          'https://cdn.cloudflare.steamstatic.com/steam/apps/1085660/header.jpg',
         description:
           'Shared-world looter shooter with raids and ritual playlists.',
         sources: {
@@ -304,7 +304,7 @@ async function main() {
         slug: 'lethal-company',
         title: 'Lethal Company',
         coverUrl:
-          'https://media.rawg.io/media/games/c0e/c0e6cb9a44c7cf611f795882ec58c2c8.jpg',
+          'https://cdn.cloudflare.steamstatic.com/steam/apps/1966720/header.jpg',
         description:
           'Scrappy co-op salvage runs where every plan gets worse in voice chat.',
         sources: {
@@ -318,7 +318,7 @@ async function main() {
         slug: 'warframe',
         title: 'Warframe',
         coverUrl:
-          'https://media.rawg.io/media/games/6d9/6d9b20f0a0fabc0877d102f23b46301f.jpg',
+          'https://cdn.cloudflare.steamstatic.com/steam/apps/230410/header.jpg',
         description:
           'Fast co-op looter shooter with endless progression systems.',
         sources: {
@@ -339,7 +339,7 @@ async function main() {
         slug: 'valheim',
         title: 'Valheim',
         coverUrl:
-          'https://media.rawg.io/media/games/2fe/2fe625b052a63eb0b7f3f610f1c0a1f6.jpg',
+          'https://cdn.cloudflare.steamstatic.com/steam/apps/892970/header.jpg',
         description:
           'Survival crafting with long co-op sessions and boss progression.',
         sources: {
@@ -355,7 +355,7 @@ async function main() {
         slug: 'phasmophobia',
         title: 'Phasmophobia',
         coverUrl:
-          'https://media.rawg.io/media/games/e21/e2164ce5b4fbfdb40d4b2f9f5dbbab81.jpg',
+          'https://cdn.cloudflare.steamstatic.com/steam/apps/739630/header.jpg',
         description:
           'Ghost-hunting co-op that works well for short sessions and voice chat chaos.',
         sources: {
