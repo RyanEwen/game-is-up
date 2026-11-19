@@ -876,7 +876,6 @@ export function useDashboardApp() {
   })
 
   const { inviteOverviewProps } = useDashboardInvites({
-    buildApiUrl,
     session: state.session,
     isSignedIn,
     availableDiscoveryServers,

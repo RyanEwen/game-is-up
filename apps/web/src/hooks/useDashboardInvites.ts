@@ -9,6 +9,7 @@
 
 import type { Dispatch, SetStateAction } from 'react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import type {
   AuthSessionResponse,
   DiscordServerMembersResponse,
@@ -17,12 +18,16 @@ import type {
 } from '@game-is-up/shared'
 import {
   discordServerMembersResponseSchema,
-  extractErrorMessage,
   sendDiscordServerInvitesResponseSchema,
 } from '@game-is-up/shared'
 import type { Notice } from '../components/dashboard/types'
+import { apiRequest } from '../lib/apiQuery'
+import { queryKeys } from '../lib/queryKeys'
 
-const configuredPublicAppUrl = import.meta.env.VITE_PUBLIC_APP_URL
+// `import.meta.env` exists only under Vite; Node's test runner imports this module without it.
+const configuredPublicAppUrl = import.meta.env?.VITE_PUBLIC_APP_URL
+const membersLoadError = 'Unable to load Discord members right now.'
+const sendInvitesError = 'Unable to send invites right now.'
 const emptyInviteMembers: DiscordServerMembersResponse['members'] = []
 
 function normalizeInviteUrl(value: string | undefined | null): string | null {
@@ -147,13 +152,11 @@ export type DashboardInviteOverviewProps = {
 }
 
 export function useDashboardInvites({
-  buildApiUrl,
   session,
   isSignedIn,
   availableDiscoveryServers,
   setActionNotice,
 }: {
-  buildApiUrl: (path: string) => string
   session: AuthSessionResponse | null
   isSignedIn: boolean
   availableDiscoveryServers: InviteServer[]
@@ -163,16 +166,7 @@ export function useDashboardInvites({
   const [selectedInviteUserIds, setSelectedInviteUserIds] = useState<string[]>(
     [],
   )
-  const [inviteMembersState, setInviteMembersState] =
-    useState<DiscordServerMembersResponse | null>(null)
-  const [inviteMembersLoading, setInviteMembersLoading] = useState(false)
-  const [inviteMembersNotice, setInviteMembersNotice] = useState<Notice | null>(
-    null,
-  )
   const [inviteMemberQuery, setInviteMemberQuery] = useState('')
-  const [inviteMembersReloadVersion, setInviteMembersReloadVersion] =
-    useState(0)
-  const [inviteSending, setInviteSending] = useState(false)
   const [inviteSendSummary, setInviteSendSummary] =
     useState<SendDiscordServerInvitesResponse | null>(null)
 
@@ -187,6 +181,51 @@ export function useDashboardInvites({
     selectedDiscoveryServers[0] ??
     null
   const activeInviteServerId = activeInviteServer?.id ?? null
+
+  // The active server's members, loaded once per server and kept until invalidated.
+  const membersQuery = useQuery({
+    queryKey: queryKeys.discordServerMembers(activeInviteServerId ?? ''),
+    queryFn: () =>
+      apiRequest(
+        `/api/discord-servers/me/${activeInviteServerId}/members`,
+        discordServerMembersResponseSchema,
+        membersLoadError,
+      ),
+    enabled: isSignedIn && activeInviteServerId !== null,
+  })
+  const inviteMembersState: DiscordServerMembersResponse | null =
+    isSignedIn && activeInviteServerId !== null
+      ? (membersQuery.data ?? null)
+      : null
+  const inviteMembersLoading = membersQuery.isFetching
+  const inviteMembersNotice: Notice | null = membersQuery.error
+    ? {
+        tone: 'danger',
+        message: membersQuery.error.message || membersLoadError,
+      }
+    : null
+
+  const sendInvitesMutation = useMutation({
+    mutationFn: (variables: {
+      serverId: string
+      inviteUrl: string
+      memberIds: string[]
+    }) =>
+      apiRequest(
+        `/api/discord-servers/me/${variables.serverId}/invites`,
+        sendDiscordServerInvitesResponseSchema,
+        sendInvitesError,
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            inviteUrl: variables.inviteUrl,
+            memberIds: variables.memberIds,
+          }),
+        },
+      ),
+  })
+  const inviteSending = sendInvitesMutation.isPending
+
   const inviteMembers = inviteMembersState?.members ?? emptyInviteMembers
   const inviteableInviteUserIds = useMemo(
     () =>
@@ -251,82 +290,12 @@ export function useDashboardInvites({
     }
   }, [inviteServerId, selectedDiscoveryServers])
 
+  // A different server (or signing out) starts a fresh selection.
   useEffect(() => {
-    if (!isSignedIn || !activeInviteServerId) {
-      setInviteMembersState(null)
-      setInviteMembersNotice(null)
-      setInviteMembersLoading(false)
-      setSelectedInviteUserIds([])
-      setInviteMemberQuery('')
-      setInviteSendSummary(null)
-      return
-    }
-
-    let cancelled = false
-    setInviteMembersLoading(true)
-    setInviteMembersNotice(null)
-    setInviteMembersState(null)
     setSelectedInviteUserIds([])
     setInviteMemberQuery('')
     setInviteSendSummary(null)
-
-    void (async () => {
-      try {
-        const response = await fetch(
-          buildApiUrl(
-            `/api/discord-servers/me/${activeInviteServerId}/members`,
-          ),
-          {
-            credentials: 'include',
-          },
-        )
-        const responseJson = (await response.json()) as
-          DiscordServerMembersResponse | { error?: string }
-
-        if (cancelled) {
-          return
-        }
-
-        if (!response.ok) {
-          throw new Error(
-            extractErrorMessage(
-              responseJson,
-              'Unable to load Discord members right now.',
-            ),
-          )
-        }
-
-        setInviteMembersState(
-          discordServerMembersResponseSchema.parse(responseJson),
-        )
-      } catch (error) {
-        if (cancelled) {
-          return
-        }
-
-        setInviteMembersNotice({
-          tone: 'danger',
-          message:
-            error instanceof Error
-              ? error.message
-              : 'Unable to load Discord members right now.',
-        })
-      } finally {
-        if (!cancelled) {
-          setInviteMembersLoading(false)
-        }
-      }
-    })()
-
-    return () => {
-      cancelled = true
-    }
-  }, [
-    activeInviteServerId,
-    buildApiUrl,
-    inviteMembersReloadVersion,
-    isSignedIn,
-  ])
+  }, [activeInviteServerId, isSignedIn])
 
   const handleCopyInvite = useCallback(async () => {
     setActionNotice(null)
@@ -429,37 +398,12 @@ export function useDashboardInvites({
       return
     }
 
-    setInviteSending(true)
-
     try {
-      const response = await fetch(
-        buildApiUrl(`/api/discord-servers/me/${activeInviteServerId}/invites`),
-        {
-          method: 'POST',
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            inviteUrl,
-            memberIds: inviteableSelectedInviteUserIds,
-          }),
-        },
-      )
-
-      const responseJson = (await response.json()) as
-        SendDiscordServerInvitesResponse | { error?: string }
-
-      if (!response.ok) {
-        throw new Error(
-          extractErrorMessage(
-            responseJson,
-            'Unable to send invites right now.',
-          ),
-        )
-      }
-
-      const parsed = sendDiscordServerInvitesResponseSchema.parse(responseJson)
+      const parsed = await sendInvitesMutation.mutateAsync({
+        serverId: activeInviteServerId,
+        inviteUrl,
+        memberIds: inviteableSelectedInviteUserIds,
+      })
       const failedRecipients = parsed.results.filter(
         (result) => result.status === 'failed',
       )
@@ -476,20 +420,18 @@ export function useDashboardInvites({
       setActionNotice({
         tone: 'danger',
         message:
-          error instanceof Error
+          error instanceof Error && error.message
             ? error.message
-            : 'Unable to send invites right now.',
+            : sendInvitesError,
       })
       setInviteSendSummary(null)
-    } finally {
-      setInviteSending(false)
     }
   }, [
     activeInviteServerId,
-    buildApiUrl,
     inviteUrl,
     inviteableInviteUserIds,
     selectedInviteUserIds,
+    sendInvitesMutation,
     setActionNotice,
   ])
 
@@ -509,9 +451,10 @@ export function useDashboardInvites({
     [inviteableInviteUserIds],
   )
 
+  const { refetch: refetchInviteMembers } = membersQuery
   const handleRetryInviteMembers = useCallback(() => {
-    setInviteMembersReloadVersion((current) => current + 1)
-  }, [])
+    void refetchInviteMembers()
+  }, [refetchInviteMembers])
 
   const handleSelectInviteServer = useCallback((serverId: string) => {
     setInviteServerId(serverId)
