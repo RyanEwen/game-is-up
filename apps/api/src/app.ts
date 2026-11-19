@@ -25,6 +25,12 @@ import { requestContext } from './lib/request-context.js'
 
 export const app = express()
 
+// One proxy sits in front of the API: in production the server's nginx site, which restores the
+// visitor's address from Cloudflare before forwarding (nginx.server.conf); in development, Vite's
+// proxy (behind the devkit proxy, so local requests share one count, which is harmless). Trusting exactly one hop makes request.ip the real client for the rate limits, and a
+// forged X-Forwarded-For from a direct caller is ignored.
+app.set('trust proxy', 1)
+
 const allowedClientOrigins = new Set(getAllowedClientOrigins())
 
 // First, so every later middleware's log lines and failures carry the request id.

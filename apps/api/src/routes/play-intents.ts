@@ -59,6 +59,7 @@ import { prisma } from '../lib/prisma.js'
 import { getAuthSession } from '../lib/session.js'
 import { getUserAdminStatus, requireSignedInUserId } from '../lib/route-auth.js'
 import { sendError } from '../lib/http-error.js'
+import { notificationLimit } from '../lib/rate-limits.js'
 
 export const playIntentRouter = Router()
 
@@ -110,51 +111,55 @@ playIntentRouter.get('/me', async (request, response, next) => {
   }
 })
 
-playIntentRouter.put('/me', async (request, response, next) => {
-  const userId = requireSignedInUserId(request, response)
+playIntentRouter.put(
+  '/me',
+  notificationLimit,
+  async (request, response, next) => {
+    const userId = requireSignedInUserId(request, response)
 
-  if (!userId) {
-    return
-  }
-
-  try {
-    const payload = upsertPlayIntentRequestSchema.parse(request.body)
-
-    const requestUser = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { isAdmin: true },
-    })
-
-    if (payload.includeSelf && !requestUser?.isAdmin) {
-      sendError(
-        response,
-        403,
-        'Admin access is required to target yourself with a test call to play.',
-      )
+    if (!userId) {
       return
     }
 
-    const result = await upsertCurrentPlayIntent(userId, payload)
+    try {
+      const payload = upsertPlayIntentRequestSchema.parse(request.body)
 
-    response.json(upsertPlayIntentResponseSchema.parse(result))
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      sendError(
-        response,
-        400,
-        error.issues[0]?.message ?? 'Invalid call-to-play payload.',
-      )
-      return
+      const requestUser = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { isAdmin: true },
+      })
+
+      if (payload.includeSelf && !requestUser?.isAdmin) {
+        sendError(
+          response,
+          403,
+          'Admin access is required to target yourself with a test call to play.',
+        )
+        return
+      }
+
+      const result = await upsertCurrentPlayIntent(userId, payload)
+
+      response.json(upsertPlayIntentResponseSchema.parse(result))
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        sendError(
+          response,
+          400,
+          error.issues[0]?.message ?? 'Invalid call-to-play payload.',
+        )
+        return
+      }
+
+      if (error instanceof PlayIntentValidationError) {
+        sendError(response, 400, error.message)
+        return
+      }
+
+      next(error)
     }
-
-    if (error instanceof PlayIntentValidationError) {
-      sendError(response, 400, error.message)
-      return
-    }
-
-    next(error)
-  }
-})
+  },
+)
 
 playIntentRouter.delete('/me', async (request, response, next) => {
   const userId = requireSignedInUserId(request, response)
@@ -197,6 +202,7 @@ playIntentRouter.delete('/:playIntentId', async (request, response, next) => {
 
 playIntentRouter.post(
   '/:playIntentId/start-now',
+  notificationLimit,
   async (request, response, next) => {
     const userId = requireSignedInUserId(request, response)
 
@@ -406,6 +412,7 @@ playIntentRouter.get('/:playIntentId', async (request, response, next) => {
 
 playIntentRouter.post(
   '/:playIntentId/respond',
+  notificationLimit,
   async (request, response, next) => {
     const userId = requireSignedInUserId(request, response)
 
@@ -454,6 +461,7 @@ playIntentRouter.post(
 
 playIntentRouter.post(
   '/:playIntentId/discord-space/retry',
+  notificationLimit,
   async (request, response, next) => {
     const userId = requireSignedInUserId(request, response)
 

@@ -67,6 +67,7 @@ import { publishDashboardInvalidation } from '../lib/dashboard-events.js'
 import { toClientAvatarUrl } from '../lib/game-media.js'
 import { logger } from '../lib/logger.js'
 import { sendError } from '../lib/http-error.js'
+import { signInLimit } from '../lib/rate-limits.js'
 
 export const authRouter = Router()
 
@@ -305,7 +306,7 @@ authRouter.get('/me', async (request, response) => {
   )
 })
 
-authRouter.get('/discord/login', (request, response) => {
+authRouter.get('/discord/login', signInLimit, (request, response) => {
   if (!isDiscordAuthConfigured()) {
     sendError(response, 503, 'Discord OAuth is not configured.')
     return
@@ -321,7 +322,7 @@ authRouter.get('/discord/login', (request, response) => {
   response.redirect(buildDiscordAuthorizationUrl(state))
 })
 
-authRouter.get('/discord/callback', async (request, response) => {
+authRouter.get('/discord/callback', signInLimit, async (request, response) => {
   const error =
     typeof request.query.error === 'string' ? request.query.error : null
   const code =
@@ -377,7 +378,7 @@ authRouter.get('/discord/callback', async (request, response) => {
   }
 })
 
-authRouter.post('/steam/link-intent', (request, response) => {
+authRouter.post('/steam/link-intent', signInLimit, (request, response) => {
   const session = getAuthSession(request)
 
   if (!session) {
@@ -401,7 +402,7 @@ authRouter.post('/steam/link-intent', (request, response) => {
   )
 })
 
-authRouter.get('/steam/callback', async (request, response) => {
+authRouter.get('/steam/callback', signInLimit, async (request, response) => {
   const state =
     typeof request.query.state === 'string' ? request.query.state : undefined
   const linkState = consumeSteamLinkState(state)

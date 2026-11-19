@@ -13,6 +13,7 @@ import {
   inviteFriendToPlayIntent,
 } from '../lib/play-intent-friend-invites.js'
 import { sendError } from '../lib/http-error.js'
+import { notificationLimit } from '../lib/rate-limits.js'
 
 export const playIntentFriendInviteRouter = Router()
 const playIntentParamSchema = z.object({ playIntentId: z.string().uuid() })
@@ -56,6 +57,7 @@ playIntentFriendInviteRouter.get(
 
 playIntentFriendInviteRouter.post(
   '/:playIntentId/friend-invites',
+  notificationLimit,
   async (request, response, next) => {
     const userId = requireSignedInUserId(request, response)
     if (!userId) {

@@ -4,7 +4,7 @@ How Game's Up runs in production: the Docker Compose stack, the SSH deploy scrip
 
 ## Production Docker
 
-Production runs `compose.server.yml` (tracked) in a checkout on the server, with secrets and the public origin in an untracked `.env` beside it. A value that only one host needs goes in an untracked `compose.override.yml`, which the deploy adds when it exists. The public site is served by the server's shared nginx container, which reaches the API and web containers by name over the external `nginx_default` network; no port is published. Its site file is the tracked `nginx.server.conf`, installed as `gamesup.conf`.
+Production runs `compose.server.yml` (tracked) in a checkout on the server, with secrets and the public origin in an untracked `.env` beside it. A value that only one host needs goes in an untracked `compose.override.yml`, which the deploy adds when it exists. The public site is served by the server's shared nginx container, which reaches the API and web containers by name over the external `nginx_default` network; no port is published. Its site file is the tracked `nginx.server.conf`, installed as `gamesup.conf`. Cloudflare terminates HTTPS in front of it: the site restores the visitor's address from `CF-Connecting-IP` for Cloudflare's published ranges and sends `X-Forwarded-Proto https`, and the API's rate limits rely on that address. When Cloudflare changes its ranges (https://www.cloudflare.com/ips/), update the `set_real_ip_from` list.
 
 To set up a server checkout:
 

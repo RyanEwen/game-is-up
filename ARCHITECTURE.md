@@ -23,6 +23,8 @@ Every request gets a correlation id from the first middleware: it is returned as
 
 Every failed request answers with one shape, `{ error, code, requestId }` (`apiErrorResponseSchema` in the shared package): `error` is copy safe to show the user, and `code` is stable for clients. Unknown `/api` paths answer 404 in that shape, and a malformed JSON body is a 400, not a 500.
 
+Rate limits are per route, not global, because the media route serves many covers per page and the dashboard refetches in bursts (`apps/api/src/lib/rate-limits.ts`). Sign-in and Steam linking allow 30 attempts per client per 15 minutes; writes that notify people through Discord (saving, starting or answering a call to play, inviting a friend, retrying a Discord space) allow 60. A rejection is a 429 in the error shape with code `rate_limited`. The client is told apart by address: the server's nginx site restores the visitor's address from Cloudflare's `CF-Connecting-IP` only for requests from Cloudflare's ranges (`nginx.server.conf`), and the API trusts exactly that one proxy hop, so a caller reaching the server directly cannot forge its address.
+
 `GET /api/health` is liveness: it answers whenever the process is serving, and the container health check uses it, so a database outage never restarts the API. `GET /api/health/ready` is readiness: it pings the database with a two-second limit and answers 503 when that fails. The optional Discord bot does not count towards readiness.
 
 ## Dashboard refresh flow
