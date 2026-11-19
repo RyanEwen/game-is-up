@@ -6,8 +6,6 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "dev": "tsx watch src/index.ts",
-    "test": "NODE_ENV=test DATABASE_URL=postgresql://unit-tests@127.0.0.1:1/unit_tests_never_connect DISCORD_BOT_TOKEN= STEAM_WEB_API_KEY= RAWG_API_KEY= node --import tsx --test 'src/**/!(*.integration).test.ts'",
-    "test:integration": "NODE_ENV=test DISCORD_BOT_TOKEN= STEAM_WEB_API_KEY= RAWG_API_KEY= node --import tsx --test --test-concurrency=1 'src/**/*.integration.test.ts'",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "prisma:db:push": "DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@db:5432/game_is_up?schema=public} prisma db push --force-reset",
     "prisma:migrate:dev": "DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@db:5432/game_is_up?schema=public} prisma migrate dev",
