@@ -14,6 +14,6 @@ export const productLinks = {
   license: `${repositoryUrl}/blob/main/LICENSE`,
   /** Written into the web build by `devkit-notices` (configured in devkit.config.mjs). */
   thirdPartyNotices: '/THIRD-PARTY-NOTICES.txt',
-  /** Not published yet (DOCS-8, D-017); the About dialog and footer omit it until it is. */
-  privacyPolicy: null as string | null,
+  /** The public privacy policy (pages/PrivacyPage.tsx), linked from the footer and About. */
+  privacyPolicy: '/privacy' as string | null,
 } as const

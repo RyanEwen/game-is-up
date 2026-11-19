@@ -27,6 +27,10 @@ const InviteLandingView = lazy(async () => {
   const module = await import('./pages/InviteLandingView')
   return { default: module.InviteLandingView }
 })
+const PrivacyPage = lazy(async () => {
+  const module = await import('./pages/PrivacyPage')
+  return { default: module.PrivacyPage }
+})
 
 const DiscoveryView = lazy(async () => {
   const module = await import('./pages/DiscoveryView')
@@ -91,6 +95,14 @@ export default function App() {
         element={
           <RouteSuspense>
             <InviteLandingView />
+          </RouteSuspense>
+        }
+      />
+      <Route
+        path="/privacy"
+        element={
+          <RouteSuspense>
+            <PrivacyPage />
           </RouteSuspense>
         }
       />

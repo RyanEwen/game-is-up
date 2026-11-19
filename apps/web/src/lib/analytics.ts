@@ -36,7 +36,7 @@ const identifyingSegment =
  * A page added later without being listed is tracked under the app name, never its own title.
  */
 const trackableTitle =
-  /^Game's Up(?: \u2022 (?:Home|Network|Friends|Library|Play|Discovery|Admin and Debug|Invite|Invite Accepted))?$/
+  /^Game's Up(?: \u2022 (?:Home|Network|Friends|Library|Play|Discovery|Admin and Debug|Invite|Invite Accepted|Privacy))?$/
 
 /** The title to track for a page: its own when it is one of the app's fixed titles. */
 export function sanitizeTrackedTitle(title: string): string {
