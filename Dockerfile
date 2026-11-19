@@ -24,8 +24,8 @@ COPY tsconfig.base.json ./
 COPY packages/shared packages/shared
 COPY apps/api apps/api
 COPY apps/web apps/web
-# The web build generates its third-party notices with this script.
-COPY scripts/dev/generate-third-party-notices.mjs scripts/dev/
+# The root build writes the third-party notices with devkit-notices, configured here.
+COPY devkit.config.mjs ./
 RUN npm run db:generate && npm run build
 # Migrations run at start, so the Prisma CLI is a production dependency and survives the prune.
 RUN npm prune --omit=dev --ignore-scripts --no-audit --no-fund \

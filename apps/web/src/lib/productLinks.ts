@@ -12,7 +12,7 @@ export const productLinks = {
   /** GitHub issues, which open with the bug report template (D-086, HYG-9). */
   support: `${repositoryUrl}/issues`,
   license: `${repositoryUrl}/blob/main/LICENSE`,
-  /** Generated into the web build by scripts/dev/generate-third-party-notices.mjs. */
+  /** Written into the web build by `devkit-notices` (configured in devkit.config.mjs). */
   thirdPartyNotices: '/THIRD-PARTY-NOTICES.txt',
   /** Not published yet (DOCS-8, D-017); the About dialog and footer omit it until it is. */
   privacyPolicy: null as string | null,

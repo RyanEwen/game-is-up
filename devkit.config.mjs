@@ -22,6 +22,20 @@ export default {
     site: { source: 'nginx.server.conf', name: 'gamesup.conf' },
   },
 
+  /**
+   * Third-party notices (HYG-3, D-085) for the browser bundle, the only part of Game's Up that ships
+   * code to users. It bundles the shared package, so both are listed. `devkit-notices` writes the
+   * file during the root build, before the web build; it is git-ignored and Vite serves it at
+   * /THIRD-PARTY-NOTICES.txt, which the About dialog links to.
+   */
+  notices: [
+    {
+      title: "Game's Up web app (browser bundle)",
+      packages: ['apps/web', 'packages/shared'],
+      output: 'apps/web/public/THIRD-PARTY-NOTICES.txt',
+    },
+  ],
+
   /** The web port is first because devkit routes the checkout hostname to the block's base port. */
   ports: ['web'],
 
