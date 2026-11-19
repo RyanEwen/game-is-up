@@ -334,7 +334,6 @@ export async function upsertSteamIdentity(userId: string, steamId: string) {
       },
       data: {
         providerUserId: steamId,
-        email: null,
         grantedScopes: ['library-read'],
       },
     })
@@ -345,7 +344,6 @@ export async function upsertSteamIdentity(userId: string, steamId: string) {
       userId,
       provider: PrismaAuthProvider.STEAM,
       providerUserId: steamId,
-      email: null,
       grantedScopes: ['library-read'],
     },
   })

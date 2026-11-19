@@ -23,7 +23,8 @@ const developmentSeededDiscordHandleAliases = new Map([
   ['technicallyreal', 'technicallyreal'],
 ])
 
-export const DISCORD_REQUESTED_SCOPES = ['identify', 'email', 'guilds'] as const
+// No `email` scope: Game's Up has no use for the address, so it never asks Discord for it.
+export const DISCORD_REQUESTED_SCOPES = ['identify', 'guilds'] as const
 
 type DiscordTokenResponse = {
   access_token: string
@@ -38,7 +39,6 @@ export type DiscordUserProfile = {
   username: string
   global_name: string | null
   avatar: string | null
-  email?: string | null
 }
 
 export type DiscordGuildSummary = {
@@ -52,7 +52,6 @@ export type UpsertDiscordUserResult = {
     id: string
     handle: string
     displayName: string
-    email: string | null
     avatarUrl: string | null
     bio: string
     timezoneId: string
@@ -284,7 +283,6 @@ export async function upsertDiscordUser(
   profile: DiscordUserProfile,
   grantedScopeString = DISCORD_REQUESTED_SCOPES.join(' '),
 ): Promise<UpsertDiscordUserResult> {
-  const email = profile.email?.toLowerCase() ?? null
   const displayName = profile.global_name?.trim() || profile.username
   const avatarUrl = buildDiscordAvatarUrl(profile)
   const grantedScopes = normalizeGrantedScopes(grantedScopeString)
@@ -302,22 +300,6 @@ export async function upsertDiscordUser(
   })
 
   if (existingIdentity) {
-    const conflictingUser = email
-      ? await prisma.user.findUnique({
-          where: {
-            email,
-          },
-          select: {
-            id: true,
-          },
-        })
-      : null
-
-    const nextEmail =
-      conflictingUser && conflictingUser.id !== existingIdentity.userId
-        ? existingIdentity.user.email
-        : email
-
     const updatedUser = await prisma.user.update({
       where: {
         id: existingIdentity.userId,
@@ -325,7 +307,6 @@ export async function upsertDiscordUser(
       data: {
         displayName,
         avatarUrl,
-        email: nextEmail,
         lastSeenAt: new Date(),
       },
     })
@@ -335,7 +316,6 @@ export async function upsertDiscordUser(
         id: existingIdentity.id,
       },
       data: {
-        email,
         grantedScopes,
       },
     })
@@ -356,21 +336,12 @@ export async function upsertDiscordUser(
       })
     : null
 
-  if (!user && email) {
-    user = await prisma.user.findUnique({
-      where: {
-        email,
-      },
-    })
-  }
-
   if (!user) {
     const handle = await ensureUniqueHandle(normalizeHandleBase(displayName))
     user = await prisma.user.create({
       data: {
         handle,
         displayName,
-        email,
         avatarUrl,
         lastSeenAt: new Date(),
       },
@@ -383,7 +354,6 @@ export async function upsertDiscordUser(
       data: {
         displayName,
         avatarUrl,
-        email: email ?? user.email,
         lastSeenAt: new Date(),
       },
     })
@@ -394,7 +364,6 @@ export async function upsertDiscordUser(
       userId: user.id,
       provider: PrismaAuthProvider.DISCORD,
       providerUserId: profile.id,
-      email,
       grantedScopes,
     },
   })

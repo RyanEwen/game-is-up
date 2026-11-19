@@ -33,22 +33,3 @@ export async function ensureUniqueHandle(base: string): Promise<string> {
 
   return `${base}${Date.now().toString().slice(-6)}`.slice(0, 32)
 }
-
-export function displayNameFromEmail(email: string): string {
-  const localPart = email.split('@')[0] ?? 'Player'
-  const words = localPart
-    .replace(/[._-]+/g, ' ')
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 4)
-
-  if (words.length === 0) {
-    return 'Player'
-  }
-
-  return words
-    .map((word) => `${word[0]?.toUpperCase() ?? ''}${word.slice(1)}`)
-    .join(' ')
-    .slice(0, 60)
-}

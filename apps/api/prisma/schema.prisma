@@ -124,7 +124,6 @@ model User {
   id                                 String                              @id @default(uuid())
   handle                             String                              @unique
   displayName                        String
-  email                              String?                             @unique
   avatarUrl                          String?
   bio                                String                              @default("")
   timezoneId                         String                              @default("Etc/UTC") @map("timezoneLabel")
@@ -170,7 +169,6 @@ model UserIdentity {
   userId                      String
   provider                    AuthProvider
   providerUserId              String
-  email                       String?
   grantedScopes               String[]     @default([])
   discordAccessToken          String?
   discordRefreshToken         String?

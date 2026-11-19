@@ -51,7 +51,6 @@ const user = {
   handle: 'raider',
   displayName: 'Raider',
   avatarUrl: null,
-  email: null,
   timezoneId: 'America/Toronto',
   usualAvailability: null,
   discordAutoPromptPlayIntent: true,

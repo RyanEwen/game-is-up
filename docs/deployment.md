@@ -62,7 +62,7 @@ Game's Up collects no crash reports. When `UMAMI_SCRIPT_URL` and `UMAMI_WEBSITE_
 
 Account and product data lives in the PostgreSQL database in the `postgres-data` volume. Sessions are signed cookies and are not stored on the server. The API also keeps a disk cache of game covers and Discord avatars under the container's temporary directory (`game-is-up/game-media-cache/`), which is lost when the container is recreated; avatars are re-fetched after 7 days.
 
-- **Profile:** the Discord user id, handle, display name, avatar URL and email address from Discord sign-in, plus the timezone, bio and usual-availability note the user sets.
+- **Profile:** the Discord user id, handle, display name and avatar URL from Discord sign-in (sign-in does not request the email address, and none is stored), plus the timezone, bio and usual-availability note the user sets.
 - **Linked accounts:** the Discord OAuth access and refresh tokens, the user's Discord server memberships, and, when linked, the Steam account id.
 - **Library and social graph:** games, platforms and interests; friends, blocks, mutes and friends lists; discovery server preferences.
 - **Calls to play:** each call, its audience and games, responses, participant invitations, notifications, and the ids of the Discord messages the bot sent for it.

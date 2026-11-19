@@ -856,7 +856,6 @@ export const authenticatedUserSchema = z.object({
   handle: z.string().min(2).max(32),
   displayName: z.string().min(2).max(60),
   avatarUrl: z.url().nullable(),
-  email: z.email().nullable(),
   timezoneId: timezoneIdSchema,
   usualAvailability: z.string().nullable(),
   discordAutoPromptPlayIntent: z.boolean(),

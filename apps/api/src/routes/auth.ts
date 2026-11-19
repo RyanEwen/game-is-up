@@ -234,7 +234,6 @@ authRouter.get('/me', async (request, response) => {
       handle: true,
       displayName: true,
       avatarUrl: true,
-      email: true,
       timezoneId: true,
       usualAvailability: true,
       discordAutoPromptPlayIntent: true,

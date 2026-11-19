@@ -87,7 +87,6 @@ async function main() {
       data: {
         handle: 'technicallyreal',
         displayName: 'Alex Mercer',
-        email: 'alex@example.com',
         bio: 'Usually looking for co-op runs, flexible on genre, happy to fill support roles.',
         timezoneId: 'America/New_York',
         usualAvailability: 'Weeknights after 8pm',
@@ -97,8 +96,7 @@ async function main() {
           create: {
             provider: AuthProvider.DISCORD,
             providerUserId: 'discord-alex',
-            email: 'alex@example.com',
-            grantedScopes: ['email', 'guilds', 'identify'],
+            grantedScopes: ['guilds', 'identify'],
             lastDiscordGuildsSyncAt: new Date(),
           },
         },
@@ -108,7 +106,6 @@ async function main() {
       data: {
         handle: 'raidandrelax',
         displayName: 'Mira Santos',
-        email: 'mira@example.com',
         bio: 'Prefers chill co-op sessions, weekend raids, and games with good buildcraft.',
         timezoneId: 'America/New_York',
         usualAvailability: 'Weekend afternoons',
@@ -118,8 +115,7 @@ async function main() {
           create: {
             provider: AuthProvider.DISCORD,
             providerUserId: 'discord-mira',
-            email: 'mira@example.com',
-            grantedScopes: ['email', 'guilds', 'identify'],
+            grantedScopes: ['guilds', 'identify'],
             lastDiscordGuildsSyncAt: new Date(),
           },
         },
@@ -129,7 +125,6 @@ async function main() {
       data: {
         handle: 'nightqueue',
         displayName: 'Jordan Lee',
-        email: 'jordan@example.com',
         bio: 'Late-night queue partner for shooters, extraction games, and long-form RPG grinds.',
         timezoneId: 'Europe/Paris',
         usualAvailability: 'Late nights',
@@ -139,8 +134,7 @@ async function main() {
           create: {
             provider: AuthProvider.DISCORD,
             providerUserId: 'discord-jordan',
-            email: 'jordan@example.com',
-            grantedScopes: ['email', 'guilds', 'identify'],
+            grantedScopes: ['guilds', 'identify'],
             lastDiscordGuildsSyncAt: new Date(),
           },
         },
@@ -150,7 +144,6 @@ async function main() {
       data: {
         handle: 'supportmain',
         displayName: 'Kelsey Tran',
-        email: 'kelsey@example.com',
         bio: 'Usually tanking or healing, always up for one more mission if the vibes are good.',
         timezoneId: 'America/Chicago',
         usualAvailability: 'Most nights after 7pm',
@@ -160,8 +153,7 @@ async function main() {
           create: {
             provider: AuthProvider.DISCORD,
             providerUserId: 'discord-kelsey',
-            email: 'kelsey@example.com',
-            grantedScopes: ['email', 'guilds', 'identify'],
+            grantedScopes: ['guilds', 'identify'],
             lastDiscordGuildsSyncAt: new Date(),
           },
         },
@@ -171,7 +163,6 @@ async function main() {
       data: {
         handle: 'weekendwizard',
         displayName: 'Noa Kim',
-        email: 'noa@example.com',
         bio: 'Likes small-group co-op, long session games, and scheduling plans a little ahead of time.',
         timezoneId: 'America/New_York',
         usualAvailability: 'Weekend mornings and nights',
@@ -181,8 +172,7 @@ async function main() {
           create: {
             provider: AuthProvider.DISCORD,
             providerUserId: 'discord-noa',
-            email: 'noa@example.com',
-            grantedScopes: ['email', 'guilds', 'identify'],
+            grantedScopes: ['guilds', 'identify'],
             lastDiscordGuildsSyncAt: new Date(),
           },
         },
