@@ -15,8 +15,6 @@ dist/
 /apps/api/src/generated/
 # Generated third-party notices, rebuilt by every web build from the lockfile
 /apps/web/public/THIRD-PARTY-NOTICES.txt
-# Nested git worktrees (a repo's worktrees live in .worktrees/<name>/)
-/.worktrees/
 # Personal Claude Code settings; the tracked project settings are .claude/settings.json
 .claude/settings.local.json
 
@@ -24,6 +22,7 @@ dist/
 # of every repo's .gitignore, so no earlier line can un-ignore what it covers. Change it in the kit.
 /.artifacts/
 /.windows-build/
+/.worktrees/
 .secrets/
 .aws/
 .env
