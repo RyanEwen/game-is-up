@@ -21,6 +21,7 @@ let act: typeof import('@testing-library/react').act
 let cleanup: typeof import('@testing-library/react').cleanup
 let QueryClientProvider: typeof import('@tanstack/react-query').QueryClientProvider
 let MemoryRouter: typeof import('react-router-dom').MemoryRouter
+let useNavigate: typeof import('react-router-dom').useNavigate
 let useDashboardLibrary: typeof import('./useDashboardLibrary').useDashboardLibrary
 
 before(async () => {
@@ -34,6 +35,7 @@ before(async () => {
   QueryClientProvider = (await import('@tanstack/react-query'))
     .QueryClientProvider
   MemoryRouter = (await import('react-router-dom')).MemoryRouter
+  useNavigate = (await import('react-router-dom')).useNavigate
   useDashboardLibrary = (await import('./useDashboardLibrary'))
     .useDashboardLibrary
 })
@@ -121,8 +123,10 @@ async function renderLibrary() {
       React.createElement(QueryClientProvider, { client }, children),
     )
   const view = renderHook(
-    () =>
-      useDashboardLibrary({
+    () => ({
+      // The router's navigate, so a test can leave the page.
+      navigate: useNavigate(),
+      ...useDashboardLibrary({
         isSignedIn: true,
         steamImportEnabled: false,
         steamConnected: false,
@@ -147,6 +151,7 @@ async function renderLibrary() {
         setProfileNotice: () => {},
         onStartSteamLink: async () => {},
       }),
+    }),
     { wrapper },
   )
   return { view, notices, refreshes: () => refreshes }
@@ -227,4 +232,18 @@ test('aliases load, and a failed removal reports the error instead of success', 
     1,
     'the alias stays listed when the server refused',
   )
+})
+
+test('leaving the page closes the library editor and discards its draft', async () => {
+  stubFetch(() => json(404, {}))
+  const { view } = await renderLibrary()
+
+  act(() => view.result.current.libraryViewProps.openLibraryEditor())
+  act(() => view.result.current.libraryViewProps.onLibraryTitleChange('Hades'))
+  assert.equal(view.result.current.libraryViewProps.isLibraryEditorOpen, true)
+
+  act(() => view.result.current.navigate('/play'))
+
+  assert.equal(view.result.current.libraryViewProps.isLibraryEditorOpen, false)
+  assert.equal(view.result.current.libraryViewProps.libraryTitle, '')
 })

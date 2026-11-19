@@ -10,7 +10,7 @@
  */
 
 import type { Dispatch, SetStateAction } from 'react'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type {
   ActivePlayIntent,
@@ -59,6 +59,7 @@ import type {
   PlayIntentTimingMode,
   PlayIntentVoiceMode,
 } from '../components/dashboard/types'
+import { useResetOnChange } from './useResetOnChange'
 
 const emptyVoiceChannels: DiscordVoiceChannelsResponse['channels'] = []
 
@@ -256,7 +257,6 @@ export function useDashboardPlay({
   setPlayIntentNotice: Dispatch<SetStateAction<Notice | null>>
 }) {
   const location = useLocation()
-  const previousPathnameRef = useRef(location.pathname)
   const [playIntentNotifyScope, setPlayIntentNotifyScope] =
     useState<PlayIntentNotifyScope>('network')
   const [playIntentStartMode, setPlayIntentStartMode] =
@@ -729,13 +729,8 @@ export function useDashboardPlay({
       : 'Choose how long this call to play should stay visible.'
   const playIntentTimingHasError = playIntentTimingValidationMessage != null
 
-  useEffect(() => {
-    if (previousPathnameRef.current === location.pathname) {
-      return
-    }
-
-    previousPathnameRef.current = location.pathname
-
+  // Leaving the Play page closes the composer and its notice.
+  useResetOnChange([location.pathname], () => {
     if (location.pathname === dashboardTabPaths.play) {
       return
     }
@@ -746,7 +741,7 @@ export function useDashboardPlay({
 
     setIsPlayIntentComposerOpen(false)
     setPlayIntentNotice(null)
-  }, [isPlayIntentComposerOpen, location.pathname, setPlayIntentNotice])
+  })
 
   const togglePlayIntentGame = useCallback(
     (gameId: string) => {

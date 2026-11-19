@@ -165,7 +165,6 @@ export function useDashboardLibrary({
   onAddGameToLibrary?: (game: DashboardLibraryQuickAddGame) => Promise<void>
 }) {
   const location = useLocation()
-  const previousPathnameRef = useRef(location.pathname)
   const [libraryTitle, setLibraryTitle] = useState('')
   const [selectedPlatformLabels, setSelectedPlatformLabels] = useState<
     string[]
@@ -396,13 +395,16 @@ export function useDashboardLibrary({
     setUsualAvailability(currentUsualAvailability ?? ''),
   )
 
-  useEffect(() => {
-    if (steamConnected) {
-      return
+  // Disconnecting Steam closes the import dialog and drops its now-stale preview from the cache.
+  useResetOnChange([steamConnected], () => {
+    if (!steamConnected) {
+      setIsSteamImportModalOpen(false)
     }
-
-    queryClient.removeQueries({ queryKey: queryKeys.steamImportPreview() })
-    setIsSteamImportModalOpen(false)
+  })
+  useEffect(() => {
+    if (!steamConnected) {
+      queryClient.removeQueries({ queryKey: queryKeys.steamImportPreview() })
+    }
   }, [queryClient, steamConnected])
 
   const handleLibraryTitleChange = useCallback(
@@ -519,13 +521,8 @@ export function useDashboardLibrary({
     resetLibraryForm()
   }, [resetLibraryForm, setActionNotice])
 
-  useEffect(() => {
-    if (previousPathnameRef.current === location.pathname) {
-      return
-    }
-
-    previousPathnameRef.current = location.pathname
-
+  // Leaving the page closes the library editor (discarding its draft) and the import dialog.
+  useResetOnChange([location.pathname], () => {
     if (isLibraryEditorOpen) {
       handleCancelLibraryEdit()
     }
@@ -533,12 +530,7 @@ export function useDashboardLibrary({
     if (isSteamImportModalOpen) {
       setIsSteamImportModalOpen(false)
     }
-  }, [
-    handleCancelLibraryEdit,
-    isLibraryEditorOpen,
-    isSteamImportModalOpen,
-    location.pathname,
-  ])
+  })
 
   const handleSaveUsualAvailability = useCallback(async () => {
     setProfileSaving(true)

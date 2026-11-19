@@ -755,7 +755,10 @@ export function useDashboardApp() {
     [applyAuthNotice, refreshDashboard],
   )
 
+  // Read the OAuth result from the URL once on load and clear it from the address bar. This
+  // synchronises with the browser URL, which is what effects are for, so the rule is waived here.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time sync with the browser URL
     void handleAuthRedirect(window.location.href, { clearBrowserUrl: true })
   }, [handleAuthRedirect])
 
