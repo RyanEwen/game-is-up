@@ -1,4 +1,7 @@
-import { NotificationResponseChoice, NotificationType } from '@prisma/client'
+import {
+  NotificationResponseChoice,
+  NotificationType,
+} from '../generated/prisma/client.js'
 
 export type NotificationDirectMessageRenderState =
   | {

@@ -4,7 +4,7 @@ import {
   AuthProvider,
   NotificationResponseChoice,
   NotificationType,
-} from '@prisma/client'
+} from '../generated/prisma/client.js'
 import { toClientAvatarUrl } from './game-media.js'
 import { prisma } from './prisma.js'
 

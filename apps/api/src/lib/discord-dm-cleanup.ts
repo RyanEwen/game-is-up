@@ -12,7 +12,7 @@
  * once a thread goes stale.
  */
 
-import { AuthProvider, NotificationType } from '@prisma/client'
+import { AuthProvider, NotificationType } from '../generated/prisma/client.js'
 import {
   ActionRowBuilder,
   ButtonBuilder,
@@ -20,7 +20,7 @@ import {
   EmbedBuilder,
   type MessageActionRowComponentBuilder,
 } from 'discord.js'
-import { NotificationResponseChoice } from '@prisma/client'
+import { NotificationResponseChoice } from '../generated/prisma/client.js'
 import {
   deleteDiscordDirectMessage,
   editDiscordDirectMessage,

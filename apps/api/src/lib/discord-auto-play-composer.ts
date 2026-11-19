@@ -1,5 +1,8 @@
 /** Automatic prompt entry into the full composer, with independent saved drafts and live debug previews. */
-import { DiscordCtpComposerStartMode, PlayIntentScope } from '@prisma/client'
+import {
+  DiscordCtpComposerStartMode,
+  PlayIntentScope,
+} from '../generated/prisma/client.js'
 import { MessageFlags, type ButtonInteraction } from 'discord.js'
 import {
   resolveLinkedComposerUser,

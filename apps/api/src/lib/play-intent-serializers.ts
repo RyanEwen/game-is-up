@@ -10,7 +10,7 @@ import {
   PlayIntentDiscordSpaceStatus,
   PlayIntentScope,
   PlayIntentSelectionMode,
-} from '@prisma/client'
+} from '../generated/prisma/client.js'
 import { buildDiscordChannelUrl } from './discord-channel-urls.js'
 import { buildDiscordServerIconUrl } from './discord-servers.js'
 import { toClientAvatarUrl } from './game-media.js'

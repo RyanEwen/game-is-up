@@ -1,5 +1,5 @@
 /** Validates and authorizes Discord delay estimates before using the shared response service. */
-import { AuthProvider } from '@prisma/client'
+import { AuthProvider } from '../generated/prisma/client.js'
 import { parseRunningLateMinutes } from '@game-is-up/shared'
 import { MessageFlags, type ModalSubmitInteraction } from 'discord.js'
 import { prisma } from './prisma.js'

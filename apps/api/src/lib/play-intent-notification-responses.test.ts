@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { NotificationResponseChoice, NotificationType } from '@prisma/client'
+import {
+  NotificationResponseChoice,
+  NotificationType,
+} from '../generated/prisma/client.js'
 import type { APIEmbed } from 'discord.js'
 
 import {

@@ -3,7 +3,7 @@
  * space role on acceptance, including for existing server members, so sharing
  * an invite does not depend on the bot observing a GuildMemberAdd event.
  */
-import { PlayIntentDiscordSpaceStatus } from '@prisma/client'
+import { PlayIntentDiscordSpaceStatus } from '../generated/prisma/client.js'
 import { z } from 'zod'
 import { ChannelType, PermissionFlagsBits, Routes, type REST } from 'discord.js'
 import { publishPlayIntentInvalidation } from './dashboard-events.js'

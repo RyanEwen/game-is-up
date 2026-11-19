@@ -38,7 +38,7 @@ import {
   type Presence,
   type VoiceState,
 } from 'discord.js'
-import { DiscordActivityType } from '@prisma/client'
+import { DiscordActivityType } from '../generated/prisma/client.js'
 import {
   discordPresenceBotState,
   deleteDiscordDirectMessage,

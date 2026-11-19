@@ -8,7 +8,7 @@ import {
   NotificationType,
   PlayIntentSelectionMode,
   Prisma,
-} from '@prisma/client'
+} from '../generated/prisma/client.js'
 import { prisma } from './prisma.js'
 import {
   buildPlayIntentNotificationCopy,

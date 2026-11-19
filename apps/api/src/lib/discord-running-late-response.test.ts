@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import type { PrismaClient } from '@prisma/client'
+import type { PrismaClient } from '../generated/prisma/client.js'
 import type { ModalSubmitInteraction } from 'discord.js'
 
 const prisma = {

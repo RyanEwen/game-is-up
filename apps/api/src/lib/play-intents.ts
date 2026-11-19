@@ -35,7 +35,7 @@ import {
   PlayIntentDiscordSpaceAccessSource,
   PlayIntentScope,
   PlayIntentSelectionMode as PrismaPlayIntentSelectionMode,
-} from '@prisma/client'
+} from '../generated/prisma/client.js'
 import { env } from './env.js'
 import { publishPlayIntentInvalidation } from './dashboard-events.js'
 import {
@@ -84,7 +84,7 @@ export class PlayIntentValidationError extends Error {}
 export const minimumPlayIntentDurationMinutes = 15
 const maximumPlayIntentDurationMinutes = 24 * 60
 
-const activePlayIntentInclude = Prisma.validator<Prisma.PlayIntentInclude>()({
+const activePlayIntentInclude = {
   games: {
     include: {
       game: true,
@@ -148,7 +148,7 @@ const activePlayIntentInclude = Prisma.validator<Prisma.PlayIntentInclude>()({
       },
     },
   },
-})
+} satisfies Prisma.PlayIntentInclude
 
 function toClientSelectionMode(
   selectionMode: PrismaPlayIntentSelectionMode,

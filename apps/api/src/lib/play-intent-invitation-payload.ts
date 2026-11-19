@@ -1,5 +1,5 @@
 /** Builds current audience invitation payloads for both organizer and participant delivery. */
-import { NotificationType } from '@prisma/client'
+import { NotificationType } from '../generated/prisma/client.js'
 import {
   buildPlayIntentGameEmbeds,
   buildPlayIntentNotificationComponents,

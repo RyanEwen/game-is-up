@@ -20,7 +20,7 @@ import {
   NotificationType,
   PlayIntentScope,
   PlayIntentSelectionMode,
-} from '@prisma/client'
+} from '../generated/prisma/client.js'
 import { buildDiscordAutoPlayPromptPreview } from './discord-auto-play-prompts.js'
 import { buildDebugDmPreview } from './discord-dm-preview.js'
 import { getDiscordPresenceBotState } from './discord-bot-runtime.js'

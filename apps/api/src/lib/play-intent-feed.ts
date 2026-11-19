@@ -17,7 +17,7 @@ import {
   NotificationType,
   PlayIntentSelectionMode,
   PlayIntentScope,
-} from '@prisma/client'
+} from '../generated/prisma/client.js'
 import {
   getDiscordMembershipServerIds,
   getMutualDiscoveryAudienceUserIds,

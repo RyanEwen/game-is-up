@@ -12,7 +12,7 @@
 import { prisma } from './prisma.js'
 import { env } from './env.js'
 import { getDiscordBotPresentServerIds } from './discord-presence-bot.js'
-import { PlayIntentScope } from '@prisma/client'
+import { PlayIntentScope } from '../generated/prisma/client.js'
 
 const sampleFriendHandles = [
   'raidandrelax',

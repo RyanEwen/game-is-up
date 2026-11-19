@@ -8,7 +8,7 @@ import test from 'node:test'
 import {
   DiscordActivityType,
   DiscordGameActivityCountKind,
-} from '@prisma/client'
+} from '../generated/prisma/client.js'
 import { prisma } from './prisma.js'
 import { assertDisposableDatabase } from '../test-utils/disposable-database.js'
 import { recordDiscordPresence, toUtcDay } from './discord-activity.js'

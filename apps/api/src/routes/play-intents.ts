@@ -15,7 +15,7 @@
 
 import { Router } from 'express'
 import type { Request, Response } from 'express'
-import { Prisma } from '@prisma/client'
+import { Prisma } from '../generated/prisma/client.js'
 import { z } from 'zod'
 import {
   playIntentDiscordSpaceDeleteResponseSchema,
@@ -32,7 +32,7 @@ import {
 import {
   NotificationResponseChoice,
   PlayIntentDiscordSpaceStatus,
-} from '@prisma/client'
+} from '../generated/prisma/client.js'
 import { publishPlayIntentInvalidation } from '../lib/dashboard-events.js'
 import { buildPlayIntentFeed } from '../lib/play-intent-feed.js'
 import { buildPlayIntentDetail } from '../lib/play-intent-detail.js'

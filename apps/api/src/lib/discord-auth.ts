@@ -8,7 +8,7 @@
  * round-trip unless Discord has revoked the grant.
  */
 
-import { AuthProvider as PrismaAuthProvider } from '@prisma/client'
+import { AuthProvider as PrismaAuthProvider } from '../generated/prisma/client.js'
 import { prisma } from './prisma.js'
 import { env } from './env.js'
 import { ensureUniqueHandle, normalizeHandleBase } from './user-profile.js'
@@ -59,7 +59,7 @@ export type UpsertDiscordUserResult = {
     usualAvailability: string | null
     discordAutoPromptPlayIntent: boolean
     isAdmin: boolean
-    visibility: import('@prisma/client').ProfileVisibility
+    visibility: import('../generated/prisma/client.js').ProfileVisibility
     lastSeenAt: Date
     createdAt: Date
     updatedAt: Date

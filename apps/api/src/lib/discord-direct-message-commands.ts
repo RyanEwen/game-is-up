@@ -16,7 +16,7 @@ import {
   type Message,
   type MessageActionRowComponentBuilder,
 } from 'discord.js'
-import { AuthProvider } from '@prisma/client'
+import { AuthProvider } from '../generated/prisma/client.js'
 import { deleteDiscordDirectMessage } from './discord-bot-runtime.js'
 import {
   buildOpenInAppButton,

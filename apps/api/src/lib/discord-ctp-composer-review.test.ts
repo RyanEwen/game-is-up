@@ -8,7 +8,7 @@ import {
   PlayIntentScope,
   type DiscordCtpComposerDraft,
   type PrismaClient,
-} from '@prisma/client'
+} from '../generated/prisma/client.js'
 import type { ButtonInteraction, ModalSubmitInteraction } from 'discord.js'
 
 // Match the service-test convention: install a plain client stub before

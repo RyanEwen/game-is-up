@@ -1,5 +1,5 @@
 /** Discord DM friend picker. Each selection invites one friend through the same service as the web app. */
-import { AuthProvider } from '@prisma/client'
+import { AuthProvider } from '../generated/prisma/client.js'
 import {
   MessageFlags,
   type ButtonInteraction,

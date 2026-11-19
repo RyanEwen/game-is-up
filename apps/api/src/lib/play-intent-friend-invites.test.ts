@@ -3,7 +3,10 @@ import assert from 'node:assert/strict'
 import type { ButtonInteraction } from 'discord.js'
 import { randomUUID } from 'node:crypto'
 import test, { mock } from 'node:test'
-import { NotificationResponseChoice, NotificationType } from '@prisma/client'
+import {
+  NotificationResponseChoice,
+  NotificationType,
+} from '../generated/prisma/client.js'
 import {
   playIntentFriendInviteRequestSchema,
   upsertPlayIntentRequestSchema,

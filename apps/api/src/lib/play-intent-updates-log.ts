@@ -30,7 +30,7 @@
  */
 
 import { prioritizePlayIntentAudienceResponses } from './play-intent-audience-response.js'
-import { NotificationType } from '@prisma/client'
+import { NotificationType } from '../generated/prisma/client.js'
 import { formatPlayIntentLogTimestampLabel } from './play-intent-time-format.js'
 import {
   deleteDiscordDirectMessage,

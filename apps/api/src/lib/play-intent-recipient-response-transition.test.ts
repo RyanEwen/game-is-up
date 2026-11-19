@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { NotificationResponseChoice } from '@prisma/client'
+import { NotificationResponseChoice } from '../generated/prisma/client.js'
 
 import { resolveRecipientResponseTransition } from './play-intent-recipient-response-transition.js'
 

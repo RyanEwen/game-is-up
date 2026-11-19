@@ -8,7 +8,7 @@
  * so the import UI can render targeted messages.
  */
 
-import { AuthProvider as PrismaAuthProvider } from '@prisma/client'
+import { AuthProvider as PrismaAuthProvider } from '../generated/prisma/client.js'
 import { prisma } from './prisma.js'
 import { env } from './env.js'
 import { HttpError } from './http-error.js'

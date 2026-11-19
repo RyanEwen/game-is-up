@@ -30,7 +30,7 @@ import {
   GameIntentType,
   PlayIntentScope,
   Prisma,
-} from '@prisma/client'
+} from '../generated/prisma/client.js'
 import { buildAutoPlayInactiveObservationClosedReason } from '@game-is-up/shared'
 import {
   deleteDiscordDirectMessage,

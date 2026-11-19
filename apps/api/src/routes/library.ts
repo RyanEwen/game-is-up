@@ -8,7 +8,7 @@
  */
 
 import { Router } from 'express'
-import { AuthProvider as PrismaAuthProvider } from '@prisma/client'
+import { AuthProvider as PrismaAuthProvider } from '../generated/prisma/client.js'
 import {
   gameDetailsResponseSchema,
   gameSearchResponseSchema,

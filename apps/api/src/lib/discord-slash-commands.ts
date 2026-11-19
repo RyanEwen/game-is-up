@@ -24,7 +24,7 @@ import {
   NotificationType,
   PlayIntentScope,
   PlayIntentSelectionMode,
-} from '@prisma/client'
+} from '../generated/prisma/client.js'
 import { buildDiscordServerIconUrl } from './discord-servers.js'
 import { getDiscordBotRest } from './discord-bot-runtime.js'
 import {

@@ -9,9 +9,14 @@ import {
   PlayIntentSelectionMode,
   PrismaClient,
   ProfileVisibility,
-} from '@prisma/client'
+} from '../src/generated/prisma/client.js'
+import { PrismaPg } from '@prisma/adapter-pg'
 
-const prisma = new PrismaClient()
+// The seed runs outside the API (no validated env module), so it builds its own client from
+// DATABASE_URL, which the prisma:seed script always sets.
+const prisma = new PrismaClient({
+  adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
+})
 
 function minutesAgo(minutes: number) {
   return new Date(Date.now() - minutes * 60 * 1000)

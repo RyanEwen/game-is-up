@@ -12,7 +12,7 @@ import {
   AuthProvider,
   PlayIntentDiscordSpaceAccessSource,
   PlayIntentDiscordSpaceStatus,
-} from '@prisma/client'
+} from '../generated/prisma/client.js'
 import {
   ChannelType,
   OverwriteType,

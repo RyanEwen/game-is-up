@@ -1,7 +1,7 @@
 /** Shared game-library reads and writes for web and private Discord panels.
  * Writes preserve notification backfill and dashboard refresh behavior across callers.
  */
-import { GameIntentType, Prisma } from '@prisma/client'
+import { GameIntentType, Prisma } from '../generated/prisma/client.js'
 import {
   upsertLibraryEntryRequestSchema,
   type CatalogGameMatch,

@@ -14,7 +14,7 @@ import {
   steamLinkIntentResponseSchema,
   type AuthProvider,
 } from '@game-is-up/shared'
-import { AuthProvider as PrismaAuthProvider } from '@prisma/client'
+import { AuthProvider as PrismaAuthProvider } from '../generated/prisma/client.js'
 import { z } from 'zod'
 import { prisma } from '../lib/prisma.js'
 import { getLatestDiscordActivityForUser } from '../lib/discord-activity.js'

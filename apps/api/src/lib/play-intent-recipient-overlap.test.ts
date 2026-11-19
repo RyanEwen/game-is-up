@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { PlayIntentSelectionMode as PrismaPlayIntentSelectionMode } from '@prisma/client'
+import { PlayIntentSelectionMode as PrismaPlayIntentSelectionMode } from '../generated/prisma/client.js'
 import {
   doPlayIntentWindowsOverlap,
   excludeRecipientUserIdsWithOverlappingActiveIntents,

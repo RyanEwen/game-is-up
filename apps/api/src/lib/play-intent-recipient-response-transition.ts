@@ -10,7 +10,7 @@
  * idempotent.
  */
 
-import { NotificationResponseChoice } from '@prisma/client'
+import { NotificationResponseChoice } from '../generated/prisma/client.js'
 
 export type PlayIntentRecipientResponse = 'JOIN' | 'DECLINE'
 

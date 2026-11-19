@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { NotificationResponseChoice, type PrismaClient } from '@prisma/client'
+import {
+  NotificationResponseChoice,
+  type PrismaClient,
+} from '../generated/prisma/client.js'
 
 // Install a plain client stub before loading the service, avoiding database and Discord traffic.
 const prisma = {

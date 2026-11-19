@@ -49,7 +49,7 @@ import {
   DiscordCtpComposerVoiceMode,
   PlayIntentScope,
   type DiscordCtpComposerDraft,
-} from '@prisma/client'
+} from '../generated/prisma/client.js'
 import {
   maximumPlayIntentGameSelectionCount,
   type PlayIntentNotifyScope,

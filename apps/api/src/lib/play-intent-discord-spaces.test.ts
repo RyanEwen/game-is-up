@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { PlayIntentDiscordSpaceStatus } from '@prisma/client'
+import { PlayIntentDiscordSpaceStatus } from '../generated/prisma/client.js'
 
 import {
   buildComplementarySpaceNames,

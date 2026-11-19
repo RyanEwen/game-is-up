@@ -8,7 +8,7 @@
  */
 
 import { Router } from 'express'
-import { Prisma } from '@prisma/client'
+import { Prisma } from '../generated/prisma/client.js'
 import { discoveryFeedSchema } from '@game-is-up/shared'
 import { buildDiscoveryFeed } from '../lib/discovery-feed.js'
 import { getAuthSession } from '../lib/session.js'

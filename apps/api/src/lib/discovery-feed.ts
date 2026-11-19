@@ -15,7 +15,7 @@ import type {
   DiscoveryGamePlayer,
   DiscoveryPerson,
 } from '@game-is-up/shared'
-import { GameIntentType } from '@prisma/client'
+import { GameIntentType } from '../generated/prisma/client.js'
 import { getLatestDiscordActivitiesForUsers } from './discord-activity.js'
 import { prisma } from './prisma.js'
 import { getViewer } from './demo-viewer.js'

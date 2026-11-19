@@ -20,7 +20,7 @@ import {
   PlayIntentDiscordSpaceStatus,
   PlayIntentScope,
   PlayIntentSelectionMode,
-} from '@prisma/client'
+} from '../generated/prisma/client.js'
 import { getViewer } from './demo-viewer.js'
 import {
   getDiscordMembershipServerIds,

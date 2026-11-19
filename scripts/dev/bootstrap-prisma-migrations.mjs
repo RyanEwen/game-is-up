@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { PrismaClient } from '@prisma/client'
+import pg from 'pg'
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url))
 const repoRoot = path.resolve(scriptDir, '../..')
@@ -19,17 +19,21 @@ function runPrisma(args, stdio = 'pipe') {
   })
 }
 
-const prisma = new PrismaClient()
+// Two catalogue queries only, so a plain pg client: the generated Prisma 7 client is TypeScript
+// inside the API's source tree, which this plain Node script cannot import.
+const database = new pg.Client({ connectionString: process.env.DATABASE_URL })
 
 async function main() {
-  const migrationTableResult = await prisma.$queryRawUnsafe(
+  await database.connect()
+
+  const migrationTableResult = await database.query(
     `SELECT EXISTS (
       SELECT 1
       FROM information_schema.tables
       WHERE table_schema = 'public' AND table_name = '_prisma_migrations'
     ) AS exists`,
   )
-  const appTableCountResult = await prisma.$queryRawUnsafe(
+  const appTableCountResult = await database.query(
     `SELECT COUNT(*)::int AS count
       FROM information_schema.tables
       WHERE table_schema = 'public'
@@ -37,8 +41,8 @@ async function main() {
         AND table_name <> '_prisma_migrations'`,
   )
 
-  const migrationTableExists = Boolean(migrationTableResult[0]?.exists)
-  const appTableCount = Number(appTableCountResult[0]?.count ?? 0)
+  const migrationTableExists = Boolean(migrationTableResult.rows[0]?.exists)
+  const appTableCount = Number(appTableCountResult.rows[0]?.count ?? 0)
 
   if (!migrationTableExists && appTableCount > 0) {
     process.stdout.write(
@@ -69,5 +73,5 @@ main()
     process.exitCode = 1
   })
   .finally(async () => {
-    await prisma.$disconnect()
+    await database.end()
   })

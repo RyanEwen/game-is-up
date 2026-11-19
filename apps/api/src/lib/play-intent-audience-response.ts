@@ -1,5 +1,5 @@
 /** Resolves audience answers from invitation anchors; informational go-time messages never replace them. */
-import { NotificationType, type Prisma } from '@prisma/client'
+import { NotificationType, type Prisma } from '../generated/prisma/client.js'
 
 /** Finds the current invitation, falling back to legacy recipient threads only when no anchor exists. */
 export async function findPlayIntentAudienceResponseId(

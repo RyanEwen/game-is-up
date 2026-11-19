@@ -12,7 +12,7 @@ import type {
   DiscordServerMembersResponse,
   DiscordServerPreferencesResponse,
 } from '@game-is-up/shared'
-import { AuthProvider as PrismaAuthProvider } from '@prisma/client'
+import { AuthProvider as PrismaAuthProvider } from '../generated/prisma/client.js'
 import { prisma } from './prisma.js'
 import {
   DiscordOauthRequestError,

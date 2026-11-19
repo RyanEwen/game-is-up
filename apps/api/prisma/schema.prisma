@@ -1,10 +1,14 @@
+// Prisma 7 generates the client into the API's source tree (git-ignored; `npm run db:generate`).
+// The database URL lives in prisma.config.ts, and the API connects through the pg driver adapter.
 generator client {
-  provider = "prisma-client-js"
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "esm"
+  importFileExtension = "js"
 }
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 enum AuthProvider {

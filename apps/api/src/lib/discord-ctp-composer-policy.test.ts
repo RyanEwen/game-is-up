@@ -5,7 +5,7 @@ import {
   DiscordCtpComposerStartMode,
   DiscordCtpComposerVoiceMode,
   PlayIntentScope,
-} from '@prisma/client'
+} from '../generated/prisma/client.js'
 import {
   buildComposerPlayIntentRequest,
   composerAction,

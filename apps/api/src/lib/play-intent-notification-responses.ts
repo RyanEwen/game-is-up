@@ -39,7 +39,7 @@ import {
   NotificationType,
   PlayIntentScope,
   type Prisma,
-} from '@prisma/client'
+} from '../generated/prisma/client.js'
 import {
   archivePlayIntentDirectMessages,
   buildArchivedAudienceCleanupComponents,

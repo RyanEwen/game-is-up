@@ -11,7 +11,7 @@
 import {
   AuthProvider as PrismaAuthProvider,
   DiscordInviteAttributionKind,
-} from '@prisma/client'
+} from '../generated/prisma/client.js'
 import { env } from './env.js'
 import { prisma } from './prisma.js'
 

@@ -20,7 +20,7 @@ import {
   DiscordActivityType,
   DiscordGameActivityCountKind,
   type Prisma,
-} from '@prisma/client'
+} from '../generated/prisma/client.js'
 import {
   expireDiscordAutoPlayPromptsForInactiveObservations,
   maybeSendDiscordAutoPlayPromptForObservation,

@@ -9,7 +9,7 @@
  * duplicates.
  */
 
-import { GameIntentType } from '@prisma/client'
+import { GameIntentType } from '../generated/prisma/client.js'
 import { normalizeGameTitleForMatch } from './game-catalog.js'
 import { prisma } from './prisma.js'
 

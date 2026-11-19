@@ -37,7 +37,7 @@
     "test": "NODE_ENV=test DATABASE_URL=postgresql://unit-tests@127.0.0.1:1/unit_tests_never_connect DISCORD_BOT_TOKEN= STEAM_WEB_API_KEY= RAWG_API_KEY= devkit-test",
     "test:api": "NODE_ENV=test DATABASE_URL=postgresql://unit-tests@127.0.0.1:1/unit_tests_never_connect DISCORD_BOT_TOKEN= STEAM_WEB_API_KEY= RAWG_API_KEY= devkit-test apps/api",
     "test:integration": "NODE_ENV=test DISCORD_BOT_TOKEN= STEAM_WEB_API_KEY= RAWG_API_KEY= devkit-test --integration",
-    "typecheck": "npm run typecheck --workspace @game-is-up/shared && npm run build --workspace @game-is-up/shared && npm run typecheck --workspace @game-is-up/api && npm run typecheck --workspace @game-is-up/web",
+    "typecheck": "npm run db:generate && npm run typecheck --workspace @game-is-up/shared && npm run build --workspace @game-is-up/shared && npm run typecheck --workspace @game-is-up/api && npm run typecheck --workspace @game-is-up/web",
     "validate": "npm run format:check && npm run lint && npm run typecheck && npm test && npm run prisma:validate --workspace @game-is-up/api && npm run check:devkit",
     "db:generate": "npm run prisma:generate --workspace @game-is-up/api",
     "db:push": "npm run prisma:db:push --workspace @game-is-up/api",
@@ -68,12 +68,11 @@
     "zod": "4.6.7"
   },
   "allowScripts": {
-    "@prisma/client@6.19.3": true,
-    "@prisma/engines@6.19.3": true,
-    "prisma@6.19.3": true,
+    "@prisma/engines@7.10.1": true,
     "esbuild@0.27.7": true,
     "esbuild@0.28.2": true,
-    "lefthook": false
+    "lefthook": false,
+    "prisma@7.10.1": true
   },
   "overrides": {
     "eslint-plugin-jsx-a11y": {

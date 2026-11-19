@@ -11,6 +11,8 @@ dist/
 /compose.yml
 # Host-specific production values, kept only on the server the deploy adds them on
 /compose.override.yml
+# The Prisma client, generated into the API's source tree by `npm run db:generate`
+/apps/api/src/generated/
 # Generated third-party notices, rebuilt by every web build from the lockfile
 /apps/web/public/THIRD-PARTY-NOTICES.txt
 # Personal Claude Code settings; the tracked project settings are .claude/settings.json
