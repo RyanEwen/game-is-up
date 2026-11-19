@@ -64,7 +64,7 @@ Deployment goes through the `deploy` skill only; it runs `npm run deploy:prod`, 
 | [docs/development.md](docs/development.md)                           | Setting up, running, testing, or adding a script or environment variable | Developer workflow                 |
 | [docs/deployment.md](docs/deployment.md)                             | Changing the production stack, the deploy script, or what data is stored | Production, data handling          |
 | [docs/behaviour.md](docs/behaviour.md)                               | Changing user-visible behaviour                                          | Product behaviour                  |
-| `commit` skill                                                       | Asked to commit                                                          | Commits                            |
+| `commit` skill (shared, user level)                                  | Asked to commit                                                          | Commits                            |
 | `deploy` skill                                                       | Asked to deploy                                                          | Commit, push and production deploy |
 | `audit-docs` skill                                                   | Asked to check or sync documentation                                     | All docs and agent files           |
 
