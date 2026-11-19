@@ -11,6 +11,7 @@ import {
   runningLateMinutesFieldId,
   runningLateModalPrefix,
 } from './play-intent-running-late-modal.js'
+import { logger } from './logger.js'
 
 /** Identifies this flow's modal submissions without intercepting other Discord forms. */
 export function isRunningLateModalCustomId(customId: string) {
@@ -70,7 +71,7 @@ export async function handleRunningLateModalSubmit(
     await interaction.editReply(result.message)
   } catch (error) {
     if (!(error instanceof PlayIntentNotificationResponseError)) {
-      console.error('Discord running-late modal submission failed', error)
+      logger.error('Discord running-late modal submission failed', { error })
     }
 
     await interaction.editReply(

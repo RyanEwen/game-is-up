@@ -17,6 +17,7 @@ import {
 } from './discord-action-lifecycle.js'
 
 import { buildPlayIntentFriendInvitePicker } from './play-intent-friend-invite-picker.js'
+import { logger } from './logger.js'
 export { playIntentFriendInvitePrefix } from './play-intent-friend-invite-picker.js'
 
 /** Opens a paged picker in a separate response, preserving the original call invitation. */
@@ -87,7 +88,7 @@ export async function handlePlayIntentFriendInviteInteraction(
           }
         } catch (error) {
           if (!(error instanceof PlayIntentNotificationResponseError)) {
-            console.error('Discord participant invitation failed', {
+            logger.error('Discord participant invitation failed', {
               customId: interaction.customId,
               error,
             })
@@ -110,7 +111,7 @@ export async function handlePlayIntentFriendInviteInteraction(
     )
   } catch (error) {
     // A failed acknowledgement or fallback reply must never escape the gateway handler.
-    console.error('Discord participant invitation interaction failed', {
+    logger.error('Discord participant invitation interaction failed', {
       customId: interaction.customId,
       error,
     })

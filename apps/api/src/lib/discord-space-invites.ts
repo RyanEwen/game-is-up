@@ -10,6 +10,7 @@ import { publishPlayIntentInvalidation } from './dashboard-events.js'
 import { env } from './env.js'
 import { prisma } from './prisma.js'
 import { getDiscordBotRest } from './discord-bot-runtime.js'
+import { logger } from './logger.js'
 
 const discordSpaceInviteSchema = z.object({
   code: z.string().min(1),
@@ -157,7 +158,7 @@ async function resolvePublicInviteChannelId(serverId: string) {
 
     return publicTextChannels[0]?.id ?? null
   } catch (error) {
-    console.error(
+    logger.error(
       'Failed to resolve a public invite channel for a complementary Discord space',
       {
         serverId,
@@ -248,7 +249,7 @@ export async function ensurePlayIntentDiscordSpaceInvite(
     try {
       await dependencies.retireInvite(invite.code)
     } catch (cleanupError) {
-      console.error(
+      logger.error(
         'Failed to retire an unsaved temporary Discord space invite',
         { spaceId: space.id, cleanupError },
       )
@@ -260,10 +261,10 @@ export async function ensurePlayIntentDiscordSpaceInvite(
   try {
     await dependencies.retireInvite(space.inviteCode)
   } catch (error) {
-    console.error(
-      'Failed to retire a replaced temporary Discord space invite',
-      { spaceId: space.id, error },
-    )
+    logger.error('Failed to retire a replaced temporary Discord space invite', {
+      spaceId: space.id,
+      error,
+    })
   }
 
   return invite
@@ -337,7 +338,7 @@ export async function sweepUpgradePlayIntentDiscordSpaceInvites(
   try {
     spaces = await (options.findSpaces ?? findInviteUpgradeableSpaces)()
   } catch (error) {
-    console.error(
+    logger.error(
       'Failed to inspect temporary Discord space invites for upgrade',
       { error },
     )
@@ -354,7 +355,7 @@ export async function sweepUpgradePlayIntentDiscordSpaceInvites(
       changed ||= invite.code !== space.inviteCode
     } catch (error) {
       // A failed upgrade should not stop cleanup or hide working channels.
-      console.error('Failed to upgrade a temporary Discord space invite', {
+      logger.error('Failed to upgrade a temporary Discord space invite', {
         spaceId: space.id,
         error,
       })
@@ -375,7 +376,7 @@ export async function sweepUpgradePlayIntentDiscordSpaceInvites(
       )()
     } catch (error) {
       // Link refresh is best effort and must not prevent due channel deletion.
-      console.error(
+      logger.error(
         'Failed to refresh Discord messages after temporary space invite upgrade',
         { error },
       )

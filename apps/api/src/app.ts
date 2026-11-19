@@ -21,10 +21,15 @@ import {
 } from './routes/index.js'
 import { getAllowedClientOrigins, getApiOrigin } from './lib/origin.js'
 import { HttpError } from './lib/http-error.js'
+import { logger } from './lib/logger.js'
+import { requestContext } from './lib/request-context.js'
 
 export const app = express()
 
 const allowedClientOrigins = new Set(getAllowedClientOrigins())
+
+// First, so every later middleware's log lines and failures carry the request id.
+app.use(requestContext())
 
 app.use(
   cors({
@@ -77,12 +82,17 @@ app.use('/api/profile', profileRouter)
 app.use(
   (
     error: unknown,
-    _request: Request,
+    request: Request,
     response: Response,
     _next: NextFunction,
   ) => {
     void _next
-    console.error(error)
+    // The path without its query string, which can carry OAuth codes (LOG-6).
+    logger.error('Request failed', {
+      method: request.method,
+      path: request.path,
+      error,
+    })
 
     if (error instanceof HttpError) {
       response.status(error.statusCode).json({

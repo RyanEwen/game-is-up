@@ -35,6 +35,7 @@ import { FriendsListValidationError } from './friends-lists.js'
 import { buildDiscordNoticeEmbeds } from './discord-notices.js'
 import { RecordChangedError } from './mutation-conflict.js'
 import { FriendValidationError } from './friends.js'
+import { logger } from './logger.js'
 
 export function isAccountHubCustomId(customId: string) {
   return customId.startsWith(accountHubPrefix)
@@ -87,7 +88,7 @@ function panelErrorNotice(error: unknown, action: string) {
   ) {
     return error.message
   }
-  console.error('Private Discord account action failed', error)
+  logger.error('Private Discord account action failed', { error })
   return 'Unable to finish that action right now. Check the current state below before trying again.'
 }
 

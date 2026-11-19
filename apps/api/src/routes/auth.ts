@@ -65,6 +65,7 @@ import {
 } from '../lib/session.js'
 import { publishDashboardInvalidation } from '../lib/dashboard-events.js'
 import { toClientAvatarUrl } from '../lib/game-media.js'
+import { logger } from '../lib/logger.js'
 
 export const authRouter = Router()
 
@@ -367,7 +368,7 @@ authRouter.get('/discord/callback', async (request, response) => {
     })
     response.redirect(buildClientRedirect('discord', redirectTarget, 'success'))
   } catch (callbackError) {
-    console.error('Discord callback failed', callbackError)
+    logger.error('Discord callback failed', { error: callbackError })
     clearDiscordState(response)
     response.redirect(
       buildClientRedirect('discord', redirectTarget, 'error', {
@@ -437,7 +438,7 @@ authRouter.get('/steam/callback', async (request, response) => {
 
     response.redirect(buildClientRedirect('steam', redirectTarget, 'success'))
   } catch (callbackError) {
-    console.error('Steam callback failed', callbackError)
+    logger.error('Steam callback failed', { error: callbackError })
     response.redirect(
       buildClientRedirect('steam', redirectTarget, 'error', {
         reason:

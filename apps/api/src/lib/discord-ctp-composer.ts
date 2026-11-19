@@ -93,6 +93,7 @@ import {
   buildComposerPlayIntentRequest,
   isAutoPlayComposerPromptAvailable,
 } from './discord-ctp-composer-policy.js'
+import { logger } from './logger.js'
 
 const composerCustomIdPrefix = 'guild-ctp:'
 const composerDraftTtlMs = 24 * 60 * 60 * 1000
@@ -1312,7 +1313,7 @@ export async function launchCtpComposer(
       await interaction.editReply(view)
     }
   } catch (error) {
-    console.error('Discord CTP composer launch failed', error)
+    logger.error('Discord CTP composer launch failed', { error })
     await respondWithComposerFailure(interaction)
   }
 }
@@ -1513,7 +1514,7 @@ export async function handleCtpComposerButtonInteraction(
       await renderComposerView(updatedDraft, user, notice),
     )
   } catch (error) {
-    console.error('Discord CTP composer button interaction failed', error)
+    logger.error('Discord CTP composer button interaction failed', { error })
     await respondWithComposerFailure(interaction)
   }
 }
@@ -1706,7 +1707,7 @@ export async function handleCtpComposerSelectInteraction(
       await renderComposerView(updatedDraft, user, notice),
     )
   } catch (error) {
-    console.error('Discord CTP composer select interaction failed', error)
+    logger.error('Discord CTP composer select interaction failed', { error })
     await respondWithComposerFailure(interaction)
   }
 }
@@ -1860,7 +1861,7 @@ export async function handleCtpComposerModalSubmit(
       await renderComposerView(updatedDraft, user, notice),
     )
   } catch (error) {
-    console.error('Discord CTP composer modal submission failed', error)
+    logger.error('Discord CTP composer modal submission failed', { error })
     await respondWithComposerFailure(interaction)
   }
 }
@@ -2003,7 +2004,7 @@ async function postDraft(
         : 'Something went wrong while posting your call to play. Try again in a moment.'
 
     if (!(error instanceof PlayIntentValidationError)) {
-      console.error('Discord CTP composer post failed', error)
+      logger.error('Discord CTP composer post failed', { error })
     }
 
     const reviewDraft =
@@ -2115,7 +2116,7 @@ async function applyLaunchChannelLock(
 
     return 'Members can send messages in this channel again.'
   } catch (error) {
-    console.error('Failed to update the call-to-play channel lock', error)
+    logger.error('Failed to update the call-to-play channel lock', { error })
     return `I could not ${lock ? 'lock' : 'unlock'} the channel - make sure the Game's Up bot has the Manage Roles permission here, then re-run the command.`
   }
 }
@@ -2225,7 +2226,7 @@ export async function handleSetupCtpPostCommand(
   try {
     message = await targetChannel.send(buildAccountHubPostPayload())
   } catch (error) {
-    console.error('Failed to post the call-to-play launch message', error)
+    logger.error('Failed to post the call-to-play launch message', { error })
     await interaction.editReply({
       content: `I could not post in this channel${error instanceof Error && error.message ? ` (Discord said: ${error.message})` : ''}. Make sure the Game's Up bot can send messages and embeds here, then try again.`,
     })

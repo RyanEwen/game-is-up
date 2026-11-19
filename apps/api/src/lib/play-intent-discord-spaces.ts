@@ -29,6 +29,7 @@ import { getDiscordBotClient } from './discord-bot-runtime.js'
 import { env } from './env.js'
 import { getDiscordBotRest } from './discord-bot-runtime.js'
 import { prisma } from './prisma.js'
+import { logger } from './logger.js'
 
 type ProvisionableSpace = Awaited<ReturnType<typeof loadProvisionableSpace>>
 type LegacyBackfillCandidateSpace = {
@@ -785,7 +786,7 @@ async function syncGrantedMembers(space: NonNullable<ProvisionableSpace>) {
           roleRevokeResult.reason !== 'role-missing'
         ) {
           hadGrantErrors = true
-          console.error('Failed to revoke complementary Discord space role', {
+          logger.error('Failed to revoke complementary Discord space role', {
             spaceId: space.id,
             userId: grant.userId,
             discordUserId,
@@ -833,7 +834,7 @@ async function syncGrantedMembers(space: NonNullable<ProvisionableSpace>) {
 
       if (!roleGrantResult.ok && roleGrantResult.reason !== 'member-missing') {
         hadGrantErrors = true
-        console.error('Failed to grant complementary Discord space role', {
+        logger.error('Failed to grant complementary Discord space role', {
           spaceId: space.id,
           userId: grant.userId,
           discordUserId,
@@ -1181,7 +1182,7 @@ async function deletePlayIntentDiscordSpace(spaceId: string) {
             : 'Unknown complementary Discord space delete error.',
       },
     })
-    console.error('Failed to delete complementary Discord space', {
+    logger.error('Failed to delete complementary Discord space', {
       spaceId: space.id,
       error,
     })
@@ -1375,7 +1376,7 @@ export async function provisionPlayIntentDiscordSpace(spaceId: string) {
             : 'Unknown complementary Discord space provisioning error.',
       },
     })
-    console.error('Failed to provision complementary Discord space', {
+    logger.error('Failed to provision complementary Discord space', {
       spaceId: space.id,
       error,
     })
@@ -1630,7 +1631,7 @@ export async function handlePlayIntentDiscordSpaceMemberJoin(
       )
 
       if (!roleGrantResult.ok && roleGrantResult.reason !== 'member-missing') {
-        console.error(
+        logger.error(
           'Failed to grant complementary role on guild member join',
           {
             serverId: options.serverId,

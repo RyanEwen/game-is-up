@@ -35,6 +35,7 @@ import {
 import { claimPlayIntentDiscordSpaceInviteSend } from './play-intent-discord-spaces.js'
 import { getAudiencePlayIntentReplyReference } from './play-intent-updates-log.js'
 import { prisma } from './prisma.js'
+import { logger } from './logger.js'
 
 const defaultDiscordSpaceServerLabel = "the Game's Up Discord server"
 
@@ -128,7 +129,7 @@ export async function sendPlayIntentDiscordSpaceInviteDirectMessage(options: {
   ])
 
   if (!result || result.status !== 'sent') {
-    console.error('Failed to send the temporary Discord space invite DM', {
+    logger.error('Failed to send the temporary Discord space invite DM', {
       playIntentId: options.playIntentId,
       recipientUserId: options.recipientUserId,
       error: result?.error ?? 'Discord did not return a DM send result.',

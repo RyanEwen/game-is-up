@@ -15,6 +15,7 @@ import {
 } from './play-intent-discord-spaces.js'
 import { sweepUpgradePlayIntentDiscordSpaceInvites } from './discord-space-invites.js'
 import { prisma } from './prisma.js'
+import { logger } from './logger.js'
 
 const playIntentCleanupIntervalMs = 60 * 1000
 const staleDiscordDmSweepIntervalMs = 60 * 60 * 1000
@@ -119,7 +120,7 @@ async function runCleanupSweep() {
       await sweepOldDiscordDirectMessages()
     }
   } catch (error) {
-    console.error('Failed to sweep play-intent notification jobs', error)
+    logger.error('Failed to sweep play-intent notification jobs', { error })
   } finally {
     cleanupInFlight = false
   }

@@ -18,6 +18,7 @@ import { createPublicKey, verify as verifyEd25519 } from 'node:crypto'
 import { Router, raw } from 'express'
 import type { KeyObject } from 'node:crypto'
 import { env } from '../lib/env.js'
+import { logger } from '../lib/logger.js'
 
 // Discord webhook payload `type` values.
 const WEBHOOK_TYPE_PING = 0
@@ -86,7 +87,7 @@ export const discordEventsRouter = Router()
 
 discordEventsRouter.post('/', raw({ type: '*/*' }), (request, response) => {
   if (!env.DISCORD_PUBLIC_KEY) {
-    console.error(
+    logger.error(
       'Discord event webhook received but DISCORD_PUBLIC_KEY is not configured.',
     )
     response.status(401).send('invalid request signature')
@@ -123,7 +124,7 @@ discordEventsRouter.post('/', raw({ type: '*/*' }), (request, response) => {
   // Real webhook events. Acknowledge fast (within 3s) to avoid retries, then
   // handle out-of-band. There is nothing to dispatch yet, so just acknowledge.
   if (payload.type === WEBHOOK_TYPE_EVENT) {
-    console.log(
+    logger.info(
       `Discord webhook event received: ${payload.event?.type ?? 'unknown'}`,
     )
     response.status(204).end()

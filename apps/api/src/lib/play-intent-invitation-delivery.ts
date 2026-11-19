@@ -7,6 +7,7 @@ import {
   deletePlayIntentDirectMessages,
 } from './discord-dm-cleanup.js'
 import { refreshTrackedPlayIntentNotificationDirectMessages } from './play-intent-notification-responses.js'
+import { logger } from './logger.js'
 
 // Lock ownership uses a separate, bounded session pool. Waiters never occupy the
 // application query pool, and ownership cannot expire while Discord is still working.
@@ -18,7 +19,7 @@ const deliveryLockPool = new Pool({
 })
 
 deliveryLockPool.on('error', (error) => {
-  console.error('Invitation delivery lock connection failed', error)
+  logger.error('Invitation delivery lock connection failed', { error })
 })
 
 export type DeliverableInvitationNotification = NonNullable<
@@ -40,7 +41,7 @@ export async function withPlayIntentInvitationDelivery<T>(
   const handleConnectionError = (error: Error) => {
     destroyConnection = true
     controller.abort(error)
-    console.error('Invitation delivery lost lock ownership', {
+    logger.error('Invitation delivery lost lock ownership', {
       notificationId,
       error,
     })
@@ -90,7 +91,7 @@ export async function withPlayIntentInvitationDelivery<T>(
       )
     } catch (error) {
       destroyConnection = true
-      console.error('Unable to release invitation delivery lock', {
+      logger.error('Unable to release invitation delivery lock', {
         notificationId,
         error,
       })

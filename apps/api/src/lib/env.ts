@@ -2,6 +2,7 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { config as loadEnv } from 'dotenv'
 import { serverEnvSchema } from '@game-is-up/shared'
+import { logger } from './logger.js'
 
 const currentDir = dirname(fileURLToPath(import.meta.url))
 const repoRootEnvPath = resolve(currentDir, '../../../../.env')
@@ -12,10 +13,9 @@ loadEnv()
 const parsed = serverEnvSchema.safeParse(process.env)
 
 if (!parsed.success) {
-  console.error(
-    'Invalid server environment',
-    parsed.error.flatten().fieldErrors,
-  )
+  logger.error('Invalid server environment', {
+    fieldErrors: parsed.error.flatten().fieldErrors,
+  })
   process.exit(1)
 }
 

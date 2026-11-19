@@ -15,6 +15,6 @@ export const prisma =
     },
   })
 
-if (process.env.NODE_ENV !== 'production') {
+if (env.NODE_ENV !== 'production') {
   globalThis.__gameIsUpPrisma__ = prisma
 }

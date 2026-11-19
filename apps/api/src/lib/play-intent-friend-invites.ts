@@ -19,6 +19,7 @@ import { ensurePlayIntentDiscordSpaceAudienceAccess } from './play-intent-discor
 import { syncTrackedDiscordDirectMessage } from './discord-tracked-direct-message.js'
 import { publishPlayIntentInvalidation } from './dashboard-events.js'
 import { toClientAvatarUrl } from './game-media.js'
+import { logger } from './logger.js'
 
 const recipientTypes = [
   NotificationType.FRIEND_PLAYING,
@@ -282,7 +283,7 @@ export async function inviteFriendToPlayIntent(
     ])
   } catch (error) {
     accessFailed = true
-    console.error('Participant invitation channel access failed', {
+    logger.error('Participant invitation channel access failed', {
       playIntentId,
       friendUserId,
       error,
@@ -309,7 +310,7 @@ export async function inviteFriendToPlayIntent(
         }
       : deliveryResult
   } catch (error) {
-    console.error('Participant invitation Discord delivery failed', {
+    logger.error('Participant invitation Discord delivery failed', {
       playIntentId,
       friendUserId,
       error,

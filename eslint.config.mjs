@@ -43,6 +43,14 @@ export default tseslint.config(
       'no-alert': 'error',
     },
   },
+  // The API logs through its logger module (LOG-3); only that module writes to the console.
+  {
+    files: ['apps/api/src/**/*.ts'],
+    ignores: ['apps/api/src/lib/logger.ts', 'apps/api/src/**/*.test.ts'],
+    rules: {
+      'no-console': 'error',
+    },
+  },
   // Accessibility baseline for the web app (UI-14): accessible names, valid ARIA, keyboard reach.
   {
     ...jsxA11y.flatConfigs.recommended,

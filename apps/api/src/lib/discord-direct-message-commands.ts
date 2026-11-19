@@ -27,6 +27,7 @@ import { env } from './env.js'
 import { clearCurrentPlayIntent, getCurrentPlayIntent } from './play-intents.js'
 import { formatPlayIntentWindowLabel } from './play-intent-time-format.js'
 import { prisma } from './prisma.js'
+import { logger } from './logger.js'
 
 type DirectMessageCommandName =
   'help' | 'status' | 'end' | 'autoplay' | 'cleanup'
@@ -207,7 +208,7 @@ async function resolveDirectMessageContent(message: Message) {
   }
 
   try {
-    console.log(
+    logger.info(
       `Discord DM missing gateway content for ${message.author.id}; attempting message.fetch().`,
     )
 
@@ -239,7 +240,7 @@ async function resolveDirectMessageContent(message: Message) {
           : ('empty' as const),
     }
   } catch (error) {
-    console.error('Failed to fetch Discord DM content', error)
+    logger.error('Failed to fetch Discord DM content', { error })
     return {
       content: gatewayContent,
       source:
@@ -248,23 +249,6 @@ async function resolveDirectMessageContent(message: Message) {
           : ('fetch-failed' as const),
     }
   }
-}
-
-function summarizeDirectMessageToken(content: string) {
-  const trimmed = content.trim()
-
-  if (trimmed.length === 0) {
-    return '(empty)'
-  }
-
-  const normalized = trimmed.startsWith('/') ? trimmed.slice(1).trim() : trimmed
-
-  if (normalized.length === 0) {
-    return '/'
-  }
-
-  const [token = ''] = normalized.split(/\s+/, 1)
-  return token.toLowerCase()
 }
 
 function summarizeGames(
@@ -601,9 +585,12 @@ export async function handleDiscordDirectMessagePayload(
 ) {
   const parsedCommand = parseDirectMessageCommand(payload.content)
 
-  console.log(
-    `Discord DM received from ${payload.authorId}: source=${payload.source}; token=${summarizeDirectMessageToken(payload.content)}; parsed=${parsedCommand?.name ?? 'none'}`,
-  )
+  // Only the parsed command name is logged, never the message text (LOG-6).
+  logger.info('Discord DM received', {
+    discordUserId: payload.authorId,
+    source: payload.source,
+    command: parsedCommand?.name ?? null,
+  })
 
   if (!parsedCommand) {
     return

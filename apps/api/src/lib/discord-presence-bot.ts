@@ -87,6 +87,7 @@ import {
   registerDiscordSlashCommands,
 } from './discord-slash-commands.js'
 import { maybeSendPlayIntentVoiceChannelJoinNotifications } from './play-intent-launch-notifications.js'
+import { logger } from './logger.js'
 
 type DiscordGuildMemberSummary = {
   id: string
@@ -794,7 +795,7 @@ async function handlePresenceUpdate(presence: Presence) {
       activities,
     )
   } catch (error) {
-    console.error('Failed to record Discord presence update', error)
+    logger.error('Failed to record Discord presence update', { error })
   }
 }
 
@@ -826,7 +827,9 @@ async function handleVoiceStateUpdate(
       channelName: nextState.channel?.name ?? null,
     })
   } catch (error) {
-    console.error('Failed to record Discord voice channel join update', error)
+    logger.error('Failed to record Discord voice channel join update', {
+      error,
+    })
   }
 }
 
@@ -1085,14 +1088,14 @@ export async function startDiscordPresenceBot() {
   started = true
 
   if (!env.DISCORD_BOT_TOKEN) {
-    console.log(
+    logger.info(
       'Discord presence bot disabled: DISCORD_BOT_TOKEN is not configured.',
     )
     return
   }
 
   if (!isDiscordBotGatewayMode()) {
-    console.log(
+    logger.info(
       `Discord presence bot gateway disabled: DISCORD_BOT_MODE=${getDiscordBotMode()}. REST-only Discord browsing and DM features remain available.`,
     )
     return
@@ -1167,7 +1170,7 @@ export async function startDiscordPresenceBot() {
           ? error.message
           : 'Unknown raw Discord DM command error'
       discordPresenceBotState.lastError = description
-      console.error('Discord raw DM command handler failed', error)
+      logger.error('Discord raw DM command handler failed', { error })
     })
   })
 
@@ -1180,7 +1183,7 @@ export async function startDiscordPresenceBot() {
     discordPresenceBotState.lastReadyAt = new Date().toISOString()
     discordPresenceBotState.lastError = null
     syncDiscordPresenceBotGuildIds()
-    console.log(
+    logger.info(
       `Discord presence bot connected as ${discordPresenceBotState.userTag ?? 'unknown-user'} across ${discordPresenceBotState.guildIds.length} guild(s).`,
     )
   })
@@ -1210,10 +1213,9 @@ export async function startDiscordPresenceBot() {
       serverId: member.guild.id,
       discordUserId: member.user.id,
     }).catch((error) => {
-      console.error(
-        'Failed to handle complementary Discord space member join',
+      logger.error('Failed to handle complementary Discord space member join', {
         error,
-      )
+      })
     })
   })
 
@@ -1235,7 +1237,7 @@ export async function startDiscordPresenceBot() {
       isAccountHubCustomId(interaction.customId)
     ) {
       void handleAccountHubInteraction(interaction).catch((error) => {
-        console.error('Discord account hub interaction failed', error)
+        logger.error('Discord account hub interaction failed', { error })
       })
       return
     }
@@ -1246,7 +1248,7 @@ export async function startDiscordPresenceBot() {
     ) {
       void handlePlayIntentFriendInviteInteraction(interaction).catch(
         (error) => {
-          console.error('Discord friend invitation handler failed', error)
+          logger.error('Discord friend invitation handler failed', { error })
         },
       )
       return
@@ -1346,7 +1348,7 @@ export async function startDiscordPresenceBot() {
     if (message.inGuild()) {
       void markPlayIntentDiscordSpaceChannelActivity([message.channelId]).catch(
         (error) => {
-          console.error('Failed to record Discord channel activity', error)
+          logger.error('Failed to record Discord channel activity', { error })
         },
       )
       return
@@ -1366,7 +1368,7 @@ export async function startDiscordPresenceBot() {
           ? error.message
           : 'Unknown Discord DM command error'
       discordPresenceBotState.lastError = description
-      console.error('Discord DM command handler failed', error)
+      logger.error('Discord DM command handler failed', { error })
     })
   })
 
@@ -1376,7 +1378,7 @@ export async function startDiscordPresenceBot() {
 
   client.on('error', (error) => {
     discordPresenceBotState.lastError = error.message
-    console.error('Discord presence bot error', error)
+    logger.error('Discord presence bot error', { error })
   })
 
   try {
@@ -1385,6 +1387,6 @@ export async function startDiscordPresenceBot() {
     discordPresenceBotState.connected = false
     discordPresenceBotState.lastError =
       error instanceof Error ? error.message : 'Unknown Discord bot login error'
-    console.error('Discord presence bot failed to start', error)
+    logger.error('Discord presence bot failed to start', { error })
   }
 }

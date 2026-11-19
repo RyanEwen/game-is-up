@@ -21,6 +21,7 @@ import {
   type DiscordActionComponents,
 } from './discord-action-state.js'
 import { buildDebugDmPreview } from './discord-dm-preview.js'
+import { logger } from './logger.js'
 
 type ComponentInteraction =
   ButtonInteraction | StringSelectMenuInteraction | ModalSubmitInteraction
@@ -128,7 +129,7 @@ export async function runDiscordMessageAction(
     try {
       await action()
     } catch (error) {
-      console.error('Discord form or composer launch failed', {
+      logger.error('Discord form or composer launch failed', {
         customId: interaction.customId,
         error,
       })
@@ -184,7 +185,7 @@ export async function runDiscordMessageAction(
     })
     await action()
   } catch (error) {
-    console.error('Discord message action failed', {
+    logger.error('Discord message action failed', {
       customId: interaction.customId,
       error,
     })
@@ -231,7 +232,7 @@ export async function runDiscordMessageAction(
         await interaction
           .editReply({ components: state.restoreComponents })
           .catch((restoreError) => {
-            console.error('Unable to restore Discord message action controls', {
+            logger.error('Unable to restore Discord message action controls', {
               messageId: message.id,
               restoreError,
             })

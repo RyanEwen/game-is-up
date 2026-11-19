@@ -40,6 +40,7 @@ import { env } from './env.js'
 import { toClientAvatarUrl, toClientGameCoverUrl } from './game-media.js'
 import { formatPlayIntentWindowLabel } from './play-intent-time-format.js'
 import { prisma } from './prisma.js'
+import { logger } from './logger.js'
 
 const slashCommands = [
   new SlashCommandBuilder()
@@ -566,7 +567,7 @@ async function handleServerCtpsCommand(
 
 export async function registerDiscordSlashCommands() {
   if (!env.DISCORD_CLIENT_ID) {
-    console.log(
+    logger.info(
       'Discord slash command registration skipped: DISCORD_CLIENT_ID is not configured.',
     )
     return
@@ -575,7 +576,7 @@ export async function registerDiscordSlashCommands() {
   const rest = getDiscordBotRest()
 
   if (!rest) {
-    console.log(
+    logger.info(
       'Discord slash command registration skipped: REST client is unavailable.',
     )
     return
@@ -586,9 +587,9 @@ export async function registerDiscordSlashCommands() {
       body: slashCommands,
     })
 
-    console.log(`Registered ${slashCommands.length} Discord slash command(s).`)
+    logger.info(`Registered ${slashCommands.length} Discord slash command(s).`)
   } catch (error) {
-    console.error('Failed to register Discord slash commands', error)
+    logger.error('Failed to register Discord slash commands', { error })
   }
 }
 

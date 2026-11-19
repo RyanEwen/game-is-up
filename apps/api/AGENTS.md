@@ -19,6 +19,7 @@ Scope: applies when working in the Express API, route modules, service logic, au
 
 ## Shared Helpers
 
+- Log through `logger` in `src/lib/logger.ts`, never `console.*` (lint enforces it). Pass a short message and a fields object, with errors as `{ error }`; the logger reduces errors to safe parts and adds the request id from `src/lib/request-context.ts`. Log identifiers, never message text, tokens, request bodies or other user content (LOG-6).
 - Authentication on Express routes goes through `requireSignedInUserId` and `getUserAdminStatus` in `apps/api/src/lib/route-auth.ts`. Routes should not re-derive session lookups inline.
 - Media proxy endpoints (game covers, avatars, anything cached and token-wrapped) should use the `createMediaHandler` factory in `apps/api/src/lib/media-handler.ts` rather than open-coding cache, token decoding, or content-type wiring.
 - Each route file should carry a short JSDoc module header describing what it owns. Service modules in `src/lib` should do the same plus document any non-obvious invariants (cooldowns, retention windows, dedup keys, locking).
