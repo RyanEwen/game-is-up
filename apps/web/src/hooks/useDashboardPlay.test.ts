@@ -116,7 +116,7 @@ async function renderPlay({ isAdmin = false } = {}) {
         friendsLists: [],
         playIntentDiscordServerOptions: [],
         playIntentPreviews: [],
-        loadDashboard: async () => {
+        refreshAfterChange: async () => {
           refreshes += 1
         },
         setPlayIntentNotice: (notice) => {

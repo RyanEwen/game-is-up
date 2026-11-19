@@ -14,6 +14,8 @@ export const queryKeys = {
   library: () => ['library', 'me'] as const,
   libraryCatalog: (term: string) => ['library', 'catalog', term] as const,
   steamImportPreview: () => ['library', 'steam-import-preview'] as const,
+  gameDetails: (source: string, sourceId: string) =>
+    ['library', 'game-details', source, sourceId] as const,
   platformAliases: () => ['aliases', 'platforms'] as const,
   gameAliases: () => ['aliases', 'games'] as const,
   friendsLists: () => ['friends-lists'] as const,

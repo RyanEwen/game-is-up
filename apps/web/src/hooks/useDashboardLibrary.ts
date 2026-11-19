@@ -132,7 +132,7 @@ export function useDashboardLibrary({
   addingLibraryGameId,
   currentUsualAvailability,
   browserTimeZoneId,
-  loadDashboard,
+  refreshAfterChange,
   updateProfile,
   applyProfileUpdate,
   setActionNotice,
@@ -151,7 +151,7 @@ export function useDashboardLibrary({
   addingLibraryGameId: string | null
   currentUsualAvailability: string | null
   browserTimeZoneId: string | null
-  loadDashboard: () => Promise<void>
+  refreshAfterChange: () => Promise<void>
   updateProfile: (profilePatch: {
     usualAvailability?: string
     timezoneId?: string
@@ -554,7 +554,7 @@ export function useDashboardLibrary({
           ? 'Saved as your default play schedule.'
           : 'Cleared your default play schedule.',
       })
-      void loadDashboard()
+      void refreshAfterChange()
     } catch (error) {
       setProfileNotice({
         tone: 'danger',
@@ -569,7 +569,7 @@ export function useDashboardLibrary({
   }, [
     applyProfileUpdate,
     browserTimeZoneId,
-    loadDashboard,
+    refreshAfterChange,
     setActionNotice,
     setProfileNotice,
     updateProfile,
@@ -644,7 +644,7 @@ export function useDashboardLibrary({
               ? 'Imported 1 Steam game into your library.'
               : `Imported ${games.length} Steam games into your library.`,
         })
-        await loadDashboard()
+        await refreshAfterChange()
         await fetchSteamImportPreview()
       } catch (error) {
         setActionNotice({
@@ -658,7 +658,7 @@ export function useDashboardLibrary({
     },
     [
       fetchSteamImportPreview,
-      loadDashboard,
+      refreshAfterChange,
       setActionNotice,
       steamImportMutation,
     ],
@@ -682,8 +682,13 @@ export function useDashboardLibrary({
       tone: 'success',
       message: 'Steam account disconnected.',
     })
-    await loadDashboard()
-  }, [loadDashboard, queryClient, setActionNotice, steamDisconnectMutation])
+    await refreshAfterChange()
+  }, [
+    refreshAfterChange,
+    queryClient,
+    setActionNotice,
+    steamDisconnectMutation,
+  ])
 
   const handleAddLibraryEntry = useCallback(async () => {
     const title = libraryTitle.trim()
@@ -732,7 +737,7 @@ export function useDashboardLibrary({
           message: `${title} was added to your library.`,
         })
       }
-      await loadDashboard()
+      await refreshAfterChange()
     } catch (error) {
       setActionNotice({
         tone: 'danger',
@@ -747,7 +752,7 @@ export function useDashboardLibrary({
     libraryAvailability,
     libraryIntent,
     libraryTitle,
-    loadDashboard,
+    refreshAfterChange,
     resetLibraryForm,
     saveEntryMutation,
     selectedCatalogResult,
@@ -777,11 +782,11 @@ export function useDashboardLibrary({
         resetLibraryForm()
       }
 
-      await loadDashboard()
+      await refreshAfterChange()
     },
     [
       editingLibraryEntryId,
-      loadDashboard,
+      refreshAfterChange,
       removeEntryMutation,
       resetLibraryForm,
       setActionNotice,

@@ -134,7 +134,7 @@ async function renderLibrary() {
         addingLibraryGameId: null,
         currentUsualAvailability: null,
         browserTimeZoneId: null,
-        loadDashboard: async () => {
+        refreshAfterChange: async () => {
           refreshes += 1
         },
         updateProfile: async () => {

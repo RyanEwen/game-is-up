@@ -15,21 +15,14 @@ import type {
   AuthProvidersResponse,
   DiscordServerPreferencesResponse,
   DiscoveryGame,
-  GameDetails,
-  GameDetailsResponse,
   DiscoveryPerson,
   DiscoveryPersonGame,
   LibraryEntry,
   LibraryResponse,
-  SteamLinkIntentResponse,
   UserProfileResponse,
 } from '@game-is-up/shared'
 import { buildApiIssueMessage } from '../components/dashboard/apiIssue'
 import {
-  deleteFriendsListResponseSchema,
-  discordServerPreferencesResponseSchema,
-  extractErrorMessage,
-  friendsListResponseSchema,
   gameDetailsResponseSchema,
   libraryResponseSchema,
   steamLinkIntentResponseSchema,
@@ -41,13 +34,16 @@ import { EmptyState } from '../components/EmptyState'
 import type {
   DashboardGameDetailsTarget,
   DashboardLibraryQuickAddGame,
-  FriendTarget,
   Notice,
 } from '../components/dashboard/types'
 import { useDashboardInvites } from './useDashboardInvites'
 import { useDashboardLibrary } from './useDashboardLibrary'
 import { useDashboardPlay } from './useDashboardPlay'
+import { useMutation, useQuery } from '@tanstack/react-query'
+import { apiRequest, noResponseBody } from '../lib/apiQuery'
+import { queryKeys } from '../lib/queryKeys'
 import { useDashboardData } from './useDashboardData'
+import { useDashboardNetworkActions } from './useDashboardNetworkActions'
 import { useDashboardSseInvalidation } from './useDashboardSseInvalidation'
 import { useTimedNotice } from './useTimedNotice'
 import { checkForAppUpdate } from '../lib/appUpdate'
@@ -65,8 +61,19 @@ const inviteAttributionOnboardingWindowMs = 14 * 24 * 60 * 60 * 1000
 export function useDashboardApp() {
   const { state, refreshDashboard, invalidateDomains, applyProfileToCache } =
     useDashboardData()
-  // Kept under its old name for the sub-hooks: refetch every dashboard resource.
-  const loadDashboard = refreshDashboard
+  // What each kind of change refreshes once the server has accepted it.
+  const refreshNetwork = useCallback(
+    () => invalidateDomains(['network']),
+    [invalidateDomains],
+  )
+  const refreshPlay = useCallback(
+    () => invalidateDomains(['play-intents', 'discovery']),
+    [invalidateDomains],
+  )
+  const refreshLibrary = useCallback(
+    () => invalidateDomains(['library', 'profile']),
+    [invalidateDomains],
+  )
   const [authNotice, setAuthNotice] = useState<Notice | null>(null)
   const [actionNotice, setActionNotice] = useState<Notice | null>(null)
   const [profileNotice, setProfileNotice] = useState<Notice | null>(null)
@@ -75,32 +82,11 @@ export function useDashboardApp() {
     discordAutoPromptPlayIntentSaving,
     setDiscordAutoPromptPlayIntentSaving,
   ] = useState(false)
-  const [steamLinkPending, setSteamLinkPending] = useState(false)
   const [installPromptEvent, setInstallPromptEvent] =
     useState<BeforeInstallPromptEvent | null>(null)
   const [installPromptPending, setInstallPromptPending] = useState(false)
-  const [friendPendingId, setFriendPendingId] = useState<string | null>(null)
-  const [friendsListMutationPending, setFriendsListMutationPending] =
-    useState(false)
-  const [addingLibraryGameId, setAddingLibraryGameId] = useState<string | null>(
-    null,
-  )
-  const [discordServerRefreshPending, setDiscordServerRefreshPending] =
-    useState(false)
-  const [serverPreferencePendingId, setServerPreferencePendingId] = useState<
-    string | null
-  >(null)
   const [gameDetailsTarget, setGameDetailsTarget] =
     useState<DashboardGameDetailsTarget | null>(null)
-  const [gameDetailsByKey, setGameDetailsByKey] = useState<
-    Record<string, GameDetails | null>
-  >({})
-  const [gameDetailsErrorByKey, setGameDetailsErrorByKey] = useState<
-    Record<string, string>
-  >({})
-  const [gameDetailsLoadingKey, setGameDetailsLoadingKey] = useState<
-    string | null
-  >(null)
   const timezoneSyncPendingIdRef = useRef<string | null>(null)
   const sseRefreshTimeoutIdRef = useRef<number | null>(null)
   const sseDeferredRefreshRef = useRef(false)
@@ -113,9 +99,6 @@ export function useDashboardApp() {
     : null
 
   const isSignedIn = Boolean(state.session?.authenticated && state.session.user)
-  const selectedGameDetailsKey = gameDetailsTarget
-    ? `${gameDetailsTarget.source}:${gameDetailsTarget.sourceId}`
-    : null
   const libraryEntries = state.library?.entries ?? emptyLibraryEntries
   const suggestedLibraryGames = state.library?.suggestedGames ?? []
   const trendingLibraryGames = state.library?.trendingGames ?? []
@@ -409,37 +392,47 @@ export function useDashboardApp() {
     [invalidateDomains],
   )
 
-  const updateProfile = useCallback(
-    async (profilePatch: {
+  const profileMutation = useMutation({
+    mutationFn: (profilePatch: {
       usualAvailability?: string
       timezoneId?: string
       discordAutoPromptPlayIntent?: boolean
-    }) => {
-      const response = await fetch(buildApiUrl('/api/profile/me'), {
-        method: 'PUT',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(profilePatch),
-      })
+    }) =>
+      apiRequest(
+        '/api/profile/me',
+        userProfileResponseSchema,
+        'Unable to update your profile right now.',
+        { method: 'PUT', body: JSON.stringify(profilePatch) },
+      ),
+  })
+  const { mutateAsync: updateProfile } = profileMutation
 
-      const responseBody = (await response.json()) as
-        UserProfileResponse | { error?: string }
+  const quickAddMutation = useMutation({
+    mutationFn: (variables: {
+      gameId: string
+      body: Record<string, unknown>
+    }) =>
+      apiRequest(
+        '/api/library/me',
+        libraryResponseSchema,
+        'Unable to add that game right now.',
+        { method: 'POST', body: JSON.stringify(variables.body) },
+      ),
+  })
+  const addingLibraryGameId = quickAddMutation.isPending
+    ? (quickAddMutation.variables?.gameId ?? null)
+    : null
 
-      if (!response.ok) {
-        throw new Error(
-          extractErrorMessage(
-            responseBody,
-            'Unable to update your profile right now.',
-          ),
-        )
-      }
-
-      return userProfileResponseSchema.parse(responseBody)
-    },
-    [],
-  )
+  const steamLinkMutation = useMutation({
+    mutationFn: (returnTo: string) =>
+      apiRequest(
+        '/api/auth/steam/link-intent',
+        steamLinkIntentResponseSchema,
+        'Unable to start Steam linking right now.',
+        { method: 'POST', body: JSON.stringify({ returnTo }) },
+      ),
+  })
+  const steamLinkPending = steamLinkMutation.isPending
 
   const applyProfileUpdate = useCallback(
     (parsedProfile: UserProfileResponse) => {
@@ -470,7 +463,7 @@ export function useDashboardApp() {
             ? 'Discord can now prompt you to create a call to play when it sees you start a game.'
             : 'Automatic Discord call-to-play prompts are now off.',
         })
-        await loadDashboard()
+        await invalidateDomains(['profile'])
       } catch (error) {
         setProfileNotice({
           tone: 'danger',
@@ -486,8 +479,8 @@ export function useDashboardApp() {
     [
       applyProfileUpdate,
       discordAutoPromptPlayIntentSaving,
+      invalidateDomains,
       isSignedIn,
-      loadDashboard,
       updateProfile,
     ],
   )
@@ -535,17 +528,12 @@ export function useDashboardApp() {
         return
       }
 
-      setAddingLibraryGameId(gameId)
       setActionNotice(null)
 
       try {
-        const response = await fetch(buildApiUrl('/api/library/me'), {
-          method: 'POST',
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
+        await quickAddMutation.mutateAsync({
+          gameId,
+          body: {
             title,
             platformLabels: normalizedPlatformLabels,
             intent: 'interested',
@@ -556,42 +544,26 @@ export function useDashboardApp() {
               coverUrl,
               platformLabels: normalizedPlatformLabels,
             },
-          }),
+          },
         })
-
-        const responseBody = (await response.json()) as
-          LibraryResponse | { error?: string }
-
-        if (!response.ok) {
-          setActionNotice({
-            tone: 'danger',
-            message: extractErrorMessage(
-              responseBody,
-              `Unable to add ${title} right now.`,
-            ),
-          })
-          return
-        }
-
-        libraryResponseSchema.parse(responseBody)
-        setActionNotice({
-          tone: 'success',
-          message: `${title} was added to your library.`,
-        })
-        await loadDashboard()
       } catch (error) {
         setActionNotice({
           tone: 'danger',
           message:
-            error instanceof Error
+            error instanceof Error && error.message
               ? error.message
               : `Unable to add ${title} right now.`,
         })
-      } finally {
-        setAddingLibraryGameId(null)
+        return
       }
+
+      setActionNotice({
+        tone: 'success',
+        message: `${title} was added to your library.`,
+      })
+      await invalidateDomains(['library'])
     },
-    [isSignedIn, libraryEntries, loadDashboard],
+    [invalidateDomains, isSignedIn, libraryEntries, quickAddMutation],
   )
 
   const handleSteamLink = useCallback(async () => {
@@ -599,51 +571,22 @@ export function useDashboardApp() {
       return
     }
 
-    setSteamLinkPending(true)
     setActionNotice(null)
     setAuthNotice(null)
 
     try {
-      const response = await fetch(buildApiUrl('/api/auth/steam/link-intent'), {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          returnTo: window.location.href,
-        }),
-      })
-
-      const responseBody = (await response.json()) as
-        SteamLinkIntentResponse | { error?: string }
-
-      if (!response.ok) {
-        setActionNotice({
-          tone: 'danger',
-          message: extractErrorMessage(
-            responseBody,
-            'Unable to start Steam linking right now.',
-          ),
-        })
-        return
-      }
-
-      const parsed = steamLinkIntentResponseSchema.parse(responseBody)
-
+      const parsed = await steamLinkMutation.mutateAsync(window.location.href)
       window.location.assign(parsed.authorizationUrl)
     } catch (error) {
       setActionNotice({
         tone: 'danger',
         message:
-          error instanceof Error
+          error instanceof Error && error.message
             ? error.message
             : 'Unable to start Steam linking right now.',
       })
-    } finally {
-      setSteamLinkPending(false)
     }
-  }, [isSignedIn, steamLinkPending])
+  }, [isSignedIn, steamLinkMutation, steamLinkPending])
 
   const { profileSaving, libraryViewProps, openLibraryEditorForGame } =
     useDashboardLibrary({
@@ -658,7 +601,7 @@ export function useDashboardApp() {
       addingLibraryGameId,
       currentUsualAvailability,
       browserTimeZoneId,
-      loadDashboard,
+      refreshAfterChange: refreshLibrary,
       updateProfile,
       applyProfileUpdate,
       setActionNotice,
@@ -677,7 +620,7 @@ export function useDashboardApp() {
     friendsLists,
     playIntentDiscordServerOptions,
     playIntentPreviews: state.playIntents?.intents ?? [],
-    loadDashboard,
+    refreshAfterChange: refreshPlay,
     setPlayIntentNotice,
   })
 
@@ -754,7 +697,7 @@ export function useDashboardApp() {
         })
 
         applyProfileUpdate(parsedProfile)
-        await loadDashboard()
+        await invalidateDomains(['profile'])
       } catch {
         timezoneSyncPendingIdRef.current = null
       }
@@ -762,8 +705,8 @@ export function useDashboardApp() {
   }, [
     applyProfileUpdate,
     browserTimeZoneId,
+    invalidateDomains,
     isSignedIn,
-    loadDashboard,
     profileSaving,
     state.session?.user?.timezoneId,
     updateProfile,
@@ -783,7 +726,7 @@ export function useDashboardApp() {
 
       try {
         if (status === 'success') {
-          await loadDashboard()
+          await refreshDashboard()
         }
 
         applyAuthNotice(auth, status, reason)
@@ -809,7 +752,7 @@ export function useDashboardApp() {
 
       return true
     },
-    [applyAuthNotice, loadDashboard],
+    [applyAuthNotice, refreshDashboard],
   )
 
   useEffect(() => {
@@ -817,12 +760,17 @@ export function useDashboardApp() {
   }, [handleAuthRedirect])
 
   const handleLogout = useCallback(async () => {
-    await fetch(buildApiUrl('/api/auth/logout'), {
-      method: 'POST',
-      credentials: 'include',
-    })
-
-    window.location.reload()
+    try {
+      await apiRequest(
+        '/api/auth/logout',
+        noResponseBody,
+        'Unable to sign out right now.',
+        { method: 'POST' },
+      )
+    } finally {
+      // As before, reload whatever the answer: the page reflects the session the server now has.
+      window.location.reload()
+    }
   }, [])
 
   const handleDiscordLogin = useCallback(async () => {
@@ -881,354 +829,35 @@ export function useDashboardApp() {
     setGameDetailsTarget(null)
   }, [])
 
-  useEffect(() => {
-    if (!gameDetailsTarget || !selectedGameDetailsKey) {
-      return
-    }
+  // Details of the game whose dialog is open, cached per game (errors too, as before).
+  const gameDetailsQuery = useQuery({
+    queryKey: queryKeys.gameDetails(
+      gameDetailsTarget?.source ?? '',
+      gameDetailsTarget?.sourceId ?? '',
+    ),
+    queryFn: () =>
+      apiRequest(
+        `/api/library/catalog/${encodeURIComponent(gameDetailsTarget!.source)}/${encodeURIComponent(gameDetailsTarget!.sourceId)}/details`,
+        gameDetailsResponseSchema,
+        'Unable to load game details right now.',
+      ),
+    enabled: gameDetailsTarget !== null,
+  })
 
-    if (
-      Object.prototype.hasOwnProperty.call(
-        gameDetailsByKey,
-        selectedGameDetailsKey,
-      ) ||
-      gameDetailsErrorByKey[selectedGameDetailsKey]
-    ) {
-      return
-    }
-
-    let cancelled = false
-    setGameDetailsLoadingKey(selectedGameDetailsKey)
-
-    void (async () => {
-      try {
-        const response = await fetch(
-          buildApiUrl(
-            `/api/library/catalog/${encodeURIComponent(gameDetailsTarget.source)}/${encodeURIComponent(gameDetailsTarget.sourceId)}/details`,
-          ),
-          {
-            credentials: 'include',
-          },
-        )
-        const responseBody = (await response.json()) as
-          GameDetailsResponse | { error?: string }
-
-        if (!response.ok) {
-          throw new Error(
-            extractErrorMessage(
-              responseBody,
-              'Unable to load game details right now.',
-            ),
-          )
-        }
-
-        const parsed = gameDetailsResponseSchema.parse(responseBody)
-
-        if (cancelled) {
-          return
-        }
-
-        setGameDetailsByKey((current) => ({
-          ...current,
-          [selectedGameDetailsKey]: parsed.game,
-        }))
-      } catch (error) {
-        if (cancelled) {
-          return
-        }
-
-        setGameDetailsErrorByKey((current) => ({
-          ...current,
-          [selectedGameDetailsKey]:
-            error instanceof Error
-              ? error.message
-              : 'Unable to load game details right now.',
-        }))
-      } finally {
-        if (!cancelled) {
-          setGameDetailsLoadingKey((current) =>
-            current === selectedGameDetailsKey ? null : current,
-          )
-        }
-      }
-    })()
-
-    return () => {
-      cancelled = true
-    }
-  }, [
-    gameDetailsByKey,
-    gameDetailsErrorByKey,
-    gameDetailsTarget,
-    selectedGameDetailsKey,
-  ])
-
-  const handleToggleFriend = useCallback(
-    async (target: FriendTarget) => {
-      setFriendPendingId(target.id)
-      setActionNotice(null)
-
-      try {
-        const response = await fetch(buildApiUrl(`/api/friends/${target.id}`), {
-          method: target.friendEligible ? 'POST' : 'DELETE',
-          credentials: 'include',
-        })
-
-        if (!response.ok) {
-          const responseBody = (await response.json()) as { error?: string }
-          setActionNotice({
-            tone: 'danger',
-            message:
-              responseBody.error ?? 'Unable to update friends right now.',
-          })
-          return
-        }
-
-        setActionNotice({
-          tone: 'success',
-          message: target.friendEligible
-            ? `${target.displayName} was added to your friends list.`
-            : `${target.displayName} was removed from your friends list.`,
-        })
-        await loadDashboard()
-      } catch (error) {
-        setActionNotice({
-          tone: 'danger',
-          message:
-            error instanceof Error
-              ? error.message
-              : 'Unable to update friends right now.',
-        })
-      } finally {
-        setFriendPendingId(null)
-      }
-    },
-    [loadDashboard],
-  )
-
-  const handleSaveFriendsList = useCallback(
-    async (input: {
-      listId?: string
-      name: string
-      friendUserIds: string[]
-    }): Promise<boolean> => {
-      setFriendsListMutationPending(true)
-      setActionNotice(null)
-
-      try {
-        const isUpdate = Boolean(input.listId)
-        const response = await fetch(
-          buildApiUrl(
-            isUpdate
-              ? `/api/friends-lists/${input.listId}`
-              : '/api/friends-lists',
-          ),
-          {
-            method: isUpdate ? 'PUT' : 'POST',
-            credentials: 'include',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              name: input.name,
-              friendUserIds: input.friendUserIds,
-            }),
-          },
-        )
-
-        const responseBody = (await response.json()) as { error?: string }
-
-        if (!response.ok) {
-          setActionNotice({
-            tone: 'danger',
-            message: extractErrorMessage(
-              responseBody,
-              'Unable to save that friends list right now.',
-            ),
-          })
-          return false
-        }
-
-        const parsed = friendsListResponseSchema.parse(responseBody)
-        setActionNotice({
-          tone: 'success',
-          message: isUpdate
-            ? `Updated the "${parsed.list.name}" friends list.`
-            : `Created the "${parsed.list.name}" friends list.`,
-        })
-        await loadDashboard()
-        return true
-      } catch (error) {
-        setActionNotice({
-          tone: 'danger',
-          message:
-            error instanceof Error
-              ? error.message
-              : 'Unable to save that friends list right now.',
-        })
-        return false
-      } finally {
-        setFriendsListMutationPending(false)
-      }
-    },
-    [loadDashboard],
-  )
-
-  const handleDeleteFriendsList = useCallback(
-    async (listId: string): Promise<boolean> => {
-      setFriendsListMutationPending(true)
-      setActionNotice(null)
-
-      try {
-        const response = await fetch(
-          buildApiUrl(`/api/friends-lists/${listId}`),
-          {
-            method: 'DELETE',
-            credentials: 'include',
-          },
-        )
-
-        const responseBody = (await response.json()) as { error?: string }
-
-        if (!response.ok) {
-          setActionNotice({
-            tone: 'danger',
-            message: extractErrorMessage(
-              responseBody,
-              'Unable to delete that friends list right now.',
-            ),
-          })
-          return false
-        }
-
-        const parsed = deleteFriendsListResponseSchema.parse(responseBody)
-        setActionNotice({
-          tone: parsed.status === 'deleted' ? 'success' : 'danger',
-          message: parsed.message,
-        })
-        await loadDashboard()
-        return parsed.status === 'deleted'
-      } catch (error) {
-        setActionNotice({
-          tone: 'danger',
-          message:
-            error instanceof Error
-              ? error.message
-              : 'Unable to delete that friends list right now.',
-        })
-        return false
-      } finally {
-        setFriendsListMutationPending(false)
-      }
-    },
-    [loadDashboard],
-  )
-
-  const handleToggleDiscordServer = useCallback(
-    async (serverId: string, nextSelected: boolean) => {
-      setServerPreferencePendingId(serverId)
-      setActionNotice(null)
-
-      try {
-        const response = await fetch(
-          buildApiUrl(`/api/discord-servers/me/${serverId}`),
-          {
-            method: 'PUT',
-            credentials: 'include',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              selected: nextSelected,
-            }),
-          },
-        )
-
-        const responseBody = (await response.json()) as
-          DiscordServerPreferencesResponse | { error?: string }
-
-        if (!response.ok) {
-          setActionNotice({
-            tone: 'danger',
-            message: extractErrorMessage(
-              responseBody,
-              'Unable to update your Discord server network right now.',
-            ),
-          })
-          return
-        }
-
-        discordServerPreferencesResponseSchema.parse(responseBody)
-        setActionNotice({
-          tone: 'success',
-          message: nextSelected
-            ? 'Discord server added to your network.'
-            : 'Discord server removed from your network.',
-        })
-        await loadDashboard()
-      } catch (error) {
-        setActionNotice({
-          tone: 'danger',
-          message:
-            error instanceof Error
-              ? error.message
-              : 'Unable to update your Discord server network right now.',
-        })
-      } finally {
-        setServerPreferencePendingId(null)
-      }
-    },
-    [loadDashboard],
-  )
-
-  const handleRefreshDiscordServers = useCallback(async () => {
-    if (discordServerRefreshPending) {
-      return
-    }
-
-    setDiscordServerRefreshPending(true)
-    setActionNotice(null)
-
-    try {
-      const response = await fetch(
-        buildApiUrl('/api/discord-servers/me/refresh'),
-        {
-          method: 'POST',
-          credentials: 'include',
-        },
-      )
-
-      const responseBody = (await response.json()) as
-        DiscordServerPreferencesResponse | { error?: string }
-
-      if (!response.ok) {
-        setActionNotice({
-          tone: 'danger',
-          message: extractErrorMessage(
-            responseBody,
-            'Unable to refresh your Discord server list right now.',
-          ),
-        })
-        return
-      }
-
-      discordServerPreferencesResponseSchema.parse(responseBody)
-      setActionNotice({
-        tone: 'success',
-        message: 'Discord servers refreshed from Discord.',
-      })
-      await loadDashboard()
-    } catch (error) {
-      setActionNotice({
-        tone: 'danger',
-        message:
-          error instanceof Error
-            ? error.message
-            : 'Unable to refresh your Discord server list right now.',
-      })
-    } finally {
-      setDiscordServerRefreshPending(false)
-    }
-  }, [discordServerRefreshPending, loadDashboard])
+  const {
+    friendPendingId,
+    friendsListMutationPending,
+    serverPreferencePendingId,
+    discordServerRefreshPending,
+    handleToggleFriend,
+    handleSaveFriendsList,
+    handleDeleteFriendsList,
+    handleToggleDiscordServer,
+    handleRefreshDiscordServers,
+  } = useDashboardNetworkActions({
+    refreshAfterChange: refreshNetwork,
+    setActionNotice,
+  })
 
   const inviteAttributionOnboarding =
     showInviteAttributionOnboarding && latestInviteAttribution ? (
@@ -1324,15 +953,9 @@ export function useDashboardApp() {
     gameDetailsViewProps: {
       isOpen: gameDetailsTarget != null,
       target: gameDetailsTarget,
-      gameDetails: selectedGameDetailsKey
-        ? (gameDetailsByKey[selectedGameDetailsKey] ?? null)
-        : null,
-      loading:
-        selectedGameDetailsKey != null &&
-        gameDetailsLoadingKey === selectedGameDetailsKey,
-      error: selectedGameDetailsKey
-        ? (gameDetailsErrorByKey[selectedGameDetailsKey] ?? null)
-        : null,
+      gameDetails: gameDetailsQuery.data?.game ?? null,
+      loading: gameDetailsQuery.isFetching,
+      error: gameDetailsQuery.error?.message ?? null,
       openGameDetails,
       closeGameDetails,
     },
@@ -1437,7 +1060,7 @@ export function useDashboardApp() {
       debugAdmin: state.debugAdmin,
       debugLoading:
         showDebugView && isSignedIn && state.debugAdmin == null && !state.error,
-      onRefreshDebug: loadDashboard,
+      onRefreshDebug: refreshDashboard,
     },
   }
 }

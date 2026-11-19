@@ -238,7 +238,7 @@ export function useDashboardPlay({
   friendsLists,
   playIntentDiscordServerOptions,
   playIntentPreviews,
-  loadDashboard,
+  refreshAfterChange,
   setPlayIntentNotice,
 }: {
   isSignedIn: boolean
@@ -252,7 +252,7 @@ export function useDashboardPlay({
   friendsLists: FriendsList[]
   playIntentDiscordServerOptions: DiscordServerPreference[]
   playIntentPreviews: PlayIntentPreview[]
-  loadDashboard: () => Promise<void>
+  refreshAfterChange: () => Promise<void>
   setPlayIntentNotice: Dispatch<SetStateAction<Notice | null>>
 }) {
   const location = useLocation()
@@ -451,7 +451,7 @@ export function useDashboardPlay({
           tone: 'success',
           message: successMessage(result),
         })
-        await loadDashboard()
+        await refreshAfterChange()
         return true
       } catch (error) {
         setPlayIntentNotice({
@@ -464,7 +464,7 @@ export function useDashboardPlay({
         return false
       }
     },
-    [loadDashboard, setPlayIntentNotice],
+    [refreshAfterChange, setPlayIntentNotice],
   )
   const [isPlayIntentComposerOpen, setIsPlayIntentComposerOpen] =
     useState(false)
@@ -962,7 +962,7 @@ export function useDashboardPlay({
         tone: 'success',
         message: `${successMessage}${discordSpaceMessage}`,
       })
-      void loadDashboard()
+      void refreshAfterChange()
     } catch (error) {
       setPlayIntentNotice({
         tone: 'danger',
@@ -974,7 +974,7 @@ export function useDashboardPlay({
     }
   }, [
     canPostPlayIntent,
-    loadDashboard,
+    refreshAfterChange,
     parsedPlayIntentEndAt,
     playIntentDurationMinutes,
     playIntentTitle,
@@ -1287,9 +1287,9 @@ export function useDashboardPlay({
       await queryClient.invalidateQueries({
         queryKey: queryKeys.playIntentMutes(),
       })
-      await loadDashboard()
+      await refreshAfterChange()
     },
-    [loadDashboard, muteMutation, queryClient],
+    [refreshAfterChange, muteMutation, queryClient],
   )
 
   const handleMutePlayIntentUser = useCallback(
