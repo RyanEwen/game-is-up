@@ -41,7 +41,8 @@
     "db:migrate:deploy": "npm run prisma:migrate:deploy --workspace @game-is-up/api",
     "db:migrate:bootstrap": "npm run prisma:migrate:bootstrap --workspace @game-is-up/api",
     "db:seed": "npm run prisma:seed --workspace @game-is-up/api",
-    "web:icons:export": "node scripts/dev/generate-brand-icons.mjs"
+    "web:icons:export": "node scripts/dev/generate-brand-icons.mjs",
+    "notices": "node scripts/dev/generate-third-party-notices.mjs"
   },
   "devDependencies": {
     "@dynamic-solutions-canada/devkit": "github:Dynamic-Solutions-Canada/devkit#v0.18.1",

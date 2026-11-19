@@ -30,8 +30,21 @@ import { CssVarsProvider } from '@mui/joy/styles'
 import { useChromeCssVars } from '../../hooks/useChromeCssVars'
 import { useDeviceTheme } from '../../hooks/useDeviceTheme'
 import { appThemeOptions, appThemeVariants } from '../../theme/themes'
+import { productLinks } from '../../lib/productLinks'
+import { AboutDialog } from './AboutDialog'
 import { dashboardTabPaths, dashboardTabSx } from './dashboardUtils'
 import type { DashboardTab, DashboardToast } from './types'
+
+/** The footer's quiet text links and buttons (About, Privacy, Debug) share one look. */
+const footerLinkSx = {
+  color: 'neutral.500',
+  textDecoration: 'none',
+  background: 'none',
+  border: 0,
+  p: 0,
+  cursor: 'pointer',
+  '&:hover': { color: 'neutral.300' },
+} as const
 
 const dashboardTabs: Array<{
   value: DashboardTab
@@ -79,6 +92,7 @@ export const DashboardLayout = ({
 }) => {
   const stickyTabsRef = useRef<HTMLDivElement | null>(null)
   const [isTabsStuck, setIsTabsStuck] = useState(false)
+  const [aboutOpen, setAboutOpen] = useState(false)
   const [deviceTheme, setDeviceTheme] = useDeviceTheme()
   const themeVariant = appThemeVariants[deviceTheme]
   useChromeCssVars(themeVariant.chromeCssVars)
@@ -489,6 +503,35 @@ export const DashboardLayout = ({
                   @technicallyreal
                 </Typography>
               </Stack>
+              <Typography level="body-xs" sx={{ color: 'neutral.700' }}>
+                •
+              </Typography>
+              <Typography
+                component="button"
+                type="button"
+                level="body-xs"
+                onClick={() => setAboutOpen(true)}
+                sx={footerLinkSx}
+              >
+                About
+              </Typography>
+              {productLinks.privacyPolicy ? (
+                <>
+                  <Typography level="body-xs" sx={{ color: 'neutral.700' }}>
+                    •
+                  </Typography>
+                  <Typography
+                    component="a"
+                    href={productLinks.privacyPolicy}
+                    target="_blank"
+                    rel="noreferrer"
+                    level="body-xs"
+                    sx={footerLinkSx}
+                  >
+                    Privacy
+                  </Typography>
+                </>
+              ) : null}
               {showDebugLink ? (
                 <>
                   <Typography level="body-xs" sx={{ color: 'neutral.700' }}>
@@ -498,11 +541,7 @@ export const DashboardLayout = ({
                     component={Link}
                     to={dashboardTabPaths.debug}
                     level="body-xs"
-                    sx={{
-                      color: 'neutral.500',
-                      textDecoration: 'none',
-                      '&:hover': { color: 'neutral.300' },
-                    }}
+                    sx={footerLinkSx}
                   >
                     Debug
                   </Typography>
@@ -512,6 +551,7 @@ export const DashboardLayout = ({
           </Box>
         </Stack>
       </Box>
+      <AboutDialog open={aboutOpen} onClose={() => setAboutOpen(false)} />
     </CssVarsProvider>
   )
 }

@@ -9,6 +9,8 @@ dist/
 *.log
 # The server's real compose file, copied from compose.example.yml and never committed
 /compose.yml
+# Generated third-party notices, rebuilt by every web build from the lockfile
+/apps/web/public/THIRD-PARTY-NOTICES.txt
 # Personal Claude Code settings; the tracked project settings are .claude/settings.json
 .claude/settings.local.json
 
