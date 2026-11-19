@@ -29,7 +29,8 @@ docs/          Development, deployment and behaviour docs
 scripts/       Dev, test, icon and deploy scripts
 AGENTS.md      Agent instructions
 compose.dev.yml       Development stack (devkit)
-compose.example.yml   Production stack template
+compose.server.yml    Production stack (deployed by deploy:prod)
+nginx.server.conf     Production nginx site file
 ```
 
 ## Quick start

@@ -1,5 +1,9 @@
-# Copy this file to compose.yml for a real deployment and keep the
-# server-specific copy out of git.
+# Production stack (CONF-11), tracked and deployed by `npm run deploy:prod`. Secrets and the
+# public origin come from the untracked .env beside it (see .env.server.example). A value that
+# only one host needs goes in an untracked compose.override.yml, which the deploy adds.
+#
+# nginx (a separate container on the shared nginx_default network) reaches the API and the web
+# container by their container names (see nginx.server.conf), so no port is published here.
 
 # Caps each container's log at 50 MB (5 files of 10 MB), so a noisy or crash-looping
 # container cannot fill the server's disk. Every service references this anchor.
@@ -11,6 +15,7 @@ x-logging: &default-logging
 
 services:
   db:
+    container_name: game-is-up-db
     logging: *default-logging
     image: postgres:16-bookworm
     restart: unless-stopped
@@ -27,10 +32,15 @@ services:
       retries: 10
 
   api:
+    container_name: game-is-up-api
     logging: *default-logging
     build:
       context: .
       dockerfile: apps/api/Dockerfile
+      # The commit and version the deploy validated, for the image's OCI labels (CTR-1).
+      args:
+        REVISION: ${DEPLOY_REVISION:-unknown}
+        VERSION: ${DEPLOY_VERSION:-unknown}
     restart: unless-stopped
     depends_on:
       db:
@@ -39,12 +49,12 @@ services:
       NODE_ENV: production
       API_PORT: 4000
       DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@db:5432/game_is_up?schema=public
-      CLIENT_ORIGIN: ${CLIENT_ORIGIN:-http://localhost:8080}
+      CLIENT_ORIGIN: ${CLIENT_ORIGIN:?set CLIENT_ORIGIN (the public URL) in .env}
       SESSION_SECRET: ${SESSION_SECRET:?set SESSION_SECRET in .env}
       DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID:-}
       DISCORD_CLIENT_SECRET: ${DISCORD_CLIENT_SECRET:-}
       DISCORD_PUBLIC_KEY: ${DISCORD_PUBLIC_KEY:-}
-      DISCORD_CALLBACK_URL: ${DISCORD_CALLBACK_URL:-http://localhost:8080/api/auth/discord/callback}
+      DISCORD_CALLBACK_URL: ${DISCORD_CALLBACK_URL:?set DISCORD_CALLBACK_URL in .env}
       DISCORD_BOT_TOKEN: ${DISCORD_BOT_TOKEN:-}
       DISCORD_BOT_MODE: ${DISCORD_BOT_MODE:-gateway}
       DISCORD_SERVER_ID: ${DISCORD_SERVER_ID:-}
@@ -63,8 +73,12 @@ services:
       interval: 15s
       timeout: 5s
       retries: 10
+    networks:
+      - default
+      - nginx_default
 
   web:
+    container_name: game-is-up-web
     logging: *default-logging
     build:
       context: .
@@ -72,12 +86,19 @@ services:
       args:
         VITE_API_BASE_URL: ${VITE_API_BASE_URL:-}
         VITE_PUBLIC_APP_URL: ${VITE_PUBLIC_APP_URL:-}
+        REVISION: ${DEPLOY_REVISION:-unknown}
+        VERSION: ${DEPLOY_VERSION:-unknown}
     restart: unless-stopped
     depends_on:
       api:
         condition: service_healthy
-    ports:
-      - '${PORT:-8080}:8080'
+    networks:
+      - default
+      - nginx_default
 
 volumes:
   postgres-data:
+
+networks:
+  nginx_default:
+    external: true

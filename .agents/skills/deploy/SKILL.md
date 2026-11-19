@@ -15,7 +15,7 @@ Invoking this skill is the request for its own commit, push, and production depl
 4. Stage explicit intended paths and create one coherent commit. Use `git add -A` only when every worktree change is in scope. Use an imperative subject.
 5. Push with `git push origin HEAD:main`; production deploys only what is on `main`.
 6. Deploy with `npm run deploy:prod`. It refuses a dirty tree or a HEAD that is not `origin/main`, so push first.
-7. Pass through deploy arguments the user supplied, including `--dry-run`, `--host`, `--port`, `--repo-path`, or `--compose-file`. The script has no default target: `DEPLOY_SSH_HOST` and `DEPLOY_REPO_PATH` (or `--host` and `--repo-path`) must be set, so ask for them if neither is.
+7. Pass through deploy options the user supplied: `--dry-run`, `--skip-validate`, `--skip-backup` or `--no-prune`. The target comes from `.env` (`DEPLOY_SSH_HOST`, `DEPLOY_REPO_PATH`); if either is missing, ask for it.
 8. Report the exact push and deploy commands and any remote validation signal or error.
 
 If the user asks for a review, confirmation, dry run, or pause, stop before the named mutating step. Do not push or deploy when explicitly disabled.

@@ -15,6 +15,10 @@ RUN npm run db:generate
 RUN npm run build
 
 FROM base AS runtime
+# The commit and version the deploy validated (CTR-1); compose.server.yml passes them.
+ARG REVISION=unknown
+ARG VERSION=unknown
+LABEL org.opencontainers.image.revision=$REVISION org.opencontainers.image.version=$VERSION
 ENV NODE_ENV=production
 WORKDIR /app
 COPY --chown=node:node --from=build /app /app

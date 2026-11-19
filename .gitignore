@@ -7,8 +7,10 @@ dist/
 .vite/
 # Log files written by local runs
 *.log
-# The server's real compose file, copied from compose.example.yml and never committed
+# compose.yml is never tracked (CONF-11): production is compose.server.yml, dev is compose.dev.yml
 /compose.yml
+# Host-specific production values, kept only on the server the deploy adds them on
+/compose.override.yml
 # Generated third-party notices, rebuilt by every web build from the lockfile
 /apps/web/public/THIRD-PARTY-NOTICES.txt
 # Personal Claude Code settings; the tracked project settings are .claude/settings.json
