@@ -43,3 +43,8 @@ export async function apiRequest<T>(
 
   return schema.parse(body)
 }
+
+/** For endpoints that answer with no body (204) or one the caller does not read. */
+export const noResponseBody: ResponseParser<void> = {
+  parse: () => undefined,
+}

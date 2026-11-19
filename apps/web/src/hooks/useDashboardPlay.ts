@@ -10,11 +10,14 @@
  */
 
 import type { Dispatch, SetStateAction } from 'react'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type {
   ActivePlayIntent,
-  DiscordServerPreference,
   DiscordVoiceChannel,
+  DiscordVoiceChannelsResponse,
+  PlayIntentRecipientResponseResult,
+  DiscordServerPreference,
   DiscoveryPerson,
   FriendsList,
   LibraryEntry,
@@ -22,18 +25,18 @@ import type {
   PlayIntentNotifyScope,
   PlayIntentPreview,
   PlayIntentRecipientAction,
-  PlayIntentRecipientResponseResult,
-  UpsertPlayIntentResponse,
 } from '@game-is-up/shared'
 import {
   discordVoiceChannelsResponseSchema,
-  extractErrorMessage,
   maximumPlayIntentGameSelectionCount,
   playIntentDiscordSpaceDeleteResponseSchema,
   playIntentDiscordSpaceRetryResponseSchema,
+  playIntentMutesResponseSchema,
   playIntentRecipientResponseResultSchema,
   upsertPlayIntentResponseSchema,
 } from '@game-is-up/shared'
+import { apiRequest, noResponseBody } from '../lib/apiQuery'
+import { queryKeys } from '../lib/queryKeys'
 import {
   buildPlayIntentEndTimeInputValue,
   formatPlayIntentDurationLabel,
@@ -56,6 +59,16 @@ import type {
   PlayIntentTimingMode,
   PlayIntentVoiceMode,
 } from '../components/dashboard/types'
+
+const emptyVoiceChannels: DiscordVoiceChannelsResponse['channels'] = []
+
+/** The variables of a mutation while it runs, or null; how the UI marks the one pending row. */
+function pendingVariable<T>(mutation: {
+  isPending: boolean
+  variables: T | undefined
+}): T | null {
+  return mutation.isPending ? (mutation.variables ?? null) : null
+}
 
 /** Suggests a scheduled start about one hour ahead, aligned to the nearest quarter hour. */
 function buildDefaultScheduledStartAtInput() {
@@ -218,7 +231,6 @@ export type DashboardPlayViewProps = {
 export function useDashboardPlay({
   isSignedIn,
   isAdmin,
-  buildApiUrl,
   activePlayIntent,
   libraryEntries,
   discoveryPeople,
@@ -231,7 +243,6 @@ export function useDashboardPlay({
 }: {
   isSignedIn: boolean
   isAdmin: boolean
-  buildApiUrl: (path: string) => string
   activePlayIntent: ActivePlayIntent | null
   libraryEntries: LibraryEntry[]
   discoveryPeople: DiscoveryPerson[]
@@ -274,8 +285,6 @@ export function useDashboardPlay({
   const [playIntentVoiceChannelId, setPlayIntentVoiceChannelId] = useState('')
   const [playIntentVoiceChannelName, setPlayIntentVoiceChannelName] =
     useState('')
-  const [playIntentVoiceChannelOptions, setPlayIntentVoiceChannelOptions] =
-    useState<DiscordVoiceChannel[]>([])
   const [selectedPlayIntentGameIds, setSelectedPlayIntentGameIds] = useState<
     string[]
   >([])
@@ -287,28 +296,176 @@ export function useDashboardPlay({
     useState<string[]>([])
   const [selectedPlayIntentFriendsListId, setSelectedPlayIntentFriendsListId] =
     useState<string | null>(null)
-  const [mutedPlayIntentUserIds, setMutedPlayIntentUserIds] = useState<
-    Set<string>
-  >(new Set())
-  const [
-    playIntentResponsePendingIntentId,
-    setPlayIntentResponsePendingIntentId,
-  ] = useState<string | null>(null)
-  const [
-    playIntentDiscordSpaceRetryPendingIntentId,
-    setPlayIntentDiscordSpaceRetryPendingIntentId,
-  ] = useState<string | null>(null)
-  const [
-    playIntentDiscordSpaceDeletePendingIntentId,
-    setPlayIntentDiscordSpaceDeletePendingIntentId,
-  ] = useState<string | null>(null)
-  const [
-    playIntentStartNowPendingIntentId,
-    setPlayIntentStartNowPendingIntentId,
-  ] = useState<string | null>(null)
-  const [playIntentDeletePendingIntentId, setPlayIntentDeletePendingIntentId] =
-    useState<string | null>(null)
-  const [playIntentSaving, setPlayIntentSaving] = useState(false)
+  const queryClient = useQueryClient()
+
+  // Voice channels the composer can point a call at; empty when signed out or unavailable.
+  const voiceChannelsQuery = useQuery({
+    queryKey: queryKeys.discordVoiceChannels(),
+    queryFn: () =>
+      apiRequest(
+        '/api/discord-servers/me/voice-channels',
+        discordVoiceChannelsResponseSchema,
+        'Unable to load voice channels right now.',
+      ),
+    enabled: isSignedIn,
+  })
+  const playIntentVoiceChannelOptions =
+    (isSignedIn ? voiceChannelsQuery.data?.channels : undefined) ??
+    emptyVoiceChannels
+
+  // People whose calls to play this user has muted.
+  const mutesQuery = useQuery({
+    queryKey: queryKeys.playIntentMutes(),
+    queryFn: () =>
+      apiRequest(
+        '/api/play-intents/mutes',
+        playIntentMutesResponseSchema,
+        'Unable to load muted people right now.',
+      ),
+    enabled: isSignedIn,
+  })
+  const mutedPlayIntentUserIds = useMemo(
+    () =>
+      new Set(
+        isSignedIn
+          ? (mutesQuery.data?.mutes ?? []).map((mute) => mute.mutedUserId)
+          : [],
+      ),
+    [isSignedIn, mutesQuery.data],
+  )
+
+  const saveMutation = useMutation({
+    mutationFn: (body: Record<string, unknown>) =>
+      apiRequest(
+        '/api/play-intents/me',
+        upsertPlayIntentResponseSchema,
+        'Unable to post your call to play right now.',
+        { method: 'PUT', body: JSON.stringify(body) },
+      ),
+  })
+  const clearMutation = useMutation({
+    mutationFn: (playIntentId: string) =>
+      apiRequest(
+        `/api/play-intents/${playIntentId}`,
+        noResponseBody,
+        'Unable to clear your call to play right now.',
+        { method: 'DELETE' },
+      ),
+  })
+  const adminDeleteMutation = useMutation({
+    mutationFn: (playIntentId: string) =>
+      apiRequest(
+        `/api/play-intents/${playIntentId}/admin`,
+        noResponseBody,
+        'Unable to delete this call to play right now.',
+        { method: 'DELETE' },
+      ),
+  })
+  const startNowMutation = useMutation({
+    mutationFn: (playIntentId: string) =>
+      apiRequest(
+        `/api/play-intents/${playIntentId}/start-now`,
+        noResponseBody,
+        'Unable to start this call to play right now.',
+        { method: 'POST' },
+      ),
+  })
+  const respondMutation = useMutation({
+    mutationFn: (variables: {
+      playIntentId: string
+      choice: PlayIntentRecipientAction
+      runningLateMinutes?: number | null
+    }) =>
+      apiRequest(
+        `/api/play-intents/${variables.playIntentId}/respond`,
+        playIntentRecipientResponseResultSchema,
+        'Unable to update your response right now.',
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            choice: variables.choice,
+            ...(variables.choice === 'late'
+              ? { runningLateMinutes: variables.runningLateMinutes ?? null }
+              : {}),
+          }),
+        },
+      ),
+  })
+  const discordSpaceDeleteMutation = useMutation({
+    mutationFn: (playIntentId: string) =>
+      apiRequest(
+        `/api/play-intents/${playIntentId}/discord-space`,
+        playIntentDiscordSpaceDeleteResponseSchema,
+        'Unable to delete the temporary Discord channels right now.',
+        { method: 'DELETE' },
+      ),
+  })
+  const discordSpaceRetryMutation = useMutation({
+    mutationFn: (playIntentId: string) =>
+      apiRequest(
+        `/api/play-intents/${playIntentId}/discord-space/retry`,
+        playIntentDiscordSpaceRetryResponseSchema,
+        'Unable to retry the temporary Discord channel access right now.',
+        { method: 'POST' },
+      ),
+  })
+  const muteMutation = useMutation({
+    mutationFn: (variables: { userId: string; muted: boolean }) =>
+      apiRequest(
+        `/api/play-intents/mutes/${variables.userId}`,
+        noResponseBody,
+        'Unable to update this mute right now.',
+        { method: variables.muted ? 'PUT' : 'DELETE' },
+      ),
+  })
+
+  const playIntentSaving = saveMutation.isPending || clearMutation.isPending
+  const playIntentDeletePendingIntentId = pendingVariable(adminDeleteMutation)
+  const playIntentStartNowPendingIntentId = pendingVariable(startNowMutation)
+  const playIntentResponsePendingIntentId = respondMutation.isPending
+    ? (respondMutation.variables?.playIntentId ?? null)
+    : null
+  const playIntentDiscordSpaceDeletePendingIntentId = pendingVariable(
+    discordSpaceDeleteMutation,
+  )
+  const playIntentDiscordSpaceRetryPendingIntentId = pendingVariable(
+    discordSpaceRetryMutation,
+  )
+
+  /**
+   * Run one call-to-play action: clear the notice, run the request, then show its success
+   * message and refresh the dashboard, or show the server's error (or the fallback).
+   * @returns whether the action succeeded, for callers that navigate or close on success.
+   */
+  const runAction = useCallback(
+    async <T>(
+      request: () => Promise<T>,
+      fallbackError: string,
+      successMessage: (result: T) => string,
+    ): Promise<boolean> => {
+      setPlayIntentNotice(null)
+
+      try {
+        const result = await request()
+        setPlayIntentNotice({
+          tone: 'success',
+          message: successMessage(result),
+        })
+        await loadDashboard()
+        return true
+      } catch (error) {
+        setPlayIntentNotice({
+          tone: 'danger',
+          message:
+            error instanceof Error && error.message
+              ? error.message
+              : fallbackError,
+        })
+        return false
+      }
+    },
+    [loadDashboard, setPlayIntentNotice],
+  )
   const [isPlayIntentComposerOpen, setIsPlayIntentComposerOpen] =
     useState(false)
   const [composerPlayIntent, setComposerPlayIntent] =
@@ -591,90 +748,6 @@ export function useDashboardPlay({
     setPlayIntentNotice(null)
   }, [isPlayIntentComposerOpen, location.pathname, setPlayIntentNotice])
 
-  useEffect(() => {
-    if (!isSignedIn) {
-      setPlayIntentVoiceChannelOptions([])
-      return
-    }
-
-    let cancelled = false
-
-    void (async () => {
-      try {
-        const response = await fetch(
-          buildApiUrl('/api/discord-servers/me/voice-channels'),
-          {
-            credentials: 'include',
-          },
-        )
-
-        if (!response.ok) {
-          if (!cancelled) {
-            setPlayIntentVoiceChannelOptions([])
-          }
-          return
-        }
-
-        const parsed = discordVoiceChannelsResponseSchema.parse(
-          await response.json(),
-        )
-
-        if (!cancelled) {
-          setPlayIntentVoiceChannelOptions(parsed.channels)
-        }
-      } catch {
-        if (!cancelled) {
-          setPlayIntentVoiceChannelOptions([])
-        }
-      }
-    })()
-
-    return () => {
-      cancelled = true
-    }
-  }, [buildApiUrl, isSignedIn])
-
-  useEffect(() => {
-    if (!isSignedIn) {
-      setMutedPlayIntentUserIds(new Set())
-      return
-    }
-
-    let cancelled = false
-
-    void (async () => {
-      try {
-        const response = await fetch(buildApiUrl('/api/play-intents/mutes'), {
-          credentials: 'include',
-        })
-
-        if (!response.ok) {
-          return
-        }
-
-        const responseBody = (await response.json()) as {
-          mutes?: Array<{ mutedUserId: string }>
-        }
-
-        if (cancelled || !Array.isArray(responseBody.mutes)) {
-          return
-        }
-
-        setMutedPlayIntentUserIds(
-          new Set(responseBody.mutes.map((mute) => mute.mutedUserId)),
-        )
-      } catch {
-        if (!cancelled) {
-          setMutedPlayIntentUserIds(new Set())
-        }
-      }
-    })()
-
-    return () => {
-      cancelled = true
-    }
-  }, [buildApiUrl, isSignedIn])
-
   const togglePlayIntentGame = useCallback(
     (gameId: string) => {
       let limitReached = false
@@ -830,65 +903,41 @@ export function useDashboardPlay({
               resolvedPlayIntentDurationMinutes ?? playIntentDurationMinutes,
           }
 
-    setPlayIntentSaving(true)
     setPlayIntentNotice(null)
 
     try {
-      const response = await fetch(buildApiUrl('/api/play-intents/me'), {
-        method: 'PUT',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          playIntentId: editingPlayIntentId ?? undefined,
-          title: playIntentTitle.trim() || undefined,
-          selectionMode: 'subset',
-          notifyScope: playIntentNotifyScope,
-          createDiscordSpace: playIntentVoiceMode === 'temporary',
-          allowParticipantInvites: playIntentAllowParticipantInvites,
-          ...schedulingPayload,
-          ...timingPayload,
-          note: playIntentNote.trim() || undefined,
-          voiceChannelId:
-            playIntentVoiceMode === 'existing'
-              ? playIntentVoiceChannelId.trim() || undefined
-              : undefined,
-          voiceChannelName:
-            playIntentVoiceMode === 'existing'
-              ? playIntentVoiceChannelName.trim() || undefined
-              : undefined,
-          gameIds: selectedPlayIntentGameIds,
-          targetUserIds:
-            playIntentNotifyScope === 'specific-friends'
-              ? selectedPlayIntentTargetUserIds
-              : [],
-          targetFriendsListId:
-            playIntentNotifyScope === 'friends-list'
-              ? (selectedPlayIntentFriendsListId ?? undefined)
-              : undefined,
-          targetDiscordServerIds:
-            playIntentNotifyScope === 'specific-discord-server'
-              ? selectedPlayIntentTargetDiscordServerIds
-              : [],
-        }),
+      const parsedResponse = await saveMutation.mutateAsync({
+        playIntentId: editingPlayIntentId ?? undefined,
+        title: playIntentTitle.trim() || undefined,
+        selectionMode: 'subset',
+        notifyScope: playIntentNotifyScope,
+        createDiscordSpace: playIntentVoiceMode === 'temporary',
+        allowParticipantInvites: playIntentAllowParticipantInvites,
+        ...schedulingPayload,
+        ...timingPayload,
+        note: playIntentNote.trim() || undefined,
+        voiceChannelId:
+          playIntentVoiceMode === 'existing'
+            ? playIntentVoiceChannelId.trim() || undefined
+            : undefined,
+        voiceChannelName:
+          playIntentVoiceMode === 'existing'
+            ? playIntentVoiceChannelName.trim() || undefined
+            : undefined,
+        gameIds: selectedPlayIntentGameIds,
+        targetUserIds:
+          playIntentNotifyScope === 'specific-friends'
+            ? selectedPlayIntentTargetUserIds
+            : [],
+        targetFriendsListId:
+          playIntentNotifyScope === 'friends-list'
+            ? (selectedPlayIntentFriendsListId ?? undefined)
+            : undefined,
+        targetDiscordServerIds:
+          playIntentNotifyScope === 'specific-discord-server'
+            ? selectedPlayIntentTargetDiscordServerIds
+            : [],
       })
-
-      const responseBody = (await response.json()) as
-        UpsertPlayIntentResponse | { error?: string }
-
-      if (!response.ok) {
-        setPlayIntentNotice({
-          tone: 'danger',
-          message: extractErrorMessage(
-            responseBody,
-            'Unable to post your call to play right now.',
-          ),
-        })
-        return
-      }
-
-      const parsedResponse = upsertPlayIntentResponseSchema.parse(responseBody)
       const isEditingIntent = editingPlayIntentId != null
       const isScheduledIntent =
         new Date(parsedResponse.activeIntent.windowStartsAt).getTime() >
@@ -922,11 +971,8 @@ export function useDashboardPlay({
             ? error.message
             : 'Unable to post your call to play right now.',
       })
-    } finally {
-      setPlayIntentSaving(false)
     }
   }, [
-    buildApiUrl,
     canPostPlayIntent,
     loadDashboard,
     parsedPlayIntentEndAt,
@@ -951,6 +997,7 @@ export function useDashboardPlay({
     selectedPlayIntentFriendsListId,
     setPlayIntentNotice,
     composerPlayIntent,
+    saveMutation,
   ])
 
   const handleSavePlayIntent = useCallback(async () => {
@@ -962,48 +1009,17 @@ export function useDashboardPlay({
       return
     }
 
-    setPlayIntentSaving(true)
-    setPlayIntentNotice(null)
+    const cleared = await runAction(
+      () => clearMutation.mutateAsync(composerPlayIntent.id),
+      'Unable to clear your call to play right now.',
+      () => 'This call to play is no longer live.',
+    )
 
-    try {
-      const response = await fetch(
-        buildApiUrl(`/api/play-intents/${composerPlayIntent.id}`),
-        {
-          method: 'DELETE',
-          credentials: 'include',
-        },
-      )
-
-      if (!response.ok) {
-        const responseBody = (await response.json()) as { error?: string }
-        setPlayIntentNotice({
-          tone: 'danger',
-          message:
-            responseBody.error ??
-            'Unable to clear your call to play right now.',
-        })
-        return
-      }
-
+    if (cleared) {
       setComposerPlayIntent(null)
       setIsPlayIntentComposerOpen(false)
-      setPlayIntentNotice({
-        tone: 'success',
-        message: 'This call to play is no longer live.',
-      })
-      void loadDashboard()
-    } catch (error) {
-      setPlayIntentNotice({
-        tone: 'danger',
-        message:
-          error instanceof Error
-            ? error.message
-            : 'Unable to clear your call to play right now.',
-      })
-    } finally {
-      setPlayIntentSaving(false)
     }
-  }, [buildApiUrl, composerPlayIntent, loadDashboard, setPlayIntentNotice])
+  }, [clearMutation, composerPlayIntent, runAction])
 
   const handleDeletePlayIntent = useCallback(
     async (playIntentId: string) => {
@@ -1015,97 +1031,24 @@ export function useDashboardPlay({
         return false
       }
 
-      setPlayIntentDeletePendingIntentId(playIntentId)
-      setPlayIntentNotice(null)
-
-      try {
-        const response = await fetch(
-          buildApiUrl(`/api/play-intents/${playIntentId}/admin`),
-          {
-            method: 'DELETE',
-            credentials: 'include',
-          },
-        )
-
-        if (!response.ok) {
-          const responseBody = (await response.json()) as { error?: string }
-          setPlayIntentNotice({
-            tone: 'danger',
-            message:
-              responseBody.error ??
-              'Unable to delete this call to play right now.',
-          })
-          return false
-        }
-
-        setPlayIntentNotice({
-          tone: 'success',
-          message:
-            'The call to play was deleted and tracked Discord DMs were cleaned up.',
-        })
-        await loadDashboard()
-        return true
-      } catch (error) {
-        setPlayIntentNotice({
-          tone: 'danger',
-          message:
-            error instanceof Error
-              ? error.message
-              : 'Unable to delete this call to play right now.',
-        })
-        return false
-      } finally {
-        setPlayIntentDeletePendingIntentId(null)
-      }
+      return runAction(
+        () => adminDeleteMutation.mutateAsync(playIntentId),
+        'Unable to delete this call to play right now.',
+        () =>
+          'The call to play was deleted and tracked Discord DMs were cleaned up.',
+      )
     },
-    [buildApiUrl, isAdmin, loadDashboard, setPlayIntentNotice],
+    [adminDeleteMutation, isAdmin, runAction, setPlayIntentNotice],
   )
 
   const handleStartPlayIntentNow = useCallback(
-    async (playIntentId: string) => {
-      setPlayIntentStartNowPendingIntentId(playIntentId)
-      setPlayIntentNotice(null)
-
-      try {
-        const response = await fetch(
-          buildApiUrl(`/api/play-intents/${playIntentId}/start-now`),
-          {
-            method: 'POST',
-            credentials: 'include',
-          },
-        )
-
-        if (!response.ok) {
-          const responseBody = (await response.json()) as { error?: string }
-          setPlayIntentNotice({
-            tone: 'danger',
-            message:
-              responseBody.error ??
-              'Unable to start this call to play right now.',
-          })
-          return false
-        }
-
-        setPlayIntentNotice({
-          tone: 'success',
-          message: 'Your scheduled call to play is now live.',
-        })
-        await loadDashboard()
-        return true
-      } catch (error) {
-        setPlayIntentNotice({
-          tone: 'danger',
-          message:
-            error instanceof Error
-              ? error.message
-              : 'Unable to start this call to play right now.',
-        })
-        return false
-      } finally {
-        setPlayIntentStartNowPendingIntentId(null)
-      }
-    },
-    [buildApiUrl, loadDashboard, setPlayIntentNotice],
+    (playIntentId: string) =>
+      runAction(
+        () => startNowMutation.mutateAsync(playIntentId),
+        'Unable to start this call to play right now.',
+        () => 'Your scheduled call to play is now live.',
+      ),
+    [runAction, startNowMutation],
   )
 
   const handlePlayIntentNotifyScopeChange = useCallback(
@@ -1331,209 +1274,73 @@ export function useDashboardPlay({
     [playIntentVoiceChannelOptions, setPlayIntentNotice],
   )
 
-  const handleMutePlayIntentUser = useCallback(
-    async (userId: string) => {
-      const response = await fetch(
-        buildApiUrl(`/api/play-intents/mutes/${userId}`),
-        {
-          method: 'PUT',
-          credentials: 'include',
-        },
-      )
-
-      if (response.ok) {
-        setMutedPlayIntentUserIds((current) => new Set([...current, userId]))
-        await loadDashboard()
+  /** Mute or unmute someone; the mutes list and the dashboard refresh once the server agrees. */
+  const setPlayIntentUserMuted = useCallback(
+    async (userId: string, muted: boolean) => {
+      try {
+        await muteMutation.mutateAsync({ userId, muted })
+      } catch {
+        // As before, a failed mute leaves the list unchanged without a notice.
+        return
       }
+
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.playIntentMutes(),
+      })
+      await loadDashboard()
     },
-    [buildApiUrl, loadDashboard],
+    [loadDashboard, muteMutation, queryClient],
+  )
+
+  const handleMutePlayIntentUser = useCallback(
+    (userId: string) => setPlayIntentUserMuted(userId, true),
+    [setPlayIntentUserMuted],
   )
 
   const handleUnmutePlayIntentUser = useCallback(
-    async (userId: string) => {
-      const response = await fetch(
-        buildApiUrl(`/api/play-intents/mutes/${userId}`),
-        {
-          method: 'DELETE',
-          credentials: 'include',
-        },
-      )
-
-      if (response.ok) {
-        setMutedPlayIntentUserIds((current) => {
-          const next = new Set(current)
-          next.delete(userId)
-          return next
-        })
-        await loadDashboard()
-      }
-    },
-    [buildApiUrl, loadDashboard],
+    (userId: string) => setPlayIntentUserMuted(userId, false),
+    [setPlayIntentUserMuted],
   )
 
   const handleRespondToPlayIntent = useCallback(
-    async (
+    (
       playIntentId: string,
       responseChoice: PlayIntentRecipientAction,
       runningLateMinutes?: number | null,
-    ) => {
-      setPlayIntentResponsePendingIntentId(playIntentId)
-      setPlayIntentNotice(null)
-
-      try {
-        const response = await fetch(
-          buildApiUrl(`/api/play-intents/${playIntentId}/respond`),
-          {
-            method: 'POST',
-            credentials: 'include',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              choice: responseChoice,
-              ...(responseChoice === 'late'
-                ? { runningLateMinutes: runningLateMinutes ?? null }
-                : {}),
-            }),
-          },
-        )
-
-        const responseBody = (await response.json()) as
-          PlayIntentRecipientResponseResult | { error?: string }
-
-        if (!response.ok) {
-          setPlayIntentNotice({
-            tone: 'danger',
-            message: extractErrorMessage(
-              responseBody,
-              'Unable to update your response right now.',
-            ),
-          })
-          return false
-        }
-
-        const parsed =
-          playIntentRecipientResponseResultSchema.parse(responseBody)
-        setPlayIntentNotice({
-          tone: 'success',
-          message: buildPlayIntentResponseToastMessage(parsed),
-        })
-        await loadDashboard()
-        return true
-      } catch (error) {
-        setPlayIntentNotice({
-          tone: 'danger',
-          message:
-            error instanceof Error
-              ? error.message
-              : 'Unable to update your response right now.',
-        })
-        return false
-      } finally {
-        setPlayIntentResponsePendingIntentId(null)
-      }
-    },
-    [buildApiUrl, loadDashboard, setPlayIntentNotice],
+    ) =>
+      runAction(
+        () =>
+          respondMutation.mutateAsync({
+            playIntentId,
+            choice: responseChoice,
+            runningLateMinutes,
+          }),
+        'Unable to update your response right now.',
+        buildPlayIntentResponseToastMessage,
+      ),
+    [respondMutation, runAction],
   )
 
   const handleDeletePlayIntentDiscordSpace = useCallback(
     async (playIntentId: string) => {
-      setPlayIntentDiscordSpaceDeletePendingIntentId(playIntentId)
-      setPlayIntentNotice(null)
-
-      try {
-        const response = await fetch(
-          buildApiUrl(`/api/play-intents/${playIntentId}/discord-space`),
-          {
-            method: 'DELETE',
-            credentials: 'include',
-          },
-        )
-
-        const responseBody = (await response.json()) as { error?: string }
-
-        if (!response.ok) {
-          setPlayIntentNotice({
-            tone: 'danger',
-            message:
-              typeof responseBody.error === 'string'
-                ? responseBody.error
-                : 'Unable to delete the temporary Discord channels right now.',
-          })
-          return
-        }
-
-        const parsed =
-          playIntentDiscordSpaceDeleteResponseSchema.parse(responseBody)
-
-        setPlayIntentNotice({
-          tone: 'success',
-          message: parsed.message,
-        })
-        await loadDashboard()
-      } catch (error) {
-        setPlayIntentNotice({
-          tone: 'danger',
-          message:
-            error instanceof Error
-              ? error.message
-              : 'Unable to delete the temporary Discord channels right now.',
-        })
-      } finally {
-        setPlayIntentDiscordSpaceDeletePendingIntentId(null)
-      }
+      await runAction(
+        () => discordSpaceDeleteMutation.mutateAsync(playIntentId),
+        'Unable to delete the temporary Discord channels right now.',
+        (parsed) => parsed.message,
+      )
     },
-    [buildApiUrl, loadDashboard, setPlayIntentNotice],
+    [discordSpaceDeleteMutation, runAction],
   )
 
   const handleRetryPlayIntentDiscordSpace = useCallback(
     async (playIntentId: string) => {
-      setPlayIntentDiscordSpaceRetryPendingIntentId(playIntentId)
-      setPlayIntentNotice(null)
-
-      try {
-        const response = await fetch(
-          buildApiUrl(`/api/play-intents/${playIntentId}/discord-space/retry`),
-          {
-            method: 'POST',
-            credentials: 'include',
-          },
-        )
-
-        const responseBody = (await response.json()) as { error?: string }
-
-        if (!response.ok) {
-          setPlayIntentNotice({
-            tone: 'danger',
-            message:
-              typeof responseBody.error === 'string'
-                ? responseBody.error
-                : 'Unable to retry the temporary Discord channel access right now.',
-          })
-          return
-        }
-
-        const parsed =
-          playIntentDiscordSpaceRetryResponseSchema.parse(responseBody)
-
-        setPlayIntentNotice({
-          tone: 'success',
-          message: parsed.message,
-        })
-        await loadDashboard()
-      } catch (error) {
-        setPlayIntentNotice({
-          tone: 'danger',
-          message:
-            error instanceof Error
-              ? error.message
-              : 'Unable to retry the temporary Discord channel access right now.',
-        })
-      } finally {
-        setPlayIntentDiscordSpaceRetryPendingIntentId(null)
-      }
+      await runAction(
+        () => discordSpaceRetryMutation.mutateAsync(playIntentId),
+        'Unable to retry the temporary Discord channel access right now.',
+        (parsed) => parsed.message,
+      )
     },
-    [buildApiUrl, loadDashboard, setPlayIntentNotice],
+    [discordSpaceRetryMutation, runAction],
   )
 
   const openPlayIntentComposer = useCallback(() => {

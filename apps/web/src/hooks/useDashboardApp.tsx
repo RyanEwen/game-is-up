@@ -863,7 +863,6 @@ export function useDashboardApp() {
   const { playViewProps } = useDashboardPlay({
     isSignedIn,
     isAdmin: Boolean(state.session?.user?.isAdmin),
-    buildApiUrl,
     activePlayIntent: state.activePlayIntent,
     libraryEntries,
     discoveryPeople,
