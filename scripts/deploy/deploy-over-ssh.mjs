@@ -14,7 +14,7 @@
  * restoring the previous one on failure; prune dangling images.
  *
  * Run with `npm run deploy:prod`, which loads `.env` when it exists. The target comes from the
- * environment: DEPLOY_SSH_HOST, DEPLOY_SSH_PORT (22), DEPLOY_REPO_PATH, DEPLOY_BACKUP_DIR
+ * environment: DEPLOY_SSH_HOST, DEPLOY_SSH_PORT (unset: ssh config decides), DEPLOY_REPO_PATH, DEPLOY_BACKUP_DIR
  * (.backups in the server checkout), DEPLOY_NGINX_SITES_DIR (/home/apps/nginx/conf.d) and
  * DEPLOY_NGINX_CONTAINER (nginx). Options: --skip-validate, --skip-backup (or DEPLOY_BACKUP=0)
  * when a dump exists another way, --no-prune (or DEPLOY_PRUNE=0), --dry-run, --help.
@@ -39,6 +39,10 @@ export const DEPLOY_DEFAULTS = {
   site: { source: 'nginx.server.conf', name: null },
   /** How long every service may take to report healthy. */
   healthWaitSeconds: 300,
+  /** Update submodules after the pull, when the repo has any; a build may import them. */
+  submodules: true,
+  /** The package.json whose `version` labels the image; a workspace's when the product version lives there. */
+  versionFrom: 'package.json',
 }
 
 /** How each database engine is dumped inside its container, and the line a complete dump ends with. */
@@ -82,7 +86,8 @@ export function parseOptions(argv, env) {
     skipBackup: argv.includes('--skip-backup') || env.DEPLOY_BACKUP === '0',
     skipPrune: argv.includes('--no-prune') || env.DEPLOY_PRUNE === '0',
     host: env.DEPLOY_SSH_HOST?.trim() ?? '',
-    port: env.DEPLOY_SSH_PORT?.trim() || '22',
+    // Unset by default: a `-p` always wins over the port an ssh config alias sets.
+    port: env.DEPLOY_SSH_PORT?.trim() ?? '',
     repoPath: env.DEPLOY_REPO_PATH?.trim() ?? '',
     backupDir: env.DEPLOY_BACKUP_DIR?.trim() || '.backups',
     sitesDir: env.DEPLOY_NGINX_SITES_DIR?.trim() || '/home/apps/nginx/conf.d',
@@ -101,11 +106,20 @@ export function deploySettings(repoRoot, config) {
   const pkg = JSON.parse(
     readFileSync(path.join(repoRoot, 'package.json'), 'utf8'),
   )
-  const version = String(pkg.version ?? '')
-  if (!version)
+  const versionFile = path.join(repoRoot, deploy.versionFrom)
+  if (!existsSync(versionFile)) {
     throw new Error(
-      'Set "version" in package.json; it labels the deployed image',
+      `deploy.versionFrom names ${deploy.versionFrom}, which does not exist`,
     )
+  }
+  const version = String(
+    JSON.parse(readFileSync(versionFile, 'utf8')).version ?? '',
+  )
+  if (!version) {
+    throw new Error(
+      `Set "version" in ${deploy.versionFrom}; it labels the deployed image`,
+    )
+  }
   const engine = config.database?.engine ?? 'postgres'
   if (!DUMPS[engine]) throw new Error(`Unsupported database engine: ${engine}`)
 
@@ -139,6 +153,44 @@ function composeLines(settings) {
 }
 
 /**
+ * Lines that find this checkout's running database container without the compose files, so the
+ * lookup works on the deploy that first switches to a renamed file, before the pull brings it.
+ *
+ * Compose labels every container with its project folder (the folder of the first compose file)
+ * and its service name; those two identify this checkout's database however the project is named,
+ * and before and after `name:` changes. The checkout and each configured compose file's folder are
+ * tried, with and without symlinks resolved. A docker error is fatal, never "nothing to back up"; only no matching container
+ * means a first deploy, and more than one is refused as ambiguous.
+ */
+function findDatabaseLines(service, composeFiles) {
+  const composeDirs = [
+    ...new Set(composeFiles.map((file) => path.posix.dirname(file))),
+  ].filter((dir) => dir !== '.')
+  return [
+    'checkout_dirs=("$PWD" "$(pwd -P)")',
+    ...composeDirs.map(
+      (dir) =>
+        `checkout_dirs+=("$PWD/"${shellQuote(dir)} "$(pwd -P)/"${shellQuote(dir)})`,
+    ),
+    'db_ids=""',
+    'for checkout_dir in "${checkout_dirs[@]}"; do',
+    '  if ! found="$(docker ps -q \\',
+    `      --filter "label=com.docker.compose.service=${service}" \\`,
+    '      --filter "label=com.docker.compose.project.working_dir=$checkout_dir")"; then',
+    '    echo "Could not list containers to find the database; refusing to deploy without a backup." >&2',
+    '    exit 1',
+    '  fi',
+    '  db_ids+="$found"$\'\\n\'',
+    'done',
+    'db_container="$(printf "%s" "$db_ids" | sed "/^$/d" | sort -u)"',
+    'if [[ "$(printf "%s" "$db_container" | grep -c .)" -gt 1 ]]; then',
+    `  echo "More than one running ${service} container belongs to this checkout; refusing to guess which to back up." >&2`,
+    '  exit 1',
+    'fi',
+  ]
+}
+
+/**
  * Lines that dump the database before the checkout or containers change. pg_dump and
  * mariadb-dump can exit 0 after a dropped connection, so the dump must pass `gzip -t` and end with
  * the engine's completion trailer; an incomplete dump is deleted and the deploy stops.
@@ -151,12 +203,12 @@ function backupLines(settings, options, sha) {
     return ['echo "Skipping the database backup (--skip-backup)."']
   }
   const dir = shellQuote(options.backupDir)
-  const service = shellQuote(settings.databaseService)
+  const service = settings.databaseService
   return [
     'echo "Backing up the database before deploying..."',
-    `db_container="$(docker compose "\${compose_args[@]}" ps -q ${service} 2>/dev/null || true)"`,
+    ...findDatabaseLines(service, settings.composeFiles),
     'if [[ -z "$db_container" ]]; then',
-    '  echo "No database container yet: nothing to back up."',
+    `  echo "No running ${service} container belongs to this checkout yet: nothing to back up."`,
     'else',
     '  (',
     '    umask 077',
@@ -164,7 +216,7 @@ function backupLines(settings, options, sha) {
     `    chmod 700 ${dir}`,
     `    backup_file=${dir}/"pre-deploy-$(date -u +%Y%m%dT%H%M%SZ)-${sha.slice(0, 12)}.sql.gz"`,
     '    dump_ok=1',
-    `    docker compose "\${compose_args[@]}" exec -T ${service} sh -c ${shellQuote(settings.dump.command)} | gzip > "$backup_file" || dump_ok=0`,
+    `    docker exec -i "$db_container" sh -c ${shellQuote(settings.dump.command)} | gzip > "$backup_file" || dump_ok=0`,
     `    if [[ $dump_ok -eq 0 ]] || ! gzip -t "$backup_file" || ! gzip -dc "$backup_file" | tail -5 | grep -qF ${shellQuote(settings.dump.trailer)}; then`,
     '      rm -f "$backup_file"',
     '      echo "The database dump is incomplete; refusing to deploy. Rerun with --skip-backup only once a dump exists another way." >&2',
@@ -177,8 +229,12 @@ function backupLines(settings, options, sha) {
   ]
 }
 
-/** Lines that fast-forward the checkout and stop unless it landed on the commit validated locally. */
-function updateLines(sha) {
+/**
+ * Lines that fast-forward the checkout, stop unless it landed on the commit validated locally,
+ * and bring submodules to the pinned commits, since a production build may import one and a
+ * fresh checkout has none.
+ */
+function updateLines(settings, sha) {
   return [
     `git fetch origin ${DEPLOY_BRANCH}`,
     `git checkout ${DEPLOY_BRANCH}`,
@@ -187,6 +243,14 @@ function updateLines(sha) {
     `  echo "Refusing to continue: the server checkout is not at ${sha.slice(0, 12)}, the commit validated locally. Did someone push meanwhile?" >&2`,
     '  exit 1',
     'fi',
+    ...(settings.submodules
+      ? [
+          'if [[ -f .gitmodules ]]; then',
+          '  git submodule sync --recursive',
+          '  git submodule update --init --recursive',
+          'fi',
+        ]
+      : []),
   ]
 }
 
@@ -263,7 +327,7 @@ export function buildRemoteScript(settings, options, sha) {
     '  exit 1',
     'fi',
     ...backupLines(settings, options, sha),
-    ...updateLines(sha),
+    ...updateLines(settings, sha),
     ...startLines(settings, sha),
     ...siteLines(settings, options),
     ...(options.skipPrune
@@ -271,6 +335,18 @@ export function buildRemoteScript(settings, options, sha) {
       : ['echo "Pruning dangling images..."', 'docker image prune -f || true']),
     'echo "Deployed commit $(git rev-parse --short HEAD)."',
   ].join('\n')
+}
+
+/**
+ * The ssh arguments for the deploy. `-p` is passed only when DEPLOY_SSH_PORT is set, so a host
+ * alias's own `Port` in the ssh config is used otherwise.
+ */
+export function sshArguments(options, script) {
+  return [
+    ...(options.port ? ['-p', options.port] : []),
+    options.host,
+    `bash -lc ${shellQuote(script)}`,
+  ]
 }
 
 /** Runs a local command, returning trimmed stdout; exits with its status when it fails. */
@@ -333,12 +409,7 @@ async function main() {
   const settings = deploySettings(repoRoot, config)
   const sha = requireCleanPushedMain(repoRoot)
   const script = buildRemoteScript(settings, options, sha)
-  const sshArgs = [
-    '-p',
-    options.port,
-    options.host,
-    `bash -lc ${shellQuote(script)}`,
-  ]
+  const sshArgs = sshArguments(options, script)
 
   if (options.dryRun) {
     console.log(
