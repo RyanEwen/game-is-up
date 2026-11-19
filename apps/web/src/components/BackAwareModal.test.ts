@@ -32,18 +32,27 @@ after(() => {
 })
 
 /**
- * Wait out jsdom's history traversal, which is genuinely asynchronous: `SessionHistory` queues the
- * traversal and then its `popstate` through `setTimeout`, so a `history.back()` lands a task or two
- * later. Awaiting a promise settles none of that, which is why this is a real timer.
+ * jsdom's history traversal is genuinely asynchronous: `SessionHistory` queues the traversal and
+ * then its `popstate` through `setTimeout`, so a `history.back()` lands a task or more later, and
+ * later still on a loaded machine. Awaiting a promise settles none of that, and neither a fixed
+ * short sleep nor "the next popstate" is a reliable signal: a traversal queued by an earlier test
+ * in the same document can be the popstate that arrives.
  *
- * A close REQUEST needs no wait -- `handleClose` hands the reason straight to the consumer,
- * synchronously -- so the only other place this is used is where a reason is asserted ABSENT (the
- * scrim). There the wait IS the check: a wrapper that routed the click through `history.back()`, as
- * this one once did for every reason, would report the close a task later, and an assertion made
- * immediately would read that as a pass.
+ * So a test waiting for something to HAPPEN polls for that outcome with `waitUntil`, bounded so a
+ * real failure still fails. A test asserting that something does NOT happen (the scrim, a closed
+ * inner dialog) waits a quiet period with `waitForQuietHistory`; there the wait IS the check, and
+ * a longer one only makes it stricter, never flaky.
  */
-function waitForHistoryTraversal() {
-  return new Promise((resolve) => setTimeout(resolve, 50))
+async function waitUntil(predicate: () => boolean, timeoutMs = 2000) {
+  const deadline = Date.now() + timeoutMs
+  while (!predicate() && Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, 5))
+  }
+}
+
+/** Give any queued history traversal time to land before asserting that nothing changed. */
+function waitForQuietHistory(ms = 200) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
 /**
@@ -148,7 +157,7 @@ test('an Escape the dialog declines leaves its history entry alone', async () =>
   // The entry must still be there, which is observable as Back still closing THIS dialog. With the
   // entry already spent, Back belongs to whatever is underneath and the route navigates away.
   dom.window.history.back()
-  await waitForHistoryTraversal()
+  await waitUntil(() => reasons.length >= 2)
 
   cleanup()
   // `closeClick`, not `backdropClick`: Back is a deliberate dismissal and has to survive the
@@ -217,7 +226,7 @@ test('a dialog opened over a declined close does not re-fire it', async () => {
   )
   // The inner dialog's close DOES spend its history entry, so give that traversal time to land on
   // the outer dialog, which is the whole failure this test exists for.
-  await waitForHistoryTraversal()
+  await waitForQuietHistory()
 
   cleanup()
   assert.deepEqual(
@@ -338,7 +347,7 @@ for (const [scrimName, selector] of Object.entries(SCRIM_SELECTORS)) {
 
     clickTheScrim(selector)
     // Kept: the assertion is an ABSENCE, so a close that merely arrived late would pass without it.
-    await waitForHistoryTraversal()
+    await waitForQuietHistory()
 
     cleanup()
     assert.deepEqual(
@@ -406,7 +415,7 @@ test('Back is distinguishable from the close button without changing the reason'
   // Declined above (the handler only records), so the dialog's history entry is still there for
   // Back to spend -- which is what makes the second gesture reach this same handler.
   dom.window.history.back()
-  await waitForHistoryTraversal()
+  await waitUntil(() => seen.length >= 2)
 
   cleanup()
   assert.deepEqual(
