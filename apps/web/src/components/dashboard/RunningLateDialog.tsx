@@ -1,5 +1,5 @@
 /** Collects an optional delay estimate while preserving the current response until save succeeds. */
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import {
   Alert,
   Button,
@@ -14,6 +14,12 @@ import {
 import { parseRunningLateMinutes } from '@game-is-up/shared'
 import { DashboardModal } from './DashboardModal'
 import { DashboardModalActionBar } from './DashboardModalActionBar'
+import { useResetOnChange } from '../../hooks/useResetOnChange'
+
+/** The text field's value for a saved estimate: empty when there is none. */
+function formatMinutesDraft(minutes: number | null | undefined): string {
+  return minutes == null ? '' : String(minutes)
+}
 
 /** Uses the standard dashboard dialog and footer for both initial and revised estimates. */
 export function RunningLateDialog({
@@ -29,15 +35,16 @@ export function RunningLateDialog({
   onClose: () => void
   onSave: (minutes: number | null) => Promise<boolean>
 }) {
-  const [value, setValue] = useState('')
+  const [value, setValue] = useState(() => formatMinutesDraft(minutes))
   const [saveFailed, setSaveFailed] = useState(false)
 
-  useEffect(() => {
+  // Each opening starts from the saved estimate, with no failure showing.
+  useResetOnChange([open, minutes], () => {
     if (open) {
-      setValue(minutes == null ? '' : String(minutes))
+      setValue(formatMinutesDraft(minutes))
       setSaveFailed(false)
     }
-  }, [open, minutes])
+  })
 
   const estimate = parseRunningLateMinutes(value)
 

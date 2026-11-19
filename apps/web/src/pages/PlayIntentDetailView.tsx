@@ -41,6 +41,7 @@ import { formatRunningLateLabel } from '@game-is-up/shared'
 import { InvitePlayIntentFriendDialog } from '../components/dashboard/InvitePlayIntentFriendDialog'
 import { RunningLateDialog } from '../components/dashboard/RunningLateDialog'
 import { ConfirmActionDialog } from '../components/dashboard/ConfirmActionDialog'
+import { useResetOnChange } from '../hooks/useResetOnChange'
 
 function formatDateTimeLabel(value: string) {
   return formatMonthDayTime(value)
@@ -326,9 +327,8 @@ export function PlayIntentDetailView() {
     document.title = intent ? `${intent.title} • Game's Up` : "Game's Up • Play"
   }, [intent])
 
-  useEffect(() => {
-    setShowNonOverlappingGames(false)
-  }, [playIntentId])
+  // Another call to play starts with its non-overlapping games hidden again.
+  useResetOnChange([playIntentId], () => setShowNonOverlappingGames(false))
 
   if (!playIntentId) {
     return (

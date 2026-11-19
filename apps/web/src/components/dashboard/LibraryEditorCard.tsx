@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import {
   Box,
   Button,
@@ -21,6 +21,7 @@ import { DashboardDeferredImage } from './DashboardDeferredImage'
 import { formatLibraryIntentLabel } from './dashboardUtils'
 import { DashboardModalActionBar } from './DashboardModalActionBar'
 import { useDashboardContext } from '../../contexts/useDashboardContext'
+import { useResetOnChange } from '../../hooks/useResetOnChange'
 
 export function LibraryEditorCard({
   editingLibraryEntry,
@@ -72,9 +73,8 @@ export function LibraryEditorCard({
   const { gameDetailsViewProps } = useDashboardContext()
   const [aliasDraft, setAliasDraft] = useState(gameAlias ?? '')
 
-  useEffect(() => {
-    setAliasDraft(gameAlias ?? '')
-  }, [gameAlias])
+  // A saved alias (or another game's) replaces the draft.
+  useResetOnChange([gameAlias], () => setAliasDraft(gameAlias ?? ''))
 
   const aliasTarget =
     editingLibraryEntry ??

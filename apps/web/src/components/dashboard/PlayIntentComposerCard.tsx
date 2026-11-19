@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 /** Call composer follows the shared dashboard modal and lets organizers control participant invitations. */
 import {
   Checkbox,
@@ -53,6 +53,7 @@ import type {
   PlayIntentVoiceMode,
 } from './types'
 import dayjs, { type Dayjs } from 'dayjs'
+import { useResetOnChange } from '../../hooks/useResetOnChange'
 
 const localDateTimeFormat = 'YYYY-MM-DDTHH:mm'
 
@@ -436,11 +437,12 @@ export function PlayIntentComposerCard({
     activeStepIndex > 0 ? composerSteps[activeStepIndex - 1] : null
   const nextStep = composerSteps[activeStepIndex + 1] ?? null
 
-  useEffect(() => {
+  // Opening the composer, or switching to another call, starts again at the first step.
+  useResetOnChange([isOpen, composerPlayIntent?.id], () => {
     if (isOpen) {
       setActiveStep('basics')
     }
-  }, [isOpen, composerPlayIntent?.id])
+  })
 
   function goToPreviousStep() {
     if (!previousStep) {

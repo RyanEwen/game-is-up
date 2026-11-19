@@ -1,5 +1,5 @@
 /** One-friend invitation dialog, backed by server eligibility and permission checks. */
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Alert,
@@ -19,6 +19,7 @@ import { DashboardModal } from './DashboardModal'
 import { DashboardModalActionBar } from './DashboardModalActionBar'
 import { apiRequest } from '../../lib/apiQuery'
 import { queryKeys } from '../../lib/queryKeys'
+import { useResetOnChange } from '../../hooks/useResetOnChange'
 
 /** Keeps the chosen friend and any failure visible until an invitation succeeds. */
 export function InvitePlayIntentFriendDialog({
@@ -65,13 +66,13 @@ export function InvitePlayIntentFriendDialog({
     inviteError ?? (friendsQuery.error ? friendsQuery.error.message : null)
 
   // A fresh start each time the dialog opens.
-  useEffect(() => {
+  useResetOnChange([open], () => {
     if (open) {
       setFriendId(null)
       setNotice(null)
       setInviteError(null)
     }
-  }, [open])
+  })
 
   async function inviteFriend() {
     if (!friendId || pending) {

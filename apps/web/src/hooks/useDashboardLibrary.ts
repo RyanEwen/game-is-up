@@ -38,6 +38,7 @@ import type {
   Notice,
 } from '../components/dashboard/types'
 import { useLocation } from 'react-router-dom'
+import { useResetOnChange } from './useResetOnChange'
 
 /** How long the catalog search waits after the last keystroke before it asks the server. */
 const catalogSearchDelayMs = 180
@@ -170,7 +171,9 @@ export function useDashboardLibrary({
     string[]
   >([])
   const [libraryAvailability, setLibraryAvailability] = useState('')
-  const [usualAvailability, setUsualAvailability] = useState('')
+  const [usualAvailability, setUsualAvailability] = useState(
+    currentUsualAvailability ?? '',
+  )
   const [libraryIntent, setLibraryIntent] =
     useState<LibraryEntryIntent>('interested')
   const [profileSaving, setProfileSaving] = useState(false)
@@ -388,9 +391,10 @@ export function useDashboardLibrary({
       ? 'Used for games that do not have their own schedule override.'
       : 'No default schedule yet. Leave a game override blank to keep it unscheduled.'
 
-  useEffect(() => {
-    setUsualAvailability(currentUsualAvailability ?? '')
-  }, [currentUsualAvailability])
+  // A saved profile default replaces the draft.
+  useResetOnChange([currentUsualAvailability], () =>
+    setUsualAvailability(currentUsualAvailability ?? ''),
+  )
 
   useEffect(() => {
     if (steamConnected) {

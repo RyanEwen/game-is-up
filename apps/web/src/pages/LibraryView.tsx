@@ -50,6 +50,7 @@ import {
 } from '../components/dashboard/dashboardUtils'
 import type { DashboardLibraryQuickAddGame } from '../components/dashboard/types'
 import { useDashboardContext } from '../contexts/useDashboardContext'
+import { useResetOnChange } from '../hooks/useResetOnChange'
 
 const steamImportPlatformOptions = [
   'PC',
@@ -607,6 +608,17 @@ function SteamImportModalContent({
   )
 }
 
+/** The default import choice for every game in the preview that is not already in the library. */
+function buildDefaultSelectionOptions(
+  preview: SteamLibraryImportPreviewResponse,
+): Record<string, SteamImportSelection> {
+  return Object.fromEntries(
+    preview.games
+      .filter((game) => !game.alreadyInLibrary)
+      .map((game) => [game.sourceId, buildDefaultSteamImportSelection(game)]),
+  )
+}
+
 function SteamImportModalPicker({
   preview,
   currentUsualAvailability,
@@ -631,31 +643,21 @@ function SteamImportModalPicker({
   const [selectedSourceIds, setSelectedSourceIds] = useState<string[]>([])
   const [selectionOptions, setSelectionOptions] = useState<
     Record<string, SteamImportSelection>
-  >({})
+  >(() => buildDefaultSelectionOptions(preview))
   const [expandedSourceIds, setExpandedSourceIds] = useState<string[]>([])
   const listScrollRef = useRef<HTMLDivElement | null>(null)
 
-  useEffect(() => {
-    const importableGames = preview.games.filter(
-      (game) => !game.alreadyInLibrary,
-    )
-
+  // A new preview (a fresh fetch from Steam) starts the import table over.
+  useResetOnChange([preview], () => {
     setQuery('')
     setLibraryFilter('importable')
     setPlaytimeFilter('all')
     setSortOption('recommended')
     setPage(1)
     setSelectedSourceIds([])
-    setSelectionOptions(
-      Object.fromEntries(
-        importableGames.map((game) => [
-          game.sourceId,
-          buildDefaultSteamImportSelection(game),
-        ]),
-      ),
-    )
+    setSelectionOptions(buildDefaultSelectionOptions(preview))
     setExpandedSourceIds([])
-  }, [preview])
+  })
 
   const normalizedQuery = query.trim().toLowerCase()
   const filteredGames = preview.games.filter((game) => {

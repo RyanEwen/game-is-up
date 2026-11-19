@@ -17,6 +17,7 @@ import type { GameDetails } from '@game-is-up/shared'
 import type { DashboardGameDetailsTarget } from './types'
 import { DashboardDeferredImage } from './DashboardDeferredImage'
 import { DashboardModal } from './DashboardModal'
+import { useResetOnChange } from '../../hooks/useResetOnChange'
 
 function buildGameplayLabel(gameDetails: GameDetails | null): {
   label: string
@@ -84,11 +85,12 @@ export function GameDetailsDialog({
   const activeImage =
     activeImageIndex == null ? null : (imageMedia[activeImageIndex] ?? null)
 
-  useEffect(() => {
+  // Closing the dialog closes the image viewer, so the next open starts on the details.
+  useResetOnChange([open], () => {
     if (!open) {
       setActiveImageIndex(null)
     }
-  }, [open])
+  })
 
   useEffect(() => {
     if (activeImageIndex == null) {

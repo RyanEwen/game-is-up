@@ -1,5 +1,6 @@
 import { Box, Skeleton } from '@mui/joy'
 import { useEffect, useRef, useState } from 'react'
+import { useResetOnChange } from '../../hooks/useResetOnChange'
 
 export function DashboardDeferredImage({
   src,
@@ -20,15 +21,13 @@ export function DashboardDeferredImage({
   const [shouldLoad, setShouldLoad] = useState(eager)
   const [loaded, setLoaded] = useState(false)
 
-  useEffect(() => {
-    setLoaded(false)
-  }, [src])
-
-  useEffect(() => {
+  // A new image starts unloaded; an eager image (or one switched to eager) loads at once.
+  useResetOnChange([src], () => setLoaded(false))
+  useResetOnChange([eager, src], () => {
     if (eager) {
       setShouldLoad(true)
     }
-  }, [eager, src])
+  })
 
   useEffect(() => {
     if (shouldLoad) {

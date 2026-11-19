@@ -1,5 +1,5 @@
 /** Hosts the local DM lifecycle simulator, including the same estimate form used on live calls. */
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
 import {
   Avatar,
@@ -65,6 +65,7 @@ import ChatBubbleOutlineRoundedIcon from '@mui/icons-material/ChatBubbleOutlineR
 import ForumRoundedIcon from '@mui/icons-material/ForumRounded'
 import PlayCircleOutlineRoundedIcon from '@mui/icons-material/PlayCircleOutlineRounded'
 import { EmptyState } from '../components/EmptyState'
+import { useResetOnChange } from '../hooks/useResetOnChange'
 
 const defaultSimulatorDraft: SimulatedScenarioDraft = {
   creatorName: 'Ryan',
@@ -658,7 +659,8 @@ export function DmLifecycleSimulatorDialog({
   const [autoPlayState, setAutoPlayState] =
     useState<SimulatedAutoPlayStateWithActions | null>(null)
 
-  useEffect(() => {
+  // Closing the simulator discards the scenario, so the next opening starts from the defaults.
+  useResetOnChange([open], () => {
     if (open) {
       return
     }
@@ -670,7 +672,7 @@ export function DmLifecycleSimulatorDialog({
     setAutoPlayDraft(cloneSimulatorDraft(defaultAutoPlayDraft))
     setCommittedAutoPlayDraft(null)
     setAutoPlayState(null)
-  }, [open])
+  })
 
   const startSimulation = (mode: SimulatedSimulatorStartMode) => {
     setScenarioKind('call-to-play')

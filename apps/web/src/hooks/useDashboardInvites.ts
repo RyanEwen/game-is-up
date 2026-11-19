@@ -23,6 +23,7 @@ import {
 import type { Notice } from '../components/dashboard/types'
 import { apiRequest } from '../lib/apiQuery'
 import { queryKeys } from '../lib/queryKeys'
+import { useResetOnChange } from './useResetOnChange'
 
 // `import.meta.env` exists only under Vite; Node's test runner imports this module without it.
 const configuredPublicAppUrl = import.meta.env?.VITE_PUBLIC_APP_URL
@@ -291,11 +292,11 @@ export function useDashboardInvites({
   }, [inviteServerId, selectedDiscoveryServers])
 
   // A different server (or signing out) starts a fresh selection.
-  useEffect(() => {
+  useResetOnChange([activeInviteServerId, isSignedIn], () => {
     setSelectedInviteUserIds([])
     setInviteMemberQuery('')
     setInviteSendSummary(null)
-  }, [activeInviteServerId, isSignedIn])
+  })
 
   const handleCopyInvite = useCallback(async () => {
     setActionNotice(null)
