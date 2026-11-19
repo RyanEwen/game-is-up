@@ -1175,6 +1175,16 @@ export const playIntentMutesResponseSchema = z.object({
 // Client bootstrap, dashboard SSE invalidation envelope, and server env
 // ---------------------------------------------------------------------------
 
+/**
+ * The self-hosted, cookieless Umami tracker the web app loads, or null when analytics is off.
+ * `domains` limits tracking to the public host, so a local or staging build never reports.
+ */
+export const clientAnalyticsConfigSchema = z.object({
+  scriptUrl: z.url(),
+  websiteId: z.uuid(),
+  domains: z.array(z.string().min(1)).min(1),
+})
+
 export const clientBootstrapSchema = z.object({
   appName: z.string(),
   apiBaseUrl: z.url(),
@@ -1182,6 +1192,7 @@ export const clientBootstrapSchema = z.object({
     pushNotifications: z.boolean(),
     multiGamePlayIntent: z.boolean(),
   }),
+  analytics: clientAnalyticsConfigSchema.nullable(),
 })
 
 export const dashboardInvalidationDomainSchema = z.enum([
@@ -1198,6 +1209,11 @@ export const dashboardInvalidationEventSchema = z.object({
   occurredAt: z.iso.datetime(),
   domains: z.array(dashboardInvalidationDomainSchema).min(1),
 })
+
+/** An empty or whitespace-only environment value is treated as not set. */
+function blankToUndefined(value: unknown): unknown {
+  return typeof value === 'string' && value.trim() === '' ? undefined : value
+}
 
 export const serverEnvSchema = z.object({
   NODE_ENV: z
@@ -1224,6 +1240,12 @@ export const serverEnvSchema = z.object({
   ADMIN_HANDLES: z.string().optional(),
   /** The built web app's folder; when set (the production image), the API serves the app too. */
   WEB_DIST_DIR: z.string().min(1).optional(),
+  /**
+   * The self-hosted Umami tracker (its script URL and the site's website id). Analytics is on
+   * only when both are set; a blank value, as Compose passes for an unset one, counts as unset.
+   */
+  UMAMI_SCRIPT_URL: z.preprocess(blankToUndefined, z.url().optional()),
+  UMAMI_WEBSITE_ID: z.preprocess(blankToUndefined, z.uuid().optional()),
 })
 
 // ---------------------------------------------------------------------------
@@ -1410,6 +1432,7 @@ export type DebugPlayIntentLifecycleEvent = z.infer<
 export type DebugErrorLog = z.infer<typeof debugErrorLogSchema>
 export type DebugAdminResponse = z.infer<typeof debugAdminResponseSchema>
 export type ClientBootstrap = z.infer<typeof clientBootstrapSchema>
+export type ClientAnalyticsConfig = z.infer<typeof clientAnalyticsConfigSchema>
 export type DashboardInvalidationDomain = z.infer<
   typeof dashboardInvalidationDomainSchema
 >

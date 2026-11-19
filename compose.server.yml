@@ -81,6 +81,9 @@ services:
       STEAM_WEB_API_KEY: ${STEAM_WEB_API_KEY:-}
       RAWG_API_KEY: ${RAWG_API_KEY:-}
       ADMIN_HANDLES: ${ADMIN_HANDLES:-}
+      # Self-hosted, cookieless Umami analytics; on only when both are set (apps/api/src/lib/analytics.ts).
+      UMAMI_SCRIPT_URL: ${UMAMI_SCRIPT_URL:-}
+      UMAMI_WEBSITE_ID: ${UMAMI_WEBSITE_ID:-}
     healthcheck:
       test:
         [

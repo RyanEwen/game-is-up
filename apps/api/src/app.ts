@@ -21,6 +21,10 @@ import {
 import { getAllowedClientOrigins, getApiOrigin } from './lib/origin.js'
 import { sendError } from './lib/http-error.js'
 import { handleRequestError } from './lib/request-error-handler.js'
+import {
+  analyticsCspSources,
+  getClientAnalyticsConfig,
+} from './lib/analytics.js'
 import { env } from './lib/env.js'
 import { serveWebApp } from './lib/web-static.js'
 import { requestContext } from './lib/request-context.js'
@@ -51,7 +55,19 @@ app.use(
     credentials: true,
   }),
 )
-app.use(helmet())
+// helmet's default Content Security Policy, plus the analytics tracker's origin for its script
+// and its event requests when analytics is configured (lib/analytics.ts).
+const analyticsSources = analyticsCspSources(env)
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        scriptSrc: ["'self'", ...analyticsSources],
+        connectSrc: ["'self'", ...analyticsSources],
+      },
+    },
+  }),
+)
 
 // Discord Event Webhooks must be mounted before express.json(): signature
 // verification needs the raw, unparsed request body.
@@ -68,6 +84,7 @@ app.get('/api/bootstrap', (_request, response) => {
         pushNotifications: true,
         multiGamePlayIntent: true,
       },
+      analytics: getClientAnalyticsConfig(env),
     }),
   )
 })

@@ -5,6 +5,7 @@
  */
 export const queryKeys = {
   health: () => ['health'] as const,
+  bootstrap: () => ['bootstrap'] as const,
   authProviders: () => ['auth', 'providers'] as const,
   session: () => ['auth', 'session'] as const,
   discoveryFeed: () => ['discovery', 'feed'] as const,
