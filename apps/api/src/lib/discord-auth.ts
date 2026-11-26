@@ -3,14 +3,16 @@
  *
  * Handles the authorize URL, code exchange, profile + guild fetches, and
  * upsert of the corresponding `User` and `UserDiscordIdentity` rows. Stores
- * the OAuth refresh token so a signed-in user can later refresh their guild
- * membership list from the Network page without redoing the full OAuth
- * round-trip unless Discord has revoked the grant.
+ * the OAuth tokens (encrypted, through `discord-token-storage.ts`) so a
+ * signed-in user can later refresh their guild membership list from the
+ * Network page without redoing the full OAuth round-trip unless Discord has
+ * revoked the grant.
  */
 
 import { AuthProvider as PrismaAuthProvider } from '../generated/prisma/client.js'
 import { prisma } from './prisma.js'
 import { env } from './env.js'
+import { sealDiscordToken } from './discord-token-storage.js'
 import { ensureUniqueHandle, normalizeHandleBase } from './user-profile.js'
 
 const DISCORD_AUTHORIZE_URL = 'https://discord.com/oauth2/authorize'
@@ -258,6 +260,12 @@ export async function fetchDiscordGuilds(
   return response.json() as Promise<DiscordGuildSummary[]>
 }
 
+/**
+ * Store a fresh Discord token response on the user's Discord identity, encrypted.
+ *
+ * @param options.fallbackRefreshToken The plaintext refresh token to keep when Discord's
+ *   response omits a new one (already decrypted by the caller, never the stored ciphertext).
+ */
 export async function storeDiscordOauthTokens(
   userId: string,
   tokenResponse: DiscordTokenResponse,
@@ -269,9 +277,10 @@ export async function storeDiscordOauthTokens(
       provider: PrismaAuthProvider.DISCORD,
     },
     data: {
-      discordAccessToken: tokenResponse.access_token,
-      discordRefreshToken:
+      discordAccessToken: sealDiscordToken(tokenResponse.access_token),
+      discordRefreshToken: sealDiscordToken(
         tokenResponse.refresh_token ?? options?.fallbackRefreshToken ?? null,
+      ),
       discordAccessTokenExpiresAt: new Date(
         Date.now() + tokenResponse.expires_in * 1000,
       ),

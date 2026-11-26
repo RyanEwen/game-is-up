@@ -8,7 +8,7 @@ Production runs `compose.server.yml` (tracked) in a checkout on the server, with
 
 To set up a server checkout:
 
-1. Copy `.env.server.example` to `.env` and set `POSTGRES_PASSWORD`, `SESSION_SECRET`, `CLIENT_ORIGIN` (the public URL) and `DISCORD_CALLBACK_URL` (`${CLIENT_ORIGIN}/api/auth/discord/callback`). Compose refuses to start without them.
+1. Copy `.env.server.example` to `.env` and set `POSTGRES_PASSWORD`, `SESSION_SECRET`, `DISCORD_TOKEN_KEY` (generate with `openssl rand -base64 32`; see [Discord token key](#discord-token-key)), `CLIENT_ORIGIN` (the public URL) and `DISCORD_CALLBACK_URL` (`${CLIENT_ORIGIN}/api/auth/discord/callback`). Compose refuses to start without them.
 2. If Play composer calls should create a temporary Discord space in the Game's Up Discord server, also set `DISCORD_SERVER_ID` to that server's guild id.
 3. Leave `VITE_API_BASE_URL` empty, so the web app calls the API on the same origin.
 4. Make sure the `nginx_default` network and the nginx container exist, then deploy (below). For a first manual start: `docker compose -f compose.server.yml up --build -d`.
@@ -35,6 +35,14 @@ The API serves the web app on the same origin, so `VITE_API_BASE_URL` stays empt
 Both services set `no-new-privileges` and memory and process limits (CTR-7). The defaults in `compose.server.yml` (512 MB each; 128 processes for the app, 256 for the database) sit well above measured use and can be changed with `API_MEM_LIMIT`, `API_PIDS_LIMIT`, `DB_MEM_LIMIT` and `DB_PIDS_LIMIT` in `.env`.
 
 For Cloudflare-backed deployments, no cache purge is needed: nginx serves the app-shell URLs (`/`, `/index.html`, `/sw.js`, `/registerSW.js`, `/manifest.webmanifest`) with `Cache-Control: no-store`, so the edge never caches them (`cf-cache-status: BYPASS`/`DYNAMIC`) and installed PWAs pick up new builds on their next service-worker check. Hashed assets stay long-lived and immutable. If a Cloudflare-level cache rule (for example "Cache Everything") is ever added, it must exclude those shell URLs or app updates will stall for installed clients.
+
+### Discord token key
+
+The API stores each player's Discord OAuth access and refresh tokens encrypted with AES-256-GCM, under `DISCORD_TOKEN_KEY` from the server's `.env`: 32 random bytes in base64, generated with `openssl rand -base64 32`. The API refuses to start when the key is missing or does not decode to exactly 32 bytes. Each stored value is `v1:<iv>:<tag>:<ciphertext>`, so a later key rotation can add a new version.
+
+On every start, before it serves requests, the API brings the stored tokens into that format: it encrypts any plaintext token (the rows written before encryption existed, converted on the first start after this change was deployed), and clears any token that no longer decrypts. It logs only how many it converted or cleared. A second start finds nothing to do.
+
+Keep the key with the server's other secrets and out of the repository. Losing or changing it costs no data beyond the tokens: at the next start they are cleared, and each player only has to sign in with Discord again before refreshing their server list. So the key can be replaced at any time by generating a new one, setting it in `.env` and recreating the containers, at the price of those sign-ins. Database dumps (below) taken before this change hold the tokens in plaintext until they age out.
 
 ### Changing the database password on an existing deployment
 
@@ -63,7 +71,7 @@ Game's Up collects no crash reports. When `UMAMI_SCRIPT_URL` and `UMAMI_WEBSITE_
 Account and product data lives in the PostgreSQL database in the `postgres-data` volume. Sessions are signed cookies and are not stored on the server. The API also keeps a disk cache of game covers and Discord avatars under the container's temporary directory (`game-is-up/game-media-cache/`), which is lost when the container is recreated; avatars are re-fetched after 7 days.
 
 - **Profile:** the Discord user id, handle, display name and avatar URL from Discord sign-in (sign-in does not request the email address, and none is stored), plus the timezone, bio and usual-availability note the user sets.
-- **Linked accounts:** the Discord OAuth access and refresh tokens, the user's Discord server memberships, and, when linked, the Steam account id.
+- **Linked accounts:** the Discord OAuth access and refresh tokens (encrypted, see [Discord token key](#discord-token-key)), the user's Discord server memberships, and, when linked, the Steam account id.
 - **Library and social graph:** games, platforms and interests; friends, blocks, mutes and friends lists; discovery server preferences.
 - **Calls to play:** each call, its audience and games, responses, participant invitations, notifications, and the ids of the Discord messages the bot sent for it.
 - **Discord activity:** for signed-up users only, the games the bot sees them playing in a server it shares with them, kept against their account and used for library suggestions, the friends' trending row and auto-play prompts. A user who signs up later has no history from before sign-up. Everyone else the bot sees, including members who never signed up, is counted only anonymously: per game, per server and per UTC day, with no Discord id or other identifier (the `DiscordGameActivityDaily` table, for trending views). Since this change was deployed, the count is the number of presence updates seen, which measures activity, not people. Rows backfilled once from the old per-person records instead count distinct people last seen playing that day, and are marked as such.
@@ -96,4 +104,4 @@ There is no data export.
 
 Every deploy first takes a database dump into `.backups/pre-deploy-<UTC time>-<commit>.sql.gz` in the server checkout, before any migration can run. The dump must pass a gzip integrity check and end with pg_dump's completion trailer, or it is deleted and the deploy stops. The backup folder is private to the deploy user (700) and each dump is 600, since dumps hold every user's data. The newest ten are kept. Skip it with `--skip-backup` (or `DEPLOY_BACKUP=0`) only when you have taken a dump another way. To restore one into the running database: `gzip -dc .backups/<file> | docker compose -f compose.server.yml exec -T db psql -U postgres -d game_is_up` (into an empty database, or after dropping and recreating it).
 
-Beyond those dumps, backup is the host's: the server is a virtual machine whose whole disk, including the `postgres-data` volume, is backed up by the hypervisor (Proxmox whole-machine backups). The operator, who runs the server, is responsible for those backups and for restoring from them. A restore has not yet been tried. Backups hold the same personal data and tokens as the live database and need the same protection.
+Beyond those dumps, backup is the host's: the server is a virtual machine whose whole disk, including the `postgres-data` volume, is backed up by the hypervisor (Proxmox whole-machine backups). The operator, who runs the server, is responsible for those backups and for restoring from them. A restore has not yet been tried. Backups hold the same personal data and tokens as the live database and need the same protection; the tokens in them are encrypted, except in dumps from before encryption, and the key is not in any backup.

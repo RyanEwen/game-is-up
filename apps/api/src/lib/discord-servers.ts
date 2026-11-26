@@ -30,6 +30,7 @@ import {
   sendDiscordGuildInvites,
 } from './discord-presence-bot.js'
 import { env } from './env.js'
+import { openDiscordToken } from './discord-token-storage.js'
 import { toClientAvatarUrl } from './game-media.js'
 
 export function buildDiscordServerIconUrl(
@@ -266,18 +267,19 @@ export async function refreshDiscordServerPreferences(
     return { status: 'missing-scope' }
   }
 
-  if (!identity.discordRefreshToken) {
+  // A missing or undecryptable token both mean signing in with Discord again.
+  const refreshToken = openDiscordToken(identity.discordRefreshToken)
+
+  if (!refreshToken) {
     return { status: 'reauth-required' }
   }
 
   try {
-    const tokenResponse = await refreshDiscordAccessToken(
-      identity.discordRefreshToken,
-    )
+    const tokenResponse = await refreshDiscordAccessToken(refreshToken)
     const guilds = await fetchDiscordGuilds(tokenResponse.access_token)
 
     await storeDiscordOauthTokens(userId, tokenResponse, {
-      fallbackRefreshToken: identity.discordRefreshToken,
+      fallbackRefreshToken: refreshToken,
     })
     await syncDiscordServersForUser(userId, guilds)
     await markDiscordGuildSync(userId)

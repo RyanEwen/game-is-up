@@ -70,6 +70,7 @@ services:
       DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@db:5432/game_is_up?schema=public
       CLIENT_ORIGIN: ${CLIENT_ORIGIN:?set CLIENT_ORIGIN (the public URL) in .env}
       SESSION_SECRET: ${SESSION_SECRET:?set SESSION_SECRET in .env}
+      DISCORD_TOKEN_KEY: ${DISCORD_TOKEN_KEY:?set DISCORD_TOKEN_KEY in .env (openssl rand -base64 32)}
       DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID:-}
       DISCORD_CLIENT_SECRET: ${DISCORD_CLIENT_SECRET:-}
       DISCORD_PUBLIC_KEY: ${DISCORD_PUBLIC_KEY:-}

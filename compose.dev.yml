@@ -15,6 +15,9 @@ services:
       NODE_ENV: development
       DATABASE_URL: ${DATABASE_URL:?database URL is required}
       DEVKIT_FRESH: ${DEVKIT_FRESH:-0}
+      # Encrypts stored Discord tokens. A .env value wins; otherwise this published, development-only
+      # key keeps existing dev setups starting. Never use it in production (see .env.server.example).
+      DISCORD_TOKEN_KEY: ${DISCORD_TOKEN_KEY:-uLzE+L/ZOpYwLjX4nYBniMXwyz4fu/NNVE2femm6Rog=}
       API_PORT: ${API_PORT:?api port is required}
       CLIENT_ORIGIN: ${CLIENT_ORIGIN:?client origin is required}
       VITE_API_PORT: ${VITE_API_PORT:?vite api port is required}

@@ -208,10 +208,10 @@ export function PrivacyPage() {
           <Section title="Security">
             <Typography level="body-md">
               All traffic to gamesup.app is encrypted with HTTPS, as are our
-              requests to the services above. Discord sign-in tokens and your
-              data are stored in our database on a server we run; database
-              backups are kept on that server and hold the same data, with the
-              same protection.
+              requests to the services above. Your data is stored in our
+              database on a server we run, with Discord sign-in tokens
+              encrypted; database backups are kept on that server and hold the
+              same data, with the same protection.
             </Typography>
           </Section>
 

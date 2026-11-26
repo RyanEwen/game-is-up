@@ -1222,6 +1222,18 @@ export const serverEnvSchema = z.object({
   API_PORT: z.coerce.number().int().positive().default(4000),
   CLIENT_ORIGIN: z.url(),
   SESSION_SECRET: z.string().min(16),
+  /**
+   * Encrypts the stored Discord OAuth tokens: 32 random bytes in standard base64, as
+   * `openssl rand -base64 32` prints (44 characters ending in one `=`). Required everywhere;
+   * the API decodes it.
+   */
+  DISCORD_TOKEN_KEY: z
+    .string()
+    .trim()
+    .regex(
+      /^[A-Za-z0-9+/]{42}[AEIMQUYcgkosw048]=$/,
+      'must be 32 bytes in standard base64 (openssl rand -base64 32)',
+    ),
   DISCORD_CLIENT_ID: z.string().optional(),
   DISCORD_CLIENT_SECRET: z.string().optional(),
   DISCORD_PUBLIC_KEY: z.string().optional(),

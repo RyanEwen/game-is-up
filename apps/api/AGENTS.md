@@ -25,6 +25,7 @@ Scope: applies when working in the Express API, route modules, service logic, au
 - Media proxy endpoints (game covers, avatars, anything cached and token-wrapped) should use the `createMediaHandler` factory in `apps/api/src/lib/media-handler.ts` rather than open-coding cache, token decoding, or content-type wiring.
 - Each route file should carry a short JSDoc module header describing what it owns. Service modules in `src/lib` should do the same plus document any non-obvious invariants (cooldowns, retention windows, dedup keys, locking).
 
+- The Discord OAuth tokens on `UserIdentity` are stored encrypted. Write them with `sealDiscordToken` and read them with `openDiscordToken` from `src/lib/discord-token-storage.ts` (null means "sign in with Discord again"); never select or write `discordAccessToken` or `discordRefreshToken` raw. Other values that need encryption at rest use the domain-neutral `src/lib/field-encryption.ts` with their own key.
 - Private Discord notice payloads use `buildDiscordNoticeEmbeds` and `DiscordNotice` from `src/lib/discord-notices.ts`. Errors use a separate red embed before the normal content; success and informational notices must carry their own severity.
 - Game library mutations share `src/lib/library.ts`, including Steam imports through `writeLibraryGame` with batch finalization. Preserve its user/game transaction lock and strictly advancing revision so stale private forms cannot overwrite HTTP or import changes. Friends-list writes likewise retain their row lock and revision checks.
 

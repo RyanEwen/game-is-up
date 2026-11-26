@@ -76,6 +76,8 @@ npm run db:seed
    npm run dev
    ```
 
+The API requires `DISCORD_TOKEN_KEY`, which encrypts the stored Discord tokens (32 random bytes in base64: `openssl rand -base64 32`). Under `npm run dev`, `compose.dev.yml` supplies a published, development-only key when `.env` has none, so existing setups keep starting; set your own in `.env` for `DEVKIT=0` or any other run outside the dev container. Changing it only clears the stored tokens at the next start, so you sign in with Discord again.
+
 Optional: set `VITE_PUBLIC_APP_URL` when you want in-app invites to point at a public web URL, especially from any staging environment that is not directly shareable.
 
 Optional: set `VITE_API_BASE_URL` to an explicit origin if the web app should call an API on a different host. Leave it empty when the app is served behind a reverse proxy on the same origin.
@@ -131,7 +133,7 @@ npm run validate
 
 That runs the Prettier check (`npm run format:check`; fix with `npm run format`), ESLint, the TypeScript checks of every workspace, every unit test (`npm test`), and `prisma validate`.
 
-`npm test` runs devkit's `devkit-test`, which discovers every `*.test.ts` and `*.test.tsx` in the repo (skipping dependencies, build output and dot-folders), except the database tests; `npm run test:api` narrows it to the API. Those are named `*.integration.test.ts` and run with `npm run test:integration`, which needs `DATABASE_URL` to point at a disposable database whose name ends in `_test`, with the migrations applied (`npm run db:migrate:deploy`). Without one they fail; they never skip. Both test scripts blank `DISCORD_BOT_TOKEN`, `STEAM_WEB_API_KEY` and `RAWG_API_KEY`, and unit tests also get an unreachable `DATABASE_URL`, so no test reaches a real service even when `.env` holds real credentials. CI (`.github/workflows/ci.yml`) runs `validate` and the integration tests against a Postgres service on every push to `main` and every pull request.
+`npm test` runs devkit's `devkit-test`, which discovers every `*.test.ts` and `*.test.tsx` in the repo (skipping dependencies, build output and dot-folders), except the database tests; `npm run test:api` narrows it to the API. Those are named `*.integration.test.ts` and run with `npm run test:integration`, which needs `DATABASE_URL` to point at a disposable database whose name ends in `_test`, with the migrations applied (`npm run db:migrate:deploy`). Without one they fail; they never skip. Both test scripts blank `DISCORD_BOT_TOKEN`, `STEAM_WEB_API_KEY` and `RAWG_API_KEY` and set a fixed, test-only `DISCORD_TOKEN_KEY`, and unit tests also get an unreachable `DATABASE_URL`, so no test reaches a real service or uses a real key even when `.env` holds real credentials. CI (`.github/workflows/ci.yml`) runs `validate` and the integration tests against a Postgres service on every push to `main` and every pull request.
 
 ### Dependency overrides
 
