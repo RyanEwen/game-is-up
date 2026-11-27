@@ -51,7 +51,7 @@
     "notices": "devkit-notices"
   },
   "devDependencies": {
-    "@dynamic-solutions-canada/devkit": "github:Dynamic-Solutions-Canada/devkit#v0.29.0",
+    "@dynamic-solutions-canada/devkit": "github:Dynamic-Solutions-Canada/devkit#v0.31.0",
     "@eslint/js": "10.0.1",
     "@resvg/resvg-js": "2.6.2",
     "@types/react": "19.3.0",

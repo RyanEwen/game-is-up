@@ -115,7 +115,7 @@ Useful commands:
 - `npm run dev:host -- infra` restarts the machine proxy and this checkout's PostgreSQL container.
 - `npm run dev:down` removes this checkout's containers and network while preserving its database volume.
 
-Paseo reads `paseo.json` to prepare new worktrees automatically and stop their checkout stack on teardown. The configuration also exposes foreground `dev`, detached `dev-background`, `dev-down`, preparation, diagnostics, validation, and build scripts. Use foreground `dev` for Paseo's running status and Stop control. A completed `dev-background` launcher leaves its runner active until `dev-down` is run. Run `npm run dev:bootstrap` once on each host before using the development scripts; bootstrap also places `devkit` on the host PATH for setup in worktrees without dependencies.
+A detached `npm run dev:background` runner stays active until `npm run dev:down` is run. Run `npm run dev:bootstrap` once on each host before using the development scripts; bootstrap also places `devkit` on the host PATH for setup in worktrees without dependencies.
 
 Devkit itself (runtime selection, worktree cleanup, remote hosts and secondary domains) is documented in [devkit's README](https://github.com/Dynamic-Solutions-Canada/devkit#readme).
 
